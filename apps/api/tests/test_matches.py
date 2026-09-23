@@ -76,11 +76,18 @@ class Upstream:
         def side(prefix):
             players = [
                 {
-                    "shirtNumber": n,
-                    "position": "Prop" if n == 1 else None,
-                    "isCaptain": n == 8,
-                    "isStarter": n <= 15,
-                    "player": {"id": n, "firstName": prefix, "lastName": f"Player {n}"},
+                    "id": n,
+                    "name": f"{prefix} Player {n}",
+                    "knownName": f"{prefix} Player {n}" if n != 8 else None,
+                    "firstName": prefix,
+                    "lastName": f"Player {n}",
+                    "position": {
+                        "id": n,
+                        "name": "Prop" if n == 1 else None,
+                        "shirtNumber": n,
+                        "onFieldId": 1 if n <= 15 else 2,
+                        "onFieldName": "Starter" if n <= 15 else "Replacement",
+                    },
                 }
                 for n in range(1, 24)
             ]
@@ -221,9 +228,11 @@ def test_match_week_returns_all_sections(monkeypatch) -> None:
         "number": 8,
         "name": "Home Player 8",
         "position": None,
-        "captain": True,
-        "starter": True,
+        "captain": False,
+        "starter": None,
     }
+    assert sheets["home"]["starters"][0]["position"] == "Prop"
+    assert sheets["home"]["replacements"][0]["number"] == 16
 
     odds = body["odds"]
     assert odds["status"] == "ok"
@@ -283,7 +292,7 @@ def test_provider_application_errors_are_reported(monkeypatch) -> None:
     client = make_client(Quota(), KICKOFF - timedelta(days=2), monkeypatch)
     section = client.get(f"/v1/matches/{FIXTURE}").json()["odds"]
     assert section["status"] == "unavailable"
-    assert section["reason"] == "ProviderError"
+    assert section["reason"] == "provider error: requests: Daily quota reached"
 
 
 def test_provider_failures_become_unavailable_without_leaking(monkeypatch) -> None:

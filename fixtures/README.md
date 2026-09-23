@@ -31,10 +31,4 @@ Regenerate from `apps/web` with `node scripts/import-urc.mjs`, which writes both
 
 ## Teamsheets
 
-The API's teamsheet provider (`apps/api/app/matchcentre/providers/teamsheets.py`) queries the same endpoint with `matchstats(match_id: [id])` and selects `homeTeam.players` and `awayTeam.players`. Those lineup fields have not been confirmed against the live feed. Confirm them with an introspection query from a network that can reach the feed, for example:
-
-```graphql
-query { __type(name: "MatchStatsData") { fields { name type { name kind ofType { name } } } } }
-```
-
-Adjust `QUERY` in the provider to the real field names. A rejected query surfaces as `teamsheets.status = "unavailable"` in the match centre response.
+The API's teamsheet provider (`apps/api/app/matchcentre/providers/teamsheets.py`) queries the same endpoint with `matchstats(match_id: [id])` and selects `homeTeam.players { name knownName firstName lastName position { name shirtNumber onFieldName } }`, the shape confirmed by introspecting the feed on 23 September 2026. The feed has no captain flag. If the feed changes, the API's `teamsheets` section reports the GraphQL errors and the current field names under `feedErrors` and `feedFields`.

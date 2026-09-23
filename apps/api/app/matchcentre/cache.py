@@ -98,6 +98,10 @@ class PostgresSnapshotCache:
             connection.execute(statement)
 
 
+class ProviderError(RuntimeError):
+    """An upstream answered with an application-level error. Its message is public-safe."""
+
+
 @dataclass(frozen=True)
 class Fetched:
     """A provider result: the status stored with it and how long it stays fresh."""
@@ -109,6 +113,8 @@ class Fetched:
 
 def _reason(exc: Exception) -> str:
     """A short public-safe cause: the upstream HTTP status when there is one."""
+    if isinstance(exc, ProviderError):
+        return f"provider error: {exc}"[:320]
     response = getattr(exc, "response", None)
     status = getattr(response, "status_code", None)
     return f"HTTP {status}" if status else type(exc).__name__

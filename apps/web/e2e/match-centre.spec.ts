@@ -37,7 +37,7 @@ function centre(fixtureId: string, overrides: Record<string, unknown> = {}) {
     },
     odds: {
       status: 'ok',
-      source: 'The Odds API',
+      source: 'API-Sports Rugby',
       fetchedAt: '2026-09-23T11:00:00Z',
       bookmaker: 'Fresh Book',
       updatedAt: '2026-09-23T10:45:00Z',
@@ -171,7 +171,7 @@ test('sections explain missing data and the page survives an API outage', async 
     await route.fulfill({
       json: centre(id, {
         teamsheets: { status: 'not_published', source: 'URC match centre', fetchedAt: null },
-        odds: { status: 'too_early', source: 'The Odds API', fetchedAt: null },
+        odds: { status: 'too_early', source: 'API-Sports Rugby', fetchedAt: null },
         weather: { status: 'unavailable', source: 'Open-Meteo', fetchedAt: null },
       }),
     });

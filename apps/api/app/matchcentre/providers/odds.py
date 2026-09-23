@@ -16,7 +16,7 @@ from typing import Any
 
 import httpx
 
-from app.matchcentre.cache import Fetched
+from app.matchcentre.cache import Fetched, ProviderError
 from app.matchcentre.catalogue import Club
 
 ODDS_WINDOW = timedelta(days=8)
@@ -29,10 +29,6 @@ LEAGUE_SEARCH = "United Rugby"
 WINNER_BET = re.compile(r"winner|home/away|1x2|full ?time result|match result", re.I)
 HANDICAP_BET = re.compile(r"handicap|spread", re.I)
 HANDICAP_VALUE = re.compile(r"^(home|away)\s*([+-]?\d+(?:\.\d+)?)$", re.I)
-
-
-class ProviderError(RuntimeError):
-    """The provider answered with an application-level error (quota, key, parameters)."""
 
 
 def timing_status(kickoff: datetime, now: datetime) -> str | None:

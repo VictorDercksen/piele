@@ -1,9 +1,8 @@
 """Teamsheets from the public URC GraphQL feed used by stats.unitedrugby.com.
 
-Only the schedule fields of this feed are verified (see fixtures/README.md). The lineup
-selection below is the expected shape of the same `stats_data` object and must be
-confirmed with an introspection query from a network that can reach the feed. Until
-then a rejected query is reported as `unavailable`, never as an empty teamsheet.
+The lineup selection matches the feed's introspected schema (checked 23 September 2026):
+`stats_data.homeTeam.players { id name knownName firstName lastName position { name
+shirtNumber onFieldName } }`. The feed has no captain flag. Starters are shirts 1 to 15.
 
 Teamsheets are usually published about 48 hours before kickoff, so the feed is queried
 only from three days out; earlier requests return `not_published` without a call.
@@ -22,6 +21,8 @@ TTL_PENDING = timedelta(minutes=20)
 TTL_FAILED = timedelta(minutes=10)
 STARTERS = 15
 
+PLAYER_FIELDS = "players { id name knownName firstName lastName position { id name shirtNumber onFieldId onFieldName } }"
+
 QUERY = """
 query Teamsheets($ids: [Int]) {
   matchstats(match_id: $ids) {
@@ -29,18 +30,13 @@ query Teamsheets($ids: [Int]) {
     match_status
     stats_data {
       id
-      homeTeam {
-        team { id name }
-        players { shirtNumber position isCaptain isStarter player { id name firstName lastName } }
-      }
-      awayTeam {
-        team { id name }
-        players { shirtNumber position isCaptain isStarter player { id name firstName lastName } }
-      }
+      matchStatus
+      homeTeam { team { id name } %s }
+      awayTeam { team { id name } %s }
     }
   }
 }
-"""
+""" % (PLAYER_FIELDS, PLAYER_FIELDS)
 
 PLAYER_LIST_KEYS = ("players", "teamSheet", "teamsheet", "lineup", "squad")
 NUMBER_KEYS = ("shirtNumber", "number", "jerseyNumber", "shirt")
@@ -74,9 +70,10 @@ def fetch_teamsheets(client: httpx.Client, url: str, fixture_id: str) -> Fetched
     stats = row.get("stats_data") or {}
     home = parse_side(stats.get("homeTeam") or {})
     away = parse_side(stats.get("awayTeam") or {})
+    status = stats.get("matchStatus") or row.get("match_status")
     if not home["starters"] and not away["starters"]:
-        return Fetched("not_published", {"matchStatus": row.get("match_status")}, TTL_PENDING)
-    payload = {"matchStatus": row.get("match_status"), "home": home, "away": away}
+        return Fetched("not_published", {"matchStatus": status}, TTL_PENDING)
+    payload = {"matchStatus": status, "home": home, "away": away}
     return Fetched("ok", payload, TTL_PUBLISHED)
 
 
@@ -95,12 +92,15 @@ def parse_side(side: dict[str, Any]) -> dict[str, Any]:
 
 def parse_player(raw: dict[str, Any], index: int) -> dict[str, Any]:
     person = raw.get("player") if isinstance(raw.get("player"), dict) else raw
-    name = person.get("name") or person.get("fullName") or person.get("displayName")
+    position = raw.get("position") if isinstance(raw.get("position"), dict) else {}
+    name = person.get("knownName") or person.get("name") or person.get("fullName")
     if not name:
         name = " ".join(
             part for part in (person.get("firstName"), person.get("lastName")) if part
         )
-    number = _first_int(raw, NUMBER_KEYS)
+    number = _first_int(position, NUMBER_KEYS)
+    if number is None:
+        number = _first_int(raw, NUMBER_KEYS)
     return {
         "number": number if number is not None else index + 1,
         "name": name or "Unnamed player",
