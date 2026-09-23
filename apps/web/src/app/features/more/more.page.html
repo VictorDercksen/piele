@@ -1,0 +1,16 @@
+<div class="more-links">
+  <a routerLink="/standings" queryParamsHandling="preserve">
+    <app-icon name="standings" /><span>{{ view.round().title }} standings</span
+    ><app-icon name="arrow" />
+  </a>
+  <a routerLink="/constitution" queryParamsHandling="preserve">
+    <app-icon name="book" /><span>Season constitution</span><app-icon name="arrow" />
+  </a>
+  @if (view.isCaptain()) {
+    <a routerLink="/captain" queryParamsHandling="preserve">
+      <app-icon name="shield" /><span>{{ view.round().title }} captain's desk</span
+      ><app-icon name="arrow" />
+    </a>
+  }
+</div>
+<p class="context-note" role="status">League API: {{ apiStatus() }}</p>

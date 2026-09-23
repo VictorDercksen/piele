@@ -1,0 +1,65 @@
+<div class="schedule-source">
+  <span
+    >{{ competition.season }} · {{ competition.fixtureCount }} league fixtures + 7 playoff slots ·
+    Times in SAST</span
+  ><a [href]="competition.source" target="_blank" rel="noopener noreferrer">Official URC source ↗</a
+  ><small
+    >Snapshot checked {{ competition.retrievedAt | date: 'd MMMM y' : 'UTC' }}. Fixtures can change.
+    Playoff kickoffs remain TBC.</small
+  >
+</div>
+<div class="page-intro">
+  <p>{{ view.fixtures().length }} fixtures in {{ view.round().title }}. All times are SAST.</p>
+  <span class="tag">{{ view.round().status }}</span>
+</div>
+<div class="deadline-banner">
+  <app-icon name="clock" /><span
+    ><strong>{{ view.round().title }} house pick deadline</strong>{{ view.deadline() }}</span
+  >
+  @if (view.round().status === 'Current') {
+    <a href="https://www.superbru.com/" target="_blank" rel="noopener noreferrer"
+      >Open Superbru ↗</a
+    >
+  }
+</div>
+@if (view.fixtures().length) {
+  <div class="fixtures-grid">
+    @for (fixture of view.fixtures(); track fixture.id) {
+      <article
+        class="fixture-card"
+        [class.supported-fixture]="
+          fixture.homeAsset === favouriteTeam()?.id || fixture.awayAsset === favouriteTeam()?.id
+        "
+      >
+        <div class="fixture-card-top">
+          <span>{{ fixture.day }} {{ fixture.kickoffUtc?.slice(0, 4) }}</span
+          ><span>{{ fixture.score ? 'FINAL' : 'UPCOMING' }}</span>
+        </div>
+        <div class="fixture-pair">
+          <div>
+            <img [src]="jersey(fixture.homeAsset)" alt="" />
+            <h2>{{ fixture.home }}</h2>
+          </div>
+          <span
+            ><strong>{{ fixture.score || fixture.time }}</strong
+            ><small>{{ fixture.score ? 'FULL TIME' : 'SAST' }}</small></span
+          >
+          <div>
+            <img [src]="jersey(fixture.awayAsset)" alt="" />
+            <h2>{{ fixture.away }}</h2>
+          </div>
+        </div>
+        <p>{{ fixture.venue }}</p>
+      </article>
+    }
+  </div>
+} @else {
+  <div class="round-empty">
+    <h2>Fixtures to be confirmed.</h2>
+    <p>Nothing has been scheduled for {{ view.round().title }}.</p>
+  </div>
+}
+<p class="context-note">
+  Published competition fixtures. House pick deadlines require a separate captain confirmation. Four
+  missing jersey assets use illustrated supporter shirts.
+</p>

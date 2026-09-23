@@ -8,7 +8,7 @@ Before starting work, read the latest Markdown handoff in [../../../handoff/](..
 
 ## Project and current state
 
-Piele administers a private URC league. The authoritative implementation plan is ../../../piele-application-plan.md relative to this directory. User decisions take precedence over proposed defaults. This directory currently reserves the API application root. No Python service, database, authentication or deployment is implemented yet. Do not claim otherwise.
+Piele administers a private URC league. The authoritative implementation plan is ../../../piele-application-plan.md relative to this directory. User decisions take precedence over proposed defaults. This directory holds a minimal uv-managed FastAPI service: app/main.py (Vercel entrypoint, /v1 routes, exact-origin CORS, X-Request-ID and Cache-Control: no-store middleware), app/config.py (pydantic-settings), app/db.py (lazy SQLAlchemy/psycopg engine for the Supabase transaction pooler) and GET /v1/health. Alembic is scaffolded in alembic.ini and migrations/ with no revisions. No models, tables, authentication, Supabase project or deployment exist yet. Do not claim otherwise. See README.md for local run, Supabase and Vercel setup.
 
 ## Planned stack and structure
 
@@ -36,6 +36,6 @@ Use app/ for application code, thin route handlers, domain services for business
 
 Configure exact CORS origins. Use a small runtime connection pool with the Supabase transaction pooler, disable prepared statements where required and verify TLS. Use a direct/session connection for migrations. Never run migrations on every request or function startup.
 
-When bootstrapping the API, pin dependencies and add explicit project commands. No backend test command exists yet. Use pytest for domain logic, authorization, transaction races and real PostgreSQL integration tests as those features are built. Verify OpenAPI contracts with the Angular client. Test cross-league denial, profile ownership, import completeness, timezone boundaries and failed-storage behaviour relevant to the change. Record actual commands and outcomes rather than claiming unrun checks passed.
+Dependencies are exact-pinned in pyproject.toml with a committed uv.lock. Run tests with `uv run pytest` from this directory and the app with `uv run uvicorn app.main:app --reload --port 8000`. Use pytest for domain logic, authorization, transaction races and real PostgreSQL integration tests as those features are built. Verify OpenAPI contracts with the Angular client. Test cross-league denial, profile ownership, import completeness, timezone boundaries and failed-storage behaviour relevant to the change. Record actual commands and outcomes rather than claiming unrun checks passed.
 
 Frontend guidance lives at ../web/CLAUDE.md. Shared contract changes must be reflected in both applications. Scope work to the user's request and preserve reversible local work.

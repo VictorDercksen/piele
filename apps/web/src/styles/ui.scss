@@ -1,0 +1,301 @@
+// Shared Floodlights primitives used across pages and dialogs: labels, buttons, tabs, empty states and dialogs.
+:where(.league) button,
+:where(.league) a,
+:where(.league) input {
+  font-family: inherit;
+}
+:where(.league) button {
+  color: inherit;
+}
+:where(.league) button,
+:where(.league) a {
+  touch-action: manipulation;
+}
+:where(.league) button {
+  cursor: pointer;
+  font-size: inherit;
+}
+:where(.league) h2,
+:where(.league) h3,
+:where(.league) p {
+  margin: 0;
+}
+:where(.league) a {
+  color: var(--accent);
+}
+.eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: var(--accent);
+}
+.section-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  border-bottom: 1px solid var(--ink);
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+  border-color: #4a5f6c;
+}
+.section-title h2 {
+  line-height: 1.15;
+}
+.section-title > span {
+  font-size: 8px;
+  letter-spacing: 1px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.tag {
+  font-size: 8px;
+  letter-spacing: 1.1px;
+  font-weight: 700;
+  display: inline-block;
+  background: var(--tint);
+  color: var(--accent);
+  padding: 5px 8px;
+  white-space: nowrap;
+}
+.primary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 44px;
+  border: 1px solid transparent;
+  padding: 11px 15px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.primary-button app-icon {
+  width: 16px;
+  height: 16px;
+}
+.primary-button:hover {
+  filter: brightness(0.92);
+}
+.primary-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.text-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 44px;
+  background: none;
+  border: 0;
+  padding: 7px 0;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.context-note {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.65;
+  margin: 22px 0;
+}
+.content-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--line);
+  gap: 24px;
+  margin-bottom: 25px;
+}
+.content-tabs button,
+.content-tabs a {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+  border: 0;
+  background: none;
+  padding: 12px 0;
+  min-height: 44px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+}
+.content-tabs .active {
+  border-bottom: 3px solid var(--orange);
+  color: var(--ink);
+}
+.page-description {
+  font-size: 14px;
+  color: var(--muted);
+  margin-bottom: 28px;
+  max-width: 650px;
+  line-height: 1.7;
+}
+.register-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.detail-dialog {
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-top: 4px solid var(--orange);
+  border-radius: 8px;
+  padding: 27px;
+  width: 520px;
+  max-width: calc(100vw - 24px);
+  max-height: calc(100dvh - 40px);
+  box-shadow: 0 20px 100px rgba(0, 0, 0, 0.4);
+}
+.detail-dialog h2 {
+  font-size: 34px;
+  line-height: 1.05;
+  letter-spacing: -0.8px;
+  margin: 16px 0;
+}
+.detail-dialog p {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.detail-dialog::backdrop {
+  background: rgba(12, 23, 34, 0.6745098039);
+  backdrop-filter: blur(4px);
+}
+.dialog-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.icon-button {
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: none;
+  min-height: 44px;
+  min-width: 44px;
+}
+.preview-notice {
+  padding: 13px 15px;
+  border-left: 2px solid var(--orange);
+  background: var(--tint);
+  color: #f1d5ca;
+  font-size: 12px;
+  margin: 22px 0;
+  line-height: 1.6;
+}
+.wide {
+  width: 100%;
+}
+.error-message {
+  color: var(--accent) !important;
+  margin-top: 10px !important;
+}
+.section-title h2 {
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+.tag {
+  border-radius: 0;
+}
+.primary-button {
+  border-radius: 0;
+  background: #ff795e;
+  color: #12232c;
+}
+.detail-dialog h2 {
+  font-weight: 700;
+}
+.league .section-title h2 {
+  text-transform: uppercase;
+  font-weight: 700;
+  font-size: 24px;
+}
+.tag.complete {
+  background: #203e3b;
+  color: #b5d9ce;
+}
+@container (max-width:600px) {
+  .eyebrow {
+    font-size: 8px;
+  }
+  .register-heading .eyebrow {
+    font-size: 8px;
+  }
+  .content-tabs {
+    gap: 20px;
+  }
+  .content-tabs button,
+  .content-tabs a {
+    font-size: 13px;
+  }
+  .detail-dialog h2 {
+    font-size: 29px;
+  }
+}
+.round-empty {
+  padding: 25px 20px;
+  background: var(--surface);
+  border-top: 2px solid var(--line);
+}
+.round-empty app-icon {
+  color: var(--accent);
+  margin-bottom: 12px;
+}
+.round-empty h2,
+.round-empty h3 {
+  font-weight: 600;
+  line-height: 1.25;
+  font-size: 23px;
+  margin: 0 0 12px;
+}
+.round-empty p {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.round-empty .text-button {
+  margin-top: 12px;
+}
+.section-title h2 {
+  font-size: 23px;
+}
+.section-title > span {
+  display: none;
+}
+@container (max-width:1200px) {
+  .section-title h2 {
+    font-size: 22px;
+  }
+}
+@container (max-width:600px) {
+  .round-empty {
+    padding: 22px 18px;
+  }
+  .round-empty h2,
+  .round-empty h3 {
+    font-size: 23px;
+  }
+  .section-title h2 {
+    font-size: 24px;
+  }
+}
+.identity-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: var(--member-colour);
+  color: #fff;
+  border: 2px solid var(--member-accent);
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 700;
+}
+.identity-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}

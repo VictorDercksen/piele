@@ -1,0 +1,26 @@
+.notification-item {
+  display: flex;
+  gap: 15px;
+  align-items: flex-start;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--line);
+}
+.notification-item h3 {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 5px;
+}
+.notification-item p {
+  font-size: 13px;
+}
+.notification-item app-icon {
+  margin-top: 4px;
+}
+.notification-item .tag {
+  margin-left: auto;
+}
+@container (max-width:600px) {
+  .notification-item h3 {
+    font-size: 15px;
+  }
+}

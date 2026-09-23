@@ -10,13 +10,13 @@ Before starting work, read the latest Markdown handoff in [../../../handoff/](..
 
 Piele is a private rugby league application. Read ../../../piele-application-plan.md and ../../../piele-application-design.md from the repository root context (the source documents are one level above the piele monorepo). User decisions take precedence over proposed plan defaults. Floodlights is the selected design. Preserve the round-scoped season timeline on desktop and mobile.
 
-The current application is an interactive frontend prototype, not an authenticated production service. Clearly distinguish published competition fixtures from synthetic league points, duties and polls. Browser-local profile preferences are a prototype capability until the identity API is implemented.
+The application is a routed first version without authentication. Published competition fixtures come from the local URC snapshot. League records (standings, duties, polls, captain reviews) come from the `LeagueData` provider: `SampleLeagueData` in development builds, clearly labelled as sample records, and `EmptyLeagueData` in production until an HTTP implementation backed by the Python API replaces it. Browser-local profile preferences remain a stopgap until the identity API is implemented.
 
 ## Actual stack
 
 Angular 22 standalone components, signals, zoneless change detection, TypeScript, RxJS and component SCSS. The CLI uses @angular/build:application. Local fonts, crest, jerseys and team artwork live in public/assets. Spartan is the selected component library. Its CLI and MCP are installed as local development dependencies, with the MCP configured in the workspace's .codex/config.toml. The generated Slate theme lives in src/styles.scss, with dark mode enabled on the root HTML element and Titillium Web as the theme font. Tailwind 4 is compiled through .postcssrc.json. Spartan Brain and Angular CDK are installed for the theme preset. No Helm components have been generated yet. Firebase, Angular Material and CtrlFleet services are not installed. Do not introduce them solely to match the source guide.
 
-Use the existing Icon component and accessible native controls until the relevant controls are migrated to Spartan. Use native dialog focus handling in the prototype. Angular CDK is available for later overlays. Keep branding in shared CSS custom properties. Bind data-driven team colours through style properties, never unsanitized HTML or CSS strings.
+Use the Icon component in `shared/icon` and accessible native controls until the relevant controls are migrated to Spartan. Shared Floodlights primitives (tags, buttons, tabs, empty states, dialogs) live in `src/styles/ui.scss`. Everything else is component-scoped SCSS. Use native dialog focus handling in the prototype. Angular CDK is available for later overlays. Keep branding in shared CSS custom properties. Bind data-driven team colours through style properties, never unsanitized HTML or CSS strings.
 
 ## Component and state rules
 
@@ -30,7 +30,7 @@ Use the existing Icon component and accessible native controls until the relevan
 8. Keep asynchronous I/O and persistence in services. Do not call services directly from templates. Prefer computed state over effects. Use afterRenderEffect only for DOM work.
 9. For RxJS, use observer objects in subscribe and takeUntilDestroyed for teardown. Do not maintain Subscription lists.
 10. Use host metadata instead of HostListener/HostBinding. Keep imports and providers at the bottom of component metadata with one item per line when there is more than one.
-11. Put component-local interfaces after the class or in dedicated model files. New components belong in their own feature folder. Preserve current file layout unless the feature requires a move.
+11. Put component-local interfaces after the class or in dedicated model files. Layout: `src/app/core` for app-wide services, data sources, guards and the shell (`core/layout`), `src/app/features/<page>` for routed pages and their dialogs, `src/app/shared` for reusable presentational components. Each page is a lazy route in `app.routes.ts`, titled through route `data`. The selected round lives in the `round` query parameter via `SelectedRoundService`, and pages read round-scoped league data from `RoundViewService`.
 12. Use SCSS classes for layout. Inline style bindings are for genuinely data-driven values such as favourite-team colours.
 13. Build responsive layouts that share behaviour. Separate mobile components only when interaction differs materially. Do not duplicate business state for desktop and mobile.
 14. Never put secrets or privileged Supabase keys in frontend files. Route guards do not provide authorization. Production mutations go through the planned Python API.
@@ -55,6 +55,6 @@ From apps/web:
 - npm start starts the local Angular server.
 - npm run build produces the production build.
 - npm test -- --watch=false runs Vitest component and logic tests.
-- npm run test:e2e runs Playwright against the local server.
+- npm run test:e2e runs Playwright against the local server. Set PIELE_WEB_PORT when port 4200 is taken by another app, because the config reuses an existing server on that port.
 
 Prefer the Angular MCP for workspace discovery, best practices, builds, tests and server lifecycle when available. Consult current Angular documentation for uncertain APIs. The build must pass with no new unused-import warnings. Test changed logic and relevant browser journeys, including round scoping, profile persistence, image validation and mobile overflow. Do not claim a test passed without running it. Avoid unrelated cleanup or speculative abstractions.

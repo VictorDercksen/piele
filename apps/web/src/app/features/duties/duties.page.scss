@@ -1,0 +1,55 @@
+.register-card {
+  background: var(--surface);
+  border: 0;
+  padding: 30px;
+  max-width: 850px;
+  margin-bottom: 20px;
+  border-top: 3px solid var(--orange);
+}
+.register-card h2 {
+  line-height: 1.12;
+  margin: 22px 0 14px;
+  font-weight: 700;
+  letter-spacing: -0.7px;
+}
+.register-card > p {
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.6;
+  max-width: 600px;
+}
+.register-card dl {
+  display: flex;
+  gap: 32px;
+  flex-wrap: wrap;
+  padding: 23px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  margin: 25px 0;
+}
+.register-card dt {
+  font-size: 10px;
+  color: var(--muted);
+  margin-bottom: 5px;
+}
+.register-card dd {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+@container (max-width:600px) {
+  .register-card {
+    padding: 22px;
+  }
+  .register-card dl {
+    flex-direction: column;
+    gap: 18px;
+  }
+}
+.register-card h2 {
+  font-size: 29px;
+}
+.personal-duty {
+  border-left: 3px solid var(--member-accent) !important;
+  background: color-mix(in srgb, var(--member-colour) 22%, var(--surface)) !important;
+}

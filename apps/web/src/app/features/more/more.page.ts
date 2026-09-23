@@ -1,0 +1,41 @@
+import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { RouterLink } from '@angular/router';
+import { ApiService } from '../../core/api/api.service';
+import { RoundViewService } from '../../core/league/round-view.service';
+import { Icon } from '../../shared/icon/icon';
+
+/** Secondary destinations and service status. */
+@Component({
+  selector: 'app-more-page',
+  templateUrl: './more.page.html',
+  styleUrl: './more.page.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [RouterLink, Icon],
+})
+export class MorePage {
+  readonly view = inject(RoundViewService);
+  readonly apiStatus = signal('Checking…');
+
+  constructor() {
+    const api = inject(ApiService);
+    if (!api.configured) {
+      this.apiStatus.set('Not configured');
+      return;
+    }
+    api
+      .health()
+      .pipe(takeUntilDestroyed(inject(DestroyRef)))
+      .subscribe({
+        next: (health) =>
+          this.apiStatus.set(
+            health.database === 'ok'
+              ? 'Online · database connected'
+              : health.database === 'unconfigured'
+                ? 'Online · database not configured'
+                : 'Online · database unavailable',
+          ),
+        error: () => this.apiStatus.set('Unreachable'),
+      });
+  }
+}

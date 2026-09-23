@@ -1,0 +1,48 @@
+<div class="content-tabs" aria-label="Standings measure">
+  <button
+    type="button"
+    [class.active]="measure() === 'points'"
+    [attr.aria-pressed]="measure() === 'points'"
+    (click)="measure.set('points')"
+  >
+    Superbru points</button
+  ><button
+    type="button"
+    [class.active]="measure() === 'marks'"
+    [attr.aria-pressed]="measure() === 'marks'"
+    (click)="measure.set('marks')"
+  >
+    House marks
+  </button>
+</div>
+<p class="page-description">
+  {{ view.round().title }} only. Superbru points and symbolic house marks are separate measures.
+</p>
+@if (view.standings().length) {
+  <div class="full-table">
+    <div class="table-label">
+      <span>{{ measure() === 'points' ? 'RANK / MEMBER' : 'MEMBER' }}</span
+      ><span>{{ measure() === 'points' ? 'ROUND POINTS' : 'ROUND MARKS' }}</span>
+    </div>
+    @for (member of view.standings(); track member.memberId) {
+      <div class="standing-row" [class.you]="member.you">
+        @if (measure() === 'points') {
+          <span class="rank">{{ member.rank | number: '2.0-0' }}</span>
+        }
+        <img [src]="member.photo ?? 'assets/images/teams/' + member.teamId + '.png'" alt="" /><span
+          >{{ member.name }}
+          @if (member.you) {
+            <small>YOU</small>
+          }</span
+        ><strong>{{
+          measure() === 'points' ? (member.points | number: '1.1-1') : member.marks
+        }}</strong>
+      </div>
+    }
+  </div>
+} @else {
+  <div class="round-empty">
+    <h2>No results for {{ view.round().title }} yet.</h2>
+    <p>League standings will appear after results are imported and confirmed.</p>
+  </div>
+}

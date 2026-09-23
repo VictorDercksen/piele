@@ -1,0 +1,121 @@
+<section
+  class="profile-editor"
+  [style.--team-colour]="selectedTeam()?.colour || '#344d60'"
+  [style.--team-accent]="selectedTeam()?.accent || '#ff957e'"
+>
+  <div class="profile-poster">
+    <img class="poster-photo" src="assets/editorial/rugby-under-lights.webp" alt="" />
+    <a class="profile-brand" routerLink="/" aria-label="Piele home"
+      ><img src="assets/images/piele-crest.png" alt="" />PIELE <span>URC 26/27</span></a
+    >
+    <div class="poster-copy">
+      <span>YOUR CLUB. YOUR COLOURS.</span>
+      <h1>Wear your<br /><em>allegiance.</em></h1>
+      <p>Different jerseys.<br />The same clubhouse.</p>
+    </div>
+    <div class="member-preview">
+      <span class="profile-avatar">
+        @if (photo()) {
+          <img [src]="photo()" alt="Your profile preview" />
+        } @else {
+          {{ initials() }}
+        }
+      </span>
+      <div>
+        <strong>{{ name().trim() || 'Your name here' }}</strong
+        ><span>{{ selectedTeam()?.name || 'Choose your team' }}</span>
+      </div>
+      @if (selectedTeam(); as team) {
+        <img class="preview-jersey" [src]="team.jersey" [alt]="team.name + ' jersey'" />
+      }
+    </div>
+  </div>
+  <form class="profile-form" [formGroup]="form" (ngSubmit)="save()">
+    <div class="form-heading">
+      <div>
+        <span class="eyebrow">{{ existing ? 'YOUR PROFILE' : 'WELCOME TO PIELE' }}</span>
+        <h2>{{ existing ? 'Make it yours.' : 'Who do you back?' }}</h2>
+      </div>
+      @if (existing) {
+        <button
+          type="button"
+          class="close-profile"
+          (click)="cancel.emit()"
+          aria-label="Cancel profile changes"
+        >
+          ×
+        </button>
+      }
+    </div>
+    <label for="display-name">Your name</label
+    ><input
+      id="display-name"
+      formControlName="displayName"
+      autocomplete="nickname"
+      maxlength="50"
+      placeholder="Your clubhouse name"
+      [attr.aria-invalid]="submitted() && form.controls.displayName.invalid"
+    />
+    @if (submitted() && form.controls.displayName.invalid) {
+      <p class="validation" role="alert">Enter your name to continue.</p>
+    }
+    <fieldset>
+      <legend>Your favourite team <span>Required</span></legend>
+      <p class="field-hint">Your jersey, profile and personal highlights take on these colours.</p>
+      <div class="team-options">
+        @for (team of teams; track team.id) {
+          <label
+            class="team-option"
+            [class.chosen]="teamId() === team.id"
+            [style.--club-colour]="team.colour"
+            [style.--club-accent]="team.accent"
+            ><input
+              type="radio"
+              formControlName="teamId"
+              [value]="team.id"
+              [attr.aria-label]="team.name"
+            /><img [src]="team.jersey" alt="" /><span>{{ team.shortName }}</span
+            ><i aria-hidden="true">{{ teamId() === team.id ? '✓' : '' }}</i></label
+          >
+        }
+      </div>
+      @if (submitted() && !teamId()) {
+        <p class="validation" role="alert">Choose the team you support.</p>
+      }
+    </fieldset>
+    <div class="photo-control">
+      <span class="profile-avatar">
+        @if (photo()) {
+          <img [src]="photo()" alt="Your selected profile photo" />
+        } @else {
+          {{ initials() }}
+        }
+      </span>
+      <div>
+        <label class="photo-label"
+          >{{ busy() ? 'Preparing photo…' : 'Add a profile photo'
+          }}<input
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            (change)="choosePhoto($event)"
+            [disabled]="busy()"
+        /></label>
+        <p>Optional · JPG, PNG or WebP · Up to 5 MB</p>
+        @if (photo()) {
+          <button class="remove-photo" type="button" (click)="photo.set(null)" [disabled]="busy()">
+            Remove photo
+          </button>
+        }
+      </div>
+    </div>
+    @if (error()) {
+      <p class="validation" role="alert">{{ error() }}</p>
+    }
+    <div class="save-profile">
+      <p>Your profile and photo are saved only in this browser until sign-in is available.</p>
+      <button class="save-button" type="submit" [disabled]="busy()">
+        {{ existing ? 'Save profile' : 'Enter the clubhouse' }} <span aria-hidden="true">→</span>
+      </button>
+    </div>
+  </form>
+</section>

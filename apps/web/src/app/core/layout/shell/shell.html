@@ -1,0 +1,149 @@
+<a class="skip-link" href="#main-content">Skip to clubhouse</a>
+<div
+  class="league"
+  [style.--member-colour]="favouriteTeam()?.colour"
+  [style.--member-accent]="favouriteTeam()?.accent"
+>
+  <header class="sidebar">
+    <a class="club-brand" routerLink="/" queryParamsHandling="preserve" aria-label="Piele home">
+      <img src="assets/images/piele-crest.png" alt="Piele crest" /><span
+        ><strong>PIELE</strong><small>THE RUGBY CLUBHOUSE</small></span
+      >
+    </a>
+    <div class="season-label"><span class="season-dot"></span> URC 26/27</div>
+    <nav class="desktop-nav" aria-label="League navigation">
+      @for (item of nav; track item.path) {
+        <a
+          [routerLink]="item.path"
+          queryParamsHandling="preserve"
+          routerLinkActive="selected"
+          [routerLinkActiveOptions]="{ exact: item.path === '/' }"
+          ariaCurrentWhenActive="page"
+        >
+          <span>{{ item.label }}</span>
+          @if (item.path === '/decisions' && view.pollNeedsVote()) {
+            <i class="nav-dot" aria-hidden="true"></i>
+          }
+        </a>
+      }
+    </nav>
+  </header>
+
+  <div class="main-shell">
+    <div class="utility-header">
+      <span class="breadcrumb">ROUND {{ round().code }} <span>/</span> {{ page().crumb }}</span>
+      <div class="mobile-brand">
+        <img src="assets/images/piele-crest.png" alt="" /><strong>PIELE</strong><span>26/27</span>
+      </div>
+      <div class="header-right">
+        <a
+          class="header-profile"
+          routerLink="/profile"
+          [state]="{ returnUrl: currentUrl() }"
+          aria-label="My profile"
+        >
+          <span class="identity-avatar">
+            @if (profile()?.photo; as photo) {
+              <img [src]="photo" alt="" />
+            } @else {
+              {{ initials() }}
+            }</span
+          ><span>{{ profile()?.displayName }}</span>
+        </a>
+        <span class="demo-label">{{ view.sample ? 'SAMPLE LEAGUE' : 'URC 2026/27' }}</span
+        ><button
+          class="notification-button"
+          type="button"
+          aria-label="Open notifications"
+          (click)="notifications().open()"
+        >
+          <app-icon name="bell" /><i></i>
+        </button>
+      </div>
+    </div>
+    <div class="round-workspace">
+      <app-season-timeline
+        [rounds]="rounds"
+        [current]="currentRound"
+        [selected]="round().id"
+        (choose)="selectRound($event)"
+      />
+      <main id="main-content" class="main-content">
+        <section class="round-context" aria-label="Selected round" aria-live="polite">
+          <span class="context-number">{{ round().code }}</span>
+          <div>
+            <span class="eyebrow">PIELE URC / 26–27</span
+            ><strong
+              >{{ round().title }} <span class="tag">{{ round().status }}</span></strong
+            >
+            <p>
+              {{ round().dates }} ·
+              {{ view.sample ? 'Sample league records' : 'Published URC schedule' }}
+            </p>
+          </div>
+          <div class="context-pager">
+            <button
+              type="button"
+              aria-label="Previous round"
+              [disabled]="round().id === 1"
+              (click)="selectRound(round().id - 1)"
+            >
+              ←</button
+            ><button
+              type="button"
+              aria-label="Next round"
+              [disabled]="round().id === rounds.length"
+              (click)="selectRound(round().id + 1)"
+            >
+              →
+            </button>
+          </div>
+        </section>
+        <div class="page-heading">
+          <div>
+            <p class="eyebrow">ROUND {{ round().code }} / {{ page().eyebrow }}</p>
+            <h1>{{ page().title }}</h1>
+          </div>
+          <span class="scope-note">{{
+            page().seasonWide ? 'Applies to the whole season.' : 'Viewing ' + round().title + '.'
+          }}</span>
+        </div>
+        @if (toast.message(); as message) {
+          <div class="toast" role="status">
+            <app-icon name="check" />{{ message
+            }}<button type="button" aria-label="Dismiss message" (click)="toast.clear()">
+              <app-icon name="close" />
+            </button>
+          </div>
+        }
+        <router-outlet />
+        <footer class="club-footer">
+          <span>PIELE / ROUND {{ round().code }}</span
+          ><span>{{
+            view.sample
+              ? 'Sample league records for development. Names, points, duties and votes are illustrative.'
+              : 'Official fixtures checked ' +
+                retrievedAt +
+                '. League records appear once the league API is connected.'
+          }}</span
+          ><span>26 / 27</span>
+        </footer>
+      </main>
+    </div>
+  </div>
+  <nav class="mobile-nav" aria-label="Mobile league navigation">
+    @for (item of mobileNav; track item.path) {
+      <a
+        [routerLink]="item.path"
+        queryParamsHandling="preserve"
+        routerLinkActive="selected"
+        [routerLinkActiveOptions]="{ exact: item.path === '/' }"
+        ariaCurrentWhenActive="page"
+        [class.selected]="item.path === '/more' && page().underMore"
+      >
+        <app-icon [name]="item.icon" /><span>{{ item.label }}</span>
+      </a>
+    }
+  </nav>
+  <app-notifications-dialog />
+</div>

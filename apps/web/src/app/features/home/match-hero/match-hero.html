@@ -1,0 +1,64 @@
+<section class="match-story" [attr.aria-label]="'Round ' + roundCode() + ' match centre'">
+  <div class="broadcast-cover">
+    <img
+      class="stadium-photo"
+      src="assets/editorial/rugby-under-lights.webp"
+      alt="Illustrative rugby action under stadium floodlights"
+      fetchpriority="high"
+    />
+    <div class="broadcast-top">
+      <span><i></i> THE WEEKEND IS OURS</span><span>PIELE / ROUND {{ roundCode() }}</span>
+    </div>
+    <div class="broadcast-copy">
+      <span class="overline">BOOTS ON. LIGHTS UP.</span>
+      <h2>NO QUIET<br /><em>WEEKENDS.</em></h2>
+      <p>Same mates. New grudges.<br />Welcome back to the rugby.</p>
+      <button type="button" (click)="explore.emit()">
+        Enter the match centre <app-icon name="arrow" />
+      </button>
+    </div>
+    <span class="broadcast-round" aria-hidden="true"
+      >R<span>{{ roundCode() }}</span></span
+    >
+    <span class="photo-credit">ILLUSTRATIVE MATCH ARTWORK</span>
+    <div class="score-bug">
+      <span class="score-bug-label"
+        >{{
+          fixture().score
+            ? 'FULL TIME'
+            : fixture().homeAsset === favourite() || fixture().awayAsset === favourite()
+              ? 'YOUR TEAM'
+              : 'MATCHUP'
+        }}
+        <i></i> {{ fixture().day }}</span
+      >
+      <div>
+        <img [src]="jersey(fixture().homeAsset)" alt="" /><strong>{{ fixture().home }}</strong
+        ><span class="kickoff"
+          >{{ fixture().score || fixture().time
+          }}<small>{{ fixture().score ? 'FULL TIME' : 'SAST' }}</small></span
+        ><strong>{{ fixture().away }}</strong
+        ><img [src]="jersey(fixture().awayAsset)" alt="" />
+      </div>
+      <span class="score-bug-venue">{{ fixture().venue }}</span>
+    </div>
+  </div>
+  <div class="fixture-ribbon" aria-label="Featured fixtures">
+    <span class="ribbon-label">ROUND<br />{{ roundCode() }} <span>→</span></span>
+    @for (match of fixtures(); track match.id; let index = $index) {
+      <button
+        type="button"
+        [class.active]="selectedIndex() === index"
+        [attr.aria-pressed]="selectedIndex() === index"
+        (click)="selected.set(index)"
+      >
+        <span
+          >{{ match.day }} <strong>{{ match.score || match.time }}</strong></span
+        ><span
+          ><img [src]="jersey(match.homeAsset)" alt="" />{{ match.home }}<i>v</i>{{ match.away
+          }}<img [src]="jersey(match.awayAsset)" alt=""
+        /></span>
+      </button>
+    }
+  </div>
+</section>

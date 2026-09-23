@@ -1,0 +1,180 @@
+<div class="home-grid">
+  <section class="supporter-strip">
+    <span class="identity-avatar">
+      @if (profile()?.photo; as photo) {
+        <img [src]="photo" alt="Your profile photo" />
+      } @else {
+        {{ initials() }}
+      }
+    </span>
+    <div>
+      <span>YOUR SEAT IN THE CLUBHOUSE</span><strong>{{ profile()?.displayName }}</strong
+      ><small>{{ favouriteTeam()?.name }} supporter</small>
+    </div>
+    <img [src]="favouriteTeam()?.jersey" alt="" /><a
+      routerLink="/profile"
+      [state]="{ returnUrl: returnUrl() }"
+      >Edit profile ↗</a
+    >
+  </section>
+  @if (view.fixtures().length) {
+    @for (round of [view.round()]; track round.id) {
+      <app-match-hero
+        [fixtures]="view.fixtures()"
+        [favourite]="favouriteTeam()?.id ?? ''"
+        [roundCode]="round.code"
+        (explore)="go('/rounds')"
+      />
+    }
+  } @else {
+    <section class="unscheduled-round">
+      <span>ROUND {{ view.round().code }} / COMING UP</span>
+      <h2>The next chapter<br />is still being written.</h2>
+      <p>Fixtures and dates have not been confirmed for this round.</p>
+    </section>
+  }
+  <section class="next-actions">
+    <div class="section-title">
+      <h2>Your next move.</h2>
+      <span>ROUND {{ view.round().code }}</span>
+    </div>
+    @if (view.myDuty(); as duty) {
+      <article class="duty-feature">
+        <span class="duty-watermark" aria-hidden="true">{{ view.round().code }}</span
+        ><span class="duty-slip-label">THE POST-MATCH PAPERWORK / R{{ view.round().code }}</span>
+        <div class="duty-top">
+          <span class="tag">{{ duty.status.toUpperCase() }}</span
+          ><span class="duty-round">{{ profile()?.displayName }}</span>
+        </div>
+        @if (duty.status === 'Open') {
+          <h3>The Spoon has your name on it.</h3>
+          <p>{{ duty.title }}. Submit your evidence for this round before the recorded deadline.</p>
+        } @else if (duty.status === 'Awaiting review') {
+          <h3>Over to the captain.</h3>
+          <p>{{ duty.title }}. Your evidence is waiting for an uninvolved reviewer.</p>
+        } @else {
+          <h3>Duty completed.</h3>
+          <p>{{ duty.title }}. Your evidence was accepted.</p>
+        }
+        <div class="due-line">
+          <app-icon name="clock" /><span>{{ duty.deadline }}</span>
+        </div>
+        <div class="duty-actions">
+          @if (duty.status === 'Open') {
+            <button type="button" class="primary-button" (click)="evidence().open(duty)">
+              <app-icon name="upload" />Upload evidence
+            </button>
+          } @else {
+            <button type="button" class="primary-button" (click)="go('/duties')">
+              <app-icon name="duties" />View duty
+            </button>
+          }
+          <a class="text-button" routerLink="/duties" queryParamsHandling="preserve"
+            >Duty details ↗</a
+          >
+        </div>
+      </article>
+    } @else {
+      <article class="round-empty">
+        <app-icon name="check" />
+        <h3>No duties for you in Round {{ view.round().code }}.</h3>
+        <p>
+          {{
+            view.round().status === 'Completed'
+              ? 'Your personal register is clear for this completed round.'
+              : 'Only confirmed duties for this round will appear here.'
+          }}
+        </p>
+        <a
+          class="text-button"
+          routerLink="/duties"
+          [queryParams]="{ scope: 'league' }"
+          queryParamsHandling="merge"
+          >League duties ({{ view.duties().length }}) →</a
+        >
+      </article>
+    }
+    @if (view.isCaptain() && view.reviews().length) {
+      <a class="captain-queue" routerLink="/captain" queryParamsHandling="preserve">
+        <app-icon name="shield" /><span
+          ><strong>Captain, you're up.</strong
+          ><small>{{ view.reviews().length }} items in Round {{ view.round().code }}</small></span
+        ><span class="queue-count">{{ view.reviews().length }}</span
+        ><app-icon name="arrow" />
+      </a>
+    }
+  </section>
+  <aside class="standings-panel">
+    <div class="section-title">
+      <h2>The pecking order.</h2>
+      <span>ROUND {{ view.round().code }}</span>
+    </div>
+    @if (view.standings().length) {
+      <div class="table-label">
+        <span>ROUND {{ view.round().code }} POINTS</span><span>PTS</span>
+      </div>
+      <ol class="leaderboard">
+        @for (member of view.standings().slice(0, 4); track member.memberId) {
+          <li [class.you]="member.you">
+            <span class="rank">{{ member.rank | number: '2.0-0' }}</span
+            ><span class="member-avatar"
+              ><img
+                [src]="member.photo ?? 'assets/images/teams/' + member.teamId + '.png'"
+                alt="" /></span
+            ><span class="member-name">{{ member.name }}</span
+            ><strong>{{ member.points | number: '1.1-1' }}</strong>
+          </li>
+        }
+      </ol>
+      <a class="table-link" routerLink="/standings" queryParamsHandling="preserve">
+        Full round standings <app-icon name="arrow" />
+      </a>
+      <div class="house-marks">
+        <div>
+          <span>YOUR ROUND {{ view.round().code }} HOUSE MARKS</span>
+          <p>Separate from Superbru points.</p>
+        </div>
+        <strong>{{ view.ownMarks() }}</strong>
+      </div>
+    } @else {
+      <div class="round-empty">
+        <app-icon name="standings" />
+        <h3>No results for Round {{ view.round().code }} yet.</h3>
+        <p>Round points and house marks appear after results are recorded.</p>
+      </div>
+    }
+  </aside>
+  <section class="club-feed">
+    <div class="section-title">
+      <h2>From this round.</h2>
+      <span>R{{ view.round().code }} / LATEST</span>
+    </div>
+    @if (view.poll(); as poll) {
+      <a class="feed-item" routerLink="/decisions" queryParamsHandling="preserve">
+        <span class="feed-icon"><app-icon name="decisions" /></span
+        ><span
+          ><span class="feed-label">{{
+            poll.status === 'Open' ? 'YOUR VOICE COUNTS' : 'DECISION RECORDED'
+          }}</span
+          ><strong>{{ poll.question }}</strong
+          ><small>{{
+            poll.myChoice
+              ? 'Your choice is recorded for this round.'
+              : poll.status === 'Open'
+                ? 'Closes ' + poll.closes
+                : poll.result
+          }}</small></span
+        ><app-icon name="arrow" />
+      </a>
+    }
+    <div class="feed-item">
+      <span class="feed-icon neutral"><app-icon name="rounds" /></span
+      ><span
+        ><span class="feed-label">ROUND {{ view.round().code }} / UPDATE</span
+        ><strong>{{ view.round().status }}</strong
+        ><small>{{ view.activity() }}</small></span
+      >
+    </div>
+  </section>
+</div>
+<app-evidence-dialog />

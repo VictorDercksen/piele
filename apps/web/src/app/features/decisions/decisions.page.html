@@ -1,0 +1,37 @@
+@if (view.poll(); as poll) {
+  <article class="poll-card">
+    <div class="register-heading">
+      <span class="tag">{{ poll.status === 'Open' ? 'VOTING OPEN' : 'VOTE CLOSED' }}</span
+      ><span class="eyebrow">ROUND {{ view.round().code }} / LEAGUE DECISION</span>
+    </div>
+    <h2>{{ poll.question }}</h2>
+    <p>{{ poll.description }}</p>
+    <div class="poll-participation">
+      <span>{{ poll.participants }} of {{ poll.eligible }} members participated</span>
+    </div>
+    <div class="participation-track"><span [style.width.%]="turnout()"></span></div>
+    @if (poll.status === 'Open') {
+      <div class="poll-bottom">
+        <span>Closes {{ poll.closes }}</span
+        ><button type="button" class="primary-button" (click)="voteDialog().open(poll)">
+          {{ poll.myChoice ? 'Review your vote' : 'Have your say' }}<app-icon name="arrow" />
+        </button>
+      </div>
+    } @else {
+      <p class="closed-result">{{ poll.result }}</p>
+      <p class="context-note">Closed {{ poll.closes }}. This vote can no longer be changed.</p>
+    }
+  </article>
+  @if (view.sample) {
+    <p class="context-note">
+      Sample decision. Confidential, revisable ballots remain a proposed behaviour.
+    </p>
+  }
+} @else {
+  <div class="round-empty">
+    <app-icon name="decisions" />
+    <h2>No decisions in Round {{ view.round().code }}.</h2>
+    <p>Votes and cases linked to this round will appear here.</p>
+  </div>
+}
+<app-vote-dialog />
