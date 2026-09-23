@@ -133,8 +133,9 @@ def cached(
 ) -> Snapshot:
     """Return a fresh snapshot, fetching and storing when missing or expired.
 
-    A failing fetch falls back to the stale snapshot when one exists, so a provider
-    outage degrades to older data instead of an error. Cache failures are logged and
+    A failing fetch falls back to the stale snapshot when it holds data, so a provider
+    outage degrades to older data instead of an error. A stale failure is replaced by
+    the new one so the latest reason is reported. Cache failures are logged and
     the fetched value is still returned.
     """
     moment = now or now_utc()
@@ -149,7 +150,7 @@ def cached(
         fetched = fetch()
     except Exception as exc:  # noqa: BLE001 - provider failures become a status
         logger.warning("Fetch failed for %s: %s", key, type(exc).__name__)
-        if existing:
+        if existing and existing.status != "unavailable":
             return existing
         fetched = Fetched("unavailable", {"reason": _reason(exc)}, timedelta(minutes=5))
     snapshot = Snapshot(key, fetched.status, fetched.payload, moment, moment + fetched.ttl)

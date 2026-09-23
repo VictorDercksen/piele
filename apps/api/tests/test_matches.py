@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 
 from app.config import Settings
 from app.matchcentre import service as service_module
-from app.matchcentre.cache import Fetched, MemorySnapshotCache, cached
+from app.matchcentre.cache import Fetched, MemorySnapshotCache, ProviderError, cached
 from app.matchcentre.catalogue import club, stadium
 from app.matchcentre.providers import teamsheets, weather
 from app.matchcentre.schedule import load_schedule
@@ -350,6 +350,14 @@ def test_cached_falls_back_to_stale_snapshot_on_failure() -> None:
     assert fresh.payload == {"n": 2}
     hit = cached(cache, "k", boom, now=start + timedelta(hours=3, minutes=30))
     assert hit.payload == {"n": 2}
+
+    def quota() -> Fetched:
+        raise ProviderError("quota")
+
+    failed = cached(cache, "f", boom, now=start)
+    assert failed.status == "unavailable" and failed.payload == {"reason": "ConnectError"}
+    replaced = cached(cache, "f", quota, now=start + timedelta(minutes=6))
+    assert replaced.payload == {"reason": "provider error: quota"}
 
 
 def test_schedule_and_catalogues_cover_every_fixture() -> None:
