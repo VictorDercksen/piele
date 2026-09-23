@@ -1,31 +1,11 @@
 <div class="home-grid">
-  <section class="supporter-strip">
-    <span class="identity-avatar">
-      @if (profile()?.photo; as photo) {
-        <img [src]="photo" alt="Your profile photo" />
-      } @else {
-        {{ initials() }}
-      }
-    </span>
-    <div>
-      <span>YOUR SEAT IN THE CLUBHOUSE</span><strong>{{ profile()?.displayName }}</strong
-      ><small>{{ favouriteTeam()?.name }} supporter</small>
-    </div>
-    <img [src]="favouriteTeam()?.jersey" alt="" /><a
-      routerLink="/profile"
-      [state]="{ returnUrl: returnUrl() }"
-      >Edit profile ↗</a
-    >
-  </section>
-  @if (view.fixtures().length) {
-    @for (round of [view.round()]; track round.id) {
-      <app-match-hero
-        [fixtures]="view.fixtures()"
-        [favourite]="favouriteTeam()?.id ?? ''"
-        [roundCode]="round.code"
-        (explore)="go('/rounds')"
-      />
-    }
+  @if (view.featured(); as fixture) {
+    <app-match-hero
+      [fixture]="fixture"
+      [favourite]="favouriteTeam()?.id ?? ''"
+      [roundCode]="view.round().code"
+      (explore)="go('/rounds')"
+    />
   } @else {
     <section class="unscheduled-round">
       <span>ROUND {{ view.round().code }} / COMING UP</span>

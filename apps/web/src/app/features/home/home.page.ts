@@ -7,7 +7,7 @@ import { Icon } from '../../shared/icon/icon';
 import { EvidenceDialog } from '../duties/evidence-dialog/evidence-dialog';
 import { MatchHero } from './match-hero/match-hero';
 
-/** Round overview: supporter identity, match centre, next action, standings and feed. */
+/** Round overview: match centre, next action, standings and feed. */
 @Component({
   selector: 'app-home-page',
   templateUrl: './home.page.html',
@@ -22,11 +22,6 @@ export class HomePage {
   readonly evidence = viewChild.required(EvidenceDialog);
   readonly profile = this.profileStore.profile;
   readonly favouriteTeam = this.profileStore.team;
-  readonly initials = this.profileStore.initials;
-
-  returnUrl(): string {
-    return this.router.url;
-  }
 
   go(path: string): void {
     void this.router.navigate([path], { queryParamsHandling: 'preserve' });

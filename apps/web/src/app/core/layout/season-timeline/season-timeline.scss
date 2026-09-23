@@ -2,14 +2,15 @@
   display: block;
   min-width: 0;
   color: var(--ink);
-  border-right: 1px solid var(--line);
-  background: var(--surface);
 }
+// Heading and footer stay put. Only the round list scrolls, fading out above the footer.
 .season-timeline {
-  padding: 23px 12px 20px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  padding: 20px 12px 18px;
   font-family: 'Titillium Web', sans-serif;
-  position: sticky;
-  top: 0;
 }
 .timeline-heading {
   padding: 0 9px 16px;
@@ -42,29 +43,13 @@ button {
   text-align: left;
   min-height: 36px;
 }
-.round-jump {
-  display: block;
-  font-size: 10px;
-  color: var(--muted);
-  padding: 12px 7px;
-  select {
-    display: block;
-    width: 100%;
-    margin-top: 6px;
-    background: var(--paper);
-    color: var(--ink);
-    border: 1px solid var(--line);
-    padding: 8px 5px;
-    font:
-      11px 'Titillium Web',
-      sans-serif;
-    min-height: 40px;
-    border-radius: 0;
-  }
-}
 .round-track {
-  max-height: 650px;
+  flex: 1;
+  min-height: 0;
+  margin-top: 12px;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent);
   scrollbar-width: none;
   &::-webkit-scrollbar {
     display: none;
@@ -151,22 +136,19 @@ button {
   }
 }
 .timeline-foot {
-  padding: 16px 9px 0;
+  flex-shrink: 0;
+  padding: 14px 9px 0;
   border-top: 1px solid var(--line);
-  margin: 14px 0 0;
+  margin: 0;
   font-size: 12px;
   font-weight: 600;
   line-height: 1.4;
   color: var(--muted);
 }
 @container (max-width:1050px) {
-  :host {
-    border-right: 0;
-    border-bottom: 1px solid var(--line);
-  }
   .season-timeline {
+    height: auto;
     padding: 13px 18px 0;
-    position: static;
   }
   .timeline-heading {
     display: flex;
@@ -186,24 +168,11 @@ button {
       font-size: 10px;
     }
   }
-  .round-jump {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 6px 0 8px;
-    font-size: 10px;
-    select {
-      margin: 0;
-      width: auto;
-      flex: 1;
-      font-size: 11px;
-      min-height: 36px;
-      padding: 6px 10px;
-    }
-  }
   .round-track {
     display: flex;
-    max-height: none;
+    flex: none;
+    margin-top: 8px;
+    mask-image: none;
     overflow-x: auto;
     overflow-y: hidden;
     padding: 0 0 7px;

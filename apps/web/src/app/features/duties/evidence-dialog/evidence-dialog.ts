@@ -10,6 +10,7 @@ import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ToastService } from '../../../core/feedback/toast.service';
 import { RoundDutyView, RoundViewService } from '../../../core/league/round-view.service';
 import { Icon } from '../../../shared/icon/icon';
+import { Loader } from '../../../shared/loader/loader';
 
 /** Proposed initial limit (plan P6), pending a real phone upload test. */
 const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
@@ -20,7 +21,7 @@ const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
   templateUrl: './evidence-dialog.html',
   styleUrl: './evidence-dialog.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, Icon],
+  imports: [ReactiveFormsModule, Icon, Loader],
 })
 export class EvidenceDialog {
   private readonly toast = inject(ToastService);

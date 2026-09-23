@@ -4,6 +4,7 @@ import { RouterLink } from '@angular/router';
 import { ApiService } from '../../core/api/api.service';
 import { RoundViewService } from '../../core/league/round-view.service';
 import { Icon } from '../../shared/icon/icon';
+import { Loader } from '../../shared/loader/loader';
 
 /** Secondary destinations and service status. */
 @Component({
@@ -11,11 +12,11 @@ import { Icon } from '../../shared/icon/icon';
   templateUrl: './more.page.html',
   styleUrl: './more.page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, Icon],
+  imports: [RouterLink, Icon, Loader],
 })
 export class MorePage {
   readonly view = inject(RoundViewService);
-  readonly apiStatus = signal('Checking…');
+  readonly apiStatus = signal('');
 
   constructor() {
     const api = inject(ApiService);

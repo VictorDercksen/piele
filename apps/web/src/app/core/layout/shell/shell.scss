@@ -1,4 +1,4 @@
-// Floodlights shell: brand bar, round workspace (timeline and content) and mobile navigation.
+// Floodlights shell: season rail, fixed top bar, scrolling content and mobile navigation.
 :host {
   display: block;
   container-type: inline-size;
@@ -15,7 +15,11 @@
   --orange: #ff795e;
   --tint: #372a2a;
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template:
+    'rail top' auto
+    'rail main' 1fr
+    / 175px minmax(0, 1fr);
+  min-height: 100vh;
   position: relative;
   background: var(--paper);
   color: var(--ink);
@@ -23,12 +27,19 @@
   font-size: 15px;
   line-height: 1.45;
 }
-.sidebar {
+// Stays at the top while the content below scrolls.
+.top-bar {
+  grid-area: top;
+  position: sticky;
+  top: 0;
+  z-index: 4;
   display: flex;
   align-items: center;
   gap: 26px;
   min-width: 0;
-  padding: 15px 25px;
+  height: 76px;
+  padding: 0 25px;
+  border-bottom: 1px solid var(--line);
   background: #0b151c;
   color: #e7ebed;
 }
@@ -59,26 +70,8 @@
   color: #b2bdc4;
   white-space: nowrap;
 }
-.season-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 90px;
-  font-size: 11px;
-  font-weight: 600;
-}
-.season-dot {
-  display: inline-block;
-  flex-shrink: 0;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--orange);
-}
 .desktop-nav {
   display: flex;
-  flex: 1;
-  justify-content: flex-end;
   gap: 10px;
 }
 .desktop-nav a {
@@ -107,58 +100,74 @@
   border-radius: 50%;
   background: #ed705c;
 }
-.main-shell {
-  min-width: 0;
-}
-.utility-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 46px;
-  padding: 0 34px;
-  border-top: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
-  background: #101f29;
-}
-.breadcrumb {
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 1.3px;
-  color: var(--muted);
-}
-.breadcrumb span {
-  padding: 0 12px;
-  color: #aab0b4;
-}
 .header-right {
   display: flex;
   align-items: center;
   gap: 19px;
+  min-width: 0;
+  margin-left: auto;
 }
 .header-profile {
   display: flex;
   align-items: center;
-  gap: 9px;
-  max-width: 210px;
-  color: var(--ink);
-  font-size: 11px;
+  gap: 10px;
+  min-width: 0;
+  max-width: 240px;
+  padding: 5px 12px 5px 5px;
+  border: 1px solid color-mix(in srgb, var(--member-accent) 45%, transparent);
+  border-radius: 6px;
+  background: linear-gradient(
+    110deg,
+    var(--member-colour),
+    color-mix(in srgb, var(--member-colour) 45%, #0b151c)
+  );
+  color: #fff;
   text-decoration: none;
+  transition: border-color 0.15s;
 }
-.header-profile > span:last-child {
+.header-profile:hover {
+  border-color: var(--member-accent);
+  filter: none;
+}
+.header-profile .identity-avatar {
+  width: 36px;
+  height: 36px;
+  font-size: 11px;
+}
+.profile-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.2;
+}
+.profile-text strong {
   overflow: hidden;
+  font-size: 12px;
+  font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.header-profile .identity-avatar {
-  width: 31px;
-  height: 31px;
+.profile-text small {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 2px;
   font-size: 10px;
+  color: color-mix(in srgb, var(--member-accent) 70%, #fff);
+  white-space: nowrap;
+}
+.profile-jersey {
+  width: 19px;
+  height: 21px;
+  object-fit: contain;
+  filter: drop-shadow(0 1px 2px #0006);
 }
 .demo-label {
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 1.4px;
   color: var(--muted);
+  white-space: nowrap;
 }
 .notification-button {
   position: relative;
@@ -178,38 +187,82 @@
   border-radius: 50%;
   background: var(--orange);
 }
-.mobile-brand,
 .mobile-nav {
   display: none;
 }
-.round-workspace {
-  display: grid;
-  grid-template-columns: 175px minmax(0, 1fr);
+// Desktop: a full-height, non-scrolling rail. Only the round list inside it scrolls.
+.season-rail {
+  grid-area: rail;
+  position: sticky;
+  top: 0;
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
   min-width: 0;
+  border-right: 1px solid var(--line);
+  background: var(--surface);
+}
+.rail-brand {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+  height: 76px;
+  padding: 0 14px;
+  color: #fff;
+  text-decoration: none;
+}
+.rail-brand img {
+  width: 34px;
+  height: 40px;
+  object-fit: contain;
+}
+.rail-brand strong {
+  display: block;
+  font-size: 21px;
+  font-weight: 700;
+  letter-spacing: 2.5px;
+  line-height: 1.1;
+}
+.rail-brand small {
+  display: block;
+  margin-top: 5px;
+  font-size: 5.5px;
+  letter-spacing: 1.2px;
+  color: #b2bdc4;
+  white-space: nowrap;
+}
+.top-bar .club-brand {
+  display: none;
+}
+app-season-timeline {
+  flex: 1;
+  min-height: 0;
 }
 .main-content {
+  grid-area: main;
   width: 100%;
   min-width: 0;
-  max-width: 1500px;
-  margin: auto;
-  padding: 22px 25px 0;
+  --gutter: 25px;
+  padding: 0 var(--gutter);
+}
+// Round header and fixtures stay pinned under the top bar. The bar bleeds into the
+// content padding so its dividers run edge to edge.
+.round-bar {
+  position: sticky;
+  top: 76px;
+  z-index: 3;
+  margin: 0 calc(-1 * var(--gutter)) 22px;
+  background: var(--paper);
 }
 .round-context {
   display: flex;
   align-items: center;
   gap: 15px;
-  padding-bottom: 19px;
-  margin-bottom: 22px;
+  padding: 18px var(--gutter) 16px;
   border-bottom: 1px solid var(--line);
-}
-.round-context .context-number {
-  padding-right: 17px;
-  border-right: 1px solid var(--line);
-  font-size: 55px;
-  font-weight: 700;
-  line-height: 1;
-  letter-spacing: -2px;
-  color: var(--accent);
 }
 .round-context strong {
   display: flex;
@@ -220,10 +273,6 @@
   font-size: 24px;
   font-weight: 700;
   line-height: 1.2;
-}
-.round-context .eyebrow {
-  font-size: 8px;
-  color: var(--muted);
 }
 .round-context p {
   margin-top: 6px;
@@ -273,6 +322,11 @@
   color: var(--muted);
   text-align: right;
 }
+.page-loading {
+  display: grid;
+  place-items: center;
+  min-height: 320px;
+}
 .toast {
   display: flex;
   align-items: center;
@@ -316,11 +370,12 @@
 }
 
 @container (max-width: 1200px) {
-  .round-workspace {
+  .league {
     grid-template-columns: 160px minmax(0, 1fr);
   }
   .main-content {
-    padding: 20px 20px 0;
+    --gutter: 20px;
+    padding: 0 var(--gutter);
   }
   .round-context {
     gap: 12px;
@@ -328,19 +383,16 @@
   .round-context strong {
     font-size: 22px;
   }
-  .round-context .context-number {
-    font-size: 49px;
-  }
   .scope-note {
     display: none;
   }
 }
 @container (max-width: 1100px) {
-  .sidebar {
+  .top-bar {
     gap: 18px;
   }
-  .season-label,
-  .club-footer > span:first-child {
+  .club-footer > span:first-child,
+  .demo-label {
     display: none;
   }
   .desktop-nav {
@@ -348,46 +400,57 @@
   }
 }
 @container (max-width: 1050px) {
-  .round-workspace {
-    display: block;
+  .league {
+    grid-template:
+      'top' auto
+      'rail' auto
+      'main' 1fr
+      'nav' auto
+      / minmax(0, 1fr);
   }
-  .round-context {
-    padding-bottom: 16px;
+  .season-rail {
+    position: static;
+    height: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .rail-brand {
+    display: none;
+  }
+  .top-bar .club-brand {
+    display: flex;
+  }
+  .desktop-nav {
+    gap: 2px;
+  }
+  .desktop-nav a {
+    padding: 9px 8px;
+  }
+  .round-bar {
     margin-bottom: 18px;
   }
 }
 @container (max-width: 800px) {
-  .league {
-    display: block;
-  }
-  .sidebar,
-  .breadcrumb {
+  .desktop-nav,
+  .club-brand small {
     display: none;
   }
-  .mobile-brand {
-    display: flex;
-    align-items: center;
-    gap: 10px;
+  .round-bar {
+    top: 64px;
   }
-  .mobile-brand img {
-    width: 32px;
-    height: 38px;
-    object-fit: contain;
-  }
-  .mobile-brand strong {
-    font-size: 24px;
-    font-weight: 700;
-    letter-spacing: 2px;
-  }
-  .mobile-brand span {
-    font-size: 10px;
-    color: #b4c3ce;
-  }
-  .utility-header {
+  .top-bar {
     height: 64px;
     padding: 0 22px;
     background: #152630;
     color: #fff;
+  }
+  .club-brand img {
+    width: 32px;
+    height: 38px;
+  }
+  .club-brand strong {
+    font-size: 24px;
+    letter-spacing: 2px;
   }
   .demo-label {
     font-size: 8px;
@@ -400,6 +463,7 @@
     padding-bottom: 26px;
   }
   .mobile-nav {
+    grid-area: nav;
     position: sticky;
     bottom: 0;
     z-index: 3;
@@ -440,20 +504,25 @@
 }
 @container (max-width: 600px) {
   .main-content {
-    padding: 18px 17px 0;
+    --gutter: 17px;
+    padding: 0 var(--gutter);
   }
   .header-right {
     gap: 8px;
   }
-  .header-profile > span:last-child {
+  .profile-text {
     display: none;
+  }
+  .header-profile {
+    padding: 3px;
+    border-radius: 50%;
+  }
+  .header-profile .identity-avatar {
+    width: 32px;
+    height: 32px;
   }
   .round-context {
     gap: 12px;
-  }
-  .round-context .context-number {
-    padding-right: 12px;
-    font-size: 35px;
   }
   .round-context strong {
     gap: 7px;
@@ -466,9 +535,6 @@
   .round-context p {
     font-size: 9px;
     overflow-wrap: anywhere;
-  }
-  .round-context .eyebrow {
-    font-size: 7px;
   }
   .context-pager {
     flex-shrink: 0;
@@ -497,13 +563,11 @@
 }
 @container (max-width: 350px) {
   .main-content {
-    padding: 18px 13px 0;
+    --gutter: 13px;
+    padding: 0 var(--gutter);
   }
-  .utility-header {
+  .top-bar {
     padding: 0 14px;
-  }
-  .context-number {
-    display: none;
   }
   .round-context strong {
     font-size: 18px;

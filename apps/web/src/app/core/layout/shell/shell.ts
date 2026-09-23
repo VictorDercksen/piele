@@ -2,19 +2,25 @@ import { ChangeDetectionStrategy, Component, computed, inject, viewChild } from 
 import { toSignal } from '@angular/core/rxjs-interop';
 import {
   ActivatedRouteSnapshot,
+  Event,
+  NavigationCancel,
   NavigationEnd,
+  NavigationError,
+  NavigationStart,
   Router,
   RouterLink,
   RouterLinkActive,
   RouterOutlet,
 } from '@angular/router';
-import { filter, map } from 'rxjs';
+import { debounce, filter, map, of, timer } from 'rxjs';
 import { CompetitionService } from '../../competition/competition.service';
 import { SelectedRoundService } from '../../competition/selected-round.service';
 import { ToastService } from '../../feedback/toast.service';
 import { RoundViewService } from '../../league/round-view.service';
 import { ProfileStore } from '../../profile/profile.store';
 import { Icon } from '../../../shared/icon/icon';
+import { Loader } from '../../../shared/loader/loader';
+import { FixtureRibbon } from '../fixture-ribbon/fixture-ribbon';
 import { NotificationsDialog } from '../notifications-dialog/notifications-dialog';
 import { SeasonTimeline } from '../season-timeline/season-timeline';
 import { PageData } from './page-data';
@@ -25,7 +31,16 @@ import { PageData } from './page-data';
   templateUrl: './shell.html',
   styleUrl: './shell.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, Icon, SeasonTimeline, NotificationsDialog],
+  imports: [
+    RouterOutlet,
+    RouterLink,
+    RouterLinkActive,
+    Icon,
+    Loader,
+    SeasonTimeline,
+    NotificationsDialog,
+    FixtureRibbon,
+  ],
 })
 export class Shell {
   private readonly router = inject(Router);
@@ -73,8 +88,29 @@ export class Shell {
     return route.data as PageData;
   });
 
+  /** A page change that is still loading after 150 ms. Round changes only update the query. */
+  readonly pageLoading = toSignal(
+    this.router.events.pipe(
+      filter(
+        (event: Event) =>
+          (event instanceof NavigationStart &&
+            this.path(event.url) !== this.path(this.router.url)) ||
+          event instanceof NavigationEnd ||
+          event instanceof NavigationCancel ||
+          event instanceof NavigationError,
+      ),
+      map((event) => event instanceof NavigationStart),
+      debounce((loading) => (loading ? timer(150) : of(0))),
+    ),
+    { initialValue: false },
+  );
+
   selectRound(id: number): void {
     this.toast.clear();
     this.selectedRound.select(id);
+  }
+
+  private path(url: string): string {
+    return url.split(/[?#]/)[0];
   }
 }

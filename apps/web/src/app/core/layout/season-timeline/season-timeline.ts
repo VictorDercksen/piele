@@ -20,19 +20,6 @@ import { CompetitionRound } from '../../competition/competition.models';
         Current round ↗
       </button>
     </div>
-    <label class="round-jump"
-      >Jump to round<select
-        aria-label="Jump to round"
-        #roundPicker
-        (change)="choose.emit(+roundPicker.value)"
-      >
-        @for (round of rounds(); track round.id) {
-          <option [value]="round.id" [selected]="round.id === selected()">
-            {{ round.title }} · {{ round.status }}
-          </option>
-        }
-      </select></label
-    >
     <div #track class="round-track">
       @for (round of rounds(); track round.id) {
         <button

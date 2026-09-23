@@ -12,6 +12,7 @@ import { ToastService } from '../../../core/feedback/toast.service';
 import { Poll } from '../../../core/league/league.models';
 import { RoundViewService } from '../../../core/league/round-view.service';
 import { Icon } from '../../../shared/icon/icon';
+import { Loader } from '../../../shared/loader/loader';
 
 /** Casts or revises the member's single-choice ballot while the poll is open. */
 @Component({
@@ -19,7 +20,7 @@ import { Icon } from '../../../shared/icon/icon';
   templateUrl: './vote-dialog.html',
   styleUrl: './vote-dialog.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, Icon],
+  imports: [ReactiveFormsModule, Icon, Loader],
 })
 export class VoteDialog {
   private readonly toast = inject(ToastService);

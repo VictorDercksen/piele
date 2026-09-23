@@ -92,8 +92,11 @@
         }
       </span>
       <div>
-        <label class="photo-label"
-          >{{ busy() ? 'Preparing photo…' : 'Add a profile photo'
+        <label class="photo-label">
+          @if (busy()) {
+            <app-loader [size]="18" aria-hidden="true" />
+          }
+          {{ busy() ? 'Preparing photo…' : 'Add a profile photo'
           }}<input
             type="file"
             accept="image/jpeg,image/png,image/webp"

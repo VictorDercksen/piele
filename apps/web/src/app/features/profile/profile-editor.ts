@@ -12,6 +12,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { preparePhoto } from '../../core/profile/profile-photo';
 import { ProfileStore } from '../../core/profile/profile.store';
 import { TEAMS, club } from '../../core/competition/teams';
+import { Loader } from '../../shared/loader/loader';
 
 /** Onboarding and profile form: display name, favourite team and optional photo. */
 @Component({
@@ -19,7 +20,7 @@ import { TEAMS, club } from '../../core/competition/teams';
   templateUrl: './profile-editor.html',
   styleUrl: './profile-editor.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, Loader],
 })
 export class ProfileEditor {
   private readonly store = inject(ProfileStore);

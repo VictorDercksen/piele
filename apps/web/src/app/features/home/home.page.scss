@@ -1,4 +1,3 @@
-.supporter-strip > a,
 .captain-queue,
 .feed-item,
 .table-link {
@@ -524,56 +523,6 @@
     font-size: 13px;
   }
 }
-.supporter-strip {
-  grid-column: 1/-1;
-  display: flex;
-  gap: 13px;
-  align-items: center;
-  padding: 15px 20px;
-  background: linear-gradient(
-    105deg,
-    color-mix(in srgb, var(--member-colour) 35%, #13232e),
-    #13232e 75%
-  );
-  border-left: 3px solid var(--member-accent);
-  color: #fff;
-}
-.supporter-strip .identity-avatar {
-  width: 49px;
-  height: 49px;
-}
-.supporter-strip > div {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-.supporter-strip > div > span {
-  font-size: 7px;
-  letter-spacing: 1.7px;
-  color: var(--member-accent);
-}
-.supporter-strip strong {
-  font-size: 19px;
-  overflow-wrap: anywhere;
-}
-.supporter-strip small {
-  font-size: 11px;
-  color: #aec2d2;
-}
-.supporter-strip > img {
-  width: 55px;
-  height: 63px;
-  object-fit: contain;
-  margin-left: auto;
-}
-.supporter-strip > a {
-  border: 0;
-  background: none;
-  color: var(--member-accent);
-  font-size: 10px;
-  min-height: 44px;
-  white-space: nowrap;
-}
 .duty-feature,
 .house-marks,
 .leaderboard li.you {
@@ -584,45 +533,20 @@
 .house-marks > strong {
   color: var(--member-accent) !important;
 }
-@container (max-width:600px) {
-  .supporter-strip {
-    padding: 13px;
-    gap: 10px;
-  }
-  .supporter-strip > a {
-    display: none;
-  }
-  .supporter-strip strong {
-    font-size: 17px;
-  }
-  .supporter-strip small {
-    font-size: 10px;
-  }
-  .supporter-strip > img {
-    width: 45px;
-    height: 53px;
-  }
-  .supporter-strip .identity-avatar {
-    width: 41px;
-    height: 41px;
-  }
-}
-.supporter-strip {
-  grid-row: 1;
-}
-.home-grid > app-match-hero {
+.home-grid > app-match-hero,
+.unscheduled-round {
   grid-column: 1/-1;
-  grid-row: 2;
+  grid-row: 1;
 }
 .next-actions {
   grid-column: 1;
-  grid-row: 3;
+  grid-row: 2;
 }
 .standings-panel {
   grid-column: 2;
-  grid-row: 3;
+  grid-row: 2;
 }
 .club-feed {
   grid-column: 1/-1;
-  grid-row: 4;
+  grid-row: 3;
 }

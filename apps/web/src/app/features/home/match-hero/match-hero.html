@@ -43,22 +43,4 @@
       <span class="score-bug-venue">{{ fixture().venue }}</span>
     </div>
   </div>
-  <div class="fixture-ribbon" aria-label="Featured fixtures">
-    <span class="ribbon-label">ROUND<br />{{ roundCode() }} <span>→</span></span>
-    @for (match of fixtures(); track match.id; let index = $index) {
-      <button
-        type="button"
-        [class.active]="selectedIndex() === index"
-        [attr.aria-pressed]="selectedIndex() === index"
-        (click)="selected.set(index)"
-      >
-        <span
-          >{{ match.day }} <strong>{{ match.score || match.time }}</strong></span
-        ><span
-          ><img [src]="jersey(match.homeAsset)" alt="" />{{ match.home }}<i>v</i>{{ match.away
-          }}<img [src]="jersey(match.awayAsset)" alt=""
-        /></span>
-      </button>
-    }
-  </div>
 </section>

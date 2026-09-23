@@ -28,7 +28,7 @@ describe('App routes', () => {
     });
     const harness = await RouterTestingHarness.create('/?round=3');
     const root = harness.routeNativeElement!;
-    expect(root.querySelector('.supporter-strip')?.textContent).toContain('Test Member');
+    expect(root.querySelector('.header-profile')?.textContent).toContain('Test Member');
     expect(root.querySelector('.round-context')?.textContent).toContain('Round 03');
     expect(root.querySelector('.standings-panel .round-empty')).toBeTruthy();
   });

@@ -34,7 +34,8 @@
 }
 .fixtures-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  // As many columns as fit, so wide screens show more fixtures side by side.
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr));
   gap: 20px;
 }
 .fixture-card {

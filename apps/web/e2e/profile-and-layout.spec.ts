@@ -20,12 +20,18 @@ test('first visit requires a favourite team and saves a personal identity', asyn
   await page.evaluate(() => document.fonts.ready);
   await page.screenshot({ path: testInfo.outputPath('onboarding-desktop.png'), fullPage: true });
   await join(page);
-  await expect(page.locator('.supporter-strip')).toContainText('Stormers');
+  await expect(page.locator('.header-profile')).toContainText('Stormers');
+  await expect(page.locator('.header-profile')).toContainText('Stormers supporter');
+  await expect(page.locator('.header-profile .profile-jersey')).toHaveAttribute(
+    'src',
+    /dhl-stormers/,
+  );
+  await expect(page.locator('.supporter-strip')).toHaveCount(0);
   await expect(page.locator('.score-bug')).toContainText('Connacht');
   await expect(page.locator('.score-bug')).toContainText('Stormers');
   await expect(page.locator('.score-bug img').first()).toHaveAttribute('src', /jerseys/);
   await page.reload();
-  await expect(page.locator('.supporter-strip')).toContainText('Victor Dercksen');
+  await expect(page.locator('.header-profile')).toContainText('Victor Dercksen');
   await expect(page.getByRole('heading', { name: 'Who do you back?' })).toHaveCount(0);
 });
 
@@ -60,11 +66,11 @@ test('profile photo, replacement, removal and team changes persist', async ({ pa
   await page.getByRole('radio', { name: 'Munster Rugby', exact: true }).check();
   await page.getByLabel('Your name', { exact: true }).fill('Victor');
   await page.getByRole('button', { name: 'Save profile', exact: true }).click();
-  await expect(page.locator('.supporter-strip')).toContainText('Munster');
+  await expect(page.locator('.header-profile')).toContainText('Munster');
   await expect(page.locator('.score-bug')).toContainText('Munster');
-  await expect(page.locator('.supporter-strip .identity-avatar img')).toHaveCount(1);
+  await expect(page.locator('.header-profile .identity-avatar img')).toHaveCount(1);
   await page.reload();
-  await expect(page.locator('.supporter-strip .identity-avatar img')).toHaveCount(1);
+  await expect(page.locator('.header-profile .identity-avatar img')).toHaveCount(1);
   await page.getByRole('link', { name: 'My profile', exact: true }).click();
   await upload.setInputFiles('public/assets/images/teams/munster-rugby.png');
   await expect(page.getByAltText('Your selected profile photo')).toBeVisible();
@@ -73,8 +79,8 @@ test('profile photo, replacement, removal and team changes persist', async ({ pa
   await page.getByRole('button', { name: 'Remove photo', exact: true }).click();
   await page.getByRole('button', { name: 'Save profile', exact: true }).click();
   await page.reload();
-  await expect(page.locator('.supporter-strip .identity-avatar img')).toHaveCount(0);
-  await expect(page.locator('.supporter-strip .identity-avatar')).toHaveText('V');
+  await expect(page.locator('.header-profile .identity-avatar img')).toHaveCount(0);
+  await expect(page.locator('.header-profile .identity-avatar')).toHaveText('V');
 });
 
 test('cancel preserves profile and failed storage reports a visible error', async ({ page }) => {
@@ -83,7 +89,7 @@ test('cancel preserves profile and failed storage reports a visible error', asyn
   await page.getByRole('link', { name: 'My profile', exact: true }).click();
   await page.getByRole('radio', { name: 'Munster Rugby', exact: true }).check();
   await page.getByRole('button', { name: 'Cancel profile changes' }).click();
-  await expect(page.locator('.supporter-strip')).toContainText('Stormers');
+  await expect(page.locator('.header-profile')).toContainText('Stormers');
   await page.getByRole('link', { name: 'My profile', exact: true }).click();
   await page.evaluate(() => {
     Storage.prototype.setItem = () => {

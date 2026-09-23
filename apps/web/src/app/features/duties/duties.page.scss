@@ -1,9 +1,12 @@
+.duty-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 520px), 1fr));
+  gap: 20px;
+}
 .register-card {
   background: var(--surface);
   border: 0;
   padding: 30px;
-  max-width: 850px;
-  margin-bottom: 20px;
   border-top: 3px solid var(--orange);
 }
 .register-card h2 {

@@ -1,4 +1,4 @@
-import { Injectable, computed, inject } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
 import { SelectedRoundService } from '../competition/selected-round.service';
 import { ProfileStore } from '../profile/profile.store';
 import { LeagueData } from './league-data';
@@ -13,6 +13,17 @@ export class RoundViewService {
   readonly sample = this.league.source === 'sample';
   readonly round = this.selected.round;
   readonly fixtures = computed(() => this.round().fixtures);
+  private readonly featuredId = signal<string | null>(null);
+  /** The fixture shown in the match centre: the chosen one, else the member's team, else the opener. */
+  readonly featured = computed(() => {
+    const fixtures = this.fixtures();
+    const team = this.profile.profile()?.teamId;
+    return (
+      fixtures.find((f) => f.id === this.featuredId()) ??
+      fixtures.find((f) => f.homeAsset === team || f.awayAsset === team) ??
+      fixtures[0]
+    );
+  });
   readonly isCaptain = computed(
     () =>
       !!this.league.currentMemberId &&
@@ -68,6 +79,10 @@ export class RoundViewService {
   readonly reviews = computed(() =>
     this.league.reviews().filter((r) => r.roundId === this.round().id),
   );
+
+  feature(fixtureId: string): void {
+    this.featuredId.set(fixtureId);
+  }
 
   submitEvidence(dutyId: string, file: File, note: string): Promise<void> {
     return this.league.submitEvidence({ dutyId, file, note });
