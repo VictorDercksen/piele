@@ -17,7 +17,7 @@
     </div>
   </div>
   @if (view.myDuty(); as duty) {
-    <div class="notification-item">
+    <div class="notification-item" [class.spoon-duty]="duty.spoon">
       <app-icon name="duties" />
       <div>
         <h3>{{ duty.title }}</h3>

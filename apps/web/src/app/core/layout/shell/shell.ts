@@ -81,6 +81,7 @@ export class Shell {
     { initialValue: this.router.url },
   );
   readonly currentUrl = computed(() => this.navigated());
+  readonly isHome = computed(() => this.path(this.navigated()) === '/');
   readonly page = computed<PageData>(() => {
     this.navigated();
     let route: ActivatedRouteSnapshot = this.router.routerState.snapshot.root;

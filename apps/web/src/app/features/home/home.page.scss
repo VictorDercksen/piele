@@ -180,7 +180,7 @@
   display: grid;
   place-items: center;
   flex-shrink: 0;
-  background: var(--tint);
+  background: var(--surface-grain), var(--tint);
   color: var(--accent);
 }
 .feed-icon app-icon {
@@ -199,7 +199,7 @@
   gap: 10px;
   align-items: center;
   text-align: left;
-  background: #263f52;
+  background: var(--surface-grain), #293b3b;
   border: 0;
   color: #fff;
   padding: 14px;
@@ -255,7 +255,6 @@
 }
 .duty-feature .primary-button {
   font-size: 13px;
-  border-radius: 0;
   padding: 11px 19px;
 }
 .duty-feature .text-button {
@@ -321,12 +320,12 @@
   grid-template-columns: minmax(0, 1.5fr) minmax(280px, 1fr);
   gap: 30px 34px;
 }
-:host .duty-feature {
+:host .duty-feature:not(.spoon-duty) {
   border-top: 2px solid #ff795e;
   background: linear-gradient(115deg, #213743, #132630);
 }
 .feed-icon.neutral {
-  background: #203d4e;
+  background: #293b3b;
   color: #cedbe3;
 }
 .feed-icon {
@@ -434,7 +433,7 @@
 }
 .unscheduled-round {
   grid-column: 1/-1;
-  background: #263f52;
+  background: var(--surface-grain), #293b3b;
   color: #f0f2eb;
   position: relative;
   padding: 45px;
@@ -527,9 +526,10 @@
 .house-marks,
 .leaderboard li.you {
   border-left: 3px solid var(--member-accent) !important;
-  background: color-mix(in srgb, var(--member-colour) 22%, var(--surface)) !important;
+  background:
+    var(--surface-grain), color-mix(in srgb, var(--member-colour) 14%, var(--surface)) !important;
 }
-.duty-feature .duty-round,
+.duty-feature:not(.spoon-duty) .duty-round,
 .house-marks > strong {
   color: var(--member-accent) !important;
 }
@@ -549,4 +549,34 @@
 .club-feed {
   grid-column: 1/-1;
   grid-row: 3;
+}
+
+// Worn match programme surfaces keep the registers readable over the ground.
+.club-feed {
+  padding: 22px;
+  background: var(--surface-grain), #102022ee;
+  border: 1px solid #bbc7b52e;
+  box-shadow: 0 8px 24px #0002;
+}
+.duty-feature {
+  box-shadow: 0 8px 24px #0003;
+}
+.duty-feature h3 {
+  font-size: 30px;
+  font-weight: 900;
+  line-height: 1.05;
+}
+.duty-slip-label {
+  color: #d5d9c6;
+}
+.duty-feature::after {
+  background: #0d191b;
+}
+@container (max-width: 600px) {
+  .club-feed {
+    padding: 18px;
+  }
+  .duty-feature h3 {
+    font-size: 27px;
+  }
 }

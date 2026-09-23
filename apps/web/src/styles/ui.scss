@@ -37,7 +37,9 @@
   border-bottom: 1px solid var(--ink);
   padding-bottom: 12px;
   margin-bottom: 16px;
-  border-color: #4a5f6c;
+  border-color: #dbdfc880;
+  border-bottom-style: double;
+  border-bottom-width: 3px;
 }
 .section-title h2 {
   line-height: 1.15;
@@ -137,7 +139,7 @@
 }
 .detail-dialog {
   color: var(--ink);
-  background: var(--paper);
+  background: var(--surface-grain), var(--paper);
   border: 1px solid var(--line);
   border-top: 4px solid var(--orange);
   border-radius: 8px;
@@ -199,17 +201,23 @@
   border-radius: 0;
 }
 .primary-button {
-  border-radius: 0;
-  background: #ff795e;
-  color: #12232c;
+  border-radius: 999px;
+  background: var(--rugby-button);
+  color: var(--rugby-ink);
+  border-color: var(--rugby-teal);
+  padding-inline: 24px;
+  box-shadow:
+    inset 0 1px #ffffff30,
+    0 3px 0 #0004;
 }
 .detail-dialog h2 {
   font-weight: 700;
 }
 .league .section-title h2 {
   text-transform: uppercase;
-  font-weight: 700;
-  font-size: 24px;
+  font-weight: 900;
+  font-style: italic;
+  font-size: 25px;
 }
 .tag.complete {
   background: #203e3b;
@@ -235,7 +243,7 @@
 }
 .round-empty {
   padding: 25px 20px;
-  background: var(--surface);
+  background: var(--surface-grain), var(--surface);
   border-top: 2px solid var(--line);
 }
 .round-empty app-icon {
@@ -298,4 +306,320 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+// Spoon duty has its own timber identity across cards, notifications and evidence.
+.league :is(.duty-feature, .register-card, .detail-dialog, .notification-item).spoon-duty {
+  --ink: #fff2d8;
+  --muted: #ddc6a6;
+  --line: #bd93624f;
+  --accent: #ffd18d;
+  --orange: #e9ae66;
+  --surface: #302014;
+  --tint: #4a2e17;
+  position: relative;
+  isolation: isolate;
+  container: spoon / inline-size;
+  border: 1px solid #9e734b;
+  border-top: 3px solid #d6a35e;
+  border-left: 3px solid #d6a35e !important;
+  background:
+    linear-gradient(#1e120bd9, #21150dd9),
+    url('/assets/editorial/spoon-and-beer.png') left center / 300% auto !important;
+  color: var(--ink);
+  box-shadow:
+    inset 0 0 35px #0004,
+    0 8px 24px #0005;
+}
+.spoon-duty > .spoon-art {
+  --spoon-art-height: 240px;
+  position: absolute;
+  inset: 20px 0 auto auto;
+  width: 190px;
+  height: var(--spoon-art-height);
+  pointer-events: none;
+}
+.spoon-duty > .spoon-art::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: calc(var(--spoon-art-height) * 1.5);
+  max-width: 100%;
+  background: url('/assets/editorial/spoon-and-beer.png') right center / auto 100% no-repeat;
+  // Feather the photograph itself, including its top and bottom on tall cards.
+  mask-image:
+    linear-gradient(90deg, transparent, #000 28px, #000 calc(100% - 16px), transparent),
+    linear-gradient(180deg, transparent, #000 18px, #000 calc(100% - 20px), transparent);
+  mask-composite: intersect;
+  opacity: 0.9;
+}
+.spoon-duty > .spoon-content {
+  position: relative;
+  width: calc(100% - 180px);
+  min-width: 0;
+}
+.league .spoon-duty .duty-watermark {
+  display: none;
+}
+.league .spoon-duty .duty-round,
+.league .spoon-duty .duty-slip-label {
+  color: var(--muted) !important;
+}
+.league .spoon-duty .spoon-content h3,
+.league .spoon-duty .spoon-content p {
+  max-width: 100%;
+}
+.league .spoon-duty .tag {
+  color: #ffd9a0;
+  background: #493019;
+}
+.league .spoon-duty .primary-button {
+  background: var(--rugby-button);
+  color: var(--rugby-ink);
+  border: 1px solid var(--rugby-teal);
+}
+.league .spoon-duty .text-button {
+  color: #ffe0ad;
+}
+.league .spoon-duty::after {
+  display: none;
+}
+.league .spoon-duty.detail-dialog {
+  // The dialog retains its native centered positioning and full-width controls.
+  position: fixed;
+}
+.spoon-duty.detail-dialog > .spoon-art {
+  --spoon-art-height: 125px;
+  position: relative;
+  inset: auto;
+  width: 100%;
+  margin-top: 12px;
+}
+.spoon-duty.detail-dialog .file-field,
+.spoon-duty.detail-dialog textarea {
+  background: #241a12ed;
+}
+.league .notification-item.spoon-duty {
+  padding: 18px 14px;
+  margin-top: 12px;
+}
+@container spoon (max-width: 520px) {
+  .spoon-duty > .spoon-art {
+    --spoon-art-height: 150px;
+    position: relative;
+    inset: auto;
+    width: 100%;
+    margin-bottom: 18px;
+  }
+  .spoon-duty > .spoon-content {
+    width: 100%;
+  }
+}
+
+// Embossed rubber grip and a restrained stitched edge for the main actions.
+.primary-button,
+.match-link,
+.save-button {
+  position: relative;
+  border-radius: 999px;
+  box-shadow:
+    inset 0 1px #ffffff38,
+    inset 0 -2px #00000026,
+    0 3px 0 #0004;
+}
+.primary-button::after,
+.match-link::after,
+.save-button::after {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border: 1px dashed #153b4442;
+  border-radius: inherit;
+  pointer-events: none;
+}
+.primary-button:enabled:hover,
+.match-link:enabled:hover,
+.save-button:enabled:hover {
+  filter: brightness(1.07);
+}
+.primary-button:enabled:active,
+.match-link:enabled:active,
+.save-button:enabled:active {
+  box-shadow:
+    inset 0 2px 5px #0004,
+    0 1px 0 #0003;
+}
+.primary-button:disabled,
+.match-link:disabled,
+.save-button:disabled {
+  filter: none;
+  box-shadow: none;
+}
+.league .icon-button,
+.league .notification-button,
+.league .context-pager button,
+.league .toast button,
+.profile-editor .close-profile,
+.league button.text-button,
+.profile-editor button.remove-photo {
+  background: var(--rugby-surface), var(--rugby-white);
+  color: var(--rugby-ink);
+  box-shadow:
+    inset 0 1px #ffffff14,
+    inset 0 -1px #0005;
+  border-radius: 999px;
+}
+.league button.text-button,
+.profile-editor button.remove-photo {
+  padding-inline: 16px;
+}
+.league .icon-button:enabled:hover,
+.league .notification-button:enabled:hover,
+.league .context-pager button:enabled:hover,
+.league .toast button:enabled:hover,
+.profile-editor .close-profile:enabled:hover {
+  filter: brightness(1.18);
+}
+.league .icon-button:enabled:active,
+.league .notification-button:enabled:active,
+.league .context-pager button:enabled:active,
+.league .toast button:enabled:active,
+.profile-editor .close-profile:enabled:active {
+  box-shadow: inset 0 2px 5px #0006;
+}
+button.text-button:enabled:hover,
+button.remove-photo:enabled:hover {
+  filter: brightness(1.07);
+}
+
+// Club honours boards: raised timber surround, recessed face and warm downlight.
+.league .honours-board {
+  --ink: #f5dfad;
+  --muted: #c9b18b;
+  --accent: #f1ce86;
+  --line: #c79c5852;
+  --surface: #25170f;
+  --board-arch: 58px;
+  --board-frame: 13px;
+  position: relative;
+  isolation: isolate;
+  min-width: 0;
+  align-self: start;
+  padding: 58px 30px 30px;
+  border: 1px solid #9b7146;
+  border-radius: 48% 48% 7px 7px / var(--board-arch) var(--board-arch) 7px 7px;
+  background:
+    linear-gradient(110deg, #b47c3d55, #24110933 35%, #d1975255 70%, #170c0755),
+    url('/assets/editorial/spoon-and-beer.png') left center / 350% auto;
+  color: var(--ink);
+  box-shadow:
+    inset 0 2px 2px #f4d29780,
+    inset 3px 0 5px #daa46245,
+    inset -3px -5px 5px #100703b3,
+    0 6px 0 #140b07,
+    0 18px 30px #0006;
+}
+.honours-board::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: var(--board-frame);
+  border: 1px solid #b98e4a85;
+  border-radius: 48% 48% 3px 3px / calc(var(--board-arch) - 8px) calc(var(--board-arch) - 8px) 3px
+    3px;
+  background:
+    radial-gradient(ellipse 48% 250px at 50% 0, #ffe4a339, transparent 90%),
+    linear-gradient(#1e120de8, #170e09eb),
+    url('/assets/editorial/spoon-and-beer.png') left center / 350% auto;
+  box-shadow:
+    inset 0 5px 12px #080301d9,
+    0 1px 1px #eac27d70,
+    0 0 0 3px #1c0e0b80;
+  pointer-events: none;
+}
+.honours-board > .board-light {
+  position: absolute;
+  top: 13px;
+  left: 50%;
+  width: 76px;
+  height: 8px;
+  transform: translateX(-50%);
+  border: 1px solid #c49a59;
+  border-radius: 5px 5px 3px 3px;
+  background: linear-gradient(#523b21, #c5a56b 48%, #3b2918 52%, #8e6b3c);
+  box-shadow:
+    0 3px 2px #ffe7ae,
+    0 10px 19px #ffd68485,
+    0 24px 45px #ffc87538;
+  pointer-events: none;
+}
+.honours-board .honours-heading {
+  text-align: center;
+  padding: 0 0 23px;
+  margin-bottom: 18px;
+  border-bottom: 3px double var(--line);
+}
+.honours-heading > span {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 2.2px;
+  color: var(--muted);
+}
+.league .honours-heading h2 {
+  margin: 12px 0 0;
+  color: var(--ink);
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(22px, 2.4cqw, 30px);
+  font-weight: 600;
+  font-style: normal;
+  text-transform: uppercase;
+  letter-spacing: 1.4px;
+  line-height: 1.3;
+  text-wrap: balance;
+  text-shadow:
+    0 1px #000,
+    0 -1px #f9e2ab26;
+}
+.honours-board .leaderboard li,
+.honours-board .standing-row {
+  text-shadow: 0 1px 2px #000;
+}
+.honours-board .member-name {
+  overflow-wrap: anywhere;
+}
+.honours-board .leaderboard li strong,
+.honours-board .standing-row strong {
+  color: #ffe1a3;
+  font-variant-numeric: tabular-nums;
+}
+.league .honours-board .leaderboard li.you,
+.league .honours-board .house-marks {
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--member-colour) 20%, transparent), transparent),
+    #dfbc7520 !important;
+}
+.league .honours-board .house-marks {
+  margin-top: 14px;
+  margin-bottom: 0;
+  padding: 16px 10px;
+  border-bottom: 0;
+}
+.league .honours-board .house-marks > strong {
+  color: var(--ink) !important;
+}
+.honours-board .round-empty {
+  background: transparent;
+  border-color: var(--line);
+  padding: 20px 0;
+}
+@container (max-width: 600px) {
+  .league .honours-board {
+    --board-arch: 46px;
+    --board-frame: 10px;
+    padding: 50px 20px 22px;
+  }
+  .league .honours-heading h2 {
+    font-size: 22px;
+    letter-spacing: 1px;
+  }
 }

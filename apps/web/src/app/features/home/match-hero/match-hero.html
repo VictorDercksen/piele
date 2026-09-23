@@ -1,46 +1,59 @@
 <section class="match-story" [attr.aria-label]="'Round ' + roundCode() + ' match centre'">
-  <div class="broadcast-cover">
-    <img
-      class="stadium-photo"
-      src="assets/editorial/rugby-under-lights.webp"
-      alt="Illustrative rugby action under stadium floodlights"
-      fetchpriority="high"
-    />
-    <div class="broadcast-top">
-      <span><i></i> THE WEEKEND IS OURS</span><span>PIELE / ROUND {{ roundCode() }}</span>
-    </div>
-    <div class="broadcast-copy">
-      <span class="overline">BOOTS ON. LIGHTS UP.</span>
-      <h2>NO QUIET<br /><em>WEEKENDS.</em></h2>
-      <p>Same mates. New grudges.<br />Welcome back to the rugby.</p>
-      <button type="button" (click)="explore.emit()">
-        Enter the match centre <app-icon name="arrow" />
-      </button>
-    </div>
-    <span class="broadcast-round" aria-hidden="true"
-      >R<span>{{ roundCode() }}</span></span
-    >
-    <span class="photo-credit">ILLUSTRATIVE MATCH ARTWORK</span>
-    <div class="score-bug">
-      <span class="score-bug-label"
-        >{{
-          fixture().score
-            ? 'FULL TIME'
-            : fixture().homeAsset === favourite() || fixture().awayAsset === favourite()
-              ? 'YOUR TEAM'
-              : 'MATCHUP'
-        }}
-        <i></i> {{ fixture().day }}</span
+  <div class="match-heading">
+    <span class="match-label">{{ fixture().score ? 'FULL TIME' : 'FEATURED MATCH' }}</span>
+    <span class="match-date">{{ fixture().day }}</span>
+  </div>
+  <div class="score-bug">
+    <div class="club-banner" [style.--club-colour]="homeBanner()?.colour">
+      @if (homeBanner(); as banner) {
+        <img class="club-pattern" [src]="banner.pattern" alt="" />
+        <img class="club-crest" [src]="banner.crest" alt="" />
+      }
+      <h2>{{ homeBanner()?.name ?? fixture().home }}</h2>
+      <span class="club-side"
+        >HOME{{ fixture().homeAsset === favourite() ? ' / YOUR TEAM' : '' }}</span
       >
-      <div>
-        <img [src]="jersey(fixture().homeAsset)" alt="" /><strong>{{ fixture().home }}</strong
-        ><span class="kickoff"
-          >{{ fixture().score || fixture().time
-          }}<small>{{ fixture().score ? 'FULL TIME' : 'SAST' }}</small></span
-        ><strong>{{ fixture().away }}</strong
-        ><img [src]="jersey(fixture().awayAsset)" alt="" />
-      </div>
-      <span class="score-bug-venue">{{ fixture().venue }}</span>
     </div>
+    <div class="match-time">
+      <span>{{ fixture().score ? 'RESULT' : 'KICKOFF' }}</span>
+      <strong>{{ fixture().score || fixture().time }}</strong>
+      <small>{{
+        fixture().score ? 'FULL TIME' : fixture().kickoffUtc ? 'SAST' : 'TIME TBC'
+      }}</small>
+      <span class="versus" aria-hidden="true">VS</span>
+    </div>
+    <div class="club-banner" [style.--club-colour]="awayBanner()?.colour">
+      @if (awayBanner(); as banner) {
+        <img class="club-pattern" [src]="banner.pattern" alt="" />
+        <img class="club-crest" [src]="banner.crest" alt="" />
+      }
+      <h2>{{ awayBanner()?.name ?? fixture().away }}</h2>
+      <span class="club-side"
+        >AWAY{{ fixture().awayAsset === favourite() ? ' / YOUR TEAM' : '' }}</span
+      >
+    </div>
+  </div>
+  <div class="match-footer">
+    <div class="match-venue">
+      <svg
+        class="stadium-icon"
+        viewBox="0 0 48 48"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.5"
+        aria-hidden="true"
+      >
+        <path
+          d="M5 22 12 16h24l7 6v16H5V22Z M5 22l8 6h22l8-6 M13 28v10m22-10v10 M16 38v-6h16v6 M9 18V7m30 11V7 M6 7h6m24 0h6 M18 16V9m12 7V9 M15 9h6m6 0h6"
+        />
+        <path d="M17 21h14m-7-3v6" />
+      </svg>
+      <div>
+        <span>THE STADIUM</span><strong>{{ fixture().venue }}</strong>
+      </div>
+    </div>
+    <button type="button" class="match-link" (click)="explore.emit()">
+      Enter the match centre <app-icon name="arrow" />
+    </button>
   </div>
 </section>

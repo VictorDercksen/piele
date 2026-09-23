@@ -1,9 +1,9 @@
-import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
+import { CLUB_BANNERS } from '../../../core/competition/club-banners';
 import { Fixture } from '../../../core/competition/competition.models';
-import { jersey } from '../../../core/competition/teams';
 import { Icon } from '../../../shared/icon/icon';
 
-/** Floodlights match centre: poster artwork and the score panel for the featured fixture. */
+/** Featured fixture with official club banners and stadium details. */
 @Component({
   selector: 'app-match-hero',
   templateUrl: './match-hero.html',
@@ -16,5 +16,6 @@ export class MatchHero {
   readonly roundCode = input.required<string>();
   readonly favourite = input('');
   readonly explore = output<void>();
-  readonly jersey = jersey;
+  readonly homeBanner = computed(() => CLUB_BANNERS[this.fixture().homeAsset]);
+  readonly awayBanner = computed(() => CLUB_BANNERS[this.fixture().awayAsset]);
 }

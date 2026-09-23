@@ -3,17 +3,17 @@
   display: block;
   container-type: inline-size;
   min-height: 100vh;
-  background: #101a22;
+  background: var(--night);
 }
 .league {
-  --paper: #0c1821;
-  --surface: #132630;
-  --ink: #edf1f1;
-  --muted: #a7bbc8;
-  --line: #314853;
-  --accent: #ff9076;
-  --orange: #ff795e;
-  --tint: #372a2a;
+  --paper: #0b1518;
+  --surface: #18282a;
+  --ink: #f2efdf;
+  --muted: #b8c4bd;
+  --line: #40514e;
+  --accent: #ffa17c;
+  --orange: #f58b65;
+  --tint: #382e26;
   display: grid;
   grid-template:
     'rail top' auto
@@ -21,7 +21,7 @@
     / 175px minmax(0, 1fr);
   min-height: 100vh;
   position: relative;
-  background: var(--paper);
+  background: var(--surface-grain), var(--paper);
   color: var(--ink);
   font-family: 'Titillium Web', sans-serif;
   font-size: 15px;
@@ -40,8 +40,9 @@
   height: 76px;
   padding: 0 25px;
   border-bottom: 1px solid var(--line);
-  background: #0b151c;
-  color: #e7ebed;
+  background: var(--surface-grain), linear-gradient(110deg, #1e3035, #0b1418 65%);
+  box-shadow: 0 6px 28px #0005;
+  color: var(--chalk);
 }
 .club-brand {
   display: flex;
@@ -82,6 +83,9 @@
   padding: 9px 12px;
   color: #aebac3;
   font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
   text-decoration: none;
 }
 .desktop-nav a:hover {
@@ -90,8 +94,8 @@
 }
 .desktop-nav a.selected {
   border-bottom: 2px solid var(--orange);
-  background: none;
-  color: #fff;
+  background: linear-gradient(0deg, #f58b6518, transparent);
+  color: var(--chalk);
 }
 .desktop-nav .nav-dot {
   width: 5px;
@@ -176,7 +180,8 @@
   min-width: 44px;
   min-height: 44px;
   border: 0;
-  background: none;
+  background: var(--rugby-surface), var(--rugby-white);
+  color: var(--rugby-ink);
 }
 .notification-button i {
   position: absolute;
@@ -202,7 +207,8 @@
   height: 100dvh;
   min-width: 0;
   border-right: 1px solid var(--line);
-  background: var(--surface);
+  background: var(--surface-grain), linear-gradient(160deg, #23353b, #152326 55%, #252c25);
+  box-shadow: inset -1px 0 #f2efdf0a;
 }
 .rail-brand {
   display: flex;
@@ -247,6 +253,13 @@ app-season-timeline {
   min-width: 0;
   --gutter: 25px;
   padding: 0 var(--gutter);
+  background-image:
+    linear-gradient(180deg, #0b1518a8, #0b1518e6 850px, var(--paper) 1350px), var(--ground-photo);
+  background-position: center top;
+  background-size:
+    auto,
+    auto 1350px;
+  background-repeat: no-repeat;
 }
 // Round header and fixtures stay pinned under the top bar. The bar bleeds into the
 // content padding so its dividers run edge to edge.
@@ -255,7 +268,8 @@ app-season-timeline {
   top: 76px;
   z-index: 3;
   margin: 0 calc(-1 * var(--gutter)) 22px;
-  background: var(--paper);
+  background: var(--surface-grain), linear-gradient(100deg, #162529, #101b1d);
+  box-shadow: 0 8px 24px #0004;
 }
 .round-context {
   display: flex;
@@ -293,8 +307,8 @@ app-season-timeline {
   width: 37px;
   height: 44px;
   border: 1px solid var(--line);
-  background: transparent;
-  color: var(--ink);
+  background: var(--rugby-surface), var(--rugby-white);
+  color: var(--rugby-ink);
   font-size: 18px;
 }
 .context-pager button:disabled {
@@ -306,14 +320,18 @@ app-season-timeline {
   align-items: center;
   justify-content: space-between;
   gap: 20px;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
+  padding: 7px 0 13px;
+  border-bottom: 1px solid #f2efdf42;
 }
 .page-heading h1 {
   margin: 6px 0 0;
-  font-size: 27px;
-  font-weight: 700;
-  line-height: 1.16;
-  letter-spacing: 1px;
+  font-size: clamp(30px, 3.1cqw, 44px);
+  font-weight: 900;
+  font-style: italic;
+  line-height: 1.08;
+  letter-spacing: -0.6px;
+  text-shadow: 0 3px 18px #0008;
   text-transform: uppercase;
 }
 .scope-note {
@@ -343,7 +361,8 @@ app-season-timeline {
   min-height: 44px;
   margin-left: auto;
   border: 0;
-  background: none;
+  background: var(--rugby-surface), var(--rugby-white);
+  color: var(--rugby-ink);
 }
 .club-footer {
   display: flex;
@@ -424,7 +443,9 @@ app-season-timeline {
     gap: 2px;
   }
   .desktop-nav a {
-    padding: 9px 8px;
+    padding: 9px 6px;
+    font-size: 12px;
+    letter-spacing: 0.3px;
   }
   .round-bar {
     margin-bottom: 18px;
@@ -441,7 +462,7 @@ app-season-timeline {
   .top-bar {
     height: 64px;
     padding: 0 22px;
-    background: #152630;
+    background: var(--surface-grain), #142429;
     color: #fff;
   }
   .club-brand img {
@@ -471,7 +492,8 @@ app-season-timeline {
     justify-content: space-around;
     padding: 8px 7px max(8px, env(safe-area-inset-bottom));
     border-top: 1px solid var(--line);
-    background: var(--surface);
+    background: var(--surface-grain), #132226;
+    box-shadow: 0 -8px 30px #0006;
   }
   .mobile-nav a {
     position: relative;

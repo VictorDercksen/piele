@@ -1,9 +1,10 @@
 .poll-card {
-  background: var(--surface);
+  background: var(--surface-grain), var(--surface);
   border: 0;
   padding: 30px;
   margin-bottom: 20px;
-  border-top: 3px solid var(--orange);
+  border-top: 3px solid #d4d9c4;
+  box-shadow: 0 8px 24px #0003;
 }
 .poll-card h2 {
   line-height: 1.12;

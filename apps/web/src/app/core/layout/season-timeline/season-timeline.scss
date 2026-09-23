@@ -24,7 +24,8 @@
   strong {
     display: block;
     font-size: 29px;
-    font-weight: 700;
+    font-weight: 900;
+    font-style: italic;
     letter-spacing: 1px;
     margin: 5px 0;
   }
@@ -83,7 +84,7 @@ button {
     bottom: 40px;
   }
   &.selected {
-    background: var(--paper);
+    background: var(--surface-grain), linear-gradient(90deg, #f58b651a, #0b1518b3);
     box-shadow: inset 3px 0 var(--orange);
   }
   &.selected .round-node {
@@ -109,7 +110,7 @@ button {
   height: 29px;
   border: 1px solid var(--line);
   background: var(--surface);
-  border-radius: 50%;
+  border-radius: 3px;
   font-size: 11px;
   font-weight: 600;
 }
@@ -138,7 +139,7 @@ button {
 .timeline-foot {
   flex-shrink: 0;
   padding: 14px 9px 0;
-  border-top: 1px solid var(--line);
+  border-top: 1px dashed var(--line);
   margin: 0;
   font-size: 12px;
   font-weight: 600;

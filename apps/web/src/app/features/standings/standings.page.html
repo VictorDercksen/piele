@@ -18,31 +18,41 @@
 <p class="page-description">
   {{ view.round().title }} only. Superbru points and symbolic house marks are separate measures.
 </p>
-@if (view.standings().length) {
-  <div class="full-table">
-    <div class="table-label">
-      <span>{{ measure() === 'points' ? 'RANK / MEMBER' : 'MEMBER' }}</span
-      ><span>{{ measure() === 'points' ? 'ROUND POINTS' : 'ROUND MARKS' }}</span>
-    </div>
-    @for (member of view.standings(); track member.memberId) {
-      <div class="standing-row" [class.you]="member.you">
-        @if (measure() === 'points') {
-          <span class="rank">{{ member.rank | number: '2.0-0' }}</span>
-        }
-        <img [src]="member.photo ?? 'assets/images/teams/' + member.teamId + '.png'" alt="" /><span
-          >{{ member.name }}
-          @if (member.you) {
-            <small>YOU</small>
-          }</span
-        ><strong>{{
-          measure() === 'points' ? (member.points | number: '1.1-1') : member.marks
-        }}</strong>
+<section class="honours-board" aria-label="Round standings">
+  <div class="board-light" aria-hidden="true"></div>
+  <div class="honours-heading">
+    <span>PIELE / ROUND {{ view.round().code }}</span>
+    <h2>{{ measure() === 'points' ? 'The pecking order.' : 'House marks.' }}</h2>
+  </div>
+  @if (view.standings().length) {
+    <div class="full-table">
+      <div class="table-label">
+        <span>{{ measure() === 'points' ? 'RANK / MEMBER' : 'MEMBER' }}</span
+        ><span>{{ measure() === 'points' ? 'ROUND POINTS' : 'ROUND MARKS' }}</span>
       </div>
-    }
-  </div>
-} @else {
-  <div class="round-empty">
-    <h2>No results for {{ view.round().title }} yet.</h2>
-    <p>League standings will appear after results are imported and confirmed.</p>
-  </div>
-}
+      @for (member of view.standings(); track member.memberId) {
+        <div class="standing-row" [class.you]="member.you">
+          @if (measure() === 'points') {
+            <span class="rank">{{ member.rank | number: '2.0-0' }}</span>
+          }
+          <img
+            [src]="member.photo ?? 'assets/images/teams/' + member.teamId + '.png'"
+            alt=""
+          /><span
+            >{{ member.name }}
+            @if (member.you) {
+              <small>YOU</small>
+            }</span
+          ><strong>{{
+            measure() === 'points' ? (member.points | number: '1.1-1') : member.marks
+          }}</strong>
+        </div>
+      }
+    </div>
+  } @else {
+    <div class="round-empty">
+      <h2>No results for {{ view.round().title }} yet.</h2>
+      <p>League standings will appear after results are imported and confirmed.</p>
+    </div>
+  }
+</section>

@@ -88,7 +88,9 @@ test('sample league duties, evidence, votes and round scoping', async ({ page })
     'Sample league records',
   );
   await expect(page.locator('.duty-feature')).toContainText('Victor Dercksen');
+  await expect(page.locator('.duty-feature')).toHaveClass(/spoon-duty/);
   await page.getByRole('button', { name: 'Upload evidence', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveClass(/spoon-duty/);
   const upload = page.locator('app-home-page input[type=file]');
   await upload.setInputFiles({
     name: 'note.txt',
@@ -111,6 +113,8 @@ test('sample league duties, evidence, votes and round scoping', async ({ page })
   await expect(page.locator('.register-card')).toContainText('Submitted for review');
   await page.getByRole('link', { name: 'League duties', exact: true }).click();
   await expect(page.locator('.register-card')).toHaveCount(2);
+  await expect(page.locator('.register-card.spoon-duty')).toHaveCount(1);
+  await expect(page.locator('.register-card:not(.spoon-duty)')).toContainText('pick confirmation');
 
   await nav.getByRole('link', { name: 'Decisions', exact: true }).click();
   await expect(page.locator('.poll-card')).toContainText('7 of 12 members participated');
@@ -147,7 +151,8 @@ test('desktop rail and top bar stay in view while the content scrolls', async ({
   expect((await page.locator('.round-bar').boundingBox())!.y).toBe(76);
   await expect(page.locator('.top-bar .header-profile')).toContainText('Victor Dercksen');
   const box = await rail.boundingBox();
-  expect(box!.y).toBe(0);
+  // Fractional document heights can move a bottom-constrained sticky rail by a subpixel.
+  expect(Math.abs(box!.y)).toBeLessThan(1);
   expect(Math.round(box!.height)).toBe(800);
   const track = page.locator('.round-track');
   expect(await track.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true);

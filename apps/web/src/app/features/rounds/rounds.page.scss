@@ -11,7 +11,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  background: #203c4e;
+  background: var(--surface-grain), #2b3d3b;
   color: #fff;
   padding: 19px 22px;
   margin-bottom: 25px;
@@ -40,9 +40,10 @@
 }
 .fixture-card {
   border: 1px solid var(--line);
-  background: var(--surface);
+  background: var(--surface-grain), var(--surface);
   padding: 20px;
-  border-top: 3px solid var(--orange);
+  border-top: 3px solid #d4d9c4;
+  box-shadow: 0 8px 24px #0003;
 }
 .fixture-card-top {
   display: flex;
@@ -151,7 +152,7 @@
 }
 .fixture-card.supported-fixture {
   border-top: 3px solid var(--member-accent);
-  background: color-mix(in srgb, var(--member-colour) 17%, var(--surface));
+  background: var(--surface-grain), color-mix(in srgb, var(--member-colour) 14%, var(--surface));
 }
 .fixture-card .fixture-pair img {
   width: 100px;
@@ -188,4 +189,13 @@
   .fixture-pair > span strong {
     font-size: 20px;
   }
+}
+
+.fixture-pair > span strong {
+  color: var(--chalk);
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 16px #f4f0db20;
+}
+.fixture-card > p {
+  border-top-style: dashed;
 }

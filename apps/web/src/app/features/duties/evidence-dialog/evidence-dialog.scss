@@ -37,11 +37,11 @@ textarea {
 }
 .file-field input::file-selector-button {
   border: 1px solid var(--line);
-  background: var(--surface);
-  color: var(--ink);
+  background: var(--rugby-surface), var(--rugby-white);
+  color: var(--rugby-ink);
   padding: 10px;
   min-height: 44px;
-  border-radius: 3px;
+  border-radius: 999px;
   font-family: inherit;
   margin-right: 10px;
 }

@@ -1,10 +1,18 @@
-<dialog #dialog class="detail-dialog" aria-labelledby="evidence-title">
+<dialog
+  #dialog
+  class="detail-dialog"
+  [class.spoon-duty]="duty()?.spoon"
+  aria-labelledby="evidence-title"
+>
   <div class="dialog-top">
     <span class="eyebrow">PIELE / ROUND {{ view.round().code }}</span
     ><button type="button" class="icon-button" aria-label="Close dialog" (click)="close()">
       <app-icon name="close" />
     </button>
   </div>
+  @if (duty()?.spoon) {
+    <div class="spoon-art" aria-hidden="true"></div>
+  }
   <h2 id="evidence-title">The proof is in the video.</h2>
   <p>{{ duty()?.title }} · {{ duty()?.memberName }}</p>
   @if (view.sample) {

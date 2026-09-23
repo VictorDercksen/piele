@@ -29,7 +29,14 @@ test('first visit requires a favourite team and saves a personal identity', asyn
   await expect(page.locator('.supporter-strip')).toHaveCount(0);
   await expect(page.locator('.score-bug')).toContainText('Connacht');
   await expect(page.locator('.score-bug')).toContainText('Stormers');
-  await expect(page.locator('.score-bug img').first()).toHaveAttribute('src', /jerseys/);
+  await expect(page.locator('.score-bug .club-crest').first()).toHaveAttribute(
+    'src',
+    /club-banners\/connacht-rugby-crest/,
+  );
+  await expect(page.locator('.page-heading .eyebrow')).toHaveCount(0);
+  await expect(page.locator('.scope-note')).toHaveCount(0);
+  await expect(page.locator('.broadcast-cover')).toHaveCount(0);
+  await expect(page.locator('.match-venue')).toContainText('Dexcom Stadium');
   await page.reload();
   await expect(page.locator('.header-profile')).toContainText('Victor Dercksen');
   await expect(page.getByRole('heading', { name: 'Who do you back?' })).toHaveCount(0);
@@ -100,7 +107,7 @@ test('cancel preserves profile and failed storage reports a visible error', asyn
   await expect(page.getByRole('alert')).toContainText('could not save');
 });
 
-test('Floodlights layouts and jersey assets work from desktop to 320px', async ({
+test('Floodlights layouts and club assets work from desktop to 320px', async ({
   page,
 }, testInfo) => {
   const errors: string[] = [];
@@ -112,11 +119,26 @@ test('Floodlights layouts and jersey assets work from desktop to 320px', async (
   const standingsBounds = await page.locator('.standings-panel').boundingBox();
   expect(heroBounds!.y).toBeLessThan(standingsBounds!.y);
   await page.screenshot({ path: testInfo.outputPath('floodlights-desktop.png'), fullPage: true });
-  for (const width of [1440, 1280, 768, 390, 320]) {
+  for (const width of [1440, 1280, 1051, 900, 801, 768, 390, 320]) {
     await page.setViewportSize({ width, height: 950 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
+    await expect(page.locator('.match-venue')).toBeVisible();
+    await expect(page.locator('.club-crest')).toHaveCount(2);
+    await expect
+      .poll(() =>
+        page
+          .locator('.score-bug img')
+          .evaluateAll((images) =>
+            images.every(
+              (image) =>
+                (image as HTMLImageElement).complete &&
+                (image as HTMLImageElement).naturalWidth > 0,
+            ),
+          ),
+      )
+      .toBe(true);
     const nav = page.getByRole('navigation', {
       name: width <= 768 ? 'Mobile league navigation' : 'League navigation',
       exact: true,
@@ -144,6 +166,9 @@ test('Floodlights layouts and jersey assets work from desktop to 320px', async (
       });
     }
   }
+  await page.getByRole('button', { name: 'Enter the match centre' }).click();
+  await expect(page).toHaveURL(/\/rounds\?round=2/);
+  await expect(page.locator('.page-heading .eyebrow')).toContainText('ROUND 02 / ROUNDS');
   await page.getByRole('link', { name: 'My profile', exact: true }).click();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.setViewportSize({ width: 390, height: 950 });

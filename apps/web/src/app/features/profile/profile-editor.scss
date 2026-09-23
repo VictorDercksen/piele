@@ -1,7 +1,7 @@
 :host {
   display: block;
-  color: #edf2f5;
-  background: #101a22;
+  color: var(--chalk);
+  background: var(--surface-grain), #101d20;
   min-height: 100vh;
   font-family: 'Titillium Web', sans-serif;
 }
@@ -42,7 +42,7 @@ button:disabled {
   height: 100%;
   object-fit: cover;
   object-position: 65%;
-  opacity: 0.32;
+  opacity: 0.5;
 }
 .profile-poster::after {
   content: '';
@@ -162,9 +162,9 @@ h2 {
   margin: 10px 0;
 }
 .close-profile {
-  background: none;
-  border: 1px solid #425563;
-  color: #fff;
+  background: var(--rugby-surface), var(--rugby-white);
+  border: 1px solid var(--rugby-teal);
+  color: var(--rugby-ink);
   width: 44px;
   height: 44px;
   font-size: 26px;
@@ -178,7 +178,7 @@ h2 {
 #display-name {
   width: 100%;
   min-height: 46px;
-  background: #192a37;
+  background: #17292b;
   border: 1px solid #425460;
   border-radius: 0;
   color: #fff;
@@ -218,7 +218,7 @@ legend span {
 .team-option {
   position: relative;
   min-height: 107px;
-  background: #192934;
+  background: var(--surface-grain), #192a2d;
   border: 1px solid #344754;
   display: flex;
   flex-direction: column;
@@ -325,10 +325,10 @@ legend span {
   justify-content: space-between;
   width: 100%;
   min-height: 49px;
-  background: #ff8067;
-  color: #101923;
+  background: var(--rugby-button);
+  color: var(--rugby-ink);
   border: 0;
-  padding: 14px 19px;
+  padding: 14px 24px;
   font-weight: 700;
 }
 .save-button span {
@@ -407,4 +407,13 @@ legend span {
 }
 .photo-label app-loader {
   margin-right: 8px;
+}
+
+.profile-form h2 {
+  font-weight: 900;
+  font-style: italic;
+  text-transform: uppercase;
+}
+.profile-poster {
+  border-right: 1px solid #d4d9c447;
 }

@@ -17,7 +17,7 @@
   border-left: 2px solid #ff795e !important;
 }
 .full-table {
-  border-top: 2px solid var(--ink);
+  border-top: 1px solid var(--line);
 }
 .full-table .table-label {
   padding: 17px;
@@ -80,8 +80,18 @@
 }
 .standing-row.you {
   border-left: 3px solid var(--member-accent) !important;
-  background: color-mix(in srgb, var(--member-colour) 22%, var(--surface)) !important;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--member-colour) 20%, transparent), transparent),
+    #dfbc7520 !important;
 }
 .standing-row.you small {
-  color: var(--member-accent) !important;
+  color: var(--accent);
+}
+.standing-row > span:not(.rank) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.standing-row > img,
+.standing-row > strong {
+  flex-shrink: 0;
 }

@@ -4,10 +4,11 @@
   gap: 20px;
 }
 .register-card {
-  background: var(--surface);
+  background: var(--surface-grain), var(--surface);
   border: 0;
   padding: 30px;
-  border-top: 3px solid var(--orange);
+  border-top: 3px solid #d4d9c4;
+  box-shadow: 0 8px 24px #0003;
 }
 .register-card h2 {
   line-height: 1.12;
@@ -15,7 +16,7 @@
   font-weight: 700;
   letter-spacing: -0.7px;
 }
-.register-card > p {
+.register-card .spoon-content > p {
   color: var(--muted);
   font-size: 15px;
   line-height: 1.6;
@@ -54,5 +55,6 @@
 }
 .personal-duty {
   border-left: 3px solid var(--member-accent) !important;
-  background: color-mix(in srgb, var(--member-colour) 22%, var(--surface)) !important;
+  background:
+    var(--surface-grain), color-mix(in srgb, var(--member-colour) 14%, var(--surface)) !important;
 }

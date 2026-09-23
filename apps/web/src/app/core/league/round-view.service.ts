@@ -67,6 +67,7 @@ export class RoundViewService {
         return {
           ...d,
           mine,
+          spoon: /\bspoon\b/i.test(d.title),
           memberName: mine
             ? (this.profile.profile()?.displayName ?? 'You')
             : (this.league.members().find((m) => m.id === d.memberId)?.name ?? 'Unknown member'),
