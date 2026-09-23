@@ -1,11 +1,10 @@
 """Static competition catalogues: URC clubs and the stadiums in the published schedule.
 
-The club list mirrors apps/web/src/app/core/competition/teams.ts. Odds aliases are the
-words bookmakers use for the same club, without sponsor prefixes. Stadium coordinates
+The club list mirrors apps/web/src/app/core/competition/teams.ts. Stadium coordinates
 are approximate pitch locations used only for weather forecasts.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
@@ -14,29 +13,23 @@ class Club:
     source_id: int
     name: str
     short_name: str
-    odds_aliases: tuple[str, ...] = field(default_factory=tuple)
-
-    def matches(self, label: str) -> bool:
-        """True when a bookmaker's team label refers to this club."""
-        text = _normalise(label)
-        return any(alias in text for alias in (self.short_name.lower(), *self.odds_aliases))
 
 
 CLUBS: tuple[Club, ...] = (
-    Club("benetton-rugby", 2019, "Benetton Rugby", "Benetton", ("treviso",)),
+    Club("benetton-rugby", 2019, "Benetton Rugby", "Benetton"),
     Club("vodacom-bulls", 5586, "Vodacom Bulls", "Bulls"),
-    Club("cardiff-rugby", 4471, "Cardiff Rugby", "Cardiff", ("blues",)),
+    Club("cardiff-rugby", 4471, "Cardiff Rugby", "Cardiff"),
     Club("connacht-rugby", 5483, "Connacht Rugby", "Connacht"),
     Club("dragons-rfc", 3533, "Dragons RFC", "Dragons"),
     Club("edinburgh-rugby", 1641, "Edinburgh Rugby", "Edinburgh"),
     Club("glasgow-warriors", 3098, "Glasgow Warriors", "Glasgow"),
     Club("leinster-rugby", 5356, "Leinster Rugby", "Leinster"),
-    Club("10bet-lions", 5092, "Lions", "Lions", ("golden lions",)),
+    Club("10bet-lions", 5092, "Lions", "Lions"),
     Club("munster-rugby", 4377, "Munster Rugby", "Munster"),
     Club("ospreys", 5057, "Ospreys", "Ospreys"),
-    Club("scarlets", 3514, "Scarlets", "Scarlets", ("llanelli",)),
+    Club("scarlets", 3514, "Scarlets", "Scarlets"),
     Club("hollywoodbets-sharks", 1527, "Hollywoodbets Sharks", "Sharks"),
-    Club("dhl-stormers", 3994, "DHL Stormers", "Stormers", ("western province",)),
+    Club("dhl-stormers", 3994, "DHL Stormers", "Stormers"),
     Club("ulster-rugby", 2129, "Ulster Rugby", "Ulster"),
     Club("zebre-parma", 4474, "Zebre Parma", "Zebre"),
 )
@@ -46,10 +39,6 @@ _BY_ID = {club.id: club for club in CLUBS}
 
 def club(club_id: str | None) -> Club | None:
     return _BY_ID.get(club_id or "")
-
-
-def _normalise(label: str) -> str:
-    return " ".join(label.lower().replace("-", " ").split())
 
 
 @dataclass(frozen=True)

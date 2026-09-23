@@ -1,7 +1,6 @@
 /** Contract of `GET /v1/matches/{fixtureId}` in the Python API. */
 
-export type SectionStatus =
-  'ok' | 'not_published' | 'too_early' | 'past' | 'not_covered' | 'unavailable';
+export type SectionStatus = 'ok' | 'not_published' | 'too_early' | 'past' | 'unavailable';
 
 export interface Section {
   readonly status: SectionStatus;
@@ -24,21 +23,6 @@ export interface Teamsheet {
 export interface TeamsheetsSection extends Section {
   readonly home?: Teamsheet;
   readonly away?: Teamsheet;
-}
-
-export interface HandicapSide {
-  readonly line: number | null;
-  readonly price: number | null;
-}
-
-export interface OddsSection extends Section {
-  readonly bookmaker?: string;
-  readonly updatedAt?: string | null;
-  readonly home?: number | null;
-  readonly draw?: number | null;
-  readonly away?: number | null;
-  readonly handicap?: { readonly home: HandicapSide; readonly away: HandicapSide } | null;
-  readonly bookmakerCount?: number;
 }
 
 export interface WeatherSection extends Section {
@@ -70,6 +54,5 @@ export interface MatchCentre {
   readonly away: MatchCentreClub | null;
   readonly generatedAt: string;
   readonly teamsheets: TeamsheetsSection;
-  readonly odds: OddsSection;
   readonly weather: WeatherSection;
 }

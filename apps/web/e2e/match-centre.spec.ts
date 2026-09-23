@@ -1,6 +1,6 @@
 import { expect, test, Page, Route } from '@playwright/test';
 
-// Round 1: Connacht v Stormers (292585) and Benetton v Dragons (292584); round 8 opener 292640.
+// Round 1: Connacht v Stormers (292585) and Benetton v Dragons (292584).
 const STORMERS = '292585';
 
 function player(number: number, side: string, captain = false) {
@@ -34,18 +34,6 @@ function centre(fixtureId: string, overrides: Record<string, unknown> = {}) {
       fetchedAt: '2026-09-23T11:30:00Z',
       home: sheet('Connacht'),
       away: sheet('Stormers'),
-    },
-    odds: {
-      status: 'ok',
-      source: 'API-Sports Rugby',
-      fetchedAt: '2026-09-23T11:00:00Z',
-      bookmaker: 'Fresh Book',
-      updatedAt: '2026-09-23T10:45:00Z',
-      home: 2.6,
-      draw: 21,
-      away: 1.5,
-      handicap: { home: { line: 6.5, price: 1.9 }, away: { line: -6.5, price: 1.9 } },
-      bookmakerCount: 3,
     },
     weather: {
       status: 'ok',
@@ -88,9 +76,7 @@ test.beforeEach(async ({ page }) => {
   );
 });
 
-test('hero opens the featured fixture with teamsheets, prices and forecast', async ({
-  page,
-}, testInfo) => {
+test('hero opens the featured fixture with teamsheets and forecast', async ({ page }, testInfo) => {
   await mockApi(page);
   await page.goto('/?round=1');
   await page.getByRole('button', { name: 'Enter the match centre' }).click();
@@ -109,14 +95,6 @@ test('hero opens the featured fixture with teamsheets, prices and forecast', asy
   await expect(sheets.locator('.players .name i')).toHaveCount(2);
   await expect(sheets).toContainText('Stormers Player 8');
   await expect(sheets).toContainText('checked 23 Sep 13:30 SAST');
-
-  const odds = page.locator('.panel.odds');
-  await expect(odds.locator('.prices .favourite')).toContainText('Stormers');
-  await expect(odds.locator('.prices .favourite')).toContainText('1.50');
-  await expect(odds).toContainText('Connacht +6.5 (1.90) · Stormers -6.5 (1.90)');
-  await expect(odds).toContainText('Fresh Book decimal prices · updated 23 Sep 12:45 SAST');
-  await expect(odds).toContainText('3 bookmakers listed');
-  await expect(odds).toContainText('For information only');
 
   const weather = page.locator('.panel.weather');
   await expect(weather).toContainText('13°');
@@ -171,7 +149,6 @@ test('sections explain missing data and the page survives an API outage', async 
     await route.fulfill({
       json: centre(id, {
         teamsheets: { status: 'not_published', source: 'URC match centre', fetchedAt: null },
-        odds: { status: 'too_early', source: 'API-Sports Rugby', fetchedAt: null },
         weather: { status: 'unavailable', source: 'Open-Meteo', fetchedAt: null },
       }),
     });
@@ -179,7 +156,6 @@ test('sections explain missing data and the page survives an API outage', async 
   await page.goto(`/match/${STORMERS}?round=1`);
   await expect(page.locator('.panel.teamsheets')).toContainText('usually published about 48 hours');
   await expect(page.locator('.panel.teamsheets .tag')).toHaveText('not published');
-  await expect(page.locator('.panel.odds')).toContainText('open about a week before kickoff');
   await expect(page.locator('.panel.weather')).toContainText('forecast could not be loaded');
 
   await page.unroute('**/v1/matches/*');

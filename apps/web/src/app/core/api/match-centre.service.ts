@@ -3,7 +3,7 @@ import { Injectable } from '@angular/core';
 import { environment } from '../../../environments/environment';
 import { MatchCentre } from './match-centre.models';
 
-/** Loads teamsheets, odds and weather for one fixture from the Python API. */
+/** Loads teamsheets and the kickoff forecast for one fixture from the Python API. */
 @Injectable({ providedIn: 'root' })
 export class MatchCentreService {
   readonly configured = !!environment.apiUrl;

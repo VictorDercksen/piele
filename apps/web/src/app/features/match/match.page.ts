@@ -17,7 +17,7 @@ import { Loader } from '../../shared/loader/loader';
 /** South African Standard Time has no daylight saving, so a fixed offset is exact. */
 export const SAST = '+0200';
 
-/** Match details for one fixture: kickoff, deadline, teamsheets, odds and weather. */
+/** Match details for one fixture: kickoff, deadline, teamsheets and weather. */
 @Component({
   selector: 'app-match-page',
   templateUrl: './match.page.html',
@@ -67,7 +67,7 @@ export class MatchPage {
   }
 
   /** Copy for a section that has no data to show. */
-  message(kind: 'teamsheets' | 'odds' | 'weather', status: SectionStatus): string {
+  message(kind: 'teamsheets' | 'weather', status: SectionStatus): string {
     return MESSAGES[kind][status] ?? MESSAGES[kind]['unavailable']!;
   }
 
@@ -112,12 +112,6 @@ const MESSAGES: Record<string, Partial<Record<SectionStatus, string>>> = {
   teamsheets: {
     not_published: 'Teamsheets are usually published about 48 hours before kickoff.',
     unavailable: 'The URC match centre could not be reached. Try again later.',
-  },
-  odds: {
-    too_early: 'Bookmaker prices open about a week before kickoff.',
-    past: 'Prices closed at kickoff.',
-    not_covered: 'No bookmaker prices were found for this fixture.',
-    unavailable: 'Prices could not be loaded.',
   },
   weather: {
     too_early: 'The kickoff forecast opens seven days before the match.',

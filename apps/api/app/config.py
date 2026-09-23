@@ -17,9 +17,7 @@ class Settings(BaseSettings):
     supabase_url: str | None = None
     supabase_jwt_audience: str = "authenticated"
 
-    # Match centre providers. Keys stay server-side; the browser only sees derived values.
-    rugby_api_key: SecretStr | None = None
-    rugby_api_url: str = "https://v1.rugby.api-sports.io"
+    # Match centre providers.
     urc_graphql_url: str = "https://www.unitedrugby.com/graphql"
     weather_api_url: str = "https://api.open-meteo.com/v1/forecast"
     external_timeout_seconds: float = 6.0

@@ -49,13 +49,13 @@
     <div class="round-empty">
       <app-icon name="rounds" />
       <h3>Match centre offline.</h3>
-      <p>Teamsheets, prices and the forecast appear once the league API is connected.</p>
+      <p>Teamsheets and the forecast appear once the league API is connected.</p>
     </div>
   } @else if (failed()) {
     <div class="round-empty" role="alert">
       <app-icon name="rounds" />
       <h3>The league API could not be reached.</h3>
-      <p>Teamsheets, prices and the forecast will appear when it is back.</p>
+      <p>Teamsheets and the forecast will appear when it is back.</p>
       <button type="button" class="text-button" (click)="reload()">Try again →</button>
     </div>
   } @else if (loading() && !data()) {
@@ -124,53 +124,6 @@
         </p>
       </section>
 
-      <section class="panel odds" aria-labelledby="odds-title">
-        <div class="section-title">
-          <h2 id="odds-title">The prices.</h2>
-          <span class="tag">{{ centre.odds.status.replace('_', ' ') }}</span>
-        </div>
-        @if (centre.odds.status === 'ok') {
-          <div class="prices">
-            <div [class.favourite]="(centre.odds.home ?? 99) < (centre.odds.away ?? 99)">
-              <span>{{ fixture.home }}</span
-              ><strong>{{ centre.odds.home | number: '1.2-2' }}</strong>
-            </div>
-            <div>
-              <span>Draw</span
-              ><strong>{{
-                centre.odds.draw != null ? (centre.odds.draw | number: '1.2-2') : '—'
-              }}</strong>
-            </div>
-            <div [class.favourite]="(centre.odds.away ?? 99) < (centre.odds.home ?? 99)">
-              <span>{{ fixture.away }}</span
-              ><strong>{{ centre.odds.away | number: '1.2-2' }}</strong>
-            </div>
-          </div>
-          @if (centre.odds.handicap; as handicap) {
-            <p class="handicap">
-              <span>HANDICAP</span>
-              {{ fixture.home }} {{ handicap.home.line != null && handicap.home.line > 0 ? '+' : ''
-              }}{{ handicap.home.line ?? '—' }} ({{ handicap.home.price | number: '1.2-2' }}) ·
-              {{ fixture.away }} {{ handicap.away.line != null && handicap.away.line > 0 ? '+' : ''
-              }}{{ handicap.away.line ?? '—' }} ({{ handicap.away.price | number: '1.2-2' }})
-            </p>
-          }
-          <p class="panel-source">
-            {{ centre.odds.bookmaker }} decimal prices
-            @if (centre.odds.updatedAt; as at) {
-              · updated {{ at | date: 'd MMM HH:mm' : sast }} SAST
-            }
-            @if (centre.odds.bookmakerCount; as count) {
-              · {{ count }} bookmaker{{ count === 1 ? '' : 's' }} listed
-            }
-          </p>
-        } @else {
-          <p class="panel-empty">{{ message('odds', centre.odds.status) }}</p>
-          <p class="panel-source">{{ centre.odds.source }}</p>
-        }
-        <p class="panel-note">For information only. Piele takes no bets and pays none.</p>
-      </section>
-
       <section class="panel weather" aria-labelledby="weather-title">
         <div class="section-title">
           <h2 id="weather-title">Kickoff forecast.</h2>
@@ -218,7 +171,7 @@
   }
   <p class="context-note">
     Published competition fixture. House pick deadlines require a separate captain confirmation.
-    Teamsheets, prices and forecasts come from public sources and can change.
+    Teamsheets and forecasts come from public sources and can change.
   </p>
 } @else {
   <div class="round-empty">

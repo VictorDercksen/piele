@@ -9,7 +9,7 @@ from app.matchcentre.service import MatchCentreService
 
 router = APIRouter(tags=["matches"])
 
-SectionStatus = Literal["ok", "not_published", "too_early", "past", "not_covered", "unavailable"]
+SectionStatus = Literal["ok", "not_published", "too_early", "past", "unavailable"]
 
 
 class Section(BaseModel):
@@ -37,7 +37,6 @@ class MatchCentre(BaseModel):
     away: ClubView | None
     generatedAt: datetime
     teamsheets: Section
-    odds: Section
     weather: Section
 
 

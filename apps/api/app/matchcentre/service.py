@@ -1,4 +1,4 @@
-"""Assembles the match centre for one fixture from cached provider snapshots."""
+"""Assembles the match centre (teamsheets and kickoff forecast) from cached snapshots."""
 
 import logging
 from concurrent.futures import ThreadPoolExecutor
@@ -10,7 +10,7 @@ import httpx
 from app.config import Settings
 from app.matchcentre.cache import Fetched, Snapshot, SnapshotCache, cached, now_utc
 from app.matchcentre.catalogue import Club, Stadium, club, stadium
-from app.matchcentre.providers import odds, teamsheets, weather
+from app.matchcentre.providers import teamsheets, weather
 from app.matchcentre.schedule import Fixture
 
 logger = logging.getLogger(__name__)
@@ -18,7 +18,6 @@ logger = logging.getLogger(__name__)
 HttpFactory = Callable[[], httpx.Client]
 
 TEAMSHEETS_SOURCE = "URC match centre"
-ODDS_SOURCE = "API-Sports Rugby"
 WEATHER_SOURCE = "Open-Meteo"
 
 
@@ -32,10 +31,9 @@ class MatchCentreService:
         moment = now or now_utc()
         home = club(fixture.home_id)
         away = club(fixture.away_id)
-        with ThreadPoolExecutor(max_workers=3) as pool:
+        with ThreadPoolExecutor(max_workers=2) as pool:
             sections = {
                 "teamsheets": pool.submit(self._teamsheets, fixture, moment),
-                "odds": pool.submit(self._odds, fixture, home, away, moment),
                 "weather": pool.submit(self._weather, fixture, moment),
             }
             results = {name: future.result() for name, future in sections.items()}
@@ -67,69 +65,6 @@ class MatchCentreService:
             now=now,
         )
         return _from_snapshot(snapshot, TEAMSHEETS_SOURCE)
-
-    def _odds(
-        self, fixture: Fixture, home: Club | None, away: Club | None, now: datetime
-    ) -> dict[str, Any]:
-        key = self._settings.rugby_api_key
-        if key is None or not key.get_secret_value():
-            return _section("unavailable", ODDS_SOURCE, reason="no API key configured")
-        if fixture.kickoff_utc is None or home is None or away is None:
-            return _section("too_early", ODDS_SOURCE)
-        timing = odds.timing_status(fixture.kickoff_utc, now)
-        if timing:
-            return _section(timing, ODDS_SOURCE)
-        api_key = key.get_secret_value()
-        url = self._settings.rugby_api_url.rstrip("/")
-        league = cached(
-            self._cache,
-            "odds:league",
-            lambda: self._with_client(lambda c: odds.fetch_league(c, url, api_key)),
-            now=now,
-        )
-        if league.status != "ok":
-            return _from_snapshot(league, ODDS_SOURCE)
-        league_id = league.payload["leagueId"]
-        season = league.payload.get("season")
-        day = fixture.kickoff_utc.date().isoformat()
-        kickoff = fixture.kickoff_utc
-        listing = cached(
-            self._cache,
-            f"odds:{league_id}:{season}:{day}",
-            lambda: self._with_client(
-                lambda c: odds.fetch_day(c, url, api_key, league_id, season, day)
-            ),
-            now=now,
-        )
-        if listing.status != "ok":
-            return _from_snapshot(listing, ODDS_SOURCE)
-        games = listing.payload.get("games") or []
-        game = odds.select_game(games, home, away, kickoff)
-        if game is None:
-            return _section(
-                "not_covered",
-                ODDS_SOURCE,
-                fetched_at=listing.fetched_at,
-                reason="no game matched this fixture",
-                league=league.payload.get("name"),
-                season=season,
-                games=[{"home": g.get("home"), "away": g.get("away"), "date": g.get("date")} for g in games][:20],
-            )
-        bookmakers = next(
-            (o.get("bookmakers") or [] for o in listing.payload.get("odds") or [] if o.get("gameId") == game.get("id")),
-            [],
-        )
-        summary = odds.summarise(bookmakers)
-        if summary is None:
-            return _section(
-                "not_covered",
-                ODDS_SOURCE,
-                fetched_at=listing.fetched_at,
-                reason="no prices for this game yet" if not bookmakers else "no winner market recognised",
-                gameId=game.get("id"),
-                bets=odds.bet_names(bookmakers),
-            )
-        return _section("ok", ODDS_SOURCE, fetched_at=listing.fetched_at, **summary)
 
     def _weather(self, fixture: Fixture, now: datetime) -> dict[str, Any]:
         place: Stadium | None = stadium(fixture.venue)
@@ -166,8 +101,6 @@ def _section(status: str, source: str, fetched_at: datetime | None = None, **pay
 
 def _from_snapshot(snapshot: Snapshot, source: str) -> dict[str, Any]:
     payload = dict(snapshot.payload)
-    for bulky in ("events", "sports", "games", "odds"):
-        payload.pop(bulky, None)
     return _section(snapshot.status, source, fetched_at=snapshot.fetched_at, **payload)
 
 

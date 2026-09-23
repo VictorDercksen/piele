@@ -142,9 +142,6 @@
   border-top: 3px solid #d4d9c4;
   box-shadow: 0 8px 24px #0003;
 }
-.panel.teamsheets {
-  grid-row: span 2;
-}
 .panel .section-title {
   margin-bottom: 16px;
 }
@@ -221,44 +218,6 @@
   letter-spacing: 1.5px;
   color: var(--muted);
 }
-.prices {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-}
-.prices > div {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  padding: 14px 8px;
-  border: 1px solid var(--line);
-  text-align: center;
-}
-.prices > div span {
-  font-size: 10px;
-  letter-spacing: 1px;
-  color: var(--muted);
-  overflow-wrap: anywhere;
-}
-.prices strong {
-  font-size: 24px;
-  font-variant-numeric: tabular-nums;
-}
-.prices .favourite {
-  border-color: var(--orange, #ff795e);
-}
-.handicap {
-  margin: 14px 0 0;
-  font-size: 13px;
-}
-.handicap span {
-  display: block;
-  font-size: 9px;
-  letter-spacing: 1.5px;
-  color: var(--muted);
-  margin-bottom: 4px;
-}
 .forecast {
   display: flex;
   align-items: baseline;
@@ -297,9 +256,6 @@
   .match-grid {
     grid-template-columns: 1fr;
   }
-  .panel.teamsheets {
-    grid-row: auto;
-  }
 }
 @container (max-width: 600px) {
   .match-header {
@@ -337,9 +293,6 @@
   .sheets {
     grid-template-columns: 1fr;
   }
-  .prices strong {
-    font-size: 20px;
-  }
 }
 @container (max-width: 350px) {
   .match-header {
@@ -347,8 +300,5 @@
   }
   .club h2 {
     font-size: 15px;
-  }
-  .prices {
-    grid-template-columns: 1fr;
   }
 }
