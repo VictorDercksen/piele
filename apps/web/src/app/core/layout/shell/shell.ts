@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import {
   ActivatedRouteSnapshot,
@@ -21,7 +21,7 @@ import { ProfileStore } from '../../profile/profile.store';
 import { Icon } from '../../../shared/icon/icon';
 import { Loader } from '../../../shared/loader/loader';
 import { FixtureRibbon } from '../fixture-ribbon/fixture-ribbon';
-import { NotificationsDialog } from '../notifications-dialog/notifications-dialog';
+import { NotificationsFlag } from '../notifications-flag/notifications-flag';
 import { SeasonTimeline } from '../season-timeline/season-timeline';
 import { PageData } from './page-data';
 
@@ -38,7 +38,7 @@ import { PageData } from './page-data';
     Icon,
     Loader,
     SeasonTimeline,
-    NotificationsDialog,
+    NotificationsFlag,
     FixtureRibbon,
   ],
 })
@@ -49,7 +49,6 @@ export class Shell {
   private readonly profileStore = inject(ProfileStore);
   readonly view = inject(RoundViewService);
   readonly toast = inject(ToastService);
-  readonly notifications = viewChild.required(NotificationsDialog);
 
   readonly profile = this.profileStore.profile;
   readonly favouriteTeam = this.profileStore.team;

@@ -43,14 +43,7 @@
       @if (view.sample) {
         <span class="demo-label">SAMPLE LEAGUE</span>
       }
-      <button
-        class="notification-button"
-        type="button"
-        aria-label="Open notifications"
-        (click)="notifications().open()"
-      >
-        <app-icon name="bell" /><i></i>
-      </button>
+      <app-notifications-flag />
       <a
         class="header-profile"
         routerLink="/profile"
@@ -163,5 +156,4 @@
       </a>
     }
   </nav>
-  <app-notifications-dialog />
 </div>

@@ -173,25 +173,6 @@
   color: var(--muted);
   white-space: nowrap;
 }
-.notification-button {
-  position: relative;
-  display: grid;
-  place-items: center;
-  min-width: 44px;
-  min-height: 44px;
-  border: 0;
-  background: var(--rugby-surface), var(--rugby-white);
-  color: var(--rugby-ink);
-}
-.notification-button i {
-  position: absolute;
-  top: 10px;
-  right: 11px;
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: var(--orange);
-}
 .mobile-nav {
   display: none;
 }
