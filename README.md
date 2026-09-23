@@ -17,6 +17,7 @@ The frontend uses Angular 22.1.7 with CLI 22.1.8. Use a compatible Node 22.22.3+
 
 - `apps/web`: Angular app. `src/app/core` holds services, layout and data sources, `src/app/features` holds one folder per page, `src/app/shared` holds reusable components. Read its `AGENTS.md` and `CLAUDE.md` before changes.
 - `apps/api`: FastAPI app with `GET /v1/health`, `GET /v1/matches/{fixtureId}` (teamsheets and kickoff forecast for one fixture, cached in PostgreSQL), Supabase pooler configuration.
+- `docs`: operating instructions, starting with the production runbook.
 - `supabase`: SQL migrations applied to the Supabase project by its GitHub integration on pushes to the connected branch. Application tables live in the private `piele` schema.
 - `fixtures`: Official public URC schedule snapshot and provenance.
 
@@ -35,7 +36,7 @@ Two Vercel projects in team `victor-4043s-projects`, both linked to this reposit
 | `piele-web` | `apps/web` | https://piele-web-git-staging-victor-4043s-projects.vercel.app (Vercel login required) |
 | `piele-api` | `apps/api` | https://piele-api-git-staging-victor-4043s-projects.vercel.app/v1/health |
 
-Staging is Vercel's Preview environment for the `staging` branch. It uses the Supabase project `piele-staging` (London). Both projects currently build only the `staging` branch (Ignored Build Step). Remove that setting when production is set up on `master`.
+Staging is Vercel's Preview environment for the `staging` branch and uses the Supabase project `piele-staging` (London). Production is the `master` branch with its own Supabase project. Both `vercel.json` files limit builds to these two branches. Setup, releases and rollback are in [docs/production.md](docs/production.md).
 
 The web build runs `scripts/write-environment.mjs`, which creates the browser config from the `PIELE_API_URL`, `PIELE_SUPABASE_URL`, `PIELE_SUPABASE_PUBLISHABLE_KEY` and `PIELE_SAMPLE_LEAGUE_DATA` variables. API variables are described in [apps/api/README.md](apps/api/README.md). Local staging secrets live in `apps/api/.env.staging`, which Git ignores.
 
@@ -44,6 +45,10 @@ The More page reports whether the frontend can reach the API and whether the API
 ## Verify
 
 - `npm run build`, `npm test` and `npm run test:e2e` for the frontend. If another app uses port 4200, set `PIELE_WEB_PORT` (for example `PIELE_WEB_PORT=4300`) before `test:e2e`.
-- `npm run test:api` for the backend.
+- `npm --prefix apps/web run test:e2e:production` after a build checks the production bundle under the `vercel.json` headers and rewrites.
+- `npm run test:api` for the backend. Database tests run when `PIELE_TEST_DATABASE_URL` is set; see [apps/api/README.md](apps/api/README.md).
+- `npm run smoke -- --web <origin> --api <origin>` checks a deployed environment.
+
+CI (`.github/workflows/ci.yml`) runs all of these except the smoke check on pull requests into `staging` and `master`, and applies `supabase/migrations` to PostgreSQL 17 before the API tests.
 
 From `apps/web`, `node scripts/import-urc.mjs` validates and converts the saved official fixture response. See `fixtures/README.md` for the source query.

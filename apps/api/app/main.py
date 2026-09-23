@@ -24,7 +24,9 @@ def create_app(
     snapshot_cache: SnapshotCache | None = None,
 ) -> FastAPI:
     settings = settings or get_settings()
-    app = FastAPI(title="Piele API", version="0.1.0")
+    # Interactive docs and the schema stay off in production; generate client types locally.
+    docs_off = {"docs_url": None, "redoc_url": None, "openapi_url": None}
+    app = FastAPI(title="Piele API", version="0.1.0", **(docs_off if settings.is_production else {}))
     app.state.settings = settings
     app.state.match_centre = MatchCentreService(
         settings,
@@ -53,6 +55,8 @@ def create_app(
         response = await call_next(request)
         response.headers[REQUEST_ID_HEADER] = request_id
         response.headers["Cache-Control"] = "no-store"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Referrer-Policy"] = "no-referrer"
         return response
 
     return app

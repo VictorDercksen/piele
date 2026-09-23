@@ -15,6 +15,19 @@ if (missing.length) {
   process.exit(1);
 }
 
+// Production never shows sample records and only talks to an HTTPS API.
+if (process.env.VERCEL_ENV === 'production') {
+  const problems = [];
+  if (process.env.PIELE_SAMPLE_LEAGUE_DATA === 'true')
+    problems.push('PIELE_SAMPLE_LEAGUE_DATA must not be true');
+  if (!process.env.PIELE_API_URL.startsWith('https://'))
+    problems.push('PIELE_API_URL must use https');
+  if (problems.length) {
+    console.error(`Invalid production environment: ${problems.join('; ')}`);
+    process.exit(1);
+  }
+}
+
 const environment = {
   apiUrl: process.env.PIELE_API_URL.replace(/\/+$/, ''),
   supabaseUrl: process.env.PIELE_SUPABASE_URL,

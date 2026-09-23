@@ -1,8 +1,10 @@
 import pytest
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
+from sqlalchemy.engine import make_url
 
 from app.config import Settings
-from app.db import normalise_database_url
+from app.db import API_ROOT, normalise_database_url
 from app.main import create_app
 
 ALLOWED = "http://localhost:4200"
@@ -28,6 +30,7 @@ def test_health_without_database(client: TestClient) -> None:
         "snapshotCache": "memory",
     }
     assert response.headers["cache-control"] == "no-store"
+    assert response.headers["x-content-type-options"] == "nosniff"
 
 
 def test_health_database_error_hides_details() -> None:
@@ -69,3 +72,43 @@ def test_database_url_normalisation() -> None:
         "postgresql+psycopg://u:p@h:6543/postgres?sslmode=require"
     )
     assert normalise_database_url("postgresql://u:p@h/db?sslmode=verify-full").endswith("sslmode=verify-full")
+
+
+def test_relative_root_certificate_resolves_to_api_directory() -> None:
+    url = normalise_database_url(
+        "postgresql://u:p@h/db?sslmode=verify-full&sslrootcert=certs/supabase-prod-ca-2021.crt"
+    )
+    cert = API_ROOT / "certs" / "supabase-prod-ca-2021.crt"
+    assert make_url(url).query["sslrootcert"] == str(cert)
+    assert cert.is_file()
+
+
+PRODUCTION = {
+    "environment": "production",
+    "ALLOWED_ORIGINS": "https://piele.example",
+    "database_url": "postgresql://u:p@h:6543/postgres",
+}
+
+
+def test_production_settings_accept_complete_configuration() -> None:
+    assert Settings(_env_file=None, **PRODUCTION).is_production
+
+
+@pytest.mark.parametrize(
+    ("override", "problem"),
+    [
+        ({"ALLOWED_ORIGINS": ""}, "ALLOWED_ORIGINS is empty"),
+        ({"ALLOWED_ORIGINS": "http://piele.example"}, "must use https"),
+        ({"database_url": None}, "DATABASE_URL is not set"),
+    ],
+)
+def test_production_settings_reject_partial_configuration(override, problem) -> None:
+    with pytest.raises(ValidationError, match=problem):
+        Settings(_env_file=None, **{**PRODUCTION, **override})
+
+
+def test_production_hides_interactive_docs() -> None:
+    assert make_client().get("/docs").status_code == 200
+    production = TestClient(create_app(Settings(_env_file=None, **PRODUCTION)))
+    for path in ("/docs", "/redoc", "/openapi.json"):
+        assert production.get(path).status_code == 404

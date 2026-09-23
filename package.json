@@ -10,6 +10,7 @@
     "setup": "npm --prefix apps/web ci",
     "api": "uv --directory apps/api run uvicorn app.main:app --reload --host 127.0.0.1 --port 8000",
     "test:api": "uv --directory apps/api run pytest",
-    "setup:api": "uv --directory apps/api sync"
+    "setup:api": "uv --directory apps/api sync",
+    "smoke": "node scripts/smoke-deployment.mjs"
   }
 }

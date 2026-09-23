@@ -2,7 +2,7 @@
 
 from functools import lru_cache
 
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -26,6 +26,26 @@ class Settings(BaseSettings):
     def allowed_origins(self) -> list[str]:
         origins = [o.strip().rstrip("/") for o in self.allowed_origins_raw.split(",")]
         return [o for o in origins if o and o != "*"]
+
+    @property
+    def is_production(self) -> bool:
+        return self.environment == "production"
+
+    @model_validator(mode="after")
+    def _production_requirements(self) -> "Settings":
+        """Fail at startup rather than serve production with a partial configuration."""
+        if not self.is_production:
+            return self
+        problems = []
+        if not self.allowed_origins:
+            problems.append("ALLOWED_ORIGINS is empty")
+        elif any(not o.startswith("https://") for o in self.allowed_origins):
+            problems.append("ALLOWED_ORIGINS must use https")
+        if self.database_url is None or not self.database_url.get_secret_value():
+            problems.append("DATABASE_URL is not set")
+        if problems:
+            raise ValueError("Invalid production configuration: " + "; ".join(problems))
+        return self
 
 
 @lru_cache

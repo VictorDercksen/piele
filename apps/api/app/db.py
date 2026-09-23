@@ -1,20 +1,31 @@
 """Runtime database engine for the Supabase transaction pooler."""
 
+from pathlib import Path
+
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.engine import make_url
 
 from app.config import Settings
 
+# apps/api. Relative sslrootcert paths resolve here, so certs/ works locally and on Vercel.
+API_ROOT = Path(__file__).resolve().parents[1]
+
 _engines: dict[str, Engine] = {}
 
 
 def normalise_database_url(raw: str) -> str:
-    """Use the psycopg 3 driver and require TLS unless sslmode is already given."""
+    """Use the psycopg 3 driver and require TLS unless sslmode is already given.
+
+    For certificate verification, add `sslmode=verify-full&sslrootcert=certs/supabase-prod-ca-2021.crt`.
+    """
     url = make_url(raw)
     if url.drivername in ("postgresql", "postgres"):
         url = url.set(drivername="postgresql+psycopg")
     if "sslmode" not in url.query:
         url = url.update_query_dict({"sslmode": "require"})
+    root_cert = url.query.get("sslrootcert")
+    if isinstance(root_cert, str) and root_cert != "system" and not Path(root_cert).is_absolute():
+        url = url.update_query_dict({"sslrootcert": str(API_ROOT / root_cert)})
     return url.render_as_string(hide_password=False)
 
 

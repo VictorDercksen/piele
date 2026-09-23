@@ -56,5 +56,6 @@ From apps/web:
 - npm run build produces the production build.
 - npm test -- --watch=false runs Vitest component and logic tests.
 - npm run test:e2e runs Playwright against the local server. Set PIELE_WEB_PORT when port 4200 is taken by another app, because the config reuses an existing server on that port.
+- npm run test:e2e:production serves the production build with the vercel.json headers and rewrites (scripts/serve-dist.mjs) and checks deep links, 404s and the Content-Security-Policy. Run npm run build first. The CSP forbids inline scripts, so critical CSS inlining stays off; keep new code free of inline event handlers and external origins other than HTTPS API calls.
 
 Prefer the Angular MCP for workspace discovery, best practices, builds, tests and server lifecycle when available. Consult current Angular documentation for uncertain APIs. The build must pass with no new unused-import warnings. Test changed logic and relevant browser journeys, including round scoping, profile persistence, image validation and mobile overflow. Do not claim a test passed without running it. Avoid unrelated cleanup or speculative abstractions.

@@ -24,6 +24,14 @@ Open http://localhost:8000/v1/health or http://localhost:8000/docs.
 uv run pytest
 ```
 
+`tests/test_database.py` needs PostgreSQL with the migrations applied and connects as the runtime role. It is skipped unless `PIELE_TEST_DATABASE_URL` is set:
+
+```bash
+for f in ../../supabase/migrations/*.sql; do psql -v ON_ERROR_STOP=1 -f "$f"; done
+psql -c "alter role piele_api with login password 'local'"
+PIELE_TEST_DATABASE_URL="postgresql://piele_api:local@127.0.0.1:5432/postgres?sslmode=disable" uv run pytest
+```
+
 ## Connect Supabase
 
 1. Create a project at https://supabase.com/dashboard. Pick the region closest to where the Vercel function will run, and store the database password in a password manager.
@@ -31,7 +39,9 @@ uv run pytest
 3. Copy the project URL (`https://<ref>.supabase.co`) into `SUPABASE_URL`.
 4. Put these in `apps/api/.env` (uncomment the database line), run the app and check that `/v1/health` reports `"database": "ok"`.
 
-Later, the runtime URL should use a restricted database role instead of `postgres`, per the plan.
+The runtime URL should use the restricted `piele_api` role, not `postgres`. The migration creates the role without a password. Enable it once per project in the SQL editor with `alter role piele_api with login password '<generated>';`, then connect through the pooler as `piele_api.<project-ref>`.
+
+`sslmode=require` encrypts without checking the server certificate. To verify it, add the query parameters `sslmode=verify-full&sslrootcert=certs/supabase-prod-ca-2021.crt`. The relative path resolves against this directory.
 
 ## Migrations
 
@@ -44,11 +54,11 @@ To apply migrations by hand, install the Supabase CLI and run `supabase link` th
 1. In Vercel, choose **Add New > Project** and import this repository.
 2. Set **Root Directory** to `apps/api`. Vercel detects FastAPI from `pyproject.toml`, installs dependencies from `pyproject.toml` and `uv.lock`, and loads `app` from `app/main.py`. No `vercel.json` or `requirements.txt` is needed.
 3. Under **Environment Variables**, set:
-   - `ENVIRONMENT` (`production` or `preview`)
+   - `ENVIRONMENT` (`production` or `staging`). `production` refuses to start without HTTPS `ALLOWED_ORIGINS` and `DATABASE_URL`, and hides `/docs`.
    - `ALLOWED_ORIGINS`: the exact Angular origin(s), e.g. `https://piele-web.vercel.app`
    - `DATABASE_URL`: the transaction pooler string (port 6543)
    - `SUPABASE_URL`
    - `SUPABASE_JWT_AUDIENCE` only if it differs from `authenticated`
 
    Give Preview a staging Supabase project, not production credentials.
-4. Deploy, then open `https://<deployment>/v1/health`.
+4. Deploy, then open `https://<deployment>/v1/health`. For production, follow [docs/production.md](../../docs/production.md).
