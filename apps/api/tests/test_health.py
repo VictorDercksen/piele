@@ -21,7 +21,12 @@ def client() -> TestClient:
 def test_health_without_database(client: TestClient) -> None:
     response = client.get("/v1/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "environment": "test", "database": "unconfigured"}
+    assert response.json() == {
+        "status": "ok",
+        "environment": "test",
+        "database": "unconfigured",
+        "snapshotCache": "memory",
+    }
     assert response.headers["cache-control"] == "no-store"
 
 

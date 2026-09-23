@@ -115,7 +115,11 @@ class Upstream:
         if '"StatsData"' in query:
             return {"data": {"__type": {"fields": [field("round", "Int", "SCALAR"), field("homeTeam", "TeamSide")]}}}
         if '"TeamSide"' in query:
-            return {"data": {"__type": {"fields": [field("team", "Team"), field("teamsheet", "TeamsheetEntry")]}}}
+            return {"data": {"__type": {"fields": [field("team", "Team"), field("players", "PlayerEntry")]}}}
+        if '"PlayerEntry"' in query:
+            return {"data": {"__type": {"fields": [field("number", "Int", "SCALAR"), field("position", "Position")]}}}
+        if '"Position"' in query:
+            return {"data": {"__type": {"fields": [field("name", "String", "SCALAR")]}}}
         return {"data": {"__type": None}}
 
     def handler(self, request: httpx.Request) -> httpx.Response:
@@ -270,7 +274,8 @@ def test_provider_failures_become_unavailable_without_leaking(monkeypatch) -> No
     assert response.status_code == 200
     body = response.json()
     assert {body[k]["status"] for k in ("teamsheets", "odds", "weather")} == {"unavailable"}
-    assert "503" not in response.text and "down" not in response.text
+    assert body["weather"]["reason"] == "HTTP 503"
+    assert "down" not in response.text
 
 
 def test_rejected_teamsheet_query_and_unpublished_sheets(monkeypatch) -> None:
@@ -281,7 +286,9 @@ def test_rejected_teamsheet_query_and_unpublished_sheets(monkeypatch) -> None:
     assert section["feedErrors"] == ["Cannot query field players"]
     assert section["feedFields"] == {
         "stats_data": ["round: Int", "homeTeam: TeamSide"],
-        "homeTeam": ["team: Team", "teamsheet: TeamsheetEntry"],
+        "homeTeam": ["team: Team", "players: PlayerEntry"],
+        "players": ["number: Int", "position: Position"],
+        "players.position": ["name: String"],
     }
 
     empty = Upstream.published()

@@ -155,12 +155,23 @@ def discover_fields(client: httpx.Client, url: str) -> dict[str, Any]:
         stats_fields = _type_fields(client, url, stats_type)
         team_type = _field_type({"fields": stats_fields}, "homeTeam")
         team_fields = _type_fields(client, url, team_type)
+        player_type = _field_type({"fields": team_fields}, "players")
+        player_fields = _type_fields(client, url, player_type)
+        nested = {}
+        for field in player_fields[:12]:
+            kind = _kind(field.get("type"))
+            if kind == "OBJECT":
+                nested[field["name"]] = [
+                    _describe(f) for f in _type_fields(client, url, _named(field.get("type")))
+                ][:30]
     except Exception:  # noqa: BLE001 - diagnostics only
         return {}
     return {
         "feedFields": {
             "stats_data": [_describe(f) for f in stats_fields][:60],
             "homeTeam": [_describe(f) for f in team_fields][:60],
+            "players": [_describe(f) for f in player_fields][:60],
+            **{f"players.{name}": fields for name, fields in nested.items()},
         }
     }
 
@@ -193,6 +204,17 @@ def _named(type_ref: dict[str, Any] | None) -> str | None:
             return str(type_ref["name"])
         type_ref = type_ref.get("ofType")
     return None
+
+
+def _kind(type_ref: dict[str, Any] | None) -> str | None:
+    """The innermost kind (OBJECT, SCALAR, ENUM) of a possibly wrapped type."""
+    kind = None
+    while isinstance(type_ref, dict):
+        kind = type_ref.get("kind") or kind
+        if type_ref.get("name"):
+            return str(type_ref.get("kind") or kind)
+        type_ref = type_ref.get("ofType")
+    return kind
 
 
 def _describe(field: dict[str, Any]) -> str:

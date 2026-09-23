@@ -107,6 +107,13 @@ class Fetched:
     ttl: timedelta
 
 
+def _reason(exc: Exception) -> str:
+    """A short public-safe cause: the upstream HTTP status when there is one."""
+    response = getattr(exc, "response", None)
+    status = getattr(response, "status_code", None)
+    return f"HTTP {status}" if status else type(exc).__name__
+
+
 def now_utc() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -138,7 +145,7 @@ def cached(
         logger.warning("Fetch failed for %s: %s", key, type(exc).__name__)
         if existing:
             return existing
-        fetched = Fetched("unavailable", {"reason": type(exc).__name__}, timedelta(minutes=5))
+        fetched = Fetched("unavailable", {"reason": _reason(exc)}, timedelta(minutes=5))
     snapshot = Snapshot(key, fetched.status, fetched.payload, moment, moment + fetched.ttl)
     try:
         cache.put(snapshot)
