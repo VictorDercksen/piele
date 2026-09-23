@@ -1,8 +1,12 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { Router } from '@angular/router';
 import { jersey } from '../../competition/teams';
 import { RoundViewService } from '../../league/round-view.service';
 
-/** The selected round's fixtures. Choosing one features it in the home match centre. */
+/**
+ * The selected round's fixtures. Choosing one features it in the home match centre,
+ * or opens it when the match centre page is already showing.
+ */
 @Component({
   selector: 'app-fixture-ribbon',
   template: `<div
@@ -15,7 +19,7 @@ import { RoundViewService } from '../../league/round-view.service';
         type="button"
         [class.active]="view.featured()?.id === match.id"
         [attr.aria-pressed]="view.featured()?.id === match.id"
-        (click)="view.feature(match.id)"
+        (click)="choose(match.id)"
       >
         <span
           >{{ match.day }} <strong>{{ match.score || match.time }}</strong></span
@@ -30,6 +34,15 @@ import { RoundViewService } from '../../league/round-view.service';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class FixtureRibbon {
+  private readonly router = inject(Router);
   readonly view = inject(RoundViewService);
   readonly jersey = jersey;
+
+  choose(fixtureId: string): void {
+    if (this.router.url.split(/[?#]/)[0].startsWith('/match/')) {
+      void this.router.navigate(['/match', fixtureId], { queryParamsHandling: 'preserve' });
+      return;
+    }
+    this.view.feature(fixtureId);
+  }
 }

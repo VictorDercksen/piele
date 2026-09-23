@@ -31,10 +31,10 @@ export const routes: Routes = [
         loadComponent: () => import('./features/home/home.page').then((m) => m.HomePage),
       },
       {
-        path: 'rounds',
-        title: 'Rounds · Piele',
-        data: page({ eyebrow: 'ROUNDS', title: 'The weekend line-up.' }),
-        loadComponent: () => import('./features/rounds/rounds.page').then((m) => m.RoundsPage),
+        path: 'match/:fixtureId',
+        title: 'Match centre · Piele',
+        data: page({ eyebrow: 'MATCH CENTRE', title: 'The match centre.' }),
+        loadComponent: () => import('./features/match/match.page').then((m) => m.MatchPage),
       },
       {
         path: 'standings',

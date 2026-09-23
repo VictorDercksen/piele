@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { URC_SCHEDULE } from './urc-fixtures';
 import { club } from './teams';
-import { CompetitionRound } from './competition.models';
+import { CompetitionRound, Fixture } from './competition.models';
 
 const ZONE = 'Africa/Johannesburg';
 const dateFormat = new Intl.DateTimeFormat('en-GB', {
@@ -85,5 +85,14 @@ export class CompetitionService {
 
   round(id: number): CompetitionRound | undefined {
     return this.rounds[id - 1];
+  }
+
+  /** The fixture with this ID and the round it belongs to. */
+  locate(fixtureId: string): { round: CompetitionRound; fixture: Fixture } | undefined {
+    for (const round of this.rounds) {
+      const fixture = round.fixtures.find((f) => f.id === fixtureId);
+      if (fixture) return { round, fixture };
+    }
+    return undefined;
   }
 }

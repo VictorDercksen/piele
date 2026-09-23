@@ -4,7 +4,7 @@
       [fixture]="fixture"
       [favourite]="favouriteTeam()?.id ?? ''"
       [roundCode]="view.round().code"
-      (explore)="go('/rounds')"
+      (explore)="go('/match/' + fixture.id)"
     />
   } @else {
     <section class="unscheduled-round">

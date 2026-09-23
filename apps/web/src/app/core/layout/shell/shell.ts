@@ -64,7 +64,6 @@ export class Shell {
   }).format(new Date(this.competition.retrievedAt));
   readonly nav = [
     { path: '/', label: 'Home', icon: 'home' },
-    { path: '/rounds', label: 'Rounds', icon: 'rounds' },
     { path: '/standings', label: 'Standings', icon: 'standings' },
     { path: '/duties', label: 'Duties', icon: 'duties' },
     { path: '/decisions', label: 'Decisions', icon: 'decisions' },

@@ -143,11 +143,11 @@ test('Floodlights layouts and club assets work from desktop to 320px', async ({
       name: width <= 768 ? 'Mobile league navigation' : 'League navigation',
       exact: true,
     });
-    await nav.getByRole('link', { name: 'Rounds', exact: true }).click();
-    await expect(page.locator('.fixture-card')).toHaveCount(8);
+    await expect(nav.getByRole('link', { name: 'Rounds', exact: true })).toHaveCount(0);
+    await expect(page.locator('.fixture-ribbon button')).toHaveCount(8);
     expect(
       await page
-        .locator('.fixture-card img')
+        .locator('.fixture-ribbon img')
         .evaluateAll((images) =>
           images.every(
             (i) => (i as HTMLImageElement).complete && (i as HTMLImageElement).naturalWidth > 0,
@@ -167,8 +167,9 @@ test('Floodlights layouts and club assets work from desktop to 320px', async ({
     }
   }
   await page.getByRole('button', { name: 'Enter the match centre' }).click();
-  await expect(page).toHaveURL(/\/rounds\?round=2/);
-  await expect(page.locator('.page-heading .eyebrow')).toContainText('ROUND 02 / ROUNDS');
+  await expect(page).toHaveURL(/\/match\/\d+\?round=2/);
+  await expect(page.locator('.page-heading .eyebrow')).toContainText('ROUND 02 / MATCH CENTRE');
+  await expect(page.locator('.match-header')).toContainText('Stormers');
   await page.getByRole('link', { name: 'My profile', exact: true }).click();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.setViewportSize({ width: 390, height: 950 });

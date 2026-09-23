@@ -11,14 +11,15 @@ from alembic import context
 from sqlalchemy import create_engine, pool
 
 from app.db import normalise_database_url
+from app.matchcentre.cache import metadata as snapshot_metadata
 
 config = context.config
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# No ORM models yet. Set this to the declarative Base.metadata when tables exist.
-target_metadata = None
+# Core tables only. Point this at the declarative Base.metadata once ORM models exist.
+target_metadata = snapshot_metadata
 
 
 def _migration_url() -> str:

@@ -1,0 +1,229 @@
+@if (fixture(); as fixture) {
+  <section
+    class="match-header"
+    [attr.aria-label]="fixture.home + ' versus ' + fixture.away"
+    [style.--home-colour]="homeBanner()?.colour"
+    [style.--away-colour]="awayBanner()?.colour"
+  >
+    <div class="club home" [class.yours]="fixture.homeAsset === favouriteTeam()?.id">
+      @if (homeBanner(); as banner) {
+        <img class="crest" [src]="banner.crest" alt="" />
+      } @else {
+        <img class="crest" [src]="jersey(fixture.homeAsset)" alt="" />
+      }
+      <h2>{{ homeBanner()?.name ?? fixture.home }}</h2>
+      <span>HOME{{ fixture.homeAsset === favouriteTeam()?.id ? ' / YOUR TEAM' : '' }}</span>
+    </div>
+    <div class="kickoff">
+      <span>{{ fixture.score ? 'RESULT' : 'KICKOFF' }}</span>
+      <strong>{{ fixture.score || fixture.time }}</strong>
+      <small>{{ fixture.score ? 'FULL TIME' : fixture.kickoffUtc ? 'SAST' : 'TIME TBC' }}</small>
+      <em>{{ fixture.day }}</em>
+    </div>
+    <div class="club away" [class.yours]="fixture.awayAsset === favouriteTeam()?.id">
+      @if (awayBanner(); as banner) {
+        <img class="crest" [src]="banner.crest" alt="" />
+      } @else {
+        <img class="crest" [src]="jersey(fixture.awayAsset)" alt="" />
+      }
+      <h2>{{ awayBanner()?.name ?? fixture.away }}</h2>
+      <span>AWAY{{ fixture.awayAsset === favouriteTeam()?.id ? ' / YOUR TEAM' : '' }}</span>
+    </div>
+    <p class="venue">
+      <span>THE STADIUM</span><strong>{{ fixture.venue }}</strong>
+    </p>
+  </section>
+
+  <div class="deadline-banner">
+    <app-icon name="clock" /><span
+      ><strong>{{ view.round().title }} house pick deadline</strong>{{ view.deadline() }}</span
+    >
+    @if (view.round().status === 'Current') {
+      <a href="https://www.superbru.com/" target="_blank" rel="noopener noreferrer"
+        >Open Superbru ↗</a
+      >
+    }
+  </div>
+
+  @if (!configured) {
+    <div class="round-empty">
+      <app-icon name="rounds" />
+      <h3>Match centre offline.</h3>
+      <p>Teamsheets, prices and the forecast appear once the league API is connected.</p>
+    </div>
+  } @else if (failed()) {
+    <div class="round-empty" role="alert">
+      <app-icon name="rounds" />
+      <h3>The league API could not be reached.</h3>
+      <p>Teamsheets, prices and the forecast will appear when it is back.</p>
+      <button type="button" class="text-button" (click)="reload()">Try again →</button>
+    </div>
+  } @else if (loading() && !data()) {
+    <div class="centre-loading"><app-loader [size]="72" label="Loading match details" /></div>
+  } @else if (data(); as centre) {
+    <div class="match-grid">
+      <section class="panel teamsheets" aria-labelledby="teamsheets-title">
+        <div class="section-title">
+          <h2 id="teamsheets-title">Teamsheets.</h2>
+          <span class="tag">{{ centre.teamsheets.status.replace('_', ' ') }}</span>
+        </div>
+        @if (
+          centre.teamsheets.status === 'ok' && centre.teamsheets.home && centre.teamsheets.away
+        ) {
+          <div class="sheets">
+            @for (
+              side of [
+                { label: fixture.home, sheet: centre.teamsheets.home },
+                { label: fixture.away, sheet: centre.teamsheets.away },
+              ];
+              track side.label
+            ) {
+              <div class="sheet">
+                <h3>{{ side.label }}</h3>
+                <ol class="players">
+                  @for (player of side.sheet.starters; track player.number) {
+                    <li>
+                      <span class="number">{{ player.number }}</span
+                      ><span class="name"
+                        >{{ player.name }}
+                        @if (player.captain) {
+                          <i>C</i>
+                        }
+                      </span>
+                      @if (player.position) {
+                        <small>{{ player.position }}</small>
+                      }
+                    </li>
+                  }
+                </ol>
+                @if (side.sheet.replacements.length) {
+                  <span class="bench-label">REPLACEMENTS</span>
+                  <ol class="players bench">
+                    @for (player of side.sheet.replacements; track player.number) {
+                      <li>
+                        <span class="number">{{ player.number }}</span
+                        ><span class="name">{{ player.name }}</span>
+                        @if (player.position) {
+                          <small>{{ player.position }}</small>
+                        }
+                      </li>
+                    }
+                  </ol>
+                }
+              </div>
+            }
+          </div>
+        } @else {
+          <p class="panel-empty">{{ message('teamsheets', centre.teamsheets.status) }}</p>
+        }
+        <p class="panel-source">
+          {{ centre.teamsheets.source }}
+          @if (centre.teamsheets.fetchedAt; as at) {
+            · checked {{ at | date: 'd MMM HH:mm' : sast }} SAST
+          }
+        </p>
+      </section>
+
+      <section class="panel odds" aria-labelledby="odds-title">
+        <div class="section-title">
+          <h2 id="odds-title">The prices.</h2>
+          <span class="tag">{{ centre.odds.status.replace('_', ' ') }}</span>
+        </div>
+        @if (centre.odds.status === 'ok') {
+          <div class="prices">
+            <div [class.favourite]="(centre.odds.home ?? 99) < (centre.odds.away ?? 99)">
+              <span>{{ fixture.home }}</span
+              ><strong>{{ centre.odds.home | number: '1.2-2' }}</strong>
+            </div>
+            <div>
+              <span>Draw</span
+              ><strong>{{
+                centre.odds.draw != null ? (centre.odds.draw | number: '1.2-2') : '—'
+              }}</strong>
+            </div>
+            <div [class.favourite]="(centre.odds.away ?? 99) < (centre.odds.home ?? 99)">
+              <span>{{ fixture.away }}</span
+              ><strong>{{ centre.odds.away | number: '1.2-2' }}</strong>
+            </div>
+          </div>
+          @if (centre.odds.handicap; as handicap) {
+            <p class="handicap">
+              <span>HANDICAP</span>
+              {{ fixture.home }} {{ handicap.home.line != null && handicap.home.line > 0 ? '+' : ''
+              }}{{ handicap.home.line ?? '—' }} ({{ handicap.home.price | number: '1.2-2' }}) ·
+              {{ fixture.away }} {{ handicap.away.line != null && handicap.away.line > 0 ? '+' : ''
+              }}{{ handicap.away.line ?? '—' }} ({{ handicap.away.price | number: '1.2-2' }})
+            </p>
+          }
+          <p class="panel-source">
+            {{ centre.odds.bookmaker }} decimal prices
+            @if (centre.odds.updatedAt; as at) {
+              · updated {{ at | date: 'd MMM HH:mm' : sast }} SAST
+            }
+            @if (centre.odds.bookmakerCount; as count) {
+              · {{ count }} bookmaker{{ count === 1 ? '' : 's' }} listed
+            }
+          </p>
+        } @else {
+          <p class="panel-empty">{{ message('odds', centre.odds.status) }}</p>
+          <p class="panel-source">{{ centre.odds.source }}</p>
+        }
+        <p class="panel-note">For information only. Piele takes no bets and pays none.</p>
+      </section>
+
+      <section class="panel weather" aria-labelledby="weather-title">
+        <div class="section-title">
+          <h2 id="weather-title">Kickoff forecast.</h2>
+          <span class="tag">{{ centre.weather.status.replace('_', ' ') }}</span>
+        </div>
+        @if (centre.weather.status === 'ok') {
+          <div class="forecast">
+            <strong class="temperature"
+              >{{ centre.weather.temperatureC | number: '1.0-0' }}°</strong
+            >
+            <span class="condition">{{ centre.weather.condition }}</span>
+          </div>
+          <dl class="forecast-facts">
+            <div>
+              <dt>Feels like</dt>
+              <dd>{{ centre.weather.feelsLikeC | number: '1.0-0' }}°</dd>
+            </div>
+            <div>
+              <dt>Rain chance</dt>
+              <dd>{{ centre.weather.rainChancePercent ?? '—' }}%</dd>
+            </div>
+            <div>
+              <dt>Wind</dt>
+              <dd>{{ centre.weather.windKmh | number: '1.0-0' }} km/h</dd>
+            </div>
+            <div>
+              <dt>Gusts</dt>
+              <dd>{{ centre.weather.gustKmh | number: '1.0-0' }} km/h</dd>
+            </div>
+          </dl>
+          <p class="panel-source">
+            {{ centre.weather.stadium }}, {{ centre.weather.city }} at
+            {{ centre.weather.forecastHourUtc | date: 'HH:mm' : sast }} SAST ·
+            {{ centre.weather.source }}
+            @if (centre.weather.fetchedAt; as at) {
+              · updated {{ at | date: 'd MMM HH:mm' : sast }}
+            }
+          </p>
+        } @else {
+          <p class="panel-empty">{{ message('weather', centre.weather.status) }}</p>
+          <p class="panel-source">{{ centre.weather.source }}</p>
+        }
+      </section>
+    </div>
+  }
+  <p class="context-note">
+    Published competition fixture. House pick deadlines require a separate captain confirmation.
+    Teamsheets, prices and forecasts come from public sources and can change.
+  </p>
+} @else {
+  <div class="round-empty">
+    <app-icon name="rounds" />
+    <h3>Choose a fixture.</h3>
+    <p>Pick a match from the ribbon above.</p>
+  </div>
+}

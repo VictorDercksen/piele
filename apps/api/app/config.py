@@ -17,6 +17,16 @@ class Settings(BaseSettings):
     supabase_url: str | None = None
     supabase_jwt_audience: str = "authenticated"
 
+    # Match centre providers. Keys stay server-side; the browser only sees derived values.
+    odds_api_key: SecretStr | None = None
+    odds_api_url: str = "https://api.the-odds-api.com/v4"
+    # Optional override when sport discovery by title fails (see providers/odds.py).
+    odds_sport_key: str | None = None
+    odds_regions: str = "uk"
+    urc_graphql_url: str = "https://www.unitedrugby.com/graphql"
+    weather_api_url: str = "https://api.open-meteo.com/v1/forecast"
+    external_timeout_seconds: float = 6.0
+
     @property
     def allowed_origins(self) -> list[str]:
         origins = [o.strip().rstrip("/") for o in self.allowed_origins_raw.split(",")]

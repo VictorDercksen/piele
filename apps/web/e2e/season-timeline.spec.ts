@@ -16,18 +16,13 @@ test('all published rounds, playoffs, timezone and selection persistence', async
   const stops = page.getByRole('navigation', { name: 'Season timeline' }).locator('.round-stop');
   const choose = (round: number) => stops.nth(round - 1).click();
   await expect(stops).toHaveCount(21);
-  await page
-    .getByRole('navigation', { name: 'League navigation', exact: true })
-    .getByRole('link', { name: 'Rounds', exact: true })
-    .click();
+  const ribbon = page.locator('.fixture-ribbon button');
   for (let round = 1; round <= 21; round++) {
     await choose(round);
-    await expect(page.locator('.fixture-card')).toHaveCount(
-      round <= 18 ? 8 : round === 19 ? 4 : round === 20 ? 2 : 1,
-    );
+    await expect(ribbon).toHaveCount(round <= 18 ? 8 : round === 19 ? 4 : round === 20 ? 2 : 1);
     if (round > 18) {
-      await expect(page.locator('.fixture-card').first()).toContainText('TBC');
-      await expect(page.locator('.fixture-card').first()).toContainText('To be confirmed');
+      await expect(ribbon.first()).toContainText('TBC');
+      await expect(ribbon.first()).toContainText('To be confirmed');
     }
   }
   await expect(page.getByRole('region', { name: 'Selected round' })).toContainText('Grand final');
@@ -35,21 +30,13 @@ test('all published rounds, playoffs, timezone and selection persistence', async
   await expect(page).toHaveURL(/round=21/);
   await expect(stops.nth(20)).toHaveAttribute('aria-pressed', 'true');
   await choose(2);
-  await page
-    .getByRole('navigation', { name: 'League navigation', exact: true })
-    .getByRole('link', { name: 'Rounds', exact: true })
-    .click();
-  await expect(page.locator('.fixture-card').filter({ hasText: 'Glasgow' })).toContainText('18:30');
+  await expect(ribbon.filter({ hasText: 'Glasgow' })).toContainText('18:30');
   await choose(15);
-  await expect(page.locator('.fixture-card').filter({ hasText: 'Zebre' })).toContainText(
-    'FRI 16 APR 2027',
-  );
-  await expect(page.locator('.fixture-card').filter({ hasText: 'Zebre' })).toContainText('19:30');
+  await expect(ribbon.filter({ hasText: 'Zebre' })).toContainText(/FRI,? 16 APR/);
+  await expect(ribbon.filter({ hasText: 'Zebre' })).toContainText('19:30');
   await choose(8);
   await expect(page.getByRole('region', { name: 'Selected round' })).toContainText('2027');
-  await expect(page.locator('.fixture-card').filter({ hasText: 'Lions' })).toContainText(
-    'FEB 2027',
-  );
+  await expect(ribbon.filter({ hasText: 'Lions' })).toContainText('FEB');
   await page
     .getByRole('navigation', { name: 'League navigation', exact: true })
     .getByRole('link', { name: 'Standings', exact: true })
@@ -74,10 +61,13 @@ test('keyboard timeline and playoff layout on a phone', async ({ page }) => {
   await page.keyboard.press('End');
   await expect(page).toHaveURL(/round=21/);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page
-    .getByRole('navigation', { name: 'Mobile league navigation' })
-    .getByRole('link', { name: 'Rounds', exact: true })
-    .click();
+  await expect(
+    page
+      .getByRole('navigation', { name: 'Mobile league navigation' })
+      .getByRole('link', { name: 'Rounds', exact: true }),
+  ).toHaveCount(0);
+  await page.getByRole('button', { name: 'Enter the match centre' }).click();
+  await expect(page).toHaveURL(/\/match\/\d+\?round=21/);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 

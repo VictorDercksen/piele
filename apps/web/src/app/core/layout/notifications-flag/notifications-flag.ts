@@ -51,14 +51,15 @@ export class NotificationsFlag {
     const round = this.view.round();
     const duty = this.view.myDuty();
     const poll = this.view.poll();
+    const featured = this.view.featured();
     const items: FlagNotification[] = [
       {
         key: `round:${round.id}:${round.status}`,
         icon: 'rounds',
         title: round.status,
         detail: this.view.activity(),
-        action: 'View round fixtures →',
-        path: '/rounds',
+        action: featured ? 'Open the match centre →' : 'Back to the clubhouse →',
+        path: featured ? `/match/${featured.id}` : '/',
         spoon: false,
       },
     ];
