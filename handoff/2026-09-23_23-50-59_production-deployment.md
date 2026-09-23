@@ -28,7 +28,25 @@ H1's deployment work is completed by this change, except the real phone upload/p
 - `ng build` (Node 22.23.2; the container's 22.22.2 is below the CLI minimum): passed, initial 408.01 kB, no warnings.
 - `ng test --watch=false`: 12 passed. `playwright test` (dev server, port 4300): 13 passed. `test:e2e:production`: 3 passed. With critical CSS inlining re-enabled the production suite failed on the CSP violation, as intended.
 - Smoke script against local API and dist server: all checks passed except "Bundle targets this API", expected because the local build has an empty API URL.
-- Not run: CI on GitHub (runs on the PR), anything against Vercel or Supabase (blocked from this container), TLS `verify-full` against the Supabase pooler.
+- Not run: CI on GitHub (runs on the PR), anything against Vercel or Supabase, TLS `verify-full` against the Supabase pooler (port 6543 is unreachable from this container).
+- Playwright 1.63 expects Chromium revision 1243; the container has 1194 in `/opt/pw-browsers`. Tests ran with `PLAYWRIGHT_BROWSERS_PATH` pointing at a scratch directory that symlinks 1194 into the 1243 layout (`chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell` -> `headless_shell`). Nothing in the repository depends on this.
+
+## Pull request
+
+PR #1, `claude/production-deployment` into `master`: https://github.com/VictorDercksen/piele/pull/1. Open, not merged. Merging deploys to Production, so the setup below comes first.
+
+## Blocked: creating the production Supabase project and Vercel variables
+
+The user asked for this after the PR was opened. It was not done: this session has no Supabase or Vercel connector and no credentials. `api.supabase.com` and `api.vercel.com` are reachable. To unblock, in a new session:
+
+- Supabase: connect the Supabase connector (claude.ai/customize/connectors). It can create projects, apply migrations and run SQL.
+- Vercel: the Vercel connector is read-only. The user adds a Vercel access token with write access for team `victor-4043s-projects` as the environment variable `VERCEL_TOKEN`; call the Vercel REST API with it. Never ask for tokens in chat.
+
+Planned steps once unblocked: create `piele-production` in eu-west-2 under org "Pofadder Bowl" (confirm the cost; the free plan allows two active projects and `pofadder-bowl` stays paused); apply `supabase/migrations`; set a generated `piele_api` password and put it only into Vercel; set the Production variables listed in `docs/production.md` on `piele-api` and `piele-web`; clear the dashboard Ignored Build Step in both projects.
+
+Decisions still needed from the user:
+1. Domains: default `piele-web.vercel.app` / `piele-api.vercel.app` or custom. `ALLOWED_ORIGINS` and `PIELE_API_URL` must match exactly.
+2. Production web access: keep Vercel Authentication until sign-in exists, or public.
 
 ## Next steps for the user
 
