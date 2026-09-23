@@ -61,7 +61,12 @@ def fetch_teamsheets(client: httpx.Client, url: str, fixture_id: str) -> Fetched
     response.raise_for_status()
     body = response.json()
     if body.get("errors"):
-        return Fetched("unavailable", {"reason": "feed rejected the teamsheet query"}, TTL_FAILED)
+        payload: dict[str, Any] = {
+            "reason": "feed rejected the teamsheet query",
+            "feedErrors": [str(e.get("message", ""))[:300] for e in body["errors"][:5]],
+        }
+        payload.update(discover_fields(client, url))
+        return Fetched("unavailable", payload, TTL_FAILED)
     rows = (body.get("data") or {}).get("matchstats") or []
     row = next((r for r in rows if str(r.get("match_id")) == str(fixture_id)), None)
     if row is None:
@@ -131,3 +136,64 @@ def _first_str(raw: dict[str, Any], keys: tuple[str, ...]) -> str | None:
         if value:
             return str(value)
     return None
+
+
+INTROSPECT_FIELDS = "fields { name type { name kind ofType { name kind ofType { name kind ofType { name } } } } }"
+
+
+def discover_fields(client: httpx.Client, url: str) -> dict[str, Any]:
+    """Field names of the feed's match object, so a rejected query can be corrected.
+
+    Walks query -> matchstats -> stats_data -> homeTeam through introspection. Any failure
+    (introspection disabled, unexpected shape) yields an empty result.
+    """
+    try:
+        root = _introspect(client, url, "{ __schema { queryType { %s } } }" % INTROSPECT_FIELDS)
+        match_type = _field_type(root.get("__schema", {}).get("queryType", {}), "matchstats")
+        match_fields = _type_fields(client, url, match_type)
+        stats_type = _field_type({"fields": match_fields}, "stats_data")
+        stats_fields = _type_fields(client, url, stats_type)
+        team_type = _field_type({"fields": stats_fields}, "homeTeam")
+        team_fields = _type_fields(client, url, team_type)
+    except Exception:  # noqa: BLE001 - diagnostics only
+        return {}
+    return {
+        "feedFields": {
+            "stats_data": [_describe(f) for f in stats_fields][:60],
+            "homeTeam": [_describe(f) for f in team_fields][:60],
+        }
+    }
+
+
+def _introspect(client: httpx.Client, url: str, query: str) -> dict[str, Any]:
+    response = client.post(url, json={"query": query}, headers={"Accept": "application/json"})
+    response.raise_for_status()
+    return response.json().get("data") or {}
+
+
+def _type_fields(client: httpx.Client, url: str, type_name: str | None) -> list[dict[str, Any]]:
+    if not type_name:
+        return []
+    data = _introspect(
+        client, url, '{ __type(name: "%s") { %s } }' % (type_name, INTROSPECT_FIELDS)
+    )
+    return (data.get("__type") or {}).get("fields") or []
+
+
+def _field_type(holder: dict[str, Any], name: str) -> str | None:
+    for field in holder.get("fields") or []:
+        if field.get("name") == name:
+            return _named(field.get("type"))
+    return None
+
+
+def _named(type_ref: dict[str, Any] | None) -> str | None:
+    while isinstance(type_ref, dict):
+        if type_ref.get("name"):
+            return str(type_ref["name"])
+        type_ref = type_ref.get("ofType")
+    return None
+
+
+def _describe(field: dict[str, Any]) -> str:
+    return f"{field.get('name')}: {_named(field.get('type')) or '?'}"

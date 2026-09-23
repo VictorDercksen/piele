@@ -20,6 +20,7 @@ SPORTS_TTL = timedelta(hours=24)
 EVENTS_TTL = timedelta(hours=6)
 MARKETS = "h2h,spreads"
 COMMENCE_TOLERANCE = timedelta(hours=12)
+CANDIDATE_WINDOW = timedelta(days=3)
 
 
 def timing_status(kickoff: datetime, now: datetime) -> str | None:
@@ -158,3 +159,20 @@ def _parse(value: Any) -> datetime | None:
         return datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
         return None
+
+
+def nearby_events(events: list[dict[str, Any]], kickoff: datetime) -> list[dict[str, Any]]:
+    """Team labels of events around kickoff, reported when no event matched a fixture."""
+    found = []
+    for event in events:
+        commence = _parse(event.get("commenceTime"))
+        if commence is None or abs(commence - kickoff) > CANDIDATE_WINDOW:
+            continue
+        found.append(
+            {
+                "commenceTime": event.get("commenceTime"),
+                "homeTeam": event.get("homeTeam"),
+                "awayTeam": event.get("awayTeam"),
+            }
+        )
+    return found[:20]

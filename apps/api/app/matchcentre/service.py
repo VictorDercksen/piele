@@ -89,9 +89,16 @@ class MatchCentreService:
         )
         if sports.status != "ok":
             return _from_snapshot(sports, ODDS_SOURCE)
-        sport_key = odds.find_sport_key(sports.payload.get("sports") or [], self._settings.odds_sport_key)
+        listed = sports.payload.get("sports") or []
+        sport_key = odds.find_sport_key(listed, self._settings.odds_sport_key)
         if not sport_key:
-            return _section("not_covered", ODDS_SOURCE, fetched_at=sports.fetched_at)
+            return _section(
+                "not_covered",
+                ODDS_SOURCE,
+                fetched_at=sports.fetched_at,
+                reason="no United Rugby Championship sport listed",
+                rugbySports=[{"key": s.get("key"), "title": s.get("title")} for s in listed][:30],
+            )
         events = cached(
             self._cache,
             f"odds:{sport_key}:events",
@@ -102,10 +109,18 @@ class MatchCentreService:
         )
         if events.status != "ok":
             return _from_snapshot(events, ODDS_SOURCE)
-        event = odds.select_event(events.payload.get("events") or [], home, away, fixture.kickoff_utc)
+        listed_events = events.payload.get("events") or []
+        event = odds.select_event(listed_events, home, away, fixture.kickoff_utc)
         summary = odds.summarise(event, home, away) if event else None
         if summary is None:
-            return _section("not_covered", ODDS_SOURCE, fetched_at=events.fetched_at)
+            return _section(
+                "not_covered",
+                ODDS_SOURCE,
+                fetched_at=events.fetched_at,
+                reason="no priced event matched this fixture" if event else "no event matched this fixture",
+                sportKey=sport_key,
+                candidates=odds.nearby_events(listed_events, fixture.kickoff_utc),
+            )
         return _section("ok", ODDS_SOURCE, fetched_at=events.fetched_at, **summary)
 
     def _weather(self, fixture: Fixture, now: datetime) -> dict[str, Any]:

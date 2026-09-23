@@ -20,8 +20,9 @@ KICKOFF = datetime(2026, 9, 25, 18, 45, tzinfo=timezone.utc)
 class Upstream:
     """Fake providers behind an httpx MockTransport, counting calls per host."""
 
-    def __init__(self, *, odds_events=None, graphql=None, weather_hours=None, fail=()):
+    def __init__(self, *, odds_events=None, graphql=None, weather_hours=None, fail=(), sports=None):
         self.calls: dict[str, int] = {}
+        self.sports = sports
         self.odds_events = odds_events if odds_events is not None else [self.event()]
         self.graphql = graphql if graphql is not None else self.published()
         self.weather_hours = weather_hours
@@ -102,6 +103,21 @@ class Upstream:
             }
         }
 
+    @staticmethod
+    def introspection(query: str):
+        def field(name, type_name, kind="OBJECT"):
+            return {"name": name, "type": {"name": None, "kind": "LIST", "ofType": {"name": type_name, "kind": kind}}}
+
+        if "__schema" in query:
+            return {"data": {"__schema": {"queryType": {"fields": [field("matchstats", "MatchStats")]}}}}
+        if '"MatchStats"' in query:
+            return {"data": {"__type": {"fields": [field("match_id", "Int", "SCALAR"), field("stats_data", "StatsData")]}}}
+        if '"StatsData"' in query:
+            return {"data": {"__type": {"fields": [field("round", "Int", "SCALAR"), field("homeTeam", "TeamSide")]}}}
+        if '"TeamSide"' in query:
+            return {"data": {"__type": {"fields": [field("team", "Team"), field("teamsheet", "TeamsheetEntry")]}}}
+        return {"data": {"__type": None}}
+
     def handler(self, request: httpx.Request) -> httpx.Response:
         host = request.url.host
         self.calls[host] = self.calls.get(host, 0) + 1
@@ -110,6 +126,8 @@ class Upstream:
         if host == "api.the-odds-api.com":
             if request.url.path.endswith("/sports/"):
                 assert "apiKey" in dict(request.url.params)
+                if self.sports is not None:
+                    return httpx.Response(200, json=self.sports)
                 return httpx.Response(
                     200,
                     json=[
@@ -127,6 +145,8 @@ class Upstream:
             return httpx.Response(200, json=self.odds_events, headers={"x-requests-remaining": "480"})
         if host == "www.unitedrugby.com":
             body = json.loads(request.content)
+            if "__schema" in body["query"] or "__type" in body["query"]:
+                return httpx.Response(200, json=self.introspection(body["query"]))
             assert body["variables"] == {"ids": [int(FIXTURE)]}
             return httpx.Response(200, json=self.graphql)
         if host == "api.open-meteo.com":
@@ -229,7 +249,18 @@ def test_odds_without_key_and_without_coverage(monkeypatch) -> None:
 
     other = Upstream(odds_events=[{**Upstream.event(), "home_team": "Leinster", "away_team": "Munster"}])
     client = make_client(other, KICKOFF - timedelta(days=2), monkeypatch)
-    assert client.get(f"/v1/matches/{FIXTURE}").json()["odds"]["status"] == "not_covered"
+    section = client.get(f"/v1/matches/{FIXTURE}").json()["odds"]
+    assert section["status"] == "not_covered"
+    assert section["sportKey"] == "rugbyunion_urc"
+    assert section["candidates"] == [
+        {"commenceTime": "2026-09-25T18:45:00Z", "homeTeam": "Leinster", "awayTeam": "Munster"}
+    ]
+
+    unlisted = Upstream(sports=[{"key": "rugbyunion_six_nations", "group": "Rugby Union", "title": "Six Nations"}])
+    client = make_client(unlisted, KICKOFF - timedelta(days=2), monkeypatch)
+    section = client.get(f"/v1/matches/{FIXTURE}").json()["odds"]
+    assert section["status"] == "not_covered"
+    assert section["rugbySports"] == [{"key": "rugbyunion_six_nations", "title": "Six Nations"}]
 
 
 def test_provider_failures_become_unavailable_without_leaking(monkeypatch) -> None:
@@ -245,7 +276,13 @@ def test_provider_failures_become_unavailable_without_leaking(monkeypatch) -> No
 def test_rejected_teamsheet_query_and_unpublished_sheets(monkeypatch) -> None:
     rejected = Upstream(graphql={"errors": [{"message": "Cannot query field players"}]})
     client = make_client(rejected, KICKOFF - timedelta(days=1), monkeypatch)
-    assert client.get(f"/v1/matches/{FIXTURE}").json()["teamsheets"]["status"] == "unavailable"
+    section = client.get(f"/v1/matches/{FIXTURE}").json()["teamsheets"]
+    assert section["status"] == "unavailable"
+    assert section["feedErrors"] == ["Cannot query field players"]
+    assert section["feedFields"] == {
+        "stats_data": ["round: Int", "homeTeam: TeamSide"],
+        "homeTeam": ["team: Team", "teamsheet: TeamsheetEntry"],
+    }
 
     empty = Upstream.published()
     for side in ("homeTeam", "awayTeam"):
