@@ -20,9 +20,9 @@ KICKOFF = datetime(2026, 9, 25, 18, 45, tzinfo=timezone.utc)
 class Upstream:
     """Fake providers behind an httpx MockTransport, counting calls per host."""
 
-    def __init__(self, *, odds_events=None, graphql=None, weather_hours=None, fail=(), sports=None):
+    def __init__(self, *, odds_events=None, graphql=None, weather_hours=None, fail=(), leagues=None):
         self.calls: dict[str, int] = {}
-        self.sports = sports
+        self.leagues = leagues
         self.odds_events = odds_events if odds_events is not None else [self.event()]
         self.graphql = graphql if graphql is not None else self.published()
         self.weather_hours = weather_hours
@@ -30,45 +30,40 @@ class Upstream:
 
     @staticmethod
     def event():
+        """A game row and its odds in API-Sports shape."""
         return {
-            "id": "e1",
-            "commence_time": "2026-09-25T18:45:00Z",
-            "home_team": "Benetton Treviso",
-            "away_team": "Dragons",
+            "game": {
+                "id": 9001,
+                "date": "2026-09-25T18:45:00+00:00",
+                "timestamp": 1790361900,
+                "teams": {"home": {"name": "Benetton Treviso"}, "away": {"name": "Dragons"}},
+            },
             "bookmakers": [
                 {
-                    "key": "old",
-                    "title": "Old Book",
-                    "last_update": "2026-09-20T10:00:00Z",
-                    "markets": [
-                        {
-                            "key": "h2h",
-                            "outcomes": [
-                                {"name": "Benetton Treviso", "price": 1.4},
-                                {"name": "Dragons", "price": 3.0},
-                                {"name": "Draw", "price": 21.0},
-                            ],
-                        }
-                    ],
+                    "id": 1,
+                    "name": "Sparse Book",
+                    "bets": [{"name": "Total Points", "values": [{"value": "Over 40.5", "odd": "1.9"}]}],
                 },
                 {
-                    "key": "fresh",
-                    "title": "Fresh Book",
-                    "last_update": "2026-09-21T10:00:00Z",
-                    "markets": [
+                    "id": 2,
+                    "name": "Fresh Book",
+                    "update": "2026-09-21T10:00:00+00:00",
+                    "bets": [
                         {
-                            "key": "h2h",
-                            "outcomes": [
-                                {"name": "Benetton Treviso", "price": 1.5},
-                                {"name": "Dragons", "price": 2.6},
-                                {"name": "Draw", "price": 20.0},
+                            "name": "Home/Away",
+                            "values": [
+                                {"value": "Home", "odd": "1.50"},
+                                {"value": "Draw", "odd": "20.00"},
+                                {"value": "Away", "odd": "2.60"},
                             ],
                         },
                         {
-                            "key": "spreads",
-                            "outcomes": [
-                                {"name": "Benetton Treviso", "price": 1.9, "point": -6.5},
-                                {"name": "Dragons", "price": 1.9, "point": 6.5},
+                            "name": "Handicap",
+                            "values": [
+                                {"value": "Home -3.5", "odd": "1.60"},
+                                {"value": "Away +3.5", "odd": "2.30"},
+                                {"value": "Home -6.5", "odd": "1.90"},
+                                {"value": "Away +6.5", "odd": "1.90"},
                             ],
                         },
                     ],
@@ -127,26 +122,28 @@ class Upstream:
         self.calls[host] = self.calls.get(host, 0) + 1
         if host in self.fail:
             return httpx.Response(503, json={"error": "down"})
-        if host == "api.the-odds-api.com":
-            if request.url.path.endswith("/sports/"):
-                assert "apiKey" in dict(request.url.params)
-                if self.sports is not None:
-                    return httpx.Response(200, json=self.sports)
-                return httpx.Response(
-                    200,
-                    json=[
-                        {"key": "rugbyleague_nrl", "group": "Rugby League", "title": "NRL", "active": True},
-                        {
-                            "key": "rugbyunion_urc",
-                            "group": "Rugby Union",
-                            "title": "United Rugby Championship",
-                            "active": True,
-                        },
-                    ],
-                )
-            assert "rugbyunion_urc" in request.url.path
-            assert dict(request.url.params)["markets"] == "h2h,spreads"
-            return httpx.Response(200, json=self.odds_events, headers={"x-requests-remaining": "480"})
+        if host == "v1.rugby.api-sports.io":
+            assert request.headers["x-apisports-key"] == "test-key"
+            params = dict(request.url.params)
+            if request.url.path == "/leagues":
+                assert params["search"] == "United Rugby"
+                leagues = self.leagues if self.leagues is not None else [
+                    {"id": 5, "name": "Super Rugby", "seasons": [{"season": 2026, "current": True}]},
+                    {
+                        "id": 76,
+                        "name": "United Rugby Championship",
+                        "seasons": [{"season": 2025, "current": False}, {"season": 2026, "current": True}],
+                    },
+                ]
+                return httpx.Response(200, json={"errors": [], "response": leagues})
+            assert params["league"] == "76" and params["season"] == "2026"
+            assert params["date"] == "2026-09-25"
+            if request.url.path == "/games":
+                games = [e["game"] for e in self.odds_events]
+                return httpx.Response(200, json={"errors": [], "response": games})
+            assert request.url.path == "/odds"
+            rows = [{"game": {"id": e["game"]["id"]}, "bookmakers": e["bookmakers"]} for e in self.odds_events]
+            return httpx.Response(200, json={"errors": [], "response": rows})
         if host == "www.unitedrugby.com":
             body = json.loads(request.content)
             if "__schema" in body["query"] or "__type" in body["query"]:
@@ -182,7 +179,7 @@ def make_client(upstream: Upstream, now: datetime, monkeypatch, **overrides) -> 
         _env_file=None,
         environment="test",
         ALLOWED_ORIGINS=ALLOWED,
-        **{"odds_api_key": "test-key", **overrides},
+        **{"rugby_api_key": "test-key", **overrides},
     )
     from app.main import create_app
 
@@ -234,7 +231,7 @@ def test_match_week_returns_all_sections(monkeypatch) -> None:
     assert (odds["home"], odds["draw"], odds["away"]) == (1.5, 20.0, 2.6)
     assert odds["handicap"] == {"home": {"line": -6.5, "price": 1.9}, "away": {"line": 6.5, "price": 1.9}}
     assert odds["bookmakerCount"] == 2
-    assert "events" not in odds and "test-key" not in response.text
+    assert "games" not in odds and "test-key" not in response.text
 
     forecast = body["weather"]
     assert forecast["status"] == "ok"
@@ -244,31 +241,53 @@ def test_match_week_returns_all_sections(monkeypatch) -> None:
     assert forecast["city"] == "Treviso"
 
     client.get(f"/v1/matches/{FIXTURE}")
-    assert upstream.calls == {"api.the-odds-api.com": 2, "www.unitedrugby.com": 1, "api.open-meteo.com": 1}
+    assert upstream.calls == {"v1.rugby.api-sports.io": 3, "www.unitedrugby.com": 1, "api.open-meteo.com": 1}
 
 
 def test_odds_without_key_and_without_coverage(monkeypatch) -> None:
-    client = make_client(Upstream(), KICKOFF - timedelta(days=2), monkeypatch, odds_api_key=None)
+    client = make_client(Upstream(), KICKOFF - timedelta(days=2), monkeypatch, rugby_api_key=None)
     assert client.get(f"/v1/matches/{FIXTURE}").json()["odds"]["status"] == "unavailable"
 
-    other = Upstream(odds_events=[{**Upstream.event(), "home_team": "Leinster", "away_team": "Munster"}])
-    client = make_client(other, KICKOFF - timedelta(days=2), monkeypatch)
+    other_game = Upstream.event()
+    other_game["game"]["teams"] = {"home": {"name": "Leinster"}, "away": {"name": "Munster"}}
+    client = make_client(Upstream(odds_events=[other_game]), KICKOFF - timedelta(days=2), monkeypatch)
     section = client.get(f"/v1/matches/{FIXTURE}").json()["odds"]
     assert section["status"] == "not_covered"
-    assert section["sportKey"] == "rugbyunion_urc"
-    assert section["candidates"] == [
-        {"commenceTime": "2026-09-25T18:45:00Z", "homeTeam": "Leinster", "awayTeam": "Munster"}
-    ]
+    assert section["reason"] == "no game matched this fixture"
+    assert section["league"] == "United Rugby Championship" and section["season"] == 2026
+    assert section["games"] == [{"home": "Leinster", "away": "Munster", "date": "2026-09-25T18:45:00+00:00"}]
 
-    unlisted = Upstream(sports=[{"key": "rugbyunion_six_nations", "group": "Rugby Union", "title": "Six Nations"}])
+    no_prices = Upstream.event()
+    no_prices["bookmakers"] = [no_prices["bookmakers"][0]]
+    client = make_client(Upstream(odds_events=[no_prices]), KICKOFF - timedelta(days=2), monkeypatch)
+    section = client.get(f"/v1/matches/{FIXTURE}").json()["odds"]
+    assert section["status"] == "not_covered"
+    assert section["reason"] == "no winner market recognised"
+    assert section["bets"] == ["Total Points"]
+
+    unlisted = Upstream(leagues=[{"id": 5, "name": "Super Rugby", "seasons": []}])
     client = make_client(unlisted, KICKOFF - timedelta(days=2), monkeypatch)
     section = client.get(f"/v1/matches/{FIXTURE}").json()["odds"]
     assert section["status"] == "not_covered"
-    assert section["rugbySports"] == [{"key": "rugbyunion_six_nations", "title": "Six Nations"}]
+    assert section["reason"] == "league not found"
+    assert section["leagues"][0]["name"] == "Super Rugby"
+
+
+def test_provider_application_errors_are_reported(monkeypatch) -> None:
+    class Quota(Upstream):
+        def handler(self, request: httpx.Request) -> httpx.Response:
+            if request.url.host == "v1.rugby.api-sports.io":
+                return httpx.Response(200, json={"errors": {"requests": "Daily quota reached"}, "response": []})
+            return super().handler(request)
+
+    client = make_client(Quota(), KICKOFF - timedelta(days=2), monkeypatch)
+    section = client.get(f"/v1/matches/{FIXTURE}").json()["odds"]
+    assert section["status"] == "unavailable"
+    assert section["reason"] == "ProviderError"
 
 
 def test_provider_failures_become_unavailable_without_leaking(monkeypatch) -> None:
-    upstream = Upstream(fail={"www.unitedrugby.com", "api.open-meteo.com", "api.the-odds-api.com"})
+    upstream = Upstream(fail={"www.unitedrugby.com", "api.open-meteo.com", "v1.rugby.api-sports.io"})
     client = make_client(upstream, KICKOFF - timedelta(days=1), monkeypatch)
     response = client.get(f"/v1/matches/{FIXTURE}")
     assert response.status_code == 200
@@ -362,5 +381,5 @@ def test_teamsheet_parser_tolerates_other_shapes() -> None:
 
 @pytest.mark.parametrize("value", ["", None])
 def test_blank_key_counts_as_unset(monkeypatch, value) -> None:
-    client = make_client(Upstream(), KICKOFF - timedelta(days=2), monkeypatch, odds_api_key=value)
+    client = make_client(Upstream(), KICKOFF - timedelta(days=2), monkeypatch, rugby_api_key=value)
     assert client.get(f"/v1/matches/{FIXTURE}").json()["odds"]["status"] == "unavailable"

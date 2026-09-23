@@ -3,7 +3,7 @@
 FastAPI backend for Piele. Routes live under `/v1`:
 
 - `GET /v1/health` reports the environment and database status.
-- `GET /v1/matches/{fixtureId}` returns the match centre for one published fixture: teamsheets from the public URC feed, pre-match prices from The Odds API and the kickoff-hour forecast from Open-Meteo. Each section carries its own `status` (`ok`, `not_published`, `too_early`, `past`, `not_covered` or `unavailable`), so a provider outage never fails the request. Odds and weather are fetched only inside the week before kickoff, teamsheets from three days out. Responses are cached in the `external_snapshots` table (sports list 24 h, odds 6 h, weather 3 h, teamsheets 6 h once published) or in process memory when no database is configured. The fixture list comes from `app/data/urc_fixtures.json`, written by `apps/web/scripts/import-urc.mjs`.
+- `GET /v1/matches/{fixtureId}` returns the match centre for one published fixture: teamsheets from the public URC feed, pre-match prices from the API-Sports Rugby API and the kickoff-hour forecast from Open-Meteo. Each section carries its own `status` (`ok`, `not_published`, `too_early`, `past`, `not_covered` or `unavailable`), so a provider outage never fails the request. Odds and weather are fetched only inside the week before kickoff, teamsheets from three days out. Responses are cached in the `piele.external_snapshots` table (league lookup 24 h, a day's games and odds 6 h, weather 3 h, teamsheets 6 h once published) or in process memory when no database is configured. The fixture list comes from `app/data/urc_fixtures.json`, written by `apps/web/scripts/import-urc.mjs`.
 
 ## Run locally
 
@@ -49,7 +49,7 @@ To apply migrations by hand, install the Supabase CLI and run `supabase link` th
    - `DATABASE_URL`: the transaction pooler string (port 6543)
    - `SUPABASE_URL`
    - `SUPABASE_JWT_AUDIENCE` only if it differs from `authenticated`
-   - `ODDS_API_KEY`: The Odds API key for match prices (free tier: 500 requests a month). Optional `ODDS_SPORT_KEY` overrides the sport discovered by title, `ODDS_REGIONS` defaults to `uk`.
+   - `RUGBY_API_KEY`: the API-Sports Rugby key for match prices (direct account at api-sports.io; free plan: 100 requests a day). `RUGBY_API_URL` defaults to `https://v1.rugby.api-sports.io`.
 
    Give Preview a staging Supabase project, not production credentials.
 4. Deploy, then open `https://<deployment>/v1/health`.

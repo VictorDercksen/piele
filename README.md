@@ -37,7 +37,7 @@ Two Vercel projects in team `victor-4043s-projects`, both linked to this reposit
 
 Staging is Vercel's Preview environment for the `staging` branch. It uses the Supabase project `piele-staging` (London). Both projects currently build only the `staging` branch (Ignored Build Step). Remove that setting when production is set up on `master`.
 
-The API also needs `ODDS_API_KEY` for match prices; see [apps/api/README.md](apps/api/README.md).
+The API also needs `RUGBY_API_KEY` for match prices; see [apps/api/README.md](apps/api/README.md).
 
 The web build runs `scripts/write-environment.mjs`, which creates the browser config from the `PIELE_API_URL`, `PIELE_SUPABASE_URL`, `PIELE_SUPABASE_PUBLISHABLE_KEY` and `PIELE_SAMPLE_LEAGUE_DATA` variables. API variables are described in [apps/api/README.md](apps/api/README.md). Local staging secrets live in `apps/api/.env.staging`, which Git ignores.
 

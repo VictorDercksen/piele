@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 HttpFactory = Callable[[], httpx.Client]
 
 TEAMSHEETS_SOURCE = "URC match centre"
-ODDS_SOURCE = "The Odds API"
+ODDS_SOURCE = "API-Sports Rugby"
 WEATHER_SOURCE = "Open-Meteo"
 
 
@@ -71,7 +71,7 @@ class MatchCentreService:
     def _odds(
         self, fixture: Fixture, home: Club | None, away: Club | None, now: datetime
     ) -> dict[str, Any]:
-        key = self._settings.odds_api_key
+        key = self._settings.rugby_api_key
         if key is None or not key.get_secret_value():
             return _section("unavailable", ODDS_SOURCE, reason="no API key configured")
         if fixture.kickoff_utc is None or home is None or away is None:
@@ -80,48 +80,56 @@ class MatchCentreService:
         if timing:
             return _section(timing, ODDS_SOURCE)
         api_key = key.get_secret_value()
-        url = self._settings.odds_api_url.rstrip("/")
-        sports = cached(
+        url = self._settings.rugby_api_url.rstrip("/")
+        league = cached(
             self._cache,
-            "odds:sports",
-            lambda: self._with_client(lambda c: odds.fetch_sports(c, url, api_key)),
+            "odds:league",
+            lambda: self._with_client(lambda c: odds.fetch_league(c, url, api_key)),
             now=now,
         )
-        if sports.status != "ok":
-            return _from_snapshot(sports, ODDS_SOURCE)
-        listed = sports.payload.get("sports") or []
-        sport_key = odds.find_sport_key(listed, self._settings.odds_sport_key)
-        if not sport_key:
-            return _section(
-                "not_covered",
-                ODDS_SOURCE,
-                fetched_at=sports.fetched_at,
-                reason="no United Rugby Championship sport listed",
-                rugbySports=[{"key": s.get("key"), "title": s.get("title")} for s in listed][:30],
-            )
-        events = cached(
+        if league.status != "ok":
+            return _from_snapshot(league, ODDS_SOURCE)
+        league_id = league.payload["leagueId"]
+        season = league.payload.get("season")
+        day = fixture.kickoff_utc.date().isoformat()
+        kickoff = fixture.kickoff_utc
+        listing = cached(
             self._cache,
-            f"odds:{sport_key}:events",
+            f"odds:{league_id}:{season}:{day}",
             lambda: self._with_client(
-                lambda c: odds.fetch_events(c, url, api_key, sport_key, self._settings.odds_regions)
+                lambda c: odds.fetch_day(c, url, api_key, league_id, season, day)
             ),
             now=now,
         )
-        if events.status != "ok":
-            return _from_snapshot(events, ODDS_SOURCE)
-        listed_events = events.payload.get("events") or []
-        event = odds.select_event(listed_events, home, away, fixture.kickoff_utc)
-        summary = odds.summarise(event, home, away) if event else None
+        if listing.status != "ok":
+            return _from_snapshot(listing, ODDS_SOURCE)
+        games = listing.payload.get("games") or []
+        game = odds.select_game(games, home, away, kickoff)
+        if game is None:
+            return _section(
+                "not_covered",
+                ODDS_SOURCE,
+                fetched_at=listing.fetched_at,
+                reason="no game matched this fixture",
+                league=league.payload.get("name"),
+                season=season,
+                games=[{"home": g.get("home"), "away": g.get("away"), "date": g.get("date")} for g in games][:20],
+            )
+        bookmakers = next(
+            (o.get("bookmakers") or [] for o in listing.payload.get("odds") or [] if o.get("gameId") == game.get("id")),
+            [],
+        )
+        summary = odds.summarise(bookmakers)
         if summary is None:
             return _section(
                 "not_covered",
                 ODDS_SOURCE,
-                fetched_at=events.fetched_at,
-                reason="no priced event matched this fixture" if event else "no event matched this fixture",
-                sportKey=sport_key,
-                candidates=odds.nearby_events(listed_events, fixture.kickoff_utc),
+                fetched_at=listing.fetched_at,
+                reason="no prices for this game yet" if not bookmakers else "no winner market recognised",
+                gameId=game.get("id"),
+                bets=odds.bet_names(bookmakers),
             )
-        return _section("ok", ODDS_SOURCE, fetched_at=events.fetched_at, **summary)
+        return _section("ok", ODDS_SOURCE, fetched_at=listing.fetched_at, **summary)
 
     def _weather(self, fixture: Fixture, now: datetime) -> dict[str, Any]:
         place: Stadium | None = stadium(fixture.venue)
@@ -158,8 +166,8 @@ def _section(status: str, source: str, fetched_at: datetime | None = None, **pay
 
 def _from_snapshot(snapshot: Snapshot, source: str) -> dict[str, Any]:
     payload = dict(snapshot.payload)
-    payload.pop("events", None)
-    payload.pop("sports", None)
+    for bulky in ("events", "sports", "games", "odds"):
+        payload.pop(bulky, None)
     return _section(snapshot.status, source, fetched_at=snapshot.fetched_at, **payload)
 
 
