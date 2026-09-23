@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "angular",
   "installCommand": "npm ci",
-  "buildCommand": "npm run build",
+  "buildCommand": "node scripts/write-environment.mjs && npm run build",
   "outputDirectory": "dist/piele-web/browser",
-  "rewrites": [{ "source": "/((?!.*\.).*)", "destination": "/index.html" }]
+  "rewrites": [{ "source": "/((?!.*\\.).*)", "destination": "/index.html" }]
 }

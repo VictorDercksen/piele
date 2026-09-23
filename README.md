@@ -27,10 +27,16 @@ The asset pack contains 12 team jerseys. Edinburgh, Leinster, Lions and Ospreys 
 
 ## Deploy
 
-Create two Vercel projects from this repository:
+Two Vercel projects in team `victor-4043s-projects`, both linked to this repository:
 
-1. **Web**: Root Directory `apps/web`. `apps/web/vercel.json` sets the build, output directory and deep-link rewrite. Before deploying, set `apiUrl`, `supabaseUrl` and `supabasePublishableKey` in `apps/web/src/environments/environment.ts`. These are public browser values. Never put service keys or database URLs there.
-2. **API**: Root Directory `apps/api`. Set its environment variables as described in [apps/api/README.md](apps/api/README.md), including the web origin in `ALLOWED_ORIGINS`.
+| Project | Root | Staging URL |
+| --- | --- | --- |
+| `piele-web` | `apps/web` | https://piele-web-git-staging-victor-4043s-projects.vercel.app (Vercel login required) |
+| `piele-api` | `apps/api` | https://piele-api-git-staging-victor-4043s-projects.vercel.app/v1/health |
+
+Staging is Vercel's Preview environment for the `staging` branch. It uses the Supabase project `piele-staging` (London). Both projects currently build only the `staging` branch (Ignored Build Step). Remove that setting when production is set up on `master`.
+
+The web build runs `scripts/write-environment.mjs`, which creates the browser config from the `PIELE_API_URL`, `PIELE_SUPABASE_URL`, `PIELE_SUPABASE_PUBLISHABLE_KEY` and `PIELE_SAMPLE_LEAGUE_DATA` variables. API variables are described in [apps/api/README.md](apps/api/README.md). Local staging secrets live in `apps/api/.env.staging`, which Git ignores.
 
 The More page reports whether the frontend can reach the API and whether the API reaches the database.
 
