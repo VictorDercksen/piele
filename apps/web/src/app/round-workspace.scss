@@ -1,0 +1,352 @@
+.round-workspace {
+  display: grid;
+  grid-template-columns: 175px minmax(0, 1fr);
+  min-width: 0;
+}
+.main-content,
+.journal .main-content,
+.floodlights .main-content,
+.matchday .main-content {
+  width: 100%;
+  min-width: 0;
+  padding: 22px 25px 0;
+}
+.round-context {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding-bottom: 19px;
+  margin-bottom: 22px;
+  border-bottom: 1px solid var(--line);
+  .context-number {
+    font-size: 55px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -2px;
+    color: var(--accent);
+    border-right: 1px solid var(--line);
+    padding-right: 17px;
+  }
+  strong {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1.2;
+    margin: 5px 0;
+  }
+  .eyebrow {
+    font-size: 8px;
+    color: var(--muted);
+  }
+  p {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+  .tag {
+    font-size: 8px;
+    letter-spacing: 0.5px;
+  }
+}
+.context-pager {
+  display: flex;
+  gap: 5px;
+  margin-left: auto;
+  button {
+    width: 37px;
+    height: 44px;
+    background: transparent;
+    color: var(--ink);
+    border: 1px solid var(--line);
+    font-size: 18px;
+    cursor: pointer;
+    &:disabled {
+      opacity: 0.3;
+      cursor: default;
+    }
+  }
+}
+.scope-note {
+  font-size: 10px;
+  color: var(--muted);
+  max-width: 150px;
+  text-align: right;
+}
+.round-empty {
+  padding: 25px 20px;
+  background: var(--surface);
+  border-top: 2px solid var(--line);
+  app-icon {
+    color: var(--accent);
+    margin-bottom: 12px;
+  }
+  h2,
+  h3 {
+    font-weight: 600;
+    line-height: 1.25;
+    font-size: 23px;
+    margin: 0 0 12px;
+  }
+  p {
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  .text-button {
+    margin-top: 12px;
+  }
+}
+.unscheduled-round {
+  grid-column: 1/-1;
+  background: #263f52;
+  color: #f0f2eb;
+  position: relative;
+  padding: 45px;
+  min-height: 280px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background-image: repeating-linear-gradient(0deg, transparent 0 44px, #ffffff07 44px 45px);
+  > span {
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: #ffac94;
+  }
+  h2 {
+    font-size: 48px;
+    line-height: 1.05;
+    font-weight: 700;
+    letter-spacing: -1px;
+    margin: 20px 0;
+  }
+  p {
+    font-size: 14px;
+    color: #c5d4dc;
+  }
+}
+.closed-result {
+  color: var(--ink) !important;
+  padding: 17px;
+  background: var(--paper);
+  border-left: 3px solid var(--accent);
+}
+.page-heading h1 {
+  font-size: 27px;
+}
+.home-grid,
+.journal .home-grid,
+.floodlights .home-grid,
+.matchday .home-grid {
+  grid-template-columns: minmax(0, 1.25fr) minmax(240px, 1fr);
+  gap: 26px 23px;
+}
+.duty-feature h3,
+.matchday .duty-feature h3 {
+  font-size: 26px;
+}
+.leaderboard li {
+  font-size: 12px;
+  gap: 7px;
+}
+.section-title h2,
+.journal .section-title h2 {
+  font-size: 23px;
+}
+.section-title > span {
+  display: none;
+}
+.fixture-pair {
+  gap: 6px;
+  grid-template-columns: 1fr 65px 1fr;
+}
+.fixture-pair img {
+  width: 53px;
+  height: 53px;
+}
+.fixture-pair h2 {
+  font-size: 18px;
+}
+.fixture-pair > span strong {
+  font-size: 23px;
+}
+.register-card h2,
+.poll-card h2 {
+  font-size: 29px;
+}
+.main-shell {
+  min-width: 0;
+}
+@container (max-width:1200px) {
+  .round-workspace {
+    grid-template-columns: 160px minmax(0, 1fr);
+  }
+  .main-content,
+  .journal .main-content,
+  .floodlights .main-content,
+  .matchday .main-content {
+    padding: 20px 20px 0;
+  }
+  .home-grid,
+  .journal .home-grid,
+  .floodlights .home-grid,
+  .matchday .home-grid {
+    grid-template-columns: minmax(0, 1.2fr) minmax(210px, 1fr);
+    gap: 23px 18px;
+  }
+  .round-context {
+    gap: 12px;
+    strong {
+      font-size: 22px;
+    }
+    .context-number {
+      font-size: 49px;
+    }
+  }
+  .scope-note {
+    display: none;
+  }
+  .section-title h2,
+  .journal .section-title h2 {
+    font-size: 22px;
+  }
+  .duty-feature .duty-top {
+    flex-wrap: wrap;
+    gap: 7px;
+  }
+  .leaderboard .member-avatar {
+    display: none !important;
+  }
+}
+@container (max-width:1050px) {
+  .round-workspace {
+    display: block;
+  }
+  .round-context {
+    padding-bottom: 16px;
+    margin-bottom: 18px;
+  }
+  .leaderboard .member-avatar {
+    display: grid !important;
+  }
+  .home-grid,
+  .journal .home-grid,
+  .floodlights .home-grid,
+  .matchday .home-grid {
+    grid-template-columns: minmax(0, 1.2fr) minmax(230px, 1fr);
+  }
+}
+@container (max-width:600px) {
+  .main-content,
+  .journal .main-content,
+  .floodlights .main-content,
+  .matchday .main-content {
+    padding: 18px 17px 0;
+  }
+  .round-context {
+    gap: 12px;
+    .context-number {
+      font-size: 41px;
+      padding-right: 12px;
+    }
+    strong {
+      font-size: 21px;
+      gap: 7px;
+    }
+    .tag {
+      font-size: 7px;
+      padding: 4px 6px;
+    }
+    p {
+      font-size: 9px;
+    }
+  }
+  .context-pager {
+    gap: 3px;
+    button {
+      width: 29px;
+      height: 40px;
+      font-size: 16px;
+    }
+  }
+  .round-context .eyebrow {
+    font-size: 7px;
+  }
+  .page-heading h1 {
+    font-size: 25px;
+  }
+  .home-grid,
+  .journal .home-grid,
+  .floodlights .home-grid,
+  .matchday .home-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+  .round-empty {
+    padding: 22px 18px;
+    h2,
+    h3 {
+      font-size: 23px;
+    }
+  }
+  .unscheduled-round {
+    padding: 28px 22px;
+    min-height: 260px;
+    h2 {
+      font-size: 36px;
+    }
+  }
+  .leaderboard li {
+    font-size: 14px;
+  }
+  .section-title h2,
+  .journal .section-title h2 {
+    font-size: 24px;
+  }
+  .fixture-pair > span strong {
+    font-size: 22px;
+  }
+  .fixture-pair h2 {
+    font-size: 18px;
+  }
+  .duty-feature .due-line {
+    font-size: 11px;
+  }
+}
+@container (max-width:350px) {
+  .main-content,
+  .journal .main-content,
+  .floodlights .main-content,
+  .matchday .main-content {
+    padding: 18px 13px 0;
+  }
+  .context-number {
+    display: none;
+  }
+  .round-context {
+    strong {
+      font-size: 21px;
+    }
+    p {
+      font-size: 9px;
+    }
+  }
+  .leaderboard li {
+    font-size: 13px;
+  }
+  .fixture-card {
+    padding: 17px;
+  }
+  .fixture-pair {
+    grid-template-columns: 1fr 54px 1fr;
+  }
+  .fixture-pair img {
+    width: 45px;
+    height: 45px;
+  }
+  .fixture-pair h2 {
+    font-size: 17px;
+  }
+}

@@ -1,0 +1,67 @@
+:host {
+  display: block;
+  background: #101a22;
+  min-height: 100vh;
+}
+.application-preview {
+  container-type: inline-size;
+  width: 100%;
+}
+.prototype-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  min-height: 48px;
+  padding: 10px 24px;
+  background: #0c141b;
+  color: #c7d4de;
+  font:
+    600 10px 'Titillium Web',
+    sans-serif;
+  letter-spacing: 1px;
+  border-bottom: 1px solid #2e414f;
+}
+.prototype-bar small {
+  font-weight: 400;
+  color: #8ea3b3;
+  margin-left: 18px;
+  letter-spacing: 0;
+}
+.prototype-bar label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  white-space: nowrap;
+}
+.prototype-bar select {
+  background: #172936;
+  border: 1px solid #3c5261;
+  color: #e3edf3;
+  font: inherit;
+  min-height: 32px;
+  padding: 4px 8px;
+}
+.skip-link {
+  position: fixed;
+  left: 12px;
+  top: -70px;
+  z-index: 100;
+  padding: 12px 20px;
+  background: #fff;
+  color: #102331;
+}
+.skip-link:focus {
+  top: 10px;
+}
+@media (max-width: 600px) {
+  .prototype-bar {
+    padding: 8px 15px;
+    font-size: 9px;
+  }
+  .prototype-bar small {
+    display: block;
+    margin: 4px 0 0;
+    font-size: 9px;
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "name": "piele",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "start": "npm --prefix apps/web start -- --host 127.0.0.1",
+    "build": "npm --prefix apps/web run build",
+    "test": "npm --prefix apps/web test -- --watch=false",
+    "test:e2e": "npm --prefix apps/web run test:e2e",
+    "setup": "npm --prefix apps/web ci"
+  }
+}

@@ -1,0 +1,760 @@
+<div
+  [class]="'league ' + concept().id"
+  [style.--member-colour]="favouriteTeam()?.colour"
+  [style.--member-accent]="favouriteTeam()?.accent"
+>
+  <aside class="sidebar">
+    <button class="club-brand" (click)="go('home')" aria-label="Piele home">
+      <img src="assets/images/piele-crest.png" alt="Piele crest" /><span
+        ><strong>PIELE</strong><small>THE RUGBY CLUBHOUSE</small></span
+      >
+    </button>
+    <div class="season-label">
+      <span class="season-dot"></span> URC 26/27 <span class="season-small">SEASON 01</span>
+    </div>
+    <nav class="desktop-nav" aria-label="League navigation">
+      <span class="nav-caption">THE CLUBHOUSE</span>
+      @for (item of nav; track item.id; let navIndex = $index) {
+        <button
+          [class.selected]="page() === item.id"
+          [attr.aria-current]="page() === item.id ? 'page' : null"
+          (click)="go(item.id)"
+        >
+          <span class="nav-number" aria-hidden="true">0{{ navIndex + 1 }}</span
+          ><app-icon [name]="item.id" /><span>{{ item.label }}</span>
+          @if (item.id === 'duties') {
+            <small>{{ myDuty() && !submitted() ? '1' : '0' }}</small>
+          }
+          @if (item.id === 'decisions' && round().poll?.status === 'Open' && !recordedVote()) {
+            <i class="nav-dot"></i>
+          }
+        </button>
+      }
+      <span class="nav-caption secondary-caption">OFF THE FIELD</span>
+      <button class="secondary-nav" (click)="open('constitution')">
+        <app-icon name="book" /><span>Constitution</span>
+      </button>
+      @if (captain()) {
+        <button class="captain-nav" (click)="open('review')">
+          <app-icon name="shield" /><span>Captain's desk</span
+          ><small>{{ round().reviews.length }}</small>
+        </button>
+      }
+    </nav>
+    <div class="sidebar-bottom">
+      <button class="supporter-profile" (click)="editProfile.emit()" aria-label="Edit your profile">
+        <img
+          class="supporter-jersey"
+          [src]="favouriteTeam()?.jersey"
+          [alt]="favouriteTeam()?.name + ' jersey'"
+        />
+        <span class="supporter-label">YOUR COLOURS</span
+        ><strong>{{ favouriteTeam()?.shortName }}</strong>
+        <span class="identity-avatar">
+          @if (profile()?.photo) {
+            <img [src]="profile()?.photo" alt="Your profile photo" />
+          } @else {
+            {{ initials() }}
+          }
+        </span>
+        <span class="identity-name">{{ profile()?.displayName }}</span
+        ><small>Edit profile ↗</small>
+      </button>
+    </div>
+  </aside>
+
+  <div class="main-shell">
+    <header class="utility-header">
+      <span class="breadcrumb"
+        >ROUND {{ round().code }} <span>/</span>
+        {{ page() === 'home' ? 'HOME' : page().toUpperCase() }}</span
+      >
+      <div class="mobile-brand">
+        <img src="assets/images/piele-crest.png" alt="" /><strong>PIELE</strong><span>26/27</span>
+      </div>
+      <div class="header-right">
+        <button class="header-profile" aria-label="My profile" (click)="editProfile.emit()">
+          <span class="identity-avatar">
+            @if (profile()?.photo) {
+              <img [src]="profile()?.photo" alt="" />
+            } @else {
+              {{ initials() }}
+            }</span
+          ><span>{{ profile()?.displayName }}</span>
+        </button>
+        <span class="demo-label">{{ demo ? 'DEMO SEASON' : 'URC 2026/27' }}</span
+        ><button
+          class="notification-button"
+          aria-label="Open notifications"
+          (click)="open('notifications')"
+        >
+          <app-icon name="bell" /><i></i>
+        </button>
+      </div>
+    </header>
+    <div class="round-workspace">
+      <app-season-timeline
+        [rounds]="rounds"
+        [current]="currentRound"
+        [selected]="selectedRound()"
+        (choose)="selectRound($event)"
+      />
+      <main id="preview-main" class="main-content">
+        <section class="round-context" aria-label="Selected round" aria-live="polite">
+          <span class="context-number">{{ round().code }}</span>
+          <div>
+            <span class="eyebrow">PIELE URC / 26–27</span
+            ><strong
+              >{{ round().title || 'Round ' + round().code }}
+              <span class="tag">{{ round().status }}</span></strong
+            >
+            <p>
+              {{ round().dates }} · {{ demo ? 'Demonstration content' : 'Published URC schedule' }}
+            </p>
+          </div>
+          <div class="context-pager">
+            <button
+              aria-label="Previous round"
+              [disabled]="selectedRound() === 1"
+              (click)="selectRound(selectedRound() - 1)"
+            >
+              ←</button
+            ><button
+              aria-label="Next round"
+              [disabled]="selectedRound() === rounds.length"
+              (click)="selectRound(selectedRound() + 1)"
+            >
+              →
+            </button>
+          </div>
+        </section>
+        <div class="page-heading">
+          <div>
+            <p class="eyebrow">
+              ROUND {{ round().code }} / {{ page() === 'home' ? 'OVERVIEW' : page().toUpperCase() }}
+            </p>
+            <h1>{{ title() }}</h1>
+          </div>
+          <span class="scope-note">Viewing {{ round().title || 'Round ' + round().code }}.</span>
+        </div>
+        @if (toast()) {
+          <div class="toast" role="status">
+            <app-icon name="check" />{{ toast()
+            }}<button aria-label="Dismiss message" (click)="toast.set('')">
+              <app-icon name="close" />
+            </button>
+          </div>
+        }
+        @if (page() === 'home') {
+          <div class="home-grid">
+            <section class="supporter-strip">
+              <span class="identity-avatar">
+                @if (profile()?.photo) {
+                  <img [src]="profile()?.photo" alt="Your profile photo" />
+                } @else {
+                  {{ initials() }}
+                }
+              </span>
+              <div>
+                <span>YOUR SEAT IN THE CLUBHOUSE</span><strong>{{ profile()?.displayName }}</strong
+                ><small>{{ favouriteTeam()?.name }} supporter</small>
+              </div>
+              <img [src]="favouriteTeam()?.jersey" alt="" /><button (click)="editProfile.emit()">
+                Edit profile ↗
+              </button>
+            </section>
+            @for (current of [round()]; track current.id) {
+              @if (fixtures().length) {
+                <app-match-hero
+                  [design]="concept().id"
+                  [fixtures]="fixtures()"
+                  [favourite]="favouriteTeam()?.id || ''"
+                  [roundCode]="round().code"
+                  [roundDates]="round().dates"
+                  (explore)="go('rounds')"
+                />
+              } @else {
+                <section class="unscheduled-round">
+                  <span>ROUND {{ round().code }} / COMING UP</span>
+                  <h2>The next chapter<br />is still being written.</h2>
+                  <p>Fixtures and dates have not been confirmed for this round.</p>
+                </section>
+              }
+            }
+            <section class="next-actions">
+              <div class="section-title">
+                <h2>Your next move.</h2>
+                <span>ROUND {{ round().code }}</span>
+              </div>
+              @if (myDuty(); as duty) {
+                <article class="duty-feature">
+                  <span class="duty-watermark" aria-hidden="true">{{ round().code }}</span
+                  ><span class="duty-slip-label"
+                    >THE POST-MATCH PAPERWORK / R{{ round().code }}</span
+                  >
+                  <div class="duty-top">
+                    <span class="tag">{{
+                      submitted() ? 'AWAITING REVIEW' : duty.status.toUpperCase()
+                    }}</span
+                    ><span class="duty-round">{{ profile()?.displayName }}</span>
+                  </div>
+                  <h3>
+                    {{ submitted() ? 'Over to the captain.' : 'The Spoon has your name on it.' }}
+                  </h3>
+                  <p>
+                    {{ duty.title }}.
+                    {{
+                      submitted()
+                        ? 'Your demo evidence is ready for an uninvolved reviewer.'
+                        : 'Submit your evidence for this round before the recorded deadline.'
+                    }}
+                  </p>
+                  <div class="due-line">
+                    <app-icon name="clock" /><span>{{ duty.deadline }}</span>
+                  </div>
+                  <div class="duty-actions">
+                    <button
+                      class="primary-button"
+                      (click)="submitted() ? go('duties') : open('evidence')"
+                    >
+                      <app-icon name="upload" />{{
+                        submitted() ? 'View duty' : 'Upload evidence'
+                      }}</button
+                    ><button class="text-button" (click)="go('duties')">Duty details ↗</button>
+                  </div>
+                </article>
+              } @else {
+                <article class="round-empty">
+                  <app-icon name="check" />
+                  <h3>No duties for you in Round {{ round().code }}.</h3>
+                  <p>
+                    {{
+                      round().status === 'Completed'
+                        ? 'Your personal register is clear for this completed round.'
+                        : 'Only confirmed duties for this round will appear here.'
+                    }}
+                  </p>
+                  <button class="text-button" (click)="dutyFilter.set('league'); go('duties')">
+                    League duties ({{ round().duties.length }}) →
+                  </button>
+                </article>
+              }
+              @if (captain() && round().reviews.length) {
+                <button class="captain-queue" (click)="open('review')">
+                  <app-icon name="shield" /><span
+                    ><strong>Captain, you're up.</strong
+                    ><small
+                      >{{ round().reviews.length }} items in Round {{ round().code }}</small
+                    ></span
+                  ><span class="queue-count">{{ round().reviews.length }}</span
+                  ><app-icon name="arrow" />
+                </button>
+              }
+            </section>
+            <aside class="standings-panel">
+              <div class="section-title">
+                <h2>The pecking order.</h2>
+                <span>ROUND {{ round().code }}</span>
+              </div>
+              @if (members().length) {
+                <div class="table-label">
+                  <span>ROUND {{ round().code }} POINTS</span><span>PTS</span>
+                </div>
+                <ol class="leaderboard">
+                  @for (member of members().slice(0, 4); track member.initials) {
+                    <li [class.you]="member.initials === 'VD'">
+                      <span class="rank">{{ member.rank }}</span
+                      ><span class="member-avatar"
+                        ><img
+                          [src]="
+                            member.initials === 'VD' && profile()?.photo
+                              ? profile()!.photo!
+                              : 'assets/images/teams/' +
+                                (member.initials === 'VD' ? favouriteTeam()?.id : member.team) +
+                                '.png'
+                          "
+                          alt="" /></span
+                      ><span class="member-name">{{
+                        member.initials === 'VD' ? profile()?.displayName : member.name
+                      }}</span
+                      ><strong>{{ member.points }}</strong>
+                    </li>
+                  }
+                </ol>
+                <button class="table-link" (click)="go('standings')">
+                  Full round standings <app-icon name="arrow" />
+                </button>
+                <div class="house-marks">
+                  <div>
+                    <span>YOUR ROUND {{ round().code }} HOUSE MARKS</span>
+                    <p>Separate from Superbru points.</p>
+                  </div>
+                  <strong>{{ ownMarks() }}</strong>
+                </div>
+              } @else {
+                <div class="round-empty">
+                  <app-icon name="standings" />
+                  <h3>No results for Round {{ round().code }} yet.</h3>
+                  <p>Round points and house marks appear after results are recorded.</p>
+                </div>
+              }
+            </aside>
+            <section class="club-feed">
+              <div class="section-title">
+                <h2>From this round.</h2>
+                <span>R{{ round().code }} / LATEST</span>
+              </div>
+              @if (round().poll; as poll) {
+                <button class="feed-item" (click)="go('decisions')">
+                  <span class="feed-icon"><app-icon name="decisions" /></span
+                  ><span
+                    ><span class="feed-label">{{
+                      poll.status === 'Open' ? 'YOUR VOICE COUNTS' : 'DECISION RECORDED'
+                    }}</span
+                    ><strong>{{ poll.question }}</strong
+                    ><small>{{
+                      recordedVote()
+                        ? 'Your demo choice is recorded for this round.'
+                        : poll.status === 'Open'
+                          ? 'Closes ' + poll.closes
+                          : poll.result
+                    }}</small></span
+                  ><app-icon name="arrow" />
+                </button>
+              }
+              <div class="feed-item">
+                <span class="feed-icon neutral"><app-icon name="rounds" /></span
+                ><span
+                  ><span class="feed-label">ROUND {{ round().code }} / UPDATE</span
+                  ><strong>{{ round().status }}</strong
+                  ><small>{{ round().activity }}</small></span
+                >
+              </div>
+            </section>
+          </div>
+        }
+        @if (page() === 'rounds') {
+          <div class="schedule-source">
+            <span>2026/27 · 144 league fixtures + 7 playoff slots · Times in SAST</span
+            ><a href="https://stats.unitedrugby.com/" target="_blank" rel="noopener noreferrer"
+              >Official URC source ↗</a
+            ><small
+              >Snapshot checked 23 September 2026. Fixtures can change. Playoff kickoffs remain
+              TBC.</small
+            >
+          </div>
+          <div class="page-intro">
+            <p>{{ fixtures().length }} fixtures in Round {{ round().code }}. All times are SAST.</p>
+            <span class="tag">{{ round().status }}</span>
+          </div>
+          <div class="deadline-banner">
+            <app-icon name="clock" /><span
+              ><strong>Round {{ round().code }} house pick deadline</strong
+              >{{ round().deadline }}</span
+            >
+            @if (round().status === 'Current') {
+              <a href="https://www.superbru.com/" target="_blank" rel="noopener noreferrer"
+                >Open Superbru ↗</a
+              >
+            }
+          </div>
+          @if (fixtures().length) {
+            <div class="fixtures-grid">
+              @for (fixture of fixtures(); track fixture.id || fixture.home) {
+                <article
+                  class="fixture-card"
+                  [class.supported-fixture]="
+                    fixture.homeAsset === favouriteTeam()?.id ||
+                    fixture.awayAsset === favouriteTeam()?.id
+                  "
+                >
+                  <div class="fixture-card-top">
+                    <span
+                      >{{ fixture.day }}
+                      {{ fixture.kickoffUtc?.slice(0, 4) || (demo ? '2026' : '') }}</span
+                    ><span>{{ fixture.score ? 'FINAL' : 'UPCOMING' }}</span>
+                  </div>
+                  <div class="fixture-pair">
+                    <div>
+                      <img [src]="jersey(fixture.homeAsset)" alt="" />
+                      <h2>{{ fixture.home }}</h2>
+                    </div>
+                    <span
+                      ><strong>{{ fixture.score || fixture.time }}</strong
+                      ><small>{{ fixture.score ? 'FULL TIME' : 'SAST' }}</small></span
+                    >
+                    <div>
+                      <img [src]="jersey(fixture.awayAsset)" alt="" />
+                      <h2>{{ fixture.away }}</h2>
+                    </div>
+                  </div>
+                  <p>{{ fixture.venue }}</p>
+                </article>
+              }
+            </div>
+          } @else {
+            <div class="round-empty">
+              <h2>Fixtures to be confirmed.</h2>
+              <p>Nothing has been scheduled for Round {{ round().code }}.</p>
+            </div>
+          }
+          <p class="context-note">
+            {{
+              demo
+                ? 'Illustrative fixtures, scores and deadlines. This is a sample league.'
+                : 'Published competition fixtures. House pick deadlines require a separate captain confirmation. Four missing jersey assets use illustrated supporter shirts.'
+            }}
+          </p>
+        }
+        @if (page() === 'standings') {
+          <div class="content-tabs" aria-label="Standings measure">
+            <button
+              [class.active]="standingsType() === 'points'"
+              [attr.aria-pressed]="standingsType() === 'points'"
+              (click)="standingsType.set('points')"
+            >
+              Superbru points</button
+            ><button
+              [class.active]="standingsType() === 'marks'"
+              [attr.aria-pressed]="standingsType() === 'marks'"
+              (click)="standingsType.set('marks')"
+            >
+              House marks
+            </button>
+          </div>
+          <p class="page-description">
+            Round {{ round().code }} only. Superbru points and symbolic house marks are separate
+            measures.
+          </p>
+          @if (members().length) {
+            <div class="full-table">
+              <div class="table-label">
+                <span>{{ standingsType() === 'points' ? 'RANK / MEMBER' : 'MEMBER' }}</span
+                ><span>{{ standingsType() === 'points' ? 'ROUND POINTS' : 'ROUND MARKS' }}</span>
+              </div>
+              @for (member of members(); track member.initials) {
+                <div class="standing-row" [class.you]="member.initials === 'VD'">
+                  @if (standingsType() === 'points') {
+                    <span class="rank">{{ member.rank }}</span>
+                  }
+                  <img
+                    [src]="
+                      member.initials === 'VD' && profile()?.photo
+                        ? profile()!.photo!
+                        : 'assets/images/teams/' +
+                          (member.initials === 'VD' ? favouriteTeam()?.id : member.team) +
+                          '.png'
+                    "
+                    alt=""
+                  /><span
+                    >{{ member.initials === 'VD' ? profile()?.displayName : member.name }}
+                    @if (member.initials === 'VD') {
+                      <small>YOU</small>
+                    }</span
+                  ><strong>{{
+                    standingsType() === 'points' ? member.points : member.marks
+                  }}</strong>
+                </div>
+              }
+            </div>
+          } @else {
+            <div class="round-empty">
+              <h2>No results for Round {{ round().code }} yet.</h2>
+              <p>League standings will appear after results are imported and confirmed.</p>
+            </div>
+          }
+        }
+        @if (page() === 'duties') {
+          <div class="content-tabs" aria-label="Duty scope">
+            <button
+              [class.active]="dutyFilter() === 'mine'"
+              [attr.aria-pressed]="dutyFilter() === 'mine'"
+              (click)="dutyFilter.set('mine')"
+            >
+              My duties</button
+            ><button
+              [class.active]="dutyFilter() === 'league'"
+              [attr.aria-pressed]="dutyFilter() === 'league'"
+              (click)="dutyFilter.set('league')"
+            >
+              League duties
+            </button>
+          </div>
+          @for (duty of visibleDuties(); track duty.title) {
+            <article
+              class="register-card"
+              [class.personal-duty]="duty.member === 'Victor Dercksen'"
+            >
+              <div class="register-heading">
+                <span class="tag">{{
+                  duty.member === 'Victor Dercksen' && submitted() ? 'Awaiting review' : duty.status
+                }}</span
+                ><span class="eyebrow"
+                  >ROUND {{ round().code }} /
+                  {{
+                    duty.member === 'Victor Dercksen' ? profile()?.displayName : duty.member
+                  }}</span
+                >
+              </div>
+              <h2>{{ duty.title }}</h2>
+              <p>
+                Illustrative duty recorded in Round {{ round().code }}. No live league obligation is
+                created by this preview.
+              </p>
+              <dl>
+                <div>
+                  <dt>Deadline</dt>
+                  <dd>{{ duty.deadline }}</dd>
+                </div>
+                <div>
+                  <dt>Duty marks</dt>
+                  <dd>{{ duty.marks }} marks</dd>
+                </div>
+                <div>
+                  <dt>Evidence</dt>
+                  <dd>
+                    {{
+                      duty.status === 'Completed'
+                        ? 'Accepted'
+                        : duty.member === 'Victor Dercksen' && submitted()
+                          ? 'Submitted for review'
+                          : duty.status === 'Awaiting review'
+                            ? 'Submitted for review'
+                            : 'Not submitted'
+                    }}
+                  </dd>
+                </div>
+              </dl>
+              @if (duty.member === 'Victor Dercksen' && duty.status !== 'Completed') {
+                <button class="primary-button" (click)="open('evidence')">
+                  <app-icon name="upload" />{{
+                    submitted() ? 'Preview replacement evidence' : 'Upload evidence'
+                  }}
+                </button>
+              }
+            </article>
+          } @empty {
+            <div class="round-empty">
+              <h2>
+                No {{ dutyFilter() === 'mine' ? 'personal' : 'league' }} duties in Round
+                {{ round().code }}.
+              </h2>
+              <p>There are no matching duties in this round’s register.</p>
+            </div>
+          }
+        }
+        @if (page() === 'decisions') {
+          @if (round().poll; as poll) {
+            <article class="poll-card">
+              <div class="register-heading">
+                <span class="tag">{{ poll.status === 'Open' ? 'VOTING OPEN' : 'VOTE CLOSED' }}</span
+                ><span class="eyebrow">ROUND {{ round().code }} / LEAGUE DECISION</span>
+              </div>
+              <h2>{{ poll.question }}</h2>
+              <p>{{ poll.description }}</p>
+              <div class="poll-participation">
+                <span class="overlapping-avatars"><i>JP</i><i>PW</i><i>FB</i></span
+                ><span
+                  >{{ poll.turnout + (recordedVote() ? 1 : 0) }} of 12 members participated</span
+                >
+              </div>
+              <div class="participation-track">
+                <span
+                  [style.width.%]="((poll.turnout + (recordedVote() ? 1 : 0)) / 12) * 100"
+                ></span>
+              </div>
+              @if (poll.status === 'Open') {
+                <div class="poll-bottom">
+                  <span>Closes {{ poll.closes }}</span
+                  ><button class="primary-button" (click)="open('vote')">
+                    {{ recordedVote() ? 'Review your vote' : 'Have your say'
+                    }}<app-icon name="arrow" />
+                  </button>
+                </div>
+              } @else {
+                <p class="closed-result">{{ poll.result }}</p>
+                <p class="context-note">
+                  Closed {{ poll.closes }}. This historical demo vote cannot be changed.
+                </p>
+              }
+            </article>
+            <p class="context-note">
+              Sample decision only. Confidential, revisable ballots remain a proposed behaviour.
+            </p>
+          } @else {
+            <div class="round-empty">
+              <app-icon name="decisions" />
+              <h2>No decisions in Round {{ round().code }}.</h2>
+              <p>Votes and cases linked to this round will appear here.</p>
+            </div>
+          }
+        }
+        @if (page() === 'more') {
+          <div class="more-links">
+            <button (click)="go('standings')">
+              <app-icon name="standings" /><span>Round {{ round().code }} standings</span
+              ><app-icon name="arrow" /></button
+            ><button (click)="open('notifications')">
+              <app-icon name="bell" /><span>Round {{ round().code }} updates</span
+              ><app-icon name="arrow" /></button
+            ><button (click)="open('constitution')">
+              <app-icon name="book" /><span>Season constitution</span><app-icon name="arrow" />
+            </button>
+            @if (captain()) {
+              <button (click)="open('review')">
+                <app-icon name="shield" /><span>Round {{ round().code }} captain's desk</span
+                ><app-icon name="arrow" />
+              </button>
+            }
+          </div>
+        }
+        <footer class="club-footer">
+          <span>PIELE / ROUND {{ round().code }}</span
+          ><span>{{
+            demo
+              ? 'Demonstration content. Names, dates and totals are samples.'
+              : 'Official fixtures checked 23 Sep 2026. League administration is a frontend preview.'
+          }}</span
+          ><span>26 / 27</span>
+        </footer>
+      </main>
+    </div>
+  </div>
+  <nav class="mobile-nav" aria-label="Mobile league navigation">
+    @for (item of mobileNav; track item.id) {
+      <button
+        [class.selected]="page() === item.id || (item.id === 'more' && page() === 'standings')"
+        [attr.aria-current]="page() === item.id ? 'page' : null"
+        (click)="go(item.id)"
+      >
+        <app-icon [name]="item.id" /><span>{{ item.label }}</span>
+      </button>
+    }
+  </nav>
+  <dialog #detailDialog class="detail-dialog" aria-labelledby="dialog-title">
+    <div class="dialog-top">
+      <span class="eyebrow"
+        >PIELE /
+        {{ panel() === 'constitution' ? 'SEASON DOCUMENT' : 'ROUND ' + round().code }}</span
+      ><button class="icon-button" aria-label="Close dialog" (click)="close()">
+        <app-icon name="close" />
+      </button>
+    </div>
+    @if (panel() === 'evidence') {
+      <h2 id="dialog-title">The proof is in the video.</h2>
+      <p>{{ myDuty()?.title }} · {{ profile()?.displayName }}</p>
+      <div class="preview-notice">Local preview only. Your file is never uploaded or stored.</div>
+      <label class="file-field"
+        ><app-icon name="upload" /><strong>Choose your evidence video</strong
+        ><span>{{ fileName() || 'Video file · proposed 50 MB limit' }}</span
+        ><input type="file" accept="video/*" (change)="pickFile($event)"
+      /></label>
+      @if (fileError()) {
+        <p class="error-message" role="alert">{{ fileError() }}</p>
+      }
+      <label class="note-label" for="evidence-note">A little context (optional)</label
+      ><textarea
+        id="evidence-note"
+        rows="3"
+        placeholder="Anything the reviewer should know?"
+      ></textarea>
+      <p class="context-note">
+        Evidence belongs to Round {{ round().code }}. The proposed app keeps videos private to
+        active league members.
+      </p>
+      <button class="primary-button wide" [disabled]="!fileName()" (click)="submitEvidence()">
+        Simulate submission <app-icon name="arrow" />
+      </button>
+    }
+    @if (panel() === 'vote') {
+      @if (round().poll; as poll) {
+        <h2 id="dialog-title">{{ poll.question }}</h2>
+        <p>{{ poll.description }}</p>
+        <fieldset class="vote-options">
+          <legend>Your choice for Round {{ round().code }}</legend>
+          @for (option of poll.options; track option) {
+            <label [class.chosen]="vote() === option"
+              ><input
+                type="radio"
+                name="round-vote"
+                [checked]="vote() === option"
+                (change)="vote.set(option)"
+              /><span>{{ option }}</span></label
+            >
+          }
+        </fieldset>
+        @if (recordedVote()) {
+          <p class="recorded-vote">Your recorded demo choice: {{ recordedVote() }}</p>
+        }
+        <p class="context-note">Closes {{ poll.closes }}. Demo votes reset on reload.</p>
+        <button class="primary-button wide" [disabled]="!vote()" (click)="castVote()">
+          {{ recordedVote() ? 'Update demo vote' : 'Cast demo vote' }}<app-icon name="arrow" />
+        </button>
+      }
+    }
+    @if (panel() === 'notifications') {
+      <h2 id="dialog-title">Round {{ round().code }} updates.</h2>
+      <div class="notification-item">
+        <app-icon name="rounds" />
+        <div>
+          <h3>{{ round().status }}</h3>
+          <p>{{ round().activity }}</p>
+          <button class="text-button" (click)="close(); go('rounds')">View round fixtures →</button>
+        </div>
+      </div>
+      @if (myDuty(); as duty) {
+        <div class="notification-item">
+          <app-icon name="duties" />
+          <div>
+            <h3>{{ duty.title }}</h3>
+            <p>Due {{ duty.deadline }}</p>
+            <button class="text-button" (click)="close(); go('duties')">View duty →</button>
+          </div>
+        </div>
+      }
+      @if (round().poll; as poll) {
+        <div class="notification-item">
+          <app-icon name="decisions" />
+          <div>
+            <h3>{{ poll.question }}</h3>
+            <p>{{ poll.status }} · {{ poll.closes }}</p>
+            <button class="text-button" (click)="close(); go('decisions')">View decision →</button>
+          </div>
+        </div>
+      }
+    }
+    @if (panel() === 'constitution') {
+      <h2 id="dialog-title">Same club. Shared rules.</h2>
+      <span class="tag">SEASON DOCUMENT / NOT ADOPTED</span>
+      <p>The constitution applies across the season. It is not a record from one round.</p>
+      <div class="constitution-preview">
+        <h3>Points and house marks</h3>
+        <p>Superbru points and symbolic house marks remain separate.</p>
+        <h3>Your choice</h3>
+        <p>Voluntary ceremonies can be declined without default marks.</p>
+      </div>
+      <p class="context-note">
+        Design summary only. This is not the full constitution or an adoption record.
+      </p>
+    }
+    @if (panel() === 'review') {
+      <h2 id="dialog-title">Round {{ round().code }} captain's desk.</h2>
+      <p>{{ round().reviews.length }} sample items for this round.</p>
+      @for (item of round().reviews; track item) {
+        <div class="review-row">
+          <app-icon name="shield" />
+          <div>
+            <h3>{{ item }}</h3>
+            <p>Ready for an uninvolved reviewer.</p>
+          </div>
+          <span class="tag">PENDING</span>
+        </div>
+      } @empty {
+        <div class="round-empty"><h3>Nothing needs your decision in this round.</h3></div>
+      }
+      <div class="preview-notice">
+        Captain review is a visual preview. Your own evidence requires an uninvolved reviewer.
+      </div>
+    }
+  </dialog>
+</div>

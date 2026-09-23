@@ -1,0 +1,8 @@
+[mcp_servers.supabase]
+url = "https://mcp.supabase.com/mcp?features=docs%2Caccount%2Cdatabase%2Cdebugging%2Cdevelopment%2Cfunctions%2Cbranching"
+
+[mcp_servers.spartan-ui]
+command = 'node'
+args = ['C:\Users\victo\Desktop\piele-urc\piele\apps\web\node_modules\@spartan-ng\mcp\src\server.js']
+cwd = 'C:\Users\victo\Desktop\piele-urc\piele\apps\web'
+startup_timeout_sec = 30
