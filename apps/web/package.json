@@ -10,6 +10,9 @@
     "test:e2e": "playwright test"
   },
   "private": true,
+  "engines": {
+    "node": "^22.22.3 || ^24.15.0 || >=26.0.0"
+  },
   "packageManager": "npm@11.17.0",
   "dependencies": {
     "@angular/cdk": "22.1.7",
