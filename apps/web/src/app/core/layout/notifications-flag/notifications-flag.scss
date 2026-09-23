@@ -13,19 +13,40 @@
   display: inline-block;
   z-index: 5;
 }
-.notification-button {
+// The trigger is its own button: a dark teal tile with a white pole, not the clubhouse pill.
+.flag-trigger {
   position: relative;
   display: grid;
   place-items: center;
-  min-width: 44px;
-  min-height: 44px;
-  border: 0;
-  background: var(--rugby-surface), var(--rugby-white);
-  color: var(--rugby-ink);
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  border: 1px solid #42606a;
+  border-radius: 13px;
+  background: linear-gradient(160deg, #1f4651, #143038 70%);
+  color: #fff;
+  cursor: pointer;
+  box-shadow:
+    inset 0 1px #ffffff14,
+    0 2px 6px #0004;
+  transition:
+    border-color 0.15s,
+    filter 0.15s;
+}
+.flag-trigger:hover {
+  filter: brightness(1.15);
+  border-color: #5f8891;
+}
+.flag-trigger:focus-visible {
+  outline: 2px solid #7dfff0;
+  outline-offset: 3px;
+}
+:host(.open) .flag-trigger {
+  border-color: #14c8be;
 }
 .flag-glyph {
-  width: 26px;
-  height: 26px;
+  width: 30px;
+  height: 30px;
 }
 .badge {
   position: absolute;

@@ -26,7 +26,7 @@ describe('NotificationsFlag', () => {
 
   it('lists the round updates on the flag and counts them as unread', async () => {
     const flag = await mount();
-    const trigger = flag.querySelector<HTMLButtonElement>('.notification-button')!;
+    const trigger = flag.querySelector<HTMLButtonElement>('.flag-trigger')!;
     expect(trigger.getAttribute('aria-expanded')).toBe('false');
     expect(flag.querySelector('.badge')?.textContent).toBe('3');
     expect(flag.querySelector('.cloth')?.hasAttribute('inert')).toBe(true);
@@ -45,7 +45,7 @@ describe('NotificationsFlag', () => {
 
   it('marks everything read, persists it and closes on Escape', async () => {
     const flag = await mount();
-    flag.querySelector<HTMLButtonElement>('.notification-button')!.click();
+    flag.querySelector<HTMLButtonElement>('.flag-trigger')!.click();
     TestBed.tick();
     flag.querySelector<HTMLButtonElement>('.read')!.click();
     TestBed.tick();

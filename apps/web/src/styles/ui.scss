@@ -456,7 +456,6 @@
   box-shadow: none;
 }
 .league .icon-button,
-.league .notification-button,
 .league .context-pager button,
 .league .toast button,
 .profile-editor .close-profile,
@@ -474,14 +473,12 @@
   padding-inline: 16px;
 }
 .league .icon-button:enabled:hover,
-.league .notification-button:enabled:hover,
 .league .context-pager button:enabled:hover,
 .league .toast button:enabled:hover,
 .profile-editor .close-profile:enabled:hover {
   filter: brightness(1.18);
 }
 .league .icon-button:enabled:active,
-.league .notification-button:enabled:active,
 .league .context-pager button:enabled:active,
 .league .toast button:enabled:active,
 .profile-editor .close-profile:enabled:active {
@@ -511,8 +508,7 @@ button.remove-photo:enabled:hover {
   border: 1px solid var(--line);
   background:
     radial-gradient(ellipse 45% 170px at 50% var(--board-rail), #ffd68428, transparent 90%),
-    var(--surface-grain),
-    #102022ee;
+    var(--surface-grain), #102022ee;
   color: var(--ink);
   box-shadow: 0 8px 24px #0003;
 }
@@ -523,8 +519,7 @@ button.remove-photo:enabled:hover {
   inset: -1px -1px auto;
   height: var(--board-rail);
   background:
-    linear-gradient(180deg, #f4d29755 0 1px, transparent 1px 10px, #0009 10px),
-    var(--timber);
+    linear-gradient(180deg, #f4d29755 0 1px, transparent 1px 10px, #0009 10px), var(--timber);
   box-shadow: 0 2px 0 #0b0604;
   pointer-events: none;
 }
