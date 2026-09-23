@@ -11,3 +11,5 @@ Checks run: `npm run build` passed without warnings. `npm test` passed (4 files,
 Environment notes: The container ships Node 22.22.2, below the Angular CLI minimum; Node 24.21.0 was installed under /opt/node24 for this session only. The pinned Playwright 1.63 expects Chromium build 1243; the pre-installed 1194 build was symlinked in place for the e2e run.
 
 Unresolved issues: None for this change. Consider making the e2e date assertion tolerant of the ICU comma, or pinning the Node version for e2e.
+
+Follow-up: On phones the Home grid becomes a flex column, so the board's global `align-self: start` acted on the horizontal axis and shrank it to content width. `.standings-panel` now sets `align-self: stretch` inside the Home page's 600 px container query. Build, unit tests and 9 of 10 e2e tests pass again; the remaining failure is the same ICU date-format difference described above.

@@ -359,6 +359,8 @@
   }
   .standings-panel {
     order: 1;
+    // The column flex layout would otherwise shrink the board to its content width.
+    align-self: stretch;
   }
   .club-feed {
     order: 2;
