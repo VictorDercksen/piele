@@ -8,7 +8,7 @@ Production is the `master` branch. Staging is the `staging` branch. Changes reac
 | --- | --- | --- |
 | Web, Vercel project `piele-web` | Preview environment | Production environment |
 | API, Vercel project `piele-api` | Preview environment | Production environment |
-| Database, Supabase | `piele-staging` (eu-west-2) | Dedicated production project, same region |
+| Database, Supabase | `piele-staging` (eu-west-2, currently paused for the free-plan limit) | `piele-production`, ref `lnifzhrdvuqskwiblmqh` (eu-west-2) |
 | Migrations | Supabase GitHub integration, branch `staging` | Supabase GitHub integration, branch `master` |
 
 Both `vercel.json` files set `ignoreCommand`, so Vercel builds only `staging` and `master`. This replaces the Ignored Build Step in the dashboard, which only allowed `staging`.
@@ -36,7 +36,7 @@ Both `vercel.json` files set `ignoreCommand`, so Vercel builds only `staging` an
 
 ### 2. Create the production database
 
-1. Create a Supabase project, for example `piele-production`, in eu-west-2 (London), next to the API's `lhr1` region. The free plan allows two active projects; `pofadder-bowl` is paused.
+1. Done: `piele-production` (ref `lnifzhrdvuqskwiblmqh`, eu-west-2) exists and both migrations are applied. The free plan allows two active projects, so `piele-staging` is paused; restore it (pausing another project) before rehearsing on staging.
 2. Settings > API: confirm `piele` is not in Exposed schemas.
 3. Integrations > GitHub: connect this repository, Supabase directory `supabase`, production branch `master`. Migrations then apply on each push to `master`. To apply them before the first merge instead, run `supabase link --project-ref <ref>` and `supabase db push` from the repository root.
 4. After the migrations run, set the `piele_api` password as in step 1.2, with a different password.

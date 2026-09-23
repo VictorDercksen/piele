@@ -35,19 +35,18 @@ H1's deployment work is completed by this change, except the real phone upload/p
 
 PR #1, `claude/production-deployment` into `master`: https://github.com/VictorDercksen/piele/pull/1. Open, not merged. Merging deploys to Production, so the setup below comes first.
 
-## Blocked: creating the production Supabase project and Vercel variables
+## Production Supabase project (done later in this session)
 
-The user asked for this after the PR was opened. It was not done: this session has no Supabase or Vercel connector and no credentials. `api.supabase.com` and `api.vercel.com` are reachable. To unblock, in a new session:
+- Supabase connector connected. Org "Pofadder Bowl" is on the free plan (two active projects). `pofadder-bowl-league` (eu-central-1) and `piele-staging` were active; `pofadder-bowl` was already paused. User decision: pause `piele-staging`. It is paused, so staging API health will fail until it is restored.
+- Created `piele-production`, ref `lnifzhrdvuqskwiblmqh`, eu-west-2. URL `https://lnifzhrdvuqskwiblmqh.supabase.co`. Browser key: the `default` publishable key (`sb_publishable_...`, from the dashboard or the connector's `get_publishable_keys`).
+- Applied both migrations through the connector, then renamed their versions in `supabase_migrations.schema_migrations` to `20260923184500` and `20260924080000` to match the files, so the GitHub integration treats them as applied.
+- Verified: `piele_api` exists with NOLOGIN, no BYPASSRLS, not superuser; insert privilege on `piele.external_snapshots`; RLS on with one policy. Security advisors: no findings.
+- Not done: the `piele_api` password (deliberately left out of the chat log; set it in the SQL editor when putting DATABASE_URL into Vercel), the GitHub integration on `master`, the Exposed schemas check, Auth URL configuration, TLS `verify-full` rehearsal (staging is paused, so rehearse on production before merging).
 
-- Supabase: connect the Supabase connector (claude.ai/customize/connectors). It can create projects, apply migrations and run SQL.
-- Vercel: the Vercel connector is read-only. The user adds a Vercel access token with write access for team `victor-4043s-projects` as the environment variable `VERCEL_TOKEN`; call the Vercel REST API with it. Never ask for tokens in chat.
+## Blocked: Vercel Production variables
 
-Planned steps once unblocked: create `piele-production` in eu-west-2 under org "Pofadder Bowl" (confirm the cost; the free plan allows two active projects and `pofadder-bowl` stays paused); apply `supabase/migrations`; set a generated `piele_api` password and put it only into Vercel; set the Production variables listed in `docs/production.md` on `piele-api` and `piele-web`; clear the dashboard Ignored Build Step in both projects.
+The Vercel connector is read-only and no `VERCEL_TOKEN` is set. The user adds a Vercel access token with write access for team `victor-4043s-projects` as the environment variable `VERCEL_TOKEN` in a new session, or sets the variables by hand per `docs/production.md`. Also clear the dashboard Ignored Build Step in both projects.
 
 Decisions still needed from the user:
 1. Domains: default `piele-web.vercel.app` / `piele-api.vercel.app` or custom. `ALLOWED_ORIGINS` and `PIELE_API_URL` must match exactly.
 2. Production web access: keep Vercel Authentication until sign-in exists, or public.
-
-## Next steps for the user
-
-Follow `docs/production.md`: rehearse the runtime role and `verify-full` on staging, create the production Supabase project, set Vercel Production variables, clear the dashboard Ignored Build Step, decide domains and production access, then merge and run the smoke check. Bring `staging` level with `master` after the merge.
