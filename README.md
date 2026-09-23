@@ -16,7 +16,8 @@ The frontend uses Angular 22.1.7 with CLI 22.1.8. Use a compatible Node 22.22.3+
 ## Structure
 
 - `apps/web`: Angular app. `src/app/core` holds services, layout and data sources, `src/app/features` holds one folder per page, `src/app/shared` holds reusable components. Read its `AGENTS.md` and `CLAUDE.md` before changes.
-- `apps/api`: FastAPI app with `GET /v1/health`, `GET /v1/matches/{fixtureId}` (teamsheets, prices and kickoff forecast for one fixture, cached in PostgreSQL), Supabase pooler configuration and the Alembic history.
+- `apps/api`: FastAPI app with `GET /v1/health`, `GET /v1/matches/{fixtureId}` (teamsheets, prices and kickoff forecast for one fixture, cached in PostgreSQL), Supabase pooler configuration.
+- `supabase`: SQL migrations applied to the Supabase project by its GitHub integration on pushes to the connected branch. Application tables live in the private `piele` schema.
 - `fixtures`: Official public URC schedule snapshot and provenance.
 
 The schedule contains 144 regular-season fixtures and seven playoff slots for 2026/27, checked on 23 September 2026. Times display in SAST. Playoff teams and kickoffs remain TBC. This is a local snapshot, not live synchronization.

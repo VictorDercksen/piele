@@ -1,7 +1,7 @@
 """Read-through cache for external provider snapshots.
 
-Snapshots live in the `external_snapshots` table so that Vercel function instances share
-them and provider quotas hold. When no database is configured (local development) a
+Snapshots live in the `piele.external_snapshots` table (supabase/migrations) so that
+Vercel function instances share them and provider quotas hold. When no database is configured (local development) a
 per-process dictionary stands in. Nothing here is authoritative league state.
 """
 
@@ -26,6 +26,7 @@ external_snapshots = Table(
     Column("payload", JSONB, nullable=False),
     Column("fetched_at", DateTime(timezone=True), nullable=False),
     Column("expires_at", DateTime(timezone=True), nullable=False),
+    schema="piele",
 )
 
 

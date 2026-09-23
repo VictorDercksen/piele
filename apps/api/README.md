@@ -27,19 +27,17 @@ uv run pytest
 ## Connect Supabase
 
 1. Create a project at https://supabase.com/dashboard. Pick the region closest to where the Vercel function will run, and store the database password in a password manager.
-2. Open **Connect** on the project page and copy two connection strings, replacing `[YOUR-PASSWORD]`:
-   - **Transaction pooler** (port 6543) goes in `DATABASE_URL`. The API uses this at runtime.
-   - **Session pooler** (port 5432), or the direct connection if your network supports IPv6, goes in `MIGRATION_DATABASE_URL`. Only Alembic uses this.
+2. Open **Connect** on the project page and copy the **Transaction pooler** connection string (port 6543) into `DATABASE_URL`, replacing `[YOUR-PASSWORD]`. The API uses this at runtime.
 3. Copy the project URL (`https://<ref>.supabase.co`) into `SUPABASE_URL`.
-4. Put these in `apps/api/.env` (uncomment the two database lines), run the app and check that `/v1/health` reports `"database": "ok"`.
+4. Put these in `apps/api/.env` (uncomment the database line), run the app and check that `/v1/health` reports `"database": "ok"`.
 
-Later, the runtime URL should use a restricted database role instead of `postgres`, per the plan. Migrations run manually, never at startup:
+Later, the runtime URL should use a restricted database role instead of `postgres`, per the plan.
 
-```bash
-uv run --env-file .env alembic upgrade head
-```
+## Migrations
 
-The first revision, `0001_external_snapshots`, creates the provider cache table. Run it against the staging project before deploying the match centre.
+Schema changes are SQL files in the repository root's `supabase/migrations/`, the single migration history. The Supabase GitHub integration applies them to the linked project on pushes to the connected branch; nothing runs at API startup. Application tables live in the private `piele` schema, which must stay out of the Data API's exposed schemas. The first migration, `20260923184500_external_snapshots.sql`, creates the provider cache table.
+
+To apply migrations by hand, install the Supabase CLI and run `supabase link` then `supabase db push` from the repository root.
 
 ## Deploy to Vercel
 
@@ -53,5 +51,5 @@ The first revision, `0001_external_snapshots`, creates the provider cache table.
    - `SUPABASE_JWT_AUDIENCE` only if it differs from `authenticated`
    - `ODDS_API_KEY`: The Odds API key for match prices (free tier: 500 requests a month). Optional `ODDS_SPORT_KEY` overrides the sport discovered by title, `ODDS_REGIONS` defaults to `uk`.
 
-   Do not set `MIGRATION_DATABASE_URL` on Vercel. Give Preview a staging Supabase project, not production credentials.
+   Give Preview a staging Supabase project, not production credentials.
 4. Deploy, then open `https://<deployment>/v1/health`.
