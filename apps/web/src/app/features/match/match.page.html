@@ -99,13 +99,29 @@
         </p>
       </section>
 
-      <section class="panel weather" aria-labelledby="weather-title">
+      <section
+        class="panel weather"
+        [class.has-sky]="sky()"
+        [attr.data-sky]="sky()?.scene"
+        [attr.data-time]="sky()?.time"
+        aria-labelledby="weather-title"
+      >
+        @if (sky()) {
+          <div class="sky" aria-hidden="true">
+            <span class="sky-glow"></span>
+            <span class="sky-clouds"></span>
+            <span class="sky-precip"></span>
+          </div>
+        }
         <div class="section-title">
           <h2 id="weather-title">Kickoff forecast.</h2>
           <span class="tag">{{ centre.weather.status.replace('_', ' ') }}</span>
         </div>
         @if (centre.weather.status === 'ok') {
           <div class="forecast">
+            @if (sky(); as s) {
+              <ng-icon class="condition-icon" [name]="s.icon" aria-hidden="true" />
+            }
             <strong class="temperature"
               >{{ centre.weather.temperatureC | number: '1.0-0' }}°</strong
             >

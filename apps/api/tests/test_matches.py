@@ -106,6 +106,7 @@ class Upstream:
                         "wind_speed_10m": [12.0] * n,
                         "wind_gusts_10m": [30.0] * n,
                         "weather_code": [61] * n,
+                        "is_day": [1, 1, 0][:n] + [0] * max(0, n - 3),
                     }
                 },
             )
@@ -172,6 +173,7 @@ def test_match_week_returns_all_sections(monkeypatch) -> None:
     assert forecast["temperatureC"] == 17.0
     assert forecast["condition"] == "Light rain"
     assert forecast["city"] == "Treviso"
+    assert forecast["isDay"] is False
 
     client.get(f"/v1/matches/{FIXTURE}")
     assert upstream.calls == {"www.unitedrugby.com": 1, "api.open-meteo.com": 1}

@@ -23,6 +23,7 @@ HOURLY = (
     "wind_speed_10m",
     "wind_gusts_10m",
     "weather_code",
+    "is_day",
 )
 
 # WMO weather interpretation codes used by Open-Meteo.
@@ -102,6 +103,7 @@ def fetch_forecast(
         return series[index] if index < len(series) else None
 
     code = value("weather_code")
+    is_day = value("is_day")
     payload = {
         "forecastHourUtc": times[index] + "Z",
         "stadium": stadium.name,
@@ -114,6 +116,7 @@ def fetch_forecast(
         "gustKmh": value("wind_gusts_10m"),
         "weatherCode": code,
         "condition": condition(int(code) if code is not None else None),
+        "isDay": bool(is_day) if is_day is not None else None,
     }
     return Fetched("ok", payload, TTL)
 

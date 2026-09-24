@@ -162,6 +162,277 @@ app-match-hero {
   font-size: 18px;
   font-variant-numeric: tabular-nums;
 }
+
+/*
+ * Weather-styled forecast, after Apple Weather: the panel background is the sky at
+ * kickoff, with dark glass tiles over it. `data-sky` sets the palette and decoration,
+ * `data-time` switches day and night. The bottom scrim keeps small text readable.
+ */
+.panel.weather.has-sky {
+  --muted: #ffffffe0;
+  --line: #ffffff33;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  color: #fff;
+  background:
+    linear-gradient(180deg, #0000 45%, #00000059),
+    linear-gradient(180deg, var(--sky-top, #1f5fa6), var(--sky-bottom, #3d8bd0));
+  border-top-color: #ffffff59;
+  text-shadow: 0 1px 2px #0000004d;
+  transition: background 0.6s;
+}
+.has-sky .section-title {
+  border-color: #ffffff59;
+}
+.has-sky .forecast {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 16px;
+  align-items: center;
+  margin-top: 6px;
+}
+.has-sky .condition-icon {
+  grid-row: span 2;
+  font-size: 58px;
+  filter: drop-shadow(0 2px 6px #0000004d);
+}
+.has-sky .temperature {
+  font-size: 64px;
+  font-weight: 400;
+  letter-spacing: -2px;
+}
+.has-sky .condition {
+  font-size: 16px;
+  font-weight: 600;
+}
+.has-sky .forecast-facts div {
+  background: #00000033;
+  border-color: #ffffff29;
+  border-radius: 12px;
+  backdrop-filter: blur(8px);
+}
+.has-sky .forecast-facts dt {
+  font-weight: 600;
+}
+.sky,
+.sky > span {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.sky {
+  z-index: -1;
+}
+.sky-clouds,
+.sky-precip {
+  opacity: 0;
+}
+.sky-clouds {
+  inset: -10% -30% 35% -10%;
+  background:
+    radial-gradient(ellipse 30% 22% at 18% 40%, var(--cloud, #fff) 0 45%, #0000 70%),
+    radial-gradient(ellipse 26% 20% at 42% 28%, var(--cloud, #fff) 0 45%, #0000 70%),
+    radial-gradient(ellipse 34% 24% at 70% 46%, var(--cloud, #fff) 0 45%, #0000 70%),
+    radial-gradient(ellipse 24% 18% at 92% 30%, var(--cloud, #fff) 0 45%, #0000 70%);
+  filter: blur(10px);
+  animation: sky-drift 60s ease-in-out infinite alternate;
+}
+.sky-precip {
+  background-repeat: repeat;
+  mask-image: linear-gradient(180deg, #000 55%, #0000 85%);
+}
+
+/* Scenes */
+[data-sky='clear'] .sky-glow {
+  background: radial-gradient(
+    circle at 86% 6%,
+    #fff6d6 0 5%,
+    #ffd66b80 12%,
+    #ffc84d26 28%,
+    #0000 48%
+  );
+}
+[data-sky='partly'] {
+  --sky-top: #2a5f99;
+  --sky-bottom: #5f8db8;
+  .sky-glow {
+    background: radial-gradient(circle at 84% 8%, #fff3cc 0 4%, #ffd66b59 11%, #0000 36%);
+  }
+  .sky-clouds {
+    opacity: 0.4;
+  }
+}
+[data-sky='cloudy'] {
+  --sky-top: #4a5a6a;
+  --sky-bottom: #6f7d8a;
+  .sky-clouds {
+    opacity: 0.35;
+  }
+}
+[data-sky='fog'] {
+  --sky-top: #5a646b;
+  --sky-bottom: #7b858b;
+  .sky-clouds {
+    inset: 20% -30% 0 -10%;
+    opacity: 0.3;
+    background:
+      linear-gradient(180deg, #fff0 0 10%, #fff9 22%, #fff0 38%),
+      linear-gradient(180deg, #fff0 40%, #fff8 55%, #fff0 70%),
+      linear-gradient(180deg, #fff0 68%, #fff9 84%, #fff0 100%);
+    filter: blur(14px);
+  }
+}
+[data-sky='drizzle'],
+[data-sky='rain'] {
+  --sky-top: #2c3d50;
+  --sky-bottom: #506376;
+  --cloud: #c9d2dc;
+  .sky-clouds {
+    opacity: 0.3;
+  }
+  .sky-precip {
+    opacity: 0.35;
+    background-image: repeating-linear-gradient(
+      102deg,
+      #0000 0 14px,
+      #ffffff8c 14px 15px,
+      #0000 15px 29px
+    );
+    background-size: 29px 90px;
+    animation: sky-rain 0.9s linear infinite;
+  }
+}
+[data-sky='drizzle'] .sky-precip {
+  opacity: 0.2;
+}
+[data-sky='snow'] {
+  --sky-top: #4a607c;
+  --sky-bottom: #7489a2;
+  .sky-clouds {
+    opacity: 0.3;
+  }
+  .sky-precip {
+    opacity: 0.75;
+    background-image:
+      radial-gradient(circle at 20% 30%, #fff 0 1.5px, #0000 2.5px),
+      radial-gradient(circle at 70% 70%, #fffc 0 1px, #0000 2px),
+      radial-gradient(circle at 45% 55%, #fffa 0 2px, #0000 3px);
+    background-size:
+      46px 46px,
+      31px 37px,
+      83px 71px;
+    animation: sky-snow 9s linear infinite;
+  }
+}
+[data-sky='storm'] {
+  --sky-top: #1d222c;
+  --sky-bottom: #373e4d;
+  --cloud: #8d96a3;
+  .sky-clouds {
+    opacity: 0.35;
+  }
+  .sky-precip {
+    opacity: 0.35;
+    background-image: repeating-linear-gradient(
+      106deg,
+      #0000 0 12px,
+      #ffffff80 12px 13px,
+      #0000 13px 25px
+    );
+    background-size: 25px 80px;
+    animation: sky-rain 0.7s linear infinite;
+  }
+  .sky-glow {
+    background: radial-gradient(ellipse at 70% 0%, #dfe6ff 0, #0000 60%);
+    opacity: 0;
+    animation: sky-flash 9s ease-out infinite;
+  }
+}
+
+/* Night palettes: the same scenes, darker, with a moon and stars when clear. */
+[data-time='night'] {
+  --cloud: #aab4c4;
+  &[data-sky='clear'] {
+    --sky-top: #070d1f;
+    --sky-bottom: #1b2b52;
+  }
+  &[data-sky='partly'] {
+    --sky-top: #0b1428;
+    --sky-bottom: #2a3a5c;
+  }
+  &[data-sky='cloudy'] {
+    --sky-top: #151b24;
+    --sky-bottom: #2f3845;
+  }
+  &[data-sky='fog'] {
+    --sky-top: #1c2226;
+    --sky-bottom: #3a4247;
+  }
+  &[data-sky='drizzle'],
+  &[data-sky='rain'] {
+    --sky-top: #0d141d;
+    --sky-bottom: #243241;
+  }
+  &[data-sky='snow'] {
+    --sky-top: #141c2a;
+    --sky-bottom: #34435a;
+  }
+  &[data-sky='storm'] {
+    --sky-top: #090b11;
+    --sky-bottom: #222632;
+  }
+  &[data-sky='clear'] .sky-glow,
+  &[data-sky='partly'] .sky-glow {
+    background:
+      radial-gradient(circle at 86% 9%, #f4f1e0 0 3.5%, #f4f1e033 7%, #0000 22%),
+      radial-gradient(circle at 12% 18%, #fffc 0 1px, #0000 2px),
+      radial-gradient(circle at 28% 8%, #fff9 0 1px, #0000 2px),
+      radial-gradient(circle at 46% 22%, #fffa 0 1.2px, #0000 2px),
+      radial-gradient(circle at 62% 12%, #fff8 0 1px, #0000 2px),
+      radial-gradient(circle at 74% 30%, #fff9 0 1px, #0000 2px),
+      radial-gradient(circle at 36% 36%, #fff7 0 1px, #0000 2px),
+      radial-gradient(circle at 8% 42%, #fff8 0 1px, #0000 2px);
+  }
+  &[data-sky='partly'] .sky-glow {
+    opacity: 0.7;
+  }
+}
+
+@keyframes sky-drift {
+  to {
+    transform: translateX(-12%);
+  }
+}
+@keyframes sky-rain {
+  to {
+    background-position: -18px 90px;
+  }
+}
+@keyframes sky-snow {
+  to {
+    background-position:
+      20px 184px,
+      -12px 148px,
+      30px 142px;
+  }
+}
+@keyframes sky-flash {
+  0%,
+  92%,
+  100% {
+    opacity: 0;
+  }
+  93% {
+    opacity: 0.3;
+  }
+  95% {
+    opacity: 0.05;
+  }
+  96% {
+    opacity: 0.2;
+  }
+}
 @container (max-width: 900px) {
   .match-grid {
     grid-template-columns: 1fr;
@@ -184,5 +455,11 @@ app-match-hero {
   }
   .sheets {
     grid-template-columns: 1fr;
+  }
+  .has-sky .temperature {
+    font-size: 52px;
+  }
+  .has-sky .condition-icon {
+    font-size: 46px;
   }
 }

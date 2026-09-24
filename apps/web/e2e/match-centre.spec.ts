@@ -104,6 +104,9 @@ test('hero opens the featured fixture with teamsheets and forecast', async ({ pa
   await expect(weather).toContainText('60%');
   await expect(weather).toContainText('24 km/h');
   await expect(weather).toContainText('Dexcom Stadium, Galway at 21:00 SAST');
+  // Light rain with no isDay at 21:00 SAST reads as a rainy night sky.
+  await expect(weather).toHaveAttribute('data-sky', 'rain');
+  await expect(weather).toHaveAttribute('data-time', 'night');
   await page.evaluate(() => document.fonts.ready);
   await page.screenshot({ path: testInfo.outputPath('match-centre-desktop.png'), fullPage: true });
 
