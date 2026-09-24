@@ -9,30 +9,184 @@
     <meta name="theme-color" content="#172832" />
     <meta name="description" content="The private Piele rugby league clubhouse." />
     <style>
-      .boot-ball {
-        animation: boot-spin 1.4s linear infinite;
+      /* Start-up screen. Shared by this page and the App component's boot overlay. */
+      .boot {
+        position: fixed;
+        inset: 0;
+        z-index: 10;
+        overflow: hidden;
+        background: linear-gradient(180deg, #0f2420, #0c1c1d 60%, #0c1821);
+        color: #f2efdf;
+        font-family: 'Titillium Web', Arial, Helvetica, sans-serif;
       }
-      @keyframes boot-spin {
+      .boot::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: url('assets/editorial/pitch-lines.svg') 0 0 / 100% 100% no-repeat;
+        opacity: 0.35;
+        -webkit-mask: linear-gradient(#000 50%, transparent 68%);
+        mask: linear-gradient(#000 50%, transparent 68%);
+      }
+      .boot-stage {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 88px;
+        height: 170px;
+        transform: translate(-50%, calc(-100% + 6px));
+      }
+      .boot-shadow {
+        position: absolute;
+        left: 12px;
+        right: 12px;
+        bottom: 0;
+        height: 12px;
+        border-radius: 50%;
+        background: radial-gradient(#000b, transparent 70%);
+        animation: boot-shadow 1.2s infinite;
+      }
+      .boot-hop {
+        position: absolute;
+        left: 8px;
+        bottom: 8px;
+        width: 72px;
+        height: 72px;
+        animation: boot-hop 1.2s infinite;
+      }
+      .boot-ball {
+        display: block;
+        width: 100%;
+        height: 100%;
+        animation: boot-tumble 1.2s linear infinite;
+      }
+      .boot-copy {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 16%;
+        display: grid;
+        justify-items: center;
+        gap: 8px;
+      }
+      .boot-kicker {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 1.6px;
+        text-transform: uppercase;
+        color: #ffa17c;
+      }
+      .boot-wordmark {
+        font-size: 26px;
+        font-weight: 900;
+        line-height: 1;
+        letter-spacing: 0.32em;
+        text-indent: 0.32em;
+      }
+      .boot-status {
+        position: relative;
+        width: 240px;
+        height: 20px;
+        font-size: 13px;
+        text-align: center;
+        color: #b8c4bd;
+      }
+      .boot-status span {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        animation: boot-phrase 12s infinite;
+      }
+      .boot-status span:nth-child(2) {
+        animation-delay: 3s;
+      }
+      .boot-status span:nth-child(3) {
+        animation-delay: 6s;
+      }
+      .boot-status span:nth-child(4) {
+        animation-delay: 9s;
+      }
+      @keyframes boot-hop {
+        0%,
+        100% {
+          transform: translateY(0);
+          animation-timing-function: cubic-bezier(0.2, 0.6, 0.4, 1);
+        }
+        50% {
+          transform: translateY(-76px);
+          animation-timing-function: cubic-bezier(0.6, 0, 0.8, 0.4);
+        }
+      }
+      @keyframes boot-tumble {
+        from {
+          transform: rotate(-20deg);
+        }
         to {
-          transform: rotate(360deg);
+          transform: rotate(340deg);
+        }
+      }
+      @keyframes boot-shadow {
+        0%,
+        100% {
+          transform: scale(1);
+          opacity: 1;
+          animation-timing-function: cubic-bezier(0.2, 0.6, 0.4, 1);
+        }
+        50% {
+          transform: scale(0.45);
+          opacity: 0.4;
+          animation-timing-function: cubic-bezier(0.6, 0, 0.8, 0.4);
+        }
+      }
+      @keyframes boot-phrase {
+        0% {
+          opacity: 0;
+          transform: translateY(4px);
+        }
+        3%,
+        22% {
+          opacity: 1;
+          transform: none;
+        }
+        25%,
+        100% {
+          opacity: 0;
+          transform: translateY(-4px);
         }
       }
       @media (prefers-reduced-motion: reduce) {
-        .boot-ball {
+        .boot-shadow,
+        .boot-hop,
+        .boot-ball,
+        .boot-status span {
           animation: none;
+        }
+        .boot-status span:first-child {
+          opacity: 1;
         }
       }
     </style>
   </head>
   <body>
     <app-root>
-      <!-- Shown until Angular starts. Matches the app's boot loader. -->
-      <div
-        role="status"
-        aria-label="Loading Piele"
-        style="position: fixed; inset: 0; display: grid; place-items: center; background: #0c1821"
-      >
-        <img class="boot-ball" src="assets/images/urc-ball.webp" alt="" width="96" height="96" />
+      <!-- Shown until Angular starts. The App component renders the same markup until the first page loads. -->
+      <div class="boot" role="status" aria-label="Loading Piele">
+        <div class="boot-stage" aria-hidden="true">
+          <span class="boot-shadow"></span>
+          <span class="boot-hop">
+            <img class="boot-ball" src="assets/images/urc-ball.webp" alt="" />
+          </span>
+        </div>
+        <div class="boot-copy" aria-hidden="true">
+          <span class="boot-kicker">Kick-off</span>
+          <span class="boot-wordmark">PIELE</span>
+          <span class="boot-status">
+            <span>Checking the team sheet</span>
+            <span>Chalking the lines</span>
+            <span>Pumping up the balls</span>
+            <span>Finding the kicking tee</span>
+          </span>
+        </div>
       </div>
     </app-root>
   </body>

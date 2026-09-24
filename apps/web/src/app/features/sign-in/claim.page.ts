@@ -4,6 +4,7 @@ import { AuthService } from '../../core/auth/auth.service';
 import { HttpLeagueData } from '../../core/league/http-league-data';
 import { LeagueData } from '../../core/league/league-data';
 import { UnclaimedName } from '../../core/league/league.models';
+import { BallLoader } from '../../shared/ball-loader/ball-loader';
 import { Loader } from '../../shared/loader/loader';
 
 /**
@@ -15,7 +16,7 @@ import { Loader } from '../../shared/loader/loader';
   templateUrl: './claim.page.html',
   styleUrl: './claim.page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Loader],
+  imports: [BallLoader, Loader],
 })
 export class ClaimPage {
   private readonly auth = inject(AuthService);
@@ -42,7 +43,9 @@ export class ClaimPage {
       this.names.set(await this.league.unclaimedNames());
     } catch (error) {
       this.names.set([]);
-      this.error.set(error instanceof Error ? error.message : 'The team sheet could not be loaded.');
+      this.error.set(
+        error instanceof Error ? error.message : 'The team sheet could not be loaded.',
+      );
     }
   }
 

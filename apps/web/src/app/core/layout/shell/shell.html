@@ -150,7 +150,7 @@
       </div>
     }
     @if (pageLoading()) {
-      <div class="page-loading"><app-loader [size]="72" label="Loading page" /></div>
+      <div class="page-loading"><app-ball-loader [size]="64" label="Loading page" /></div>
     }
     <div class="page-body" [hidden]="pageLoading()">
       <router-outlet />
