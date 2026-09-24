@@ -51,3 +51,11 @@ The Vercel connector is read-only and no `VERCEL_TOKEN` is set. The user adds a 
 Decisions still needed from the user:
 1. Domains: default `piele-web.vercel.app` / `piele-api.vercel.app` or custom. `ALLOWED_ORIGINS` and `PIELE_API_URL` must match exactly.
 2. Production web access: keep Vercel Authentication until sign-in exists, or public.
+
+## After the merge (2026-09-24)
+
+- PR #1 merged; Vercel production deployed commit `732dd1d`. The Supabase GitHub integration ran on `master` and reported "All migrations are up to date". `staging` was fast-forwarded to `master`.
+- Production smoke check: web, CSP, HSTS, deep links, CORS, docs-off and the bundle's API URL pass. Two failures: `/v1/health` 503 (`database: error`) and missing assets return the app shell with 200 instead of 404.
+- The database failure logs only `OperationalError`; no `piele_api` connection reaches Postgres. All Production variables exist (DATABASE_URL is a Secret, unreadable). Suspects: pooler host (`aws-0` vs `aws-1`), password escaping, certificate path.
+- Branch `claude/db-error-diagnostics` logs the driver's reason (URLs and passwords redacted) for health and cache failures, so the next deploy shows the actual cause.
+- The Vercel connector works with team `victor-4043s-projects` after reconnecting (runtime logs need a `deploymentId` or a narrow window).

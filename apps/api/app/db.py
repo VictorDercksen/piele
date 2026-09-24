@@ -1,5 +1,6 @@
 """Runtime database engine for the Supabase transaction pooler."""
 
+import re
 from pathlib import Path
 
 from sqlalchemy import Engine, create_engine
@@ -48,3 +49,19 @@ def get_engine(settings: Settings) -> Engine | None:
         )
         _engines[raw] = engine
     return engine
+
+
+_URL = re.compile(r"postgres(?:ql)?(?:\+\w+)?://\S+")
+_PASSWORD = re.compile(r"password\s*=\s*\S+", re.IGNORECASE)
+
+
+def describe_db_error(exc: Exception) -> str:
+    """Error type plus the driver's reason, for logs only. Never put this in a response.
+
+    Driver messages name the host and user but not the password; URLs and password
+    fragments are removed in case a message ever echoes the connection string.
+    """
+    reason = str(getattr(exc, "orig", None) or exc)
+    reason = _PASSWORD.sub("password=[redacted]", _URL.sub("[url]", reason))
+    reason = " ".join(reason.split())[:300]
+    return f"{type(exc).__name__}: {reason}" if reason else type(exc).__name__

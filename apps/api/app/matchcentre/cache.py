@@ -14,6 +14,8 @@ from typing import Any, Callable, Protocol
 from sqlalchemy import Column, DateTime, Engine, MetaData, String, Table, select
 from sqlalchemy.dialects.postgresql import JSONB, insert
 
+from app.db import describe_db_error
+
 logger = logging.getLogger(__name__)
 
 metadata = MetaData()
@@ -142,7 +144,7 @@ def cached(
     try:
         existing = cache.get(key)
     except Exception as exc:  # noqa: BLE001 - a cache read must not break the response
-        logger.warning("Snapshot read failed for %s: %s", key, type(exc).__name__)
+        logger.warning("Snapshot read failed for %s: %s", key, describe_db_error(exc))
         existing = None
     if existing and existing.fresh(moment):
         return existing
@@ -157,5 +159,5 @@ def cached(
     try:
         cache.put(snapshot)
     except Exception as exc:  # noqa: BLE001
-        logger.warning("Snapshot write failed for %s: %s", key, type(exc).__name__)
+        logger.warning("Snapshot write failed for %s: %s", key, describe_db_error(exc))
     return snapshot
