@@ -40,6 +40,7 @@ PR #1, `claude/production-deployment` into `master`: https://github.com/VictorDe
 - Supabase connector connected. Org "Pofadder Bowl" is on the free plan (two active projects). `pofadder-bowl-league` (eu-central-1) and `piele-staging` were active; `pofadder-bowl` was already paused. User decision: pause `piele-staging`. It is paused, so staging API health will fail until it is restored.
 - Created `piele-production`, ref `lnifzhrdvuqskwiblmqh`, eu-west-2. URL `https://lnifzhrdvuqskwiblmqh.supabase.co`. Browser key: the `default` publishable key (`sb_publishable_...`, from the dashboard or the connector's `get_publishable_keys`).
 - Applied both migrations through the connector, then renamed their versions in `supabase_migrations.schema_migrations` to `20260923184500` and `20260924080000` to match the files, so the GitHub integration treats them as applied.
+- The CA certificate downloaded by the user from the production project's Database settings is byte-identical to `apps/api/certs/supabase-prod-ca-2021.crt` (Supabase Root 2021 CA, expires 2031-04-26).
 - Verified: `piele_api` exists with NOLOGIN, no BYPASSRLS, not superuser; insert privilege on `piele.external_snapshots`; RLS on with one policy. Security advisors: no findings.
 - Not done: the `piele_api` password (deliberately left out of the chat log; set it in the SQL editor when putting DATABASE_URL into Vercel), the GitHub integration on `master`, the Exposed schemas check, Auth URL configuration, TLS `verify-full` rehearsal (staging is paused, so rehearse on production before merging).
 
