@@ -42,21 +42,33 @@
           <h2 id="teamsheets-title">Teamsheets.</h2>
           <span class="tag">{{ centre.teamsheets.status.replace('_', ' ') }}</span>
         </div>
-        @if (
-          centre.teamsheets.status === 'ok' && centre.teamsheets.home && centre.teamsheets.away
-        ) {
+        @if (sheets(); as sheets) {
           <div class="sheets">
-            @for (
-              side of [
-                { label: fixture.home, sheet: centre.teamsheets.home },
-                { label: fixture.away, sheet: centre.teamsheets.away },
-              ];
-              track side.label
-            ) {
-              <div class="sheet">
-                <h3>{{ side.label }}</h3>
+            @for (side of sheets; track side.label) {
+              <div
+                class="sheet"
+                [class.has-banner]="side.banner"
+                [style.--club-accent]="side.accent"
+              >
+                @if (side.banner; as banner) {
+                  <img class="sheet-pattern" [src]="banner.pattern" alt="" />
+                  <img class="sheet-watermark" [src]="banner.crest" alt="" />
+                }
+                <div class="sheet-head">
+                  @if (side.banner; as banner) {
+                    <img class="sheet-crest" [src]="banner.crest" alt="" />
+                  }
+                  <h3>{{ side.label }}</h3>
+                  @if (side.startersAverageAge !== null) {
+                    <span class="average-age"
+                      >XV avg age<strong>{{
+                        side.startersAverageAge | number: '1.1-1'
+                      }}</strong></span
+                    >
+                  }
+                </div>
                 <ol class="players">
-                  @for (player of side.sheet.starters; track player.number) {
+                  @for (player of side.starters; track player.number) {
                     <li>
                       <span class="number">{{ player.number }}</span
                       ><span class="name"
@@ -64,6 +76,21 @@
                         @if (player.captain) {
                           <i>C</i>
                         }
+                        <span class="bio">
+                          @if (player.country; as country) {
+                            <img
+                              class="flag"
+                              [src]="country.flag"
+                              [alt]="country.name"
+                              [title]="country.name"
+                            />
+                          }
+                          @if (player.age !== null) {
+                            <span class="age" [attr.aria-label]="'age ' + player.age">{{
+                              player.age
+                            }}</span>
+                          }
+                        </span>
                       </span>
                       @if (player.position) {
                         <small>{{ player.position }}</small>
@@ -71,13 +98,38 @@
                     </li>
                   }
                 </ol>
-                @if (side.sheet.replacements.length) {
-                  <span class="bench-label">REPLACEMENTS</span>
+                @if (side.replacements.length) {
+                  <span class="bench-label"
+                    >REPLACEMENTS
+                    @if (side.replacementsAverageAge !== null) {
+                      <span>AVG AGE {{ side.replacementsAverageAge | number: '1.1-1' }}</span>
+                    }
+                  </span>
                   <ol class="players bench">
-                    @for (player of side.sheet.replacements; track player.number) {
+                    @for (player of side.replacements; track player.number) {
                       <li>
                         <span class="number">{{ player.number }}</span
-                        ><span class="name">{{ player.name }}</span>
+                        ><span class="name"
+                          >{{ player.name }}
+                          @if (player.captain) {
+                            <i>C</i>
+                          }
+                          <span class="bio">
+                            @if (player.country; as country) {
+                              <img
+                                class="flag"
+                                [src]="country.flag"
+                                [alt]="country.name"
+                                [title]="country.name"
+                              />
+                            }
+                            @if (player.age !== null) {
+                              <span class="age" [attr.aria-label]="'age ' + player.age">{{
+                                player.age
+                              }}</span>
+                            }
+                          </span>
+                        </span>
                         @if (player.position) {
                           <small>{{ player.position }}</small>
                         }

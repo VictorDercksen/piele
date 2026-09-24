@@ -19,18 +19,39 @@ KICKOFF = datetime(2026, 9, 25, 18, 45, tzinfo=timezone.utc)
 class Upstream:
     """Fake providers behind an httpx MockTransport, counting calls per host."""
 
-    def __init__(self, *, graphql=None, weather_hours=None, fail=()):
+    def __init__(self, *, graphql=None, weather_hours=None, fail=(), bios_fail=False):
         self.calls: dict[str, int] = {}
         self.graphql = graphql if graphql is not None else self.published()
         self.weather_hours = weather_hours
         self.fail = set(fail)
+        self.bios_fail = bios_fail
+        self.bio_requests: list[dict] = []
+
+    @staticmethod
+    def bios(ids):
+        # Home players only; player 3 has no known country and player 4 an unreadable date.
+        return {
+            "data": {
+                "players": [
+                    {
+                        "id": i,
+                        "player_data": {
+                            "dob": "not a date" if i == 4 else f"1998-04-{i:02d}T12:00:00.000Z",
+                            "countryOfBirth": {"name": None if i == 3 else "Italy"},
+                        },
+                    }
+                    for i in ids
+                    if i < 100
+                ]
+            }
+        }
 
     @staticmethod
     def published():
         def side(prefix):
             players = [
                 {
-                    "id": n,
+                    "id": n + (0 if prefix == "Home" else 100),
                     "name": f"{prefix} Player {n}",
                     "knownName": f"{prefix} Player {n}" if n != 8 else None,
                     "firstName": prefix,
@@ -87,6 +108,11 @@ class Upstream:
             body = json.loads(request.content)
             if "__schema" in body["query"] or "__type" in body["query"]:
                 return httpx.Response(200, json=self.introspection(body["query"]))
+            if "query Bios" in body["query"]:
+                self.bio_requests.append(body["variables"])
+                if self.bios_fail:
+                    return httpx.Response(500, json={"errors": [{"message": "Internal server error"}]})
+                return httpx.Response(200, json=self.bios(body["variables"]["ids"]))
             assert body["variables"] == {"ids": [int(FIXTURE)]}
             return httpx.Response(200, json=self.graphql)
         if host == "api.open-meteo.com":
@@ -163,9 +189,20 @@ def test_match_week_returns_all_sections(monkeypatch) -> None:
         "position": None,
         "captain": False,
         "starter": None,
+        "dateOfBirth": "1998-04-08",
+        "birthCountry": "Italy",
     }
     assert sheets["home"]["starters"][0]["position"] == "Prop"
     assert sheets["home"]["replacements"][0]["number"] == 16
+    assert sheets["home"]["starters"][2]["birthCountry"] is None
+    assert sheets["home"]["starters"][3]["dateOfBirth"] is None
+    # Away players are missing from the bio feed.
+    assert sheets["away"]["starters"][0]["dateOfBirth"] is None
+    assert sheets["away"]["starters"][0]["birthCountry"] is None
+    # One batched lookup for all 46 players.
+    assert len(upstream.bio_requests) == 1
+    assert len(upstream.bio_requests[0]["ids"]) == 46
+    assert upstream.bio_requests[0]["limit"] == 46
 
     forecast = body["weather"]
     assert forecast["status"] == "ok"
@@ -176,7 +213,19 @@ def test_match_week_returns_all_sections(monkeypatch) -> None:
     assert forecast["isDay"] is False
 
     client.get(f"/v1/matches/{FIXTURE}")
-    assert upstream.calls == {"www.unitedrugby.com": 1, "api.open-meteo.com": 1}
+    assert upstream.calls == {"www.unitedrugby.com": 2, "api.open-meteo.com": 1}
+
+
+def test_failed_bio_lookup_keeps_the_teamsheet(monkeypatch) -> None:
+    upstream = Upstream(bios_fail=True)
+    client = make_client(upstream, KICKOFF - timedelta(days=2), monkeypatch)
+    sheets = client.get(f"/v1/matches/{FIXTURE}").json()["teamsheets"]
+    assert sheets["status"] == "ok"
+    assert len(sheets["away"]["replacements"]) == 8
+    player = sheets["home"]["starters"][0]
+    assert player["dateOfBirth"] is None
+    assert player["birthCountry"] is None
+    assert "id" not in player
 
 
 def test_provider_failures_become_unavailable_without_leaking(monkeypatch) -> None:
@@ -271,6 +320,6 @@ def test_teamsheet_parser_tolerates_other_shapes() -> None:
         }
     )
     assert side["starters"] == [
-        {"number": 2, "name": "Hooker Two", "position": "Hooker", "captain": True, "starter": None}
+        {"id": None, "number": 2, "name": "Hooker Two", "position": "Hooker", "captain": True, "starter": None}
     ]
     assert side["replacements"][0]["name"] == "Bench One"

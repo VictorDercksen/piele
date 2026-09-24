@@ -4,11 +4,17 @@ The lineup selection matches the feed's introspected schema (checked 23 Septembe
 `stats_data.homeTeam.players { id name knownName firstName lastName position { name
 shirtNumber onFieldName } }`. The feed has no captain flag. Starters are shirts 1 to 15.
 
+Date and country of birth come from a second query, `players(id: [...]) { id player_data
+{ dob countryOfBirth { name } } }`, keyed by the lineup's player ids (checked 24 September
+2026). The feed's `nationalTeam` field fails server-side, so country of birth stands in for
+nationality. A failed lookup leaves both fields null and never fails the teamsheet.
+
 Teamsheets are usually published about 48 hours before kickoff, so the feed is queried
 only from three days out; earlier requests return `not_published` without a call.
 """
 
-from datetime import datetime, timedelta
+import logging
+from datetime import date, datetime, timedelta
 from typing import Any
 
 import httpx
@@ -37,6 +43,14 @@ query Teamsheets($ids: [Int]) {
   }
 }
 """ % (PLAYER_FIELDS, PLAYER_FIELDS)
+
+BIOS_QUERY = """
+query Bios($ids: [Int], $limit: Int) {
+  players(id: $ids, limit: $limit) { id player_data { dob countryOfBirth { name } } }
+}
+"""
+
+logger = logging.getLogger(__name__)
 
 PLAYER_LIST_KEYS = ("players", "teamSheet", "teamsheet", "lineup", "squad")
 NUMBER_KEYS = ("shirtNumber", "number", "jerseyNumber", "shirt")
@@ -73,8 +87,63 @@ def fetch_teamsheets(client: httpx.Client, url: str, fixture_id: str) -> Fetched
     status = stats.get("matchStatus") or row.get("match_status")
     if not home["starters"] and not away["starters"]:
         return Fetched("not_published", {"matchStatus": status}, TTL_PENDING)
-    payload = {"matchStatus": status, "home": home, "away": away}
+    bios = fetch_bios(client, url, [p["id"] for p in _players(home) + _players(away)])
+    payload = {"matchStatus": status, "home": with_bios(home, bios), "away": with_bios(away, bios)}
     return Fetched("ok", payload, TTL_PUBLISHED)
+
+
+def fetch_bios(client: httpx.Client, url: str, ids: list[int | None]) -> dict[int, dict[str, Any]]:
+    """Date and country of birth by feed player id. Any failure yields an empty mapping."""
+    wanted = sorted({i for i in ids if isinstance(i, int)})
+    if not wanted:
+        return {}
+    try:
+        response = client.post(
+            url,
+            json={"query": BIOS_QUERY, "variables": {"ids": wanted, "limit": len(wanted)}},
+            headers={"Accept": "application/json"},
+        )
+        response.raise_for_status()
+        rows = (response.json().get("data") or {}).get("players") or []
+    except (httpx.HTTPError, ValueError) as error:
+        logger.warning("player bio lookup failed: %s", type(error).__name__)
+        return {}
+    bios: dict[int, dict[str, Any]] = {}
+    for row in rows:
+        if not isinstance(row, dict) or not isinstance(row.get("id"), int):
+            continue
+        data = row.get("player_data") if isinstance(row.get("player_data"), dict) else {}
+        birth = data.get("countryOfBirth") if isinstance(data.get("countryOfBirth"), dict) else {}
+        bios[row["id"]] = {
+            "dateOfBirth": _iso_date(data.get("dob")),
+            "birthCountry": birth.get("name") or None,
+        }
+    return bios
+
+
+def with_bios(side: dict[str, Any], bios: dict[int, dict[str, Any]]) -> dict[str, Any]:
+    """The side with each player's bio fields added and the internal feed id removed."""
+
+    def merge(player: dict[str, Any]) -> dict[str, Any]:
+        rest = {k: v for k, v in player.items() if k != "id"}
+        bio = bios.get(player["id"]) or {}
+        return {**rest, "dateOfBirth": bio.get("dateOfBirth"), "birthCountry": bio.get("birthCountry")}
+
+    return {key: [merge(p) for p in players] for key, players in side.items()}
+
+
+def _players(side: dict[str, Any]) -> list[dict[str, Any]]:
+    return side["starters"] + side["replacements"]
+
+
+def _iso_date(value: Any) -> str | None:
+    """`1998-04-19T12:00:00.000Z` as `1998-04-19`, or None when it is not a date."""
+    if not isinstance(value, str):
+        return None
+    try:
+        return date.fromisoformat(value[:10]).isoformat()
+    except ValueError:
+        return None
 
 
 def parse_side(side: dict[str, Any]) -> dict[str, Any]:
@@ -101,7 +170,9 @@ def parse_player(raw: dict[str, Any], index: int) -> dict[str, Any]:
     number = _first_int(position, NUMBER_KEYS)
     if number is None:
         number = _first_int(raw, NUMBER_KEYS)
+    feed_id = person.get("id")
     return {
+        "id": feed_id if isinstance(feed_id, int) else None,
         "number": number if number is not None else index + 1,
         "name": name or "Unnamed player",
         "position": _first_str(raw, POSITION_KEYS),

@@ -13,6 +13,10 @@ export interface TeamsheetPlayer {
   readonly name: string;
   readonly position: string | null;
   readonly captain: boolean;
+  /** `YYYY-MM-DD`. Absent from snapshots cached before the feed lookup existed. */
+  readonly dateOfBirth?: string | null;
+  /** Country of birth as the URC feed names it; the feed has no reliable nationality. */
+  readonly birthCountry?: string | null;
 }
 
 export interface Teamsheet {
