@@ -1,0 +1,55 @@
+<dialog
+  #dialog
+  class="detail-dialog"
+  [class.spoon-duty]="duty()?.spoon"
+  aria-labelledby="evidence-title"
+>
+  <div class="dialog-top">
+    <span class="eyebrow">PIELE / ROUND {{ view.round().code }}</span
+    ><button type="button" class="icon-button" aria-label="Close dialog" (click)="close()">
+      <app-icon name="close" />
+    </button>
+  </div>
+  @if (duty()?.spoon) {
+    <div class="spoon-art" aria-hidden="true"></div>
+  }
+  <h2 id="evidence-title">The proof is in the video.</h2>
+  <p>{{ duty()?.title }} · {{ duty()?.memberName }}</p>
+  @if (view.sample) {
+    <div class="preview-notice">Sample league. Your file is never uploaded or stored.</div>
+  }
+  <label class="file-field"
+    ><app-icon name="upload" /><strong>Choose your evidence video</strong
+    ><span>{{ file()?.name || 'Video file · 50 MB limit' }}</span
+    ><input type="file" accept="video/*" (change)="pickFile($event)"
+  /></label>
+  @if (error()) {
+    <p class="error-message" role="alert">{{ error() }}</p>
+  }
+  <label class="note-label" for="evidence-note">A little context <span>(optional)</span></label
+  ><textarea
+    id="evidence-note"
+    rows="3"
+    maxlength="500"
+    placeholder="Anything the reviewer should know?"
+    [formControl]="note"
+  ></textarea>
+  <p class="context-note">
+    Evidence belongs to Round {{ view.round().code }}. Videos are visible only to active league
+    members.
+  </p>
+  <button
+    type="button"
+    class="primary-button wide"
+    [disabled]="!file() || busy()"
+    [attr.aria-busy]="busy()"
+    (click)="submit()"
+  >
+    Submit evidence
+    @if (busy()) {
+      <app-loader [size]="18" aria-hidden="true" />
+    } @else {
+      <app-icon name="arrow" />
+    }
+  </button>
+</dialog>

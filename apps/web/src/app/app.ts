@@ -1,24 +1,38 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { LeaguePreview } from './league-preview';
-import { CONCEPTS } from './concepts';
-import { ProfileStore } from './profile/profile-store';
-import { ProfileEditor } from './profile/profile-editor';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import {
+  NavigationCancel,
+  NavigationEnd,
+  NavigationError,
+  Router,
+  RouterOutlet,
+} from '@angular/router';
+import { filter, map, take } from 'rxjs';
+import { Loader } from './shared/loader/loader';
 
 @Component({
   selector: 'app-root',
-  templateUrl: './app.html',
+  template: `@if (booting()) {
+      <div class="boot"><app-loader [size]="96" label="Loading Piele" /></div>
+    }
+    <router-outlet />`,
   styleUrl: './app.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [LeaguePreview, ProfileEditor],
+  imports: [RouterOutlet, Loader],
 })
 export class App {
-  private readonly profileStore = inject(ProfileStore);
-  readonly concept = CONCEPTS[1];
-  readonly editing = signal(false);
-  readonly showProfile = computed(() => !this.profileStore.profile() || this.editing());
-  readonly captain = signal(false);
-  editProfile(editing: boolean): void {
-    this.editing.set(editing);
-    window.scrollTo(0, 0);
-  }
+  /** True until the first page and its lazy code have loaded. Continues the index.html loader. */
+  readonly booting = toSignal(
+    inject(Router).events.pipe(
+      filter(
+        (event) =>
+          event instanceof NavigationEnd ||
+          event instanceof NavigationCancel ||
+          event instanceof NavigationError,
+      ),
+      take(1),
+      map(() => false),
+    ),
+    { initialValue: true },
+  );
 }

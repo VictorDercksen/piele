@@ -1,0 +1,150 @@
+{
+  "source": "https://stats.unitedrugby.com/clubs",
+  "retrievedAt": "2026-09-23",
+  "clubs": [
+    {
+      "id": "hollywoodbets-sharks",
+      "name": "Hollywoodbets Sharks",
+      "colour": "#504B50",
+      "pattern": "hollywoodbets-sharks-pattern.jpeg",
+      "patternSource": "https://www.unitedrugby.com/wp-content/uploads/2025/08/SHARKS_PATTERN_BLACK_RGB_PNG-compressed-new.jpeg",
+      "crest": "hollywoodbets-sharks-crest.svg",
+      "crestSource": "https://www.unitedrugby.com/wp-content/uploads/2026/09/HollywoodbetsSharks_Light-1.svg"
+    },
+    {
+      "id": "edinburgh-rugby",
+      "name": "Edinburgh",
+      "colour": "#1E144B",
+      "pattern": "edinburgh-rugby-pattern.jpeg",
+      "patternSource": "https://www.unitedrugby.com/wp-content/uploads/2025/08/EDINBURGH_PATTERN_BLUE_RGB_PNG-compressed-new.jpeg",
+      "crest": "edinburgh-rugby-crest.svg",
+      "crestSource": "https://www.unitedrugby.com/wp-content/uploads/2025/05/Edinburgh.svg"
+    },
+    {
+      "id": "benetton-rugby",
+      "name": "Benetton",
+      "colour": "#00B46E",
+      "pattern": "benetton-rugby-pattern.jpeg",
+      "patternSource": "https://www.unitedrugby.com/wp-content/uploads/2025/08/BENETTON_PATTERN_DARK-GREEN_RGB_PNG-compressed-new.jpeg",
+      "crest": "benetton-rugby-crest.svg",
+      "crestSource": "https://www.unitedrugby.com/wp-content/uploads/2025/05/Benetton-Rugby.svg"
+    },
+    {
+      "id": "ulster-rugby",
+      "name": "Ulster",
+      "colour": "#E61E1E",
+      "pattern": "ulster-rugby-pattern.jpeg",
+      "patternSource": "https://www.unitedrugby.com/wp-content/uploads/2025/08/ULSTER_PATTERN_BLACK_RGB_PNG-compressed-new.jpeg",
+      "crest": "ulster-rugby-crest.svg",
+      "crestSource": "https://www.unitedrugby.com/wp-content/uploads/2025/05/Ulster.svg"
+    },
+    {
+      "id": "glasgow-warriors",
+      "name": "Glasgow Warriors",
+      "colour": "#5AAAF0",
+      "pattern": "glasgow-warriors-pattern.jpeg",
+      "patternSource": "https://www.unitedrugby.com/wp-content/uploads/2025/08/GLASGOW_PATTERN_-DARK-BLUE_RGB_PNG-compressed-new.jpeg",
+      "crest": "glasgow-warriors-crest.svg",
+      "crestSource": "https://www.unitedrugby.com/wp-content/uploads/2025/05/Glasgow-Warriors.svg"
+    },
+    {
+      "id": "scarlets",
+      "name": "Scarlets",
+      "colour": "#CD0000",
+      "pattern": "scarlets-pattern.jpeg",
+      "patternSource": "https://www.unitedrugby.com/wp-content/uploads/2025/08/SCARLETS_PATTERN_DARK-RED_RGB_PNG-compressed-new.jpeg",
+      "crest": "scarlets-crest.svg",
+      "crestSource": "https://www.unitedrugby.com/wp-content/uploads/2025/05/Scarlets.svg"
+    },
+    {
+      "id": "dragons-rfc",
+      "name": "Dragons RFC",
+      "colour": "#FFAA00",
+      "pattern": "dragons-rfc-pattern.jpeg",
+      "patternSource": "https://www.unitedrugby.com/wp-content/uploads/2025/08/DRAGONS_PATTERN_YELLOW_RGB_PNG-compressed-new.jpeg",
+      "crest": "dragons-rfc-crest.svg",
+      "crestSource": "https://www.unitedrugby.com/wp-content/uploads/2025/05/Dragons.svg"
+    },
+    {
+      "id": "dhl-stormers",
+      "name": "DHL Stormers",
+      "colour": "#001847",
+      "pattern": "dhl-stormers-pattern.jpeg",
+      "patternSource": "https://www.unitedrugby.com/wp-content/uploads/2025/08/STORMERS_PATTERN_BLUE_RGB_PNG-compressed-new.jpeg",
+      "crest": "dhl-stormers-crest.svg",
+      "crestSource": "https://www.unitedrugby.com/wp-content/uploads/2025/08/Stormers-Light.svg"
+    },
+    {
+      "id": "munster-rugby",
+      "name": "Munster",
+      "colour": "#CD0A2D",
+      "pattern": "munster-rugby-pattern.jpeg",
+      "patternSource": "https://www.unitedrugby.com/wp-content/uploads/2025/08/MUNSTER_PATTERN_-RED_RGB_PNG-compressed-new.jpeg",
+      "crest": "munster-rugby-crest.svg",
+      "crestSource": "https://www.unitedrugby.com/wp-content/uploads/2025/05/Munster-Rugby-1.svg"
+    },
+    {
+      "id": "cardiff-rugby",
+      "name": "Cardiff Rugby",
+      "colour": "#6EBEFF",
+      "pattern": "cardiff-rugby-pattern.jpeg",
+      "patternSource": "https://www.unitedrugby.com/wp-content/uploads/2025/08/CARDIFF_PATTERN_BLACK_RGB_PNG-compressed-new.jpeg",
+      "crest": "cardiff-rugby-crest.svg",
+      "crestSource": "https://www.unitedrugby.com/wp-content/uploads/2025/05/Cardiff-Rugby.svg"
+    },
+    {
+      "id": "zebre-parma",
+      "name": "Zebre Parma",
+      "colour": "#191F6C",
+      "pattern": "zebre-parma-pattern.jpeg",
+      "patternSource": "https://www.unitedrugby.com/wp-content/uploads/2025/08/URC_Pattern_Zebre_Pattern_Yellow-Logo_RGB-compressed-new.jpeg",
+      "crest": "zebre-parma-crest.svg",
+      "crestSource": "https://www.unitedrugby.com/wp-content/uploads/2025/05/Zebre-Parma.svg"
+    },
+    {
+      "id": "ospreys",
+      "name": "Ospreys",
+      "colour": "#5A5A64",
+      "pattern": "ospreys-pattern.jpeg",
+      "patternSource": "https://www.unitedrugby.com/wp-content/uploads/2025/08/OSPREYS_PATTERN_-BLACK_RGB_PNG-compressed-new.jpeg",
+      "crest": "ospreys-crest.svg",
+      "crestSource": "https://www.unitedrugby.com/wp-content/uploads/2025/05/Ospreys.svg"
+    },
+    {
+      "id": "10bet-lions",
+      "name": "10bet Lions",
+      "colour": "#FF1E28",
+      "pattern": "10bet-lions-pattern.jpeg",
+      "patternSource": "https://www.unitedrugby.com/wp-content/uploads/2025/08/LIONS_PATTERN_DARK-RED_RGB_PNG-compressed-new.jpeg",
+      "crest": "10bet-lions-crest.svg",
+      "crestSource": "https://www.unitedrugby.com/wp-content/uploads/2026/09/Lions.svg"
+    },
+    {
+      "id": "leinster-rugby",
+      "name": "Leinster",
+      "colour": "#0082FF",
+      "pattern": "leinster-rugby-pattern.jpeg",
+      "patternSource": "https://www.unitedrugby.com/wp-content/uploads/2025/08/LEINSTER_PATTERN_DARK-BLUE_RGB_PNG-compressed-new.jpeg",
+      "crest": "leinster-rugby-crest.svg",
+      "crestSource": "https://www.unitedrugby.com/wp-content/uploads/2025/05/Leinster-1.svg"
+    },
+    {
+      "id": "connacht-rugby",
+      "name": "Connacht",
+      "colour": "#00B446",
+      "pattern": "connacht-rugby-pattern.jpeg",
+      "patternSource": "https://www.unitedrugby.com/wp-content/uploads/2025/08/CONNACHT_PATTERN_LIGHT-GREEN_RGB_PNG-compressed-new.jpeg",
+      "crest": "connacht-rugby-crest.svg",
+      "crestSource": "https://www.unitedrugby.com/wp-content/uploads/2025/05/Connacht-1.svg"
+    },
+    {
+      "id": "vodacom-bulls",
+      "name": "Vodacom Bulls",
+      "colour": "#0082E6",
+      "pattern": "vodacom-bulls-pattern.jpeg",
+      "patternSource": "https://www.unitedrugby.com/wp-content/uploads/2025/08/BULLS_PATTERN_DARK-BLUE_RGB-compressed-new.jpeg",
+      "crest": "vodacom-bulls-crest.svg",
+      "crestSource": "https://www.unitedrugby.com/wp-content/uploads/2025/05/Vodacom-1.svg"
+    }
+  ]
+}

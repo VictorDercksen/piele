@@ -1,0 +1,72 @@
+# Checks every pull request into staging or master (production) and every push to them.
+# Vercel and the Supabase GitHub integration deploy separately; this workflow only verifies.
+name: CI
+
+on:
+  pull_request:
+    branches: [staging, master]
+  push:
+    branches: [staging, master]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - run: npm test -- --watch=false
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - name: Production build under vercel.json headers
+        run: npm run test:e2e:production
+
+  api:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+      - name: Apply supabase/migrations in order
+        run: |
+          for file in supabase/migrations/*.sql; do
+            echo "Applying $file"
+            psql -v ON_ERROR_STOP=1 -q -f "$file"
+          done
+          psql -v ON_ERROR_STOP=1 -q -c "alter role piele_api with login password 'ci'"
+      - run: uv sync --locked
+        working-directory: apps/api
+      - run: uv run pytest
+        working-directory: apps/api
+        env:
+          PIELE_TEST_DATABASE_URL: postgresql://piele_api:ci@127.0.0.1:5432/postgres?sslmode=disable

@@ -1,0 +1,59 @@
+<section class="match-story" [attr.aria-label]="'Round ' + roundCode() + ' match centre'">
+  <div class="match-heading">
+    <span class="match-label">{{ fixture().score ? 'FULL TIME' : 'FEATURED MATCH' }}</span>
+    <span class="match-date">{{ fixture().day }}</span>
+  </div>
+  <div class="score-bug">
+    <div class="club-banner" [style.--club-colour]="homeBanner()?.colour">
+      @if (homeBanner(); as banner) {
+        <img class="club-pattern" [src]="banner.pattern" alt="" />
+        <img class="club-crest" [src]="banner.crest" alt="" />
+      }
+      <h2>{{ homeBanner()?.name ?? fixture().home }}</h2>
+      <span class="club-side"
+        >HOME{{ fixture().homeAsset === favourite() ? ' / YOUR TEAM' : '' }}</span
+      >
+    </div>
+    <div class="match-time">
+      <span>{{ fixture().score ? 'RESULT' : 'KICKOFF' }}</span>
+      <strong>{{ fixture().score || fixture().time }}</strong>
+      <small>{{
+        fixture().score ? 'FULL TIME' : fixture().kickoffUtc ? 'SAST' : 'TIME TBC'
+      }}</small>
+      <span class="versus" aria-hidden="true">VS</span>
+    </div>
+    <div class="club-banner" [style.--club-colour]="awayBanner()?.colour">
+      @if (awayBanner(); as banner) {
+        <img class="club-pattern" [src]="banner.pattern" alt="" />
+        <img class="club-crest" [src]="banner.crest" alt="" />
+      }
+      <h2>{{ awayBanner()?.name ?? fixture().away }}</h2>
+      <span class="club-side"
+        >AWAY{{ fixture().awayAsset === favourite() ? ' / YOUR TEAM' : '' }}</span
+      >
+    </div>
+  </div>
+  <div class="match-footer">
+    <div class="match-venue">
+      <svg
+        class="stadium-icon"
+        viewBox="0 0 48 48"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.5"
+        aria-hidden="true"
+      >
+        <path
+          d="M5 22 12 16h24l7 6v16H5V22Z M5 22l8 6h22l8-6 M13 28v10m22-10v10 M16 38v-6h16v6 M9 18V7m30 11V7 M6 7h6m24 0h6 M18 16V9m12 7V9 M15 9h6m6 0h6"
+        />
+        <path d="M17 21h14m-7-3v6" />
+      </svg>
+      <div>
+        <span>THE STADIUM</span><strong>{{ fixture().venue }}</strong>
+      </div>
+    </div>
+    <button type="button" class="match-link" (click)="explore.emit()">
+      Enter the match centre <app-icon name="arrow" />
+    </button>
+  </div>
+</section>

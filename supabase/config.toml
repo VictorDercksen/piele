@@ -1,0 +1,11 @@
+# Supabase CLI configuration. The Supabase GitHub integration reads this folder and
+# applies supabase/migrations/*.sql to the linked project on pushes to the connected
+# branch (staging). Application schema lives in the private `piele` schema, which is
+# not exposed through the Data API. Keep this file minimal until the CLI is used locally.
+project_id = "piele"
+
+[db]
+major_version = 17
+
+[db.migrations]
+enabled = true

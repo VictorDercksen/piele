@@ -1,0 +1,304 @@
+:host {
+  display: block;
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.match-story {
+  position: relative;
+  isolation: isolate;
+  background:
+    linear-gradient(180deg, #08131640, #081316a6),
+    var(--ground-photo) center 8% / cover;
+  border: 1px solid #e0e4d557;
+  box-shadow:
+    0 16px 40px #0004,
+    inset 0 1px #f2efdf35;
+  color: var(--chalk);
+}
+
+.match-heading,
+.match-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 20px 26px;
+}
+
+.match-heading {
+  border-bottom: 1px dashed #e0e4d552;
+  background: #0a161bba;
+}
+
+.match-label,
+.match-date,
+.club-side,
+.match-time > span,
+.match-time small,
+.match-venue span {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+}
+
+.match-label {
+  color: var(--orange);
+}
+
+.match-date {
+  color: #c5d4de;
+  text-align: right;
+}
+
+.score-bug {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 150px minmax(0, 1fr);
+  align-items: stretch;
+  padding: 36px 26px 48px;
+}
+
+.club-banner {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  min-width: 0;
+  min-height: 280px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 30px 20px;
+  background:
+    var(--surface-grain), color-mix(in srgb, var(--club-colour, #263f52) 88%, transparent);
+  border: 1px solid #ffffff30;
+  border-top: 3px solid #f2efdfaa;
+  border-radius: 2px;
+  box-shadow: 0 10px 24px #0007;
+  text-align: center;
+}
+
+.club-pattern {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.3;
+  mix-blend-mode: multiply;
+}
+
+.club-banner::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(180deg, #07152000 15%, #071520b8 100%);
+}
+
+.club-crest {
+  width: 112px;
+  height: 106px;
+  object-fit: contain;
+  margin-bottom: 22px;
+  filter: drop-shadow(0 3px 6px #0004);
+}
+
+.club-banner h2 {
+  margin: 0;
+  max-width: 100%;
+  font-size: clamp(23px, 3cqw, 42px);
+  line-height: 1.05;
+  font-weight: 900;
+  font-style: italic;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+  text-shadow: 0 2px 8px #0006;
+}
+
+.club-side {
+  margin-top: 14px;
+  font-size: 10px;
+  color: #fff;
+}
+
+.match-time {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 16px 8px;
+  text-align: center;
+  align-self: center;
+  margin: 0 8px;
+  border-block: 1px solid #e0e4d578;
+  background: var(--surface-grain), #081316de;
+  box-shadow: 0 4px 20px #0004;
+}
+
+.match-time > span,
+.match-time small {
+  color: #a9becb;
+}
+
+.match-time strong {
+  font-size: 38px;
+  color: #f4f0db;
+  text-shadow: 0 0 16px #f4f0db30;
+  line-height: 1.1;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.match-time .versus {
+  margin-top: 18px;
+  font-size: 13px;
+  color: var(--orange);
+}
+
+.match-footer {
+  background: var(--surface-grain), #111e1be8;
+  border-top: 2px solid #e0e4d578;
+}
+
+.match-venue {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.stadium-icon {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  color: #9fb9ca;
+}
+
+.match-venue span,
+.match-venue strong {
+  display: block;
+}
+
+.match-venue span {
+  color: #a9becb;
+  font-size: 9px;
+  margin-bottom: 4px;
+}
+
+.match-venue strong {
+  font-size: 21px;
+  line-height: 1.2;
+  font-weight: 600;
+}
+
+.match-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  flex-shrink: 0;
+  min-height: 44px;
+  padding: 12px 24px;
+  border: 1px solid var(--rugby-teal);
+  background: var(--rugby-button);
+  box-shadow: 0 3px 0 #0005;
+  color: var(--rugby-ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.match-link:hover {
+  filter: brightness(1.07);
+}
+
+.match-link:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 4px;
+}
+
+@container (max-width: 750px) {
+  .score-bug {
+    grid-template-columns: minmax(0, 1fr) 108px minmax(0, 1fr);
+    padding: 26px 18px 34px;
+  }
+  .club-banner {
+    min-height: 250px;
+    padding: 24px 12px;
+  }
+  .club-crest {
+    width: 88px;
+    height: 88px;
+  }
+  .match-time strong {
+    font-size: 29px;
+  }
+  .match-footer {
+    flex-wrap: wrap;
+  }
+}
+
+@container (max-width: 480px) {
+  .match-heading,
+  .match-footer {
+    padding: 16px;
+    gap: 14px;
+  }
+  .match-label,
+  .match-date {
+    font-size: 9px;
+    letter-spacing: 1px;
+  }
+  .score-bug {
+    grid-template-columns: minmax(0, 1fr) 66px minmax(0, 1fr);
+    padding: 22px 12px 28px;
+  }
+  .club-banner {
+    min-height: 210px;
+    padding: 18px 7px;
+    border-radius: 2px;
+  }
+  .club-crest {
+    width: 68px;
+    max-width: 100%;
+    height: 72px;
+    margin-bottom: 16px;
+  }
+  .club-banner h2 {
+    font-size: 18px;
+  }
+  .club-side {
+    font-size: 8px;
+    letter-spacing: 0.5px;
+  }
+  .match-time {
+    padding: 14px 2px;
+    margin-inline: 3px;
+    gap: 8px;
+  }
+  .match-time strong {
+    font-size: 21px;
+  }
+  .match-time > span,
+  .match-time small {
+    font-size: 8px;
+    letter-spacing: 0.5px;
+  }
+  .match-venue {
+    gap: 12px;
+  }
+  .match-venue strong {
+    font-size: 19px;
+  }
+  .stadium-icon {
+    width: 40px;
+    height: 40px;
+  }
+  .match-link {
+    width: 100%;
+  }
+}

@@ -1,29 +1,45 @@
 import { TestBed } from '@angular/core/testing';
-import { App } from './app';
-import { ProfileStore } from './profile/profile-store';
+import { provideRouter, Router } from '@angular/router';
+import { RouterTestingHarness } from '@angular/router/testing';
+import { routes } from './app.routes';
+import { EmptyLeagueData, LeagueData } from './core/league/league-data';
+import { ProfileStore } from './core/profile/profile.store';
 
-describe('App', () => {
-  beforeEach(async () => {
-    await TestBed.configureTestingModule({ imports: [App] }).compileComponents();
+describe('App routes', () => {
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [provideRouter(routes), { provide: LeagueData, useClass: EmptyLeagueData }],
+    });
   });
-  it('requires a profile for first-time visitors', async () => {
+
+  it('sends first-time visitors to onboarding', async () => {
     TestBed.inject(ProfileStore).profile.set(null);
-    const fixture = TestBed.createComponent(App);
-    await fixture.whenStable();
-    expect(fixture.nativeElement.querySelector('h1').textContent).toContain('allegiance.');
-    expect(fixture.nativeElement.querySelectorAll('input[type=radio]').length).toBe(16);
+    const harness = await RouterTestingHarness.create('/?round=3');
+    expect(TestBed.inject(Router).url).toBe('/welcome?returnUrl=%2F%3Fround%3D3');
+    expect(harness.routeNativeElement?.querySelector('h1')?.textContent).toContain('allegiance.');
+    expect(harness.routeNativeElement?.querySelectorAll('input[type=radio]').length).toBe(16);
   });
-  it('uses Floodlights for returning members', async () => {
+
+  it('shows the clubhouse to returning members without league records', async () => {
     TestBed.inject(ProfileStore).profile.set({
       displayName: 'Test Member',
       teamId: 'dhl-stormers',
       photo: null,
     });
-    const fixture = TestBed.createComponent(App);
-    await fixture.whenStable();
-    expect(fixture.nativeElement.querySelector('.league.floodlights')).toBeTruthy();
-    expect(fixture.nativeElement.querySelector('.supporter-strip').textContent).toContain(
-      'Test Member',
-    );
+    const harness = await RouterTestingHarness.create('/?round=3');
+    const root = harness.routeNativeElement!;
+    expect(root.querySelector('.header-profile')?.textContent).toContain('Test Member');
+    expect(root.querySelector('.round-context')?.textContent).toContain('Round 03');
+    expect(root.querySelector('.standings-panel .round-empty')).toBeTruthy();
+  });
+
+  it('keeps the captain desk behind the captain check', async () => {
+    TestBed.inject(ProfileStore).profile.set({
+      displayName: 'Test Member',
+      teamId: 'dhl-stormers',
+      photo: null,
+    });
+    await RouterTestingHarness.create('/captain');
+    expect(TestBed.inject(Router).url).toBe('/');
   });
 });

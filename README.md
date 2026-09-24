@@ -1,27 +1,54 @@
 # Piele
 
-Floodlights is the selected frontend design. The Angular prototype includes a round-scoped season timeline, jersey matchups, favourite-team styling and browser-local profile photos.
+Private league application for Piele URC 26/27. Angular frontend (Floodlights design) and a Python FastAPI backend, deployed as two Vercel projects against Supabase PostgreSQL.
 
 ## Run
 
-From this directory, run `npm run setup` and `npm start`. Open http://localhost:4200. First-time visitors choose a name and favourite team. Profile photos are optional. Use the avatar in the header to edit the profile.
+From this directory:
 
-The frontend uses Angular 22.1.7 with CLI 22.1.8. Dependencies and lockfile are in `apps/web`. Use a compatible Node 22.22.3+, 24.15+ or 26 release.
+- `npm run setup` and `npm start` run the frontend at http://localhost:4200.
+- `npm run setup:api` and `npm run api` run the API at http://127.0.0.1:8000. See [apps/api/README.md](apps/api/README.md).
 
-## Scope
+First-time visitors choose a name and favourite team. The home match centre opens a match details page for the featured fixture, with the house pick deadline, teamsheets and the kickoff-hour forecast once the API is connected. The fixture ribbon under the round bar switches fixtures. The development build shows labelled sample league records (standings, duties, votes and a captain's desk) for rounds 1 to 3. The production build shows only the published URC schedule until the league API supplies records.
 
-- `apps/web`: Angular frontend. Read its `AGENTS.md` and `CLAUDE.md` before changes.
-- `apps/api`: Backend root with adapted `CLAUDE.md` and an `AGENTS.md` pointer. No Python service or database is implemented yet.
+The frontend uses Angular 22.1.7 with CLI 22.1.8. Use a compatible Node 22.22.3+, 24.15+ or 26 release. The API needs Python 3.12+ and uv.
+
+## Structure
+
+- `apps/web`: Angular app. `src/app/core` holds services, layout and data sources, `src/app/features` holds one folder per page, `src/app/shared` holds reusable components. Read its `AGENTS.md` and `CLAUDE.md` before changes.
+- `apps/api`: FastAPI app with `GET /v1/health`, `GET /v1/matches/{fixtureId}` (teamsheets and kickoff forecast for one fixture, cached in PostgreSQL), Supabase pooler configuration.
+- `docs`: operating instructions, starting with the production runbook.
+- `supabase`: SQL migrations applied to the Supabase project by its GitHub integration on pushes to the connected branch. Application tables live in the private `piele` schema.
 - `fixtures`: Official public URC schedule snapshot and provenance.
 
-The schedule contains 144 regular-season fixtures and seven playoff slots for 2026/27, checked on 23 September 2026. Dates and kickoff times come from the official URC match-centre feed, with times displayed in SAST. Playoff teams and kickoffs remain TBC. This is a local snapshot, not live synchronization. League standings and obligations are empty until an administration backend supplies them.
+The schedule contains 144 regular-season fixtures and seven playoff slots for 2026/27, checked on 23 September 2026. Times display in SAST. Playoff teams and kickoffs remain TBC. This is a local snapshot, not live synchronization.
 
-Profiles and processed photos persist only in this browser. There is no authentication, server upload or cross-device profile synchronization. The optional `?demo=1&round=2` URL retains synthetic league interactions for reviewing duties and votes. Those demonstration fixtures are separate from the default official schedule.
+Profiles and photos persist only in this browser. There is no authentication or server upload yet.
 
-The supplied asset pack contains 12 team jerseys. Edinburgh, Leinster, Lions and Ospreys use illustrated supporter-shirt SVGs. These are visual placeholders, not official season kit reproductions.
+The asset pack contains 12 team jerseys. Edinburgh, Leinster, Lions and Ospreys use illustrated supporter-shirt SVGs. These are visual placeholders, not official season kit reproductions.
+
+## Deploy
+
+Two Vercel projects in team `victor-4043s-projects`, both linked to this repository:
+
+| Project | Root | Staging URL |
+| --- | --- | --- |
+| `piele-web` | `apps/web` | https://piele-web-git-staging-victor-4043s-projects.vercel.app (Vercel login required) |
+| `piele-api` | `apps/api` | https://piele-api-git-staging-victor-4043s-projects.vercel.app/v1/health |
+
+Staging is Vercel's Preview environment for the `staging` branch and uses the Supabase project `piele-staging` (London). Production is the `master` branch with its own Supabase project. Both `vercel.json` files limit builds to these two branches. Setup, releases and rollback are in [docs/production.md](docs/production.md).
+
+The web build runs `scripts/write-environment.mjs`, which creates the browser config from the `PIELE_API_URL`, `PIELE_SUPABASE_URL`, `PIELE_SUPABASE_PUBLISHABLE_KEY` and `PIELE_SAMPLE_LEAGUE_DATA` variables. API variables are described in [apps/api/README.md](apps/api/README.md). Local staging secrets live in `apps/api/.env.staging`, which Git ignores.
+
+The More page reports whether the frontend can reach the API and whether the API reaches the database.
 
 ## Verify
 
-Run `npm run build`, `npm test` and `npm run test:e2e`. The browser suite covers onboarding, profile/photo persistence and errors, responsive layouts, jersey assets, round and playoff navigation, SAST times and personal styling. Screenshots are saved under `apps/web/test-results`.
+- `npm run build`, `npm test` and `npm run test:e2e` for the frontend. If another app uses port 4200, set `PIELE_WEB_PORT` (for example `PIELE_WEB_PORT=4300`) before `test:e2e`.
+- `npm --prefix apps/web run test:e2e:production` after a build checks the production bundle under the `vercel.json` headers and rewrites.
+- `npm run test:api` for the backend. Database tests run when `PIELE_TEST_DATABASE_URL` is set; see [apps/api/README.md](apps/api/README.md).
+- `npm run smoke -- --web <origin> --api <origin>` checks a deployed environment.
 
-From `apps/web`, `node scripts/import-urc.mjs` validates and converts the saved official fixture response. It rejects incomplete schedules, unknown teams and incorrect per-team home/away counts before replacing the generated fixture data. See `fixtures/README.md` for the source query.
+CI (`.github/workflows/ci.yml`) runs all of these except the smoke check on pull requests into `staging` and `master`, and applies `supabase/migrations` to PostgreSQL 17 before the API tests.
+
+From `apps/web`, `node scripts/import-urc.mjs` validates and converts the saved official fixture response. See `fixtures/README.md` for the source query.

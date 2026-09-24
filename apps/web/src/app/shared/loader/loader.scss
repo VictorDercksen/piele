@@ -1,0 +1,22 @@
+:host {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  vertical-align: middle;
+}
+img {
+  display: block;
+  flex-shrink: 0;
+  width: var(--loader-size);
+  height: var(--loader-size);
+  animation: urc-spin 1.4s linear infinite;
+}
+span {
+  font-size: 12px;
+  color: var(--muted, currentColor);
+}
+@keyframes urc-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

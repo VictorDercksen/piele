@@ -2,17 +2,38 @@
 <html lang="en" class="dark">
   <head>
     <meta charset="utf-8" />
-    <title>Piele / Design Studio</title>
+    <title>Piele</title>
     <base href="/" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" type="image/png" href="assets/images/piele-crest.png" />
     <meta name="theme-color" content="#172832" />
-    <meta
-      name="description"
-      content="Three design directions for the private Piele rugby clubhouse. Interactive desktop and mobile previews."
-    />
+    <meta name="description" content="The private Piele rugby league clubhouse." />
+    <style>
+      .boot-ball {
+        animation: boot-spin 1.4s linear infinite;
+      }
+      @keyframes boot-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .boot-ball {
+          animation: none;
+        }
+      }
+    </style>
   </head>
   <body>
-    <app-root></app-root>
+    <app-root>
+      <!-- Shown until Angular starts. Matches the app's boot loader. -->
+      <div
+        role="status"
+        aria-label="Loading Piele"
+        style="position: fixed; inset: 0; display: grid; place-items: center; background: #0c1821"
+      >
+        <img class="boot-ball" src="assets/images/urc-ball.webp" alt="" width="96" height="96" />
+      </div>
+    </app-root>
   </body>
 </html>

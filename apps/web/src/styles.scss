@@ -36,8 +36,8 @@
   box-sizing: border-box;
 }
 html {
-  background: #edf0f2;
-  color: #17232c;
+  background: #0b1518;
+  color: #f2efdf;
   font-family: Arial, Helvetica, sans-serif;
 }
 body {
@@ -113,6 +113,19 @@ img {
   color-scheme: light;
 
   --font-sans: 'Titillium Web', Arial, Helvetica, sans-serif;
+  --surface-grain: url('/assets/editorial/surface-grain.svg');
+  --rugby-grip: url('/assets/editorial/rugby-grip.svg');
+  --rugby-lighting: linear-gradient(180deg, #ffffff20, #ffffff00 42%, #00000014);
+  --rugby-surface: var(--rugby-lighting), var(--rugby-grip);
+  --rugby-white: #e9ece5;
+  --rugby-teal: #007d89;
+  --rugby-ink: #153b44;
+  --rugby-button:
+    var(--rugby-surface), linear-gradient(110deg, #007d89 8px, #153b44 8px 12px, transparent 13px),
+    linear-gradient(290deg, #007d89 8px, #153b44 8px 12px, transparent 13px), var(--rugby-white);
+  --ground-photo: url('/assets/editorial/match-night-ground.png');
+  --chalk: #f2efdf;
+  --night: #0b1518;
 
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);

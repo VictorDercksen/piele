@@ -1,0 +1,16 @@
+<p class="page-description">{{ view.reviews().length }} items for {{ view.round().title }}.</p>
+@for (item of view.reviews(); track item.id) {
+  <div class="review-row">
+    <app-icon name="shield" />
+    <div>
+      <h3>{{ item.title }}</h3>
+      <p>Ready for an uninvolved reviewer.</p>
+    </div>
+    <span class="tag">PENDING</span>
+  </div>
+} @empty {
+  <div class="round-empty"><h3>Nothing needs your decision in this round.</h3></div>
+}
+<div class="preview-notice">
+  Review actions arrive with the league API. Your own evidence always needs an uninvolved reviewer.
+</div>

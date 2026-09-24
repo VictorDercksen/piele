@@ -1,5 +1,3 @@
-# Angular design preview
+# Piele web
 
-See [the monorepo README](../../README.md) for setup, design links and verification commands.
-
-Generated with Angular CLI 22.1.8. This application provides three responsive design directions using demonstration data. It is not the production league application.
+Angular frontend for Piele, using the Floodlights design. See [the monorepo README](../../README.md) for setup, structure, deployment and verification commands, and [CLAUDE.md](CLAUDE.md) for coding rules.

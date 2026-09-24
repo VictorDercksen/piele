@@ -1,0 +1,41 @@
+.more-links {
+  display: grid;
+  gap: 12px;
+}
+.more-links a {
+  color: inherit;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  padding: 20px;
+  text-align: left;
+}
+.more-links a span {
+  flex: 1;
+}
+.schedule-source {
+  display: flex;
+  gap: 8px 18px;
+  flex-wrap: wrap;
+  align-items: center;
+  padding: 15px 18px;
+  border: 1px solid var(--line);
+  margin-top: 22px;
+  font-size: 11px;
+}
+.schedule-source > a {
+  margin-left: auto;
+}
+.schedule-source > small {
+  width: 100%;
+  font-size: 10px;
+  color: var(--muted);
+}
+@container (max-width:600px) {
+  .schedule-source > a {
+    margin-left: 0;
+  }
+}

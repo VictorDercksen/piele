@@ -7,6 +7,10 @@
     "build": "npm --prefix apps/web run build",
     "test": "npm --prefix apps/web test -- --watch=false",
     "test:e2e": "npm --prefix apps/web run test:e2e",
-    "setup": "npm --prefix apps/web ci"
+    "setup": "npm --prefix apps/web ci",
+    "api": "uv --directory apps/api run uvicorn app.main:app --reload --host 127.0.0.1 --port 8000",
+    "test:api": "uv --directory apps/api run pytest",
+    "setup:api": "uv --directory apps/api sync",
+    "smoke": "node scripts/smoke-deployment.mjs"
   }
 }
