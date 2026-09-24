@@ -1,0 +1,92 @@
+<div class="section-title">
+  <h2>{{ scope() === 'round' ? 'From this round.' : 'Around the season.' }}</h2>
+  <div class="feed-scope" role="group" aria-label="Feed scope">
+    <button
+      type="button"
+      [class.active]="scope() === 'round'"
+      [attr.aria-pressed]="scope() === 'round'"
+      (click)="scope.set('round')"
+    >
+      R{{ view.round().code }}</button
+    ><button
+      type="button"
+      [class.active]="scope() === 'season'"
+      [attr.aria-pressed]="scope() === 'season'"
+      (click)="scope.set('season')"
+    >
+      Season
+    </button>
+  </div>
+</div>
+@if (view.poll(); as poll) {
+  @if (scope() === 'round') {
+    <a class="feed-item" routerLink="/decisions" queryParamsHandling="preserve">
+      <span class="feed-icon"><app-icon name="decisions" /></span
+      ><span
+        ><span class="feed-label">{{
+          poll.status === 'Open' ? 'YOUR VOICE COUNTS' : 'DECISION RECORDED'
+        }}</span
+        ><strong>{{ poll.question }}</strong
+        ><small>{{
+          poll.myChoice
+            ? 'Your choice is recorded for this round.'
+            : poll.status === 'Open'
+              ? 'Closes ' + poll.closes
+              : poll.result
+        }}</small></span
+      ><app-icon name="arrow" />
+    </a>
+  }
+}
+@for (item of items(); track item.id) {
+  @if (item.path) {
+    <a
+      class="feed-item"
+      [routerLink]="item.path"
+      [queryParams]="item.roundId !== null ? { round: item.roundId } : {}"
+      queryParamsHandling="merge"
+    >
+      <span class="feed-icon" [class.neutral]="item.kind === 'season_opened'"
+        ><app-icon [name]="item.icon"
+      /></span>
+      <span
+        ><span class="feed-label"
+          >{{ item.label }}
+          @if (item.roundLabel) {
+            <em>/ {{ item.roundLabel }}</em>
+          }
+          <em>/ {{ item.when }}</em></span
+        ><strong>{{ item.title }}</strong
+        >@if (item.detail) {
+          <small>{{ item.detail }}</small>
+        }</span
+      >
+      <app-icon name="arrow" />
+    </a>
+  } @else {
+    <div class="feed-item">
+      <span class="feed-icon neutral"><app-icon [name]="item.icon" /></span>
+      <span
+        ><span class="feed-label"
+          >{{ item.label }}
+          @if (item.roundLabel) {
+            <em>/ {{ item.roundLabel }}</em>
+          }
+          <em>/ {{ item.when }}</em></span
+        ><strong>{{ item.title }}</strong
+        >@if (item.detail) {
+          <small>{{ item.detail }}</small>
+        }</span
+      >
+    </div>
+  }
+} @empty {
+  <div class="feed-item">
+    <span class="feed-icon neutral"><app-icon name="rounds" /></span
+    ><span
+      ><span class="feed-label">ROUND {{ view.round().code }} / UPDATE</span
+      ><strong>{{ view.round().status }}</strong
+      ><small>{{ view.activity() }}</small></span
+    >
+  </div>
+}

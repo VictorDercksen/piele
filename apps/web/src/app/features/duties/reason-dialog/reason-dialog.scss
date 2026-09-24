@@ -1,0 +1,23 @@
+textarea {
+  font-family: inherit;
+  display: block;
+  width: 100%;
+  resize: vertical;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  padding: 12px;
+  border-radius: 3px;
+  font-size: 14px;
+  margin-bottom: 18px;
+}
+.field-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin: 20px 0 8px;
+}
+.field-label span {
+  color: var(--muted);
+  font-weight: 400;
+}

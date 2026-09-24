@@ -9,9 +9,11 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import Settings, get_settings
 from app.db import get_engine
+from app.league.auth import JwksVerifier, SecretVerifier, TokenVerifier, UnconfiguredVerifier
+from app.league.storage import Storage, SupabaseStorage, UnconfiguredStorage
 from app.matchcentre.cache import MemorySnapshotCache, PostgresSnapshotCache, SnapshotCache
 from app.matchcentre.service import MatchCentreService, default_http_factory
-from app.routers import health, matches
+from app.routers import health, league, matches
 
 REQUEST_ID_HEADER = "X-Request-ID"
 _SAFE_REQUEST_ID = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
@@ -22,6 +24,8 @@ def create_app(
     *,
     http_transport: httpx.BaseTransport | None = None,
     snapshot_cache: SnapshotCache | None = None,
+    token_verifier: TokenVerifier | None = None,
+    storage: Storage | None = None,
 ) -> FastAPI:
     settings = settings or get_settings()
     # Interactive docs and the schema stay off in production; generate client types locally.
@@ -34,8 +38,12 @@ def create_app(
         _http_factory(settings, http_transport),
     )
 
+    app.state.token_verifier = token_verifier or _token_verifier(settings)
+    app.state.storage = storage or _storage(settings)
+
     app.include_router(health.router, prefix="/v1")
     app.include_router(matches.router, prefix="/v1")
+    app.include_router(league.router, prefix="/v1")
 
     # Added first so it sits inside the request-ID middleware below.
     app.add_middleware(
@@ -65,6 +73,25 @@ def create_app(
 def _snapshot_cache(settings: Settings) -> SnapshotCache:
     engine = get_engine(settings)
     return PostgresSnapshotCache(engine) if engine is not None else MemorySnapshotCache()
+
+
+def _token_verifier(settings: Settings) -> TokenVerifier:
+    if not settings.supabase_url:
+        return UnconfiguredVerifier()
+    if settings.supabase_jwt_secret and settings.supabase_jwt_secret.get_secret_value():
+        return SecretVerifier(
+            settings.supabase_url, settings.supabase_jwt_audience, settings.supabase_jwt_secret.get_secret_value()
+        )
+    return JwksVerifier(settings.supabase_url, settings.supabase_jwt_audience)
+
+
+def _storage(settings: Settings) -> Storage:
+    key = settings.supabase_service_role_key
+    if not settings.supabase_url or key is None or not key.get_secret_value():
+        return UnconfiguredStorage()
+    return SupabaseStorage(
+        settings.supabase_url, key.get_secret_value(), settings.supabase_storage_bucket, settings.external_timeout_seconds
+    )
 
 
 def _http_factory(settings: Settings, transport: httpx.BaseTransport | None):

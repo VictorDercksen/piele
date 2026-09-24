@@ -27,26 +27,40 @@
           <span class="duty-watermark" aria-hidden="true">{{ view.round().code }}</span
           ><span class="duty-slip-label">THE POST-MATCH PAPERWORK / R{{ view.round().code }}</span>
           <div class="duty-top">
-            <span class="tag">{{ duty.status.toUpperCase() }}</span
-            ><span class="duty-round">{{ profile()?.displayName }}</span>
+            <span class="tag">{{ duty.statusLabel.toUpperCase() }}</span
+            ><span class="duty-round">{{ view.memberName() }}</span>
           </div>
-          @if (duty.status === 'Open') {
+          @if (duty.display === 'open' || duty.display === 'pending_deadline') {
             <h3>{{ duty.spoon ? 'The Spoon has your name on it.' : duty.title }}</h3>
             <p>
-              {{ duty.title }}. Submit your evidence for this round before the recorded deadline.
+              {{ duty.title }}.
+              {{
+                duty.deadlineAt
+                  ? 'Submit your evidence for this round before the deadline.'
+                  : 'The captain still has to confirm the deadline.'
+              }}
             </p>
-          } @else if (duty.status === 'Awaiting review') {
+          } @else if (duty.display === 'overdue') {
+            <h3>Overdue. The clock is running.</h3>
+            <p>
+              {{ duty.title }}. {{ duty.marks.marks }} house
+              {{ duty.marks.marks === 1 ? 'mark' : 'marks' }} so far, one more every full week.
+            </p>
+          } @else if (duty.display === 'under_review') {
             <h3>Over to the captain.</h3>
             <p>{{ duty.title }}. Your evidence is waiting for an uninvolved reviewer.</p>
+          } @else if (duty.display === 'voided') {
+            <h3>Duty voided.</h3>
+            <p>{{ duty.title }}. {{ duty.voidReason || 'Closed by the captain.' }}</p>
           } @else {
             <h3>Duty completed.</h3>
             <p>{{ duty.title }}. Your evidence was accepted.</p>
           }
           <div class="due-line">
-            <app-icon name="clock" /><span>{{ duty.deadline }}</span>
+            <app-icon name="clock" /><span>{{ deadline(duty) }}</span>
           </div>
           <div class="duty-actions">
-            @if (duty.status === 'Open') {
+            @if (duty.display === 'open' || duty.display === 'overdue' || duty.display === 'pending_deadline') {
               <button type="button" class="primary-button" (click)="evidence().open(duty)">
                 <app-icon name="upload" />Upload evidence
               </button>
@@ -81,12 +95,12 @@
         >
       </article>
     }
-    @if (view.isCaptain() && view.reviews().length) {
+    @if (view.isCaptain() && view.reviewCount()) {
       <a class="captain-queue" routerLink="/captain" queryParamsHandling="preserve">
         <app-icon name="shield" /><span
           ><strong>Captain, you're up.</strong
-          ><small>{{ view.reviews().length }} items in Round {{ view.round().code }}</small></span
-        ><span class="queue-count">{{ view.reviews().length }}</span
+          ><small>{{ view.reviewCount() }} items in Round {{ view.round().code }}</small></span
+        ><span class="queue-count">{{ view.reviewCount() }}</span
         ><app-icon name="arrow" />
       </a>
     }
@@ -117,52 +131,21 @@
       <a class="table-link" routerLink="/standings" queryParamsHandling="preserve">
         Full round standings <app-icon name="arrow" />
       </a>
-      <div class="house-marks">
-        <div>
-          <span>YOUR ROUND {{ view.round().code }} HOUSE MARKS</span>
-          <p>Separate from Superbru points.</p>
-        </div>
-        <strong>{{ view.ownMarks() }}</strong>
-      </div>
     } @else {
       <div class="round-empty">
         <app-icon name="standings" />
         <h3>No results for Round {{ view.round().code }} yet.</h3>
-        <p>Round points and house marks appear after results are recorded.</p>
+        <p>Round points appear after the Superbru results are synced.</p>
       </div>
     }
+    <div class="house-marks">
+      <div>
+        <span>YOUR SEASON HOUSE MARKS</span>
+        <p>Separate from Superbru points.</p>
+      </div>
+      <strong>{{ view.ownMarks() }}</strong>
+    </div>
   </aside>
-  <section class="club-feed">
-    <div class="section-title">
-      <h2>From this round.</h2>
-      <span>R{{ view.round().code }} / LATEST</span>
-    </div>
-    @if (view.poll(); as poll) {
-      <a class="feed-item" routerLink="/decisions" queryParamsHandling="preserve">
-        <span class="feed-icon"><app-icon name="decisions" /></span
-        ><span
-          ><span class="feed-label">{{
-            poll.status === 'Open' ? 'YOUR VOICE COUNTS' : 'DECISION RECORDED'
-          }}</span
-          ><strong>{{ poll.question }}</strong
-          ><small>{{
-            poll.myChoice
-              ? 'Your choice is recorded for this round.'
-              : poll.status === 'Open'
-                ? 'Closes ' + poll.closes
-                : poll.result
-          }}</small></span
-        ><app-icon name="arrow" />
-      </a>
-    }
-    <div class="feed-item">
-      <span class="feed-icon neutral"><app-icon name="rounds" /></span
-      ><span
-        ><span class="feed-label">ROUND {{ view.round().code }} / UPDATE</span
-        ><strong>{{ view.round().status }}</strong
-        ><small>{{ view.activity() }}</small></span
-      >
-    </div>
-  </section>
+  <section class="club-feed"><app-feed /></section>
 </div>
 <app-evidence-dialog />

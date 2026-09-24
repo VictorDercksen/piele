@@ -58,7 +58,7 @@
           }
         </span>
         <span class="profile-text">
-          <strong>{{ profile()?.displayName }}</strong>
+          <strong>{{ view.memberName() }}</strong>
           <small
             >{{ favouriteTeam()?.shortName }} supporter<img
               class="profile-jersey"
@@ -78,7 +78,13 @@
           >
           <p>
             {{ round().dates }} ·
-            {{ view.sample ? 'Sample league records' : 'Published URC schedule' }}
+            {{
+              view.sample
+                ? 'Sample league records'
+                : view.source === 'api'
+                  ? 'League records'
+                  : 'Published URC schedule'
+            }}
           </p>
         </div>
         <div class="context-pager">
@@ -116,6 +122,12 @@
         }}</span>
       }
     </div>
+    @if (view.error(); as message) {
+      <div class="toast error" role="alert">
+        <app-icon name="close" />{{ message
+        }}<button type="button" (click)="view.reload()">Retry</button>
+      </div>
+    }
     @if (toast.message(); as message) {
       <div class="toast" role="status">
         <app-icon name="check" />{{ message
@@ -135,9 +147,11 @@
       ><span>{{
         view.sample
           ? 'Sample league records for development. Names, points, duties and votes are illustrative.'
-          : 'Official fixtures checked ' +
-            retrievedAt +
-            '. League records appear once the league API is connected.'
+          : view.source === 'api'
+            ? 'Official fixtures checked ' + retrievedAt + '. Times in SAST.'
+            : 'Official fixtures checked ' +
+              retrievedAt +
+              '. League records appear once the league API is connected.'
       }}</span
       ><span>26 / 27</span>
     </footer>

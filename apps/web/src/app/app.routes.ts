@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { Shell } from './core/layout/shell/shell';
 import { PageData } from './core/layout/shell/page-data';
+import { memberRequired, signedIn, signedOut } from './core/auth/auth.guards';
 import { profileMissing, profileRequired } from './core/profile/profile.guards';
 import { captainOnly } from './features/captain/captain.guard';
 
@@ -8,21 +9,34 @@ const page = (data: PageData) => data;
 
 export const routes: Routes = [
   {
+    path: 'sign-in',
+    title: 'Sign in · Piele',
+    canActivate: [signedOut],
+    loadComponent: () => import('./features/sign-in/sign-in.page').then((m) => m.SignInPage),
+  },
+  {
+    path: 'not-a-member',
+    title: 'Members only · Piele',
+    canActivate: [signedIn],
+    loadComponent: () =>
+      import('./features/sign-in/not-a-member.page').then((m) => m.NotAMemberPage),
+  },
+  {
     path: 'welcome',
     title: 'Welcome · Piele',
-    canActivate: [profileMissing],
+    canActivate: [signedIn, memberRequired, profileMissing],
     loadComponent: () => import('./features/profile/profile.page').then((m) => m.ProfilePage),
   },
   {
     path: 'profile',
     title: 'Your profile · Piele',
-    canActivate: [profileRequired],
+    canActivate: [signedIn, memberRequired, profileRequired],
     loadComponent: () => import('./features/profile/profile.page').then((m) => m.ProfilePage),
   },
   {
     path: '',
     component: Shell,
-    canActivate: [profileRequired],
+    canActivate: [signedIn, memberRequired, profileRequired],
     children: [
       {
         path: '',

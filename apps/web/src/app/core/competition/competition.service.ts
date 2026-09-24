@@ -38,6 +38,15 @@ export function currentRoundId(now = Date.now()): number {
   );
 }
 
+/** The earliest published kickoff of a round as a UTC instant, or null when none is known. */
+export function firstKickoff(roundId: number): string | null {
+  const times = URC_SCHEDULE.fixtures
+    .filter((m) => m.round === roundId && m.kickoffUtc)
+    .map((m) => m.kickoffUtc!)
+    .sort();
+  return times[0] ?? null;
+}
+
 /** Builds the published schedule. Times are UTC in the source and displayed in SAST. */
 export function buildRounds(current: number): readonly CompetitionRound[] {
   return Array.from({ length: REGULAR_ROUNDS + PLAYOFFS.length }, (_, index) => {

@@ -148,6 +148,26 @@
   max-width: calc(100vw - 24px);
   max-height: calc(100dvh - 40px);
   box-shadow: 0 20px 100px rgba(0, 0, 0, 0.4);
+  // Tailwind's preflight zeroes every margin, which removes the native dialog centring.
+  margin: auto;
+  overflow: auto;
+  container-type: inline-size;
+}
+// A single-column form dialog with a quieter heading.
+.compact-dialog {
+  width: 440px;
+  padding: 24px 26px 26px;
+}
+.compact-dialog h2 {
+  font-size: 26px;
+  margin: 12px 0 6px;
+}
+.compact-dialog > p,
+.compact-dialog form > p {
+  font-size: 13px;
+}
+.compact-dialog .primary-button.wide {
+  margin-top: 4px;
 }
 .detail-dialog h2 {
   font-size: 34px;
@@ -385,18 +405,17 @@
   display: none;
 }
 .league .spoon-duty.detail-dialog {
-  // The dialog retains its native centered positioning and full-width controls.
+  // The dialog keeps its native centred positioning; the timber grain sits behind the form.
   position: fixed;
-}
-.spoon-duty.detail-dialog > .spoon-art {
-  --spoon-art-height: 125px;
-  position: relative;
-  inset: auto;
-  width: 100%;
-  margin-top: 12px;
+  background:
+    linear-gradient(#1e120bea, #21150dea),
+    url('/assets/editorial/spoon-and-beer.png') right center / auto 100% no-repeat !important;
 }
 .spoon-duty.detail-dialog .file-field,
-.spoon-duty.detail-dialog textarea {
+.spoon-duty.detail-dialog textarea,
+.spoon-duty.detail-dialog select,
+.spoon-duty.detail-dialog input,
+.spoon-duty.detail-dialog .text-input {
   background: #241a12ed;
 }
 .league .notification-item.spoon-duty {

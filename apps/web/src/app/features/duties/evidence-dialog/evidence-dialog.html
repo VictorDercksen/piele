@@ -1,43 +1,46 @@
 <dialog
   #dialog
-  class="detail-dialog"
+  class="detail-dialog compact-dialog evidence"
   [class.spoon-duty]="duty()?.spoon"
   aria-labelledby="evidence-title"
 >
   <div class="dialog-top">
-    <span class="eyebrow">PIELE / ROUND {{ view.round().code }}</span
+    <span class="eyebrow">ROUND {{ view.round().code }} / {{ duty()?.memberName }}</span
     ><button type="button" class="icon-button" aria-label="Close dialog" (click)="close()">
       <app-icon name="close" />
     </button>
   </div>
-  @if (duty()?.spoon) {
-    <div class="spoon-art" aria-hidden="true"></div>
+  <h2 id="evidence-title">{{ onBehalf() ? 'Record the evidence.' : 'The proof is in the video.' }}</h2>
+  <p>{{ duty()?.title }}</p>
+  <label class="file-field" [class.filled]="file()">
+    <app-icon name="upload" />
+    <strong>{{ file() ? 'Video chosen' : 'Choose the video' }}</strong>
+    <span>{{ file()?.name || 'Up to 50 MB · visible to league members only' }}</span>
+    <input type="file" accept="video/*" (change)="pickFile($event)" />
+  </label>
+  @if (onBehalf()) {
+    <label class="field-label" for="evidence-completed">Completed at (SAST)</label>
+    <input
+      id="evidence-completed"
+      class="text-input"
+      type="datetime-local"
+      [formControl]="completedAt"
+    />
   }
-  <h2 id="evidence-title">The proof is in the video.</h2>
-  <p>{{ duty()?.title }} · {{ duty()?.memberName }}</p>
-  @if (view.sample) {
-    <div class="preview-notice">Sample league. Your file is never uploaded or stored.</div>
-  }
-  <label class="file-field"
-    ><app-icon name="upload" /><strong>Choose your evidence video</strong
-    ><span>{{ file()?.name || 'Video file · 50 MB limit' }}</span
-    ><input type="file" accept="video/*" (change)="pickFile($event)"
-  /></label>
-  @if (error()) {
-    <p class="error-message" role="alert">{{ error() }}</p>
-  }
-  <label class="note-label" for="evidence-note">A little context <span>(optional)</span></label
-  ><textarea
+  <label class="field-label" for="evidence-note">Note <span>(optional)</span></label>
+  <textarea
     id="evidence-note"
-    rows="3"
+    rows="2"
     maxlength="500"
     placeholder="Anything the reviewer should know?"
     [formControl]="note"
   ></textarea>
-  <p class="context-note">
-    Evidence belongs to Round {{ view.round().code }}. Videos are visible only to active league
-    members.
-  </p>
+  @if (error()) {
+    <p class="error-message" role="alert">{{ error() }}</p>
+  }
+  @if (view.sample) {
+    <p class="context-note">Sample league. Your file is never uploaded or stored.</p>
+  }
   <button
     type="button"
     class="primary-button wide"
@@ -45,7 +48,7 @@
     [attr.aria-busy]="busy()"
     (click)="submit()"
   >
-    Submit evidence
+    {{ onBehalf() ? 'Record evidence' : 'Submit evidence' }}
     @if (busy()) {
       <app-loader [size]="18" aria-hidden="true" />
     } @else {

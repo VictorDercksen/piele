@@ -10,6 +10,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { Router } from '@angular/router';
+import { formatLeagueTime } from '../../competition/league-time';
 import { RoundViewService } from '../../league/round-view.service';
 import { Icon } from '../../../shared/icon/icon';
 
@@ -65,10 +66,13 @@ export class NotificationsFlag {
     ];
     if (duty) {
       items.push({
-        key: `duty:${duty.id}:${duty.deadline}`,
+        key: `duty:${duty.id}:${duty.display}:${duty.deadlineAt}`,
         icon: 'duties',
         title: duty.title,
-        detail: `Due ${duty.deadline}`,
+        detail:
+          duty.display === 'overdue'
+            ? `Overdue since ${formatLeagueTime(duty.deadlineAt)} · ${duty.marks.marks} ${duty.marks.marks === 1 ? 'mark' : 'marks'}`
+            : `${duty.statusLabel} · due ${formatLeagueTime(duty.deadlineAt)}`,
         action: 'View duty →',
         path: '/duties',
         spoon: duty.spoon,

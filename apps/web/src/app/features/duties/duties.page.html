@@ -1,69 +1,39 @@
-<div class="content-tabs" aria-label="Duty scope">
-  <a
-    routerLink="."
-    [queryParams]="{ scope: null }"
-    queryParamsHandling="merge"
-    [class.active]="scope() === 'mine'"
-    [attr.aria-current]="scope() === 'mine' ? 'true' : null"
-    >My duties</a
-  ><a
-    routerLink="."
-    [queryParams]="{ scope: 'league' }"
-    queryParamsHandling="merge"
-    [class.active]="scope() === 'league'"
-    [attr.aria-current]="scope() === 'league' ? 'true' : null"
-    >League duties</a
-  >
+<div class="register-toolbar">
+  <div class="content-tabs" aria-label="Duty scope">
+    <a
+      routerLink="."
+      [queryParams]="{ scope: null }"
+      queryParamsHandling="merge"
+      [class.active]="scope() === 'mine'"
+      [attr.aria-current]="scope() === 'mine' ? 'true' : null"
+      >My duties</a
+    ><a
+      routerLink="."
+      [queryParams]="{ scope: 'league' }"
+      queryParamsHandling="merge"
+      [class.active]="scope() === 'league'"
+      [attr.aria-current]="scope() === 'league' ? 'true' : null"
+      >League duties</a
+    >
+  </div>
+  @if (view.isCaptain()) {
+    <button type="button" class="primary-button" (click)="createDialog().open()">
+      <app-icon name="duties" />New duty
+    </button>
+  }
 </div>
 @if (visibleDuties().length) {
   <div class="duty-list">
     @for (duty of visibleDuties(); track duty.id) {
-      <article
-        class="register-card"
-        [class.personal-duty]="duty.mine"
-        [class.spoon-duty]="duty.spoon"
-      >
-        @if (duty.spoon) {
-          <div class="spoon-art" aria-hidden="true"></div>
-        }
-        <div class="spoon-content">
-          <div class="register-heading">
-            <span class="tag">{{ duty.status }}</span
-            ><span class="eyebrow">ROUND {{ view.round().code }} / {{ duty.memberName }}</span>
-          </div>
-          <h2>{{ duty.title }}</h2>
-          @if (view.sample) {
-            <p>Sample duty in Round {{ view.round().code }}. No live league obligation exists.</p>
-          }
-          <dl>
-            <div>
-              <dt>Deadline</dt>
-              <dd>{{ duty.deadline }}</dd>
-            </div>
-            <div>
-              <dt>Duty marks</dt>
-              <dd>{{ duty.marks }} marks</dd>
-            </div>
-            <div>
-              <dt>Evidence</dt>
-              <dd>
-                {{
-                  duty.status === 'Completed'
-                    ? 'Accepted'
-                    : duty.status === 'Awaiting review'
-                      ? 'Submitted for review'
-                      : 'Not submitted'
-                }}
-              </dd>
-            </div>
-          </dl>
-          @if (duty.mine && duty.status === 'Open') {
-            <button type="button" class="primary-button" (click)="evidence().open(duty)">
-              <app-icon name="upload" />Upload evidence
-            </button>
-          }
-        </div>
-      </article>
+      <app-duty-card
+        [duty]="duty"
+        [captain]="view.isCaptain()"
+        [sample]="view.sample"
+        [roundCode]="view.round().code"
+        (upload)="evidence().open(duty)"
+        (record)="evidence().open(duty)"
+        (voided)="voidDuty(duty)"
+      />
     }
   </div>
 } @else {
@@ -71,7 +41,17 @@
     <h2>
       No {{ scope() === 'mine' ? 'personal' : 'league' }} duties in Round {{ view.round().code }}.
     </h2>
-    <p>There are no matching duties in this round’s register.</p>
+    <p>
+      {{
+        view.loading()
+          ? 'Loading the register…'
+          : view.isCaptain() && scope() === 'league'
+            ? 'Create a duty when a member owes the league something this round.'
+            : 'There are no matching duties in this round’s register.'
+      }}
+    </p>
   </div>
 }
 <app-evidence-dialog />
+<app-create-duty-dialog (created)="created($event)" />
+<app-reason-dialog />

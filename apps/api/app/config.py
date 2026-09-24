@@ -16,6 +16,14 @@ class Settings(BaseSettings):
     database_url: SecretStr | None = None
     supabase_url: str | None = None
     supabase_jwt_audience: str = "authenticated"
+    # Legacy shared JWT secret. Leave unset for projects on asymmetric signing keys (JWKS).
+    supabase_jwt_secret: SecretStr | None = None
+    # Server-only Storage credential for evidence upload grants and playback URLs.
+    supabase_service_role_key: SecretStr | None = None
+    supabase_storage_bucket: str = "evidence"
+    evidence_max_bytes: int = 50 * 1024 * 1024
+    evidence_upload_ttl_seconds: int = 2 * 60 * 60
+    evidence_playback_ttl_seconds: int = 10 * 60
 
     # Match centre providers.
     urc_graphql_url: str = "https://www.unitedrugby.com/graphql"

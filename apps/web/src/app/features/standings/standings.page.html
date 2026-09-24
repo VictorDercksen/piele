@@ -16,25 +16,55 @@
   </button>
 </div>
 <p class="page-description">
-  {{ view.round().title }} only. Superbru points and symbolic house marks are separate measures.
+  {{
+    measure() === 'points'
+      ? view.round().title + ' only. Superbru points and symbolic house marks are separate measures.'
+      : 'Whole season. One house mark per full week a duty stays overdue; separate from Superbru points.'
+  }}
 </p>
 <section class="honours-board" aria-label="Round standings">
   <div class="board-light" aria-hidden="true"></div>
   <div class="honours-heading">
-    <span>PIELE / ROUND {{ view.round().code }}</span>
+    <span>PIELE / {{ measure() === 'points' ? 'ROUND ' + view.round().code : 'SEASON' }}</span>
     <h2>{{ measure() === 'points' ? 'Superbru points' : 'House marks' }}</h2>
   </div>
-  @if (view.standings().length) {
+  @if (measure() === 'marks') {
+    @if (view.marksTable().length) {
+      <div class="full-table">
+        <div class="table-label"><span>MEMBER</span><span>SEASON MARKS</span></div>
+        @for (member of view.marksTable(); track member.memberId) {
+          <div class="standing-row" [class.you]="member.you">
+            <img
+              [src]="member.photo ?? 'assets/images/teams/' + (member.teamId || 'tbc') + '.png'"
+              alt=""
+            /><span
+              >{{ member.name }}
+              @if (member.you) {
+                <small>YOU</small>
+              }
+              @if (member.openDuties) {
+                <small class="open-count"
+                  >{{ member.openDuties }} open {{ member.openDuties === 1 ? 'duty' : 'duties' }}</small
+                >
+              }</span
+            ><strong>{{ member.marks }}</strong>
+          </div>
+        }
+      </div>
+    } @else {
+      <div class="round-empty">
+        <h2>No house marks yet.</h2>
+        <p>Marks appear once a duty is on the register.</p>
+      </div>
+    }
+  } @else if (view.standings().length) {
     <div class="full-table">
       <div class="table-label">
-        <span>{{ measure() === 'points' ? 'RANK / MEMBER' : 'MEMBER' }}</span
-        ><span>{{ measure() === 'points' ? 'ROUND POINTS' : 'ROUND MARKS' }}</span>
+        <span>RANK / MEMBER</span><span>ROUND POINTS</span>
       </div>
       @for (member of view.standings(); track member.memberId) {
         <div class="standing-row" [class.you]="member.you">
-          @if (measure() === 'points') {
-            <span class="rank">{{ member.rank | number: '2.0-0' }}</span>
-          }
+          <span class="rank">{{ member.rank | number: '2.0-0' }}</span>
           <img
             [src]="member.photo ?? 'assets/images/teams/' + member.teamId + '.png'"
             alt=""
@@ -43,9 +73,7 @@
             @if (member.you) {
               <small>YOU</small>
             }</span
-          ><strong>{{
-            measure() === 'points' ? (member.points | number: '1.1-1') : member.marks
-          }}</strong>
+          ><strong>{{ member.points | number: '1.1-1' }}</strong>
         </div>
       }
     </div>

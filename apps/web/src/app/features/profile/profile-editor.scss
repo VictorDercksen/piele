@@ -334,6 +334,19 @@ legend span {
 .save-button span {
   font-size: 20px;
 }
+.sign-out {
+  margin-top: 14px;
+  background: none;
+  border: 0;
+  color: #ffd18d;
+  font-weight: 700;
+  min-height: 44px;
+  padding: 0;
+  overflow-wrap: anywhere;
+}
+#display-name[readonly] {
+  opacity: 0.7;
+}
 @media (max-width: 850px) {
   .profile-editor {
     grid-template-columns: 1fr;

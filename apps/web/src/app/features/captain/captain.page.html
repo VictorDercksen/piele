@@ -1,16 +1,128 @@
-<p class="page-description">{{ view.reviews().length }} items for {{ view.round().title }}.</p>
-@for (item of view.reviews(); track item.id) {
-  <div class="review-row">
-    <app-icon name="shield" />
-    <div>
-      <h3>{{ item.title }}</h3>
-      <p>Ready for an uninvolved reviewer.</p>
-    </div>
-    <span class="tag">PENDING</span>
+<section aria-labelledby="review-heading">
+  <div class="section-title">
+    <h2 id="review-heading">Evidence to decide.</h2>
+    <span>ROUND {{ view.round().code }}</span>
   </div>
-} @empty {
-  <div class="round-empty"><h3>Nothing needs your decision in this round.</h3></div>
-}
-<div class="preview-notice">
-  Review actions arrive with the league API. Your own evidence always needs an uninvolved reviewer.
-</div>
+  <p class="page-description">
+    {{ view.reviewCount() }} {{ view.reviewCount() === 1 ? 'item' : 'items' }} for
+    {{ view.round().title }}. Accepting sets the completion time; rejecting keeps the duty open.
+  </p>
+  @for (review of view.reviews(); track review.evidence.id) {
+    <div class="review-row" [class.spoon-duty]="review.duty.spoon">
+      <app-icon name="shield" />
+      <div class="review-body">
+        <h3>{{ review.duty.memberName }} · {{ review.duty.title }}</h3>
+        <p>{{ completion(review) }} · submitted {{ when(review) }}</p>
+        @if (review.evidence.note) {
+          <p class="note">“{{ review.evidence.note }}”</p>
+        }
+        <div class="review-actions">
+          @if (!view.sample) {
+            <button type="button" class="text-button" (click)="watch(review)">Watch video ↗</button>
+          }
+          @if (review.selfReview) {
+            <span class="tag">NEEDS AN UNINVOLVED REVIEWER</span>
+          } @else {
+            <button type="button" class="primary-button" (click)="decide(review, 'accepted')">
+              <app-icon name="check" />Accept
+            </button>
+            <button type="button" class="text-button" (click)="decide(review, 'rejected')">
+              Reject
+            </button>
+          }
+        </div>
+      </div>
+      <span class="tag">PENDING</span>
+    </div>
+  } @empty {
+    <div class="round-empty"><h3>Nothing needs your decision in this round.</h3></div>
+  }
+  @if (playbackError()) {
+    <p class="error-message" role="alert">{{ playbackError() }}</p>
+  }
+</section>
+
+<section class="members" aria-labelledby="members-heading">
+  <div class="section-title">
+    <h2 id="members-heading">The team sheet.</h2>
+    <span>SEASON</span>
+  </div>
+  <p class="page-description">
+    A member signs in with Google or a password on the email you record here. Their first
+    sign-in with that address claims the membership.
+  </p>
+  <ul class="member-list">
+    @for (member of view.members(); track member.id) {
+      <li>
+        <span class="member-name"
+          ><strong>{{ member.name }}</strong><small>{{ member.fullName }}</small></span
+        >
+        @if (editing() === member.id) {
+          <span class="member-edit">
+            <label class="visually-hidden" for="email-{{ member.id }}">Email for {{ member.name }}</label>
+            <input
+              id="email-{{ member.id }}"
+              type="email"
+              [formControl]="emailControl"
+              placeholder="name@example.com"
+            />
+            <button
+              type="button"
+              class="primary-button"
+              (click)="saveEmail(member)"
+              [disabled]="memberBusy() === member.id"
+            >
+              @if (memberBusy() === member.id) {
+                <app-loader [size]="16" aria-hidden="true" />
+              }
+              Save
+            </button>
+            <button type="button" class="text-button" (click)="cancelEdit()">Cancel</button>
+          </span>
+        } @else {
+          <span class="member-status">
+            <span class="tag" [class.claimed]="member.claimed">{{
+              member.claimed ? 'SIGNED IN' : member.email ? 'INVITED' : 'NO EMAIL'
+            }}</span>
+            <small>{{ member.email || 'No sign-in email yet' }}</small>
+          </span>
+          <button
+            type="button"
+            class="text-button"
+            (click)="edit(member)"
+            [attr.aria-label]="'Edit email for ' + member.name"
+          >
+            {{ member.email ? 'Change' : 'Add email' }}
+          </button>
+        }
+      </li>
+    }
+  </ul>
+  <form class="add-member" [formGroup]="newMember" (ngSubmit)="addMember()">
+    <h3>Add a member</h3>
+    <div class="add-grid">
+      <label>
+        <span>Nickname</span>
+        <input formControlName="name" maxlength="50" placeholder="As shown on Superbru" />
+      </label>
+      <label>
+        <span>Full name</span>
+        <input formControlName="fullName" maxlength="120" placeholder="Surname, First name" />
+      </label>
+      <label>
+        <span>Email <em>(optional)</em></span>
+        <input formControlName="email" type="email" maxlength="320" />
+      </label>
+    </div>
+    @if (memberError()) {
+      <p class="error-message" role="alert">{{ memberError() }}</p>
+    }
+    <button type="submit" class="primary-button" [disabled]="addingMember()">
+      @if (addingMember()) {
+        <app-loader [size]="16" aria-hidden="true" />
+      }
+      Add member
+    </button>
+  </form>
+</section>
+<app-reason-dialog />

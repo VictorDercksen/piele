@@ -1,0 +1,39 @@
+<dialog
+  #dialog
+  class="detail-dialog compact-dialog"
+  [class.spoon-duty]="request()?.spoon"
+  aria-labelledby="reason-title"
+>
+  <div class="dialog-top">
+    <span class="eyebrow">PIELE / CAPTAIN'S DESK</span
+    ><button type="button" class="icon-button" aria-label="Close dialog" (click)="close()">
+      <app-icon name="close" />
+    </button>
+  </div>
+  <h2 id="reason-title">{{ request()?.title }}</h2>
+  <p>{{ request()?.description }}</p>
+  <label class="field-label" for="reason-text"
+    >Reason
+    @if (!request()?.required) {
+      <span>(optional)</span>
+    }
+  </label>
+  <textarea id="reason-text" rows="3" maxlength="500" [formControl]="reason"></textarea>
+  @if (error()) {
+    <p class="error-message" role="alert">{{ error() }}</p>
+  }
+  <button
+    type="button"
+    class="primary-button wide"
+    [disabled]="busy()"
+    [attr.aria-busy]="busy()"
+    (click)="submit()"
+  >
+    {{ request()?.submitLabel }}
+    @if (busy()) {
+      <app-loader [size]="18" aria-hidden="true" />
+    } @else {
+      <app-icon name="arrow" />
+    }
+  </button>
+</dialog>

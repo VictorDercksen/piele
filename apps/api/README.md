@@ -3,6 +3,7 @@
 FastAPI backend for Piele. Routes live under `/v1`:
 
 - `GET /v1/health` reports the environment and database status.
+- League endpoints, all requiring a Supabase access token from an active member (`Authorization: Bearer …`): `GET /v1/me`; `GET /v1/members`, `POST /v1/members` and `PATCH /v1/members/{id}` (captain); `GET /v1/duties?round=`, `POST /v1/duties` and `POST /v1/duties/{id}/void` (captain), `GET /v1/duties/default-deadline`; `GET /v1/marks`; `POST /v1/evidence/uploads` (upload grant), `POST /v1/evidence` (publish a submission), `POST /v1/evidence/links/{id}/decision` (uninvolved captain), `GET /v1/evidence/assets/{id}/playback`; `GET /v1/feed?round=`. Every mutation writes its audit event and feed entry in the same transaction. See `app/league/`.
 - `GET /v1/matches/{fixtureId}` returns the match centre for one published fixture: teamsheets from the public URC feed and the kickoff-hour forecast from Open-Meteo. Each section carries its own `status` (`ok`, `not_published`, `too_early`, `past` or `unavailable`), so a provider outage never fails the request. Weather is fetched only inside the week before kickoff, teamsheets from three days out. Responses are cached in the `piele.external_snapshots` table (weather 3 h, teamsheets 6 h once published) or in process memory when no database is configured. The fixture list comes from `app/data/urc_fixtures.json`, written by `apps/web/scripts/import-urc.mjs`.
 
 ## Run locally
@@ -31,6 +32,20 @@ for f in ../../supabase/migrations/*.sql; do psql -v ON_ERROR_STOP=1 -f "$f"; do
 psql -c "alter role piele_api with login password 'local'"
 PIELE_TEST_DATABASE_URL="postgresql://piele_api:local@127.0.0.1:5432/postgres?sslmode=disable" uv run pytest
 ```
+
+## Authentication, membership and evidence
+
+Members sign in with Supabase Auth (Google or email and password) in the web app. The API verifies each access token's signature, issuer, audience and expiry (`app/league/auth.py`), then resolves the account's league membership inside the request transaction with transaction-local row level security context (`app/league/context.py`). A verified sign-in whose email matches a membership's `invited_email` claims that membership once; other accounts get `403 not_a_member`. Captain authority is the league's `captain_membership_id`, never a role column.
+
+Bootstrap the league once per database with the captain's sign-in email; members come from `app/data/league_members.json` (Superbru nicknames as display names) and other members' emails are set from the captain's desk afterwards:
+
+```bash
+uv run python -m app.league.bootstrap --captain-email captain@example.com
+```
+
+Evidence videos go straight from the browser to a private Supabase Storage bucket (`SUPABASE_STORAGE_BUCKET`, default `evidence`) using a signed upload grant the API issues after checking membership, type and size. The API needs `SUPABASE_SERVICE_ROLE_KEY` for grants, object checks and short-lived playback URLs. Create the bucket as private in the dashboard; nothing creates it automatically.
+
+House marks follow the plan's proposal: one mark per full 168 hours a duty stays overdue, stopping at the accepted completion time or actual season closure (`app/league/marks.py`). The API is the only calculator; the web app formats its values.
 
 ## Connect Supabase
 

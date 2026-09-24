@@ -9,6 +9,10 @@ import {
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
+import { Router } from '@angular/router';
+import { AuthService } from '../../core/auth/auth.service';
+import { HttpLeagueData } from '../../core/league/http-league-data';
+import { LeagueData } from '../../core/league/league-data';
 import { preparePhoto } from '../../core/profile/profile-photo';
 import { ProfileStore } from '../../core/profile/profile.store';
 import { TEAMS, club } from '../../core/competition/teams';
@@ -24,12 +28,19 @@ import { Loader } from '../../shared/loader/loader';
 })
 export class ProfileEditor {
   private readonly store = inject(ProfileStore);
+  private readonly auth = inject(AuthService);
+  private readonly league = inject(LeagueData);
+  private readonly router = inject(Router);
   readonly existing = this.store.profile();
+  /** The league's nickname for the member, which the browser profile cannot override. */
+  readonly leagueName = this.league.currentMemberName();
+  readonly canSignOut = this.auth.configured;
+  readonly accountEmail = this.auth.email;
   readonly teams = TEAMS;
   readonly saved = output<void>();
   readonly cancel = output<void>();
   readonly form = new FormGroup({
-    displayName: new FormControl(this.existing?.displayName ?? '', {
+    displayName: new FormControl(this.leagueName ?? this.existing?.displayName ?? '', {
       nonNullable: true,
       validators: [Validators.required, Validators.maxLength(50), Validators.pattern(/\S/)],
     }),
@@ -68,6 +79,16 @@ export class ProfileEditor {
       this.photo.set(await preparePhoto(file));
     } catch (error) {
       this.error.set(error instanceof Error ? error.message : 'Unable to open this photo.');
+    } finally {
+      this.busy.set(false);
+    }
+  }
+  async signOut(): Promise<void> {
+    this.busy.set(true);
+    try {
+      await this.auth.signOut();
+      if (this.league instanceof HttpLeagueData) this.league.clear();
+      await this.router.navigateByUrl('/sign-in');
     } finally {
       this.busy.set(false);
     }

@@ -104,7 +104,7 @@ test('sample league duties, evidence, votes and round scoping', async ({ page })
   await page.getByRole('link', { name: 'League duties', exact: true }).click();
   await expect(page.locator('.register-card')).toHaveCount(2);
   await expect(page.locator('.register-card.spoon-duty')).toHaveCount(1);
-  await expect(page.locator('.register-card:not(.spoon-duty)')).toContainText('pick confirmation');
+  await expect(page.locator('.register-card:not(.spoon-duty)')).toContainText('Pick confirmation');
 
   await nav.getByRole('link', { name: 'Decisions', exact: true }).click();
   await expect(page.locator('.poll-card')).toContainText('7 of 12 members participated');
@@ -125,7 +125,8 @@ test('sample league duties, evidence, votes and round scoping', async ({ page })
 
   await nav.getByRole('link', { name: 'More', exact: true }).click();
   await page.getByRole('link', { name: "Round 03 captain's desk" }).click();
-  await expect(page.locator('.review-row')).toContainText('Confirm the Round 3 schedule');
+  await expect(page.locator('.round-empty')).toContainText('Nothing needs your decision');
+  await expect(page.locator('.member-list li')).toHaveCount(6);
   await page.goto('/constitution');
   await expect(page.getByRole('heading', { name: 'Same club. Shared rules.' })).toBeVisible();
 });
@@ -198,4 +199,89 @@ test('fixture strip sits under the round header and features a match on the home
     .click();
   await expect(strip).toBeVisible();
   await expect(page.getByText('ROUND 02 →')).toHaveCount(0);
+});
+
+test('captain creates, records and decides duties; the feed follows', async ({ page }) => {
+  await page.goto('/duties?round=2&scope=league');
+  await expect(page.locator('.register-card')).toHaveCount(2);
+  await page.getByRole('button', { name: 'New duty' }).click();
+  const dialog = page.getByRole('dialog').filter({ hasText: 'Put it on the register.' });
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toContainText('09 Oct 2026 · 20:45 SAST');
+  await dialog.getByLabel('Member').selectOption({ label: 'Johan' });
+  await dialog.getByLabel('Reason').fill('Last place in Round 02.');
+  await dialog.getByRole('button', { name: 'Create duty' }).click();
+  await expect(page.getByRole('status')).toContainText('Round 02 Spoon duty created for Johan');
+  const card = page.locator('.register-card').filter({ hasText: 'Johan' });
+  await expect(card).toContainText('09 Oct 2026 · 20:45 SAST');
+  await expect(card).toContainText('0 marks');
+  await expect(card).toContainText('Next mark 16 Oct 2026 · 20:45 SAST');
+  await card.getByRole('button', { name: 'Record evidence' }).click();
+  const evidence = page.getByRole('dialog').filter({ hasText: 'Record the evidence.' });
+  await evidence.locator('input[type=file]').setInputFiles({
+    name: 'proof.mp4',
+    mimeType: 'video/mp4',
+    buffer: Buffer.from('demo'),
+  });
+  await evidence.getByRole('button', { name: 'Record evidence' }).click();
+  await expect(evidence.getByRole('alert')).toContainText('Record when the duty was completed');
+  await evidence.getByLabel('Completed at (SAST)').fill('2026-09-20T09:00');
+  await evidence.getByRole('button', { name: 'Record evidence' }).click();
+  await expect(page.getByRole('status')).toContainText('Evidence recorded for Johan');
+  await expect(card).toContainText('Under review');
+
+  await card.getByRole('button', { name: 'Void duty' }).click();
+  const reason = page.getByRole('dialog').filter({ hasText: 'Void this duty?' });
+  await reason.getByRole('button', { name: 'Void duty' }).click();
+  await expect(reason.getByRole('alert')).toContainText('Give a reason');
+  await reason.getByLabel('Reason').fill('Created by mistake');
+  await reason.getByRole('button', { name: 'Void duty' }).click();
+  await expect(card).toContainText('Voided');
+  await expect(card).toContainText('Created by mistake');
+
+  // In-app navigation keeps the sample league's in-memory state; a reload would reset it.
+  const nav = page.getByRole('navigation', { name: 'League navigation', exact: true });
+  await nav.getByRole('link', { name: 'More', exact: true }).click();
+  await page.getByRole('link', { name: "Round 02 captain's desk" }).click();
+  const review = page.locator('.review-row').filter({ hasText: 'Liam' });
+  await expect(review).toContainText('Counts from submission');
+  await review.getByRole('button', { name: 'Accept' }).click();
+  const accept = page.getByRole('dialog').filter({ hasText: 'Accept this evidence?' });
+  await expect(accept).toContainText('04 Oct 2026 · 12:30 SAST');
+  await accept.getByRole('button', { name: 'Accept evidence' }).click();
+  await expect(page.getByRole('status')).toContainText('completed for Liam');
+  await expect(page.locator('.round-empty')).toContainText('Nothing needs your decision');
+
+  await nav.getByRole('link', { name: 'Home', exact: true }).click();
+  const feed = page.locator('app-feed');
+  await expect(feed.locator('.feed-item').nth(1)).toContainText('Round 02 Pick confirmation completed');
+  await expect(feed.locator('.feed-item')).toHaveCount(10);
+  await feed.getByRole('button', { name: 'Season' }).click();
+  await expect(feed.locator('.feed-item')).toHaveCount(13);
+  await expect(feed.locator('.feed-item').last()).toContainText('URC 2026/27 is open');
+  await page.goto('/standings?round=2');
+  await page.getByRole('button', { name: 'House marks' }).click();
+  const arno = page.locator('.standing-row').filter({ hasText: 'Arno' });
+  await expect(arno).toContainText('1 open duty');
+  expect(Number(await arno.locator('strong').textContent())).toBeGreaterThanOrEqual(3);
+});
+
+test('evidence dialog is centred on desktop and phone', async ({ page }) => {
+  for (const [width, height] of [
+    [1440, 1000],
+    [390, 844],
+    [320, 700],
+  ]) {
+    await page.setViewportSize({ width, height });
+    await page.goto('/?round=2');
+    await page.getByRole('button', { name: 'Upload evidence', exact: true }).click();
+    const dialog = page.getByRole('dialog').filter({ hasText: 'The proof is in the video.' });
+    await expect(dialog).toBeVisible();
+    const box = (await dialog.boundingBox())!;
+    expect(Math.abs(box.x + box.width / 2 - width / 2)).toBeLessThan(2);
+    expect(Math.abs(box.y + box.height / 2 - height / 2)).toBeLessThan(2);
+    expect(box.width).toBeLessThanOrEqual(width - 24);
+    await page.keyboard.press('Escape');
+    await expect(dialog).toBeHidden();
+  }
 });
