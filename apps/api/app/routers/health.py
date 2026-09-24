@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from app.config import Settings
-from app.db import get_engine
+from app.db import describe_db_error, get_engine
 from app.dependencies import settings_dependency
 
 logger = logging.getLogger(__name__)
@@ -29,7 +29,7 @@ def health(settings: Settings = Depends(settings_dependency)) -> JSONResponse:
             connection.execute(text("SELECT 1"))
             body["snapshotCache"] = _cache_state(connection)
     except Exception as exc:  # noqa: BLE001 - report failure without connection details
-        logger.warning("Database health check failed: %s", type(exc).__name__)
+        logger.warning("Database health check failed: %s", describe_db_error(exc))
         body.update(status="degraded", database="error", snapshotCache="unknown")
         return JSONResponse(body, status_code=503)
     body["database"] = "ok"
@@ -41,6 +41,6 @@ def _cache_state(connection) -> str:
     try:
         connection.execute(text("SELECT 1 FROM piele.external_snapshots LIMIT 0"))
     except Exception as exc:  # noqa: BLE001
-        logger.warning("Snapshot cache table check failed: %s", type(exc).__name__)
+        logger.warning("Snapshot cache table check failed: %s", describe_db_error(exc))
         return "table missing"
     return "database"
