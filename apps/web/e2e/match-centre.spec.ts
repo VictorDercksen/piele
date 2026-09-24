@@ -82,13 +82,15 @@ test('hero opens the featured fixture with teamsheets and forecast', async ({ pa
   await page.getByRole('button', { name: 'Enter the match centre' }).click();
   await expect(page).toHaveURL(new RegExp(`/match/${STORMERS}\\?round=1`));
   await expect(page.locator('.page-heading .eyebrow')).toContainText('ROUND 01 / MATCH CENTRE');
-  const header = page.locator('.match-header');
+  const header = page.locator('app-match-hero');
   await expect(header).toContainText('Connacht');
   await expect(header).toContainText('YOUR TEAM');
   await expect(header).toContainText('Dexcom Stadium');
   await expect(header).toContainText('20:45');
   await expect(page.locator('.deadline-banner')).toContainText('house pick deadline');
   await expect(page.locator('.fixture-ribbon button.active')).toContainText('Connacht');
+  await expect(header.getByRole('img', { name: 'Ireland' })).toBeVisible();
+  await expect(header.getByRole('button', { name: 'Enter the match centre' })).toHaveCount(0);
 
   const sheets = page.locator('.panel.teamsheets');
   await expect(sheets.locator('.players li')).toHaveCount(46);
@@ -113,6 +115,11 @@ test('hero opens the featured fixture with teamsheets and forecast', async ({ pa
   }
   await page.setViewportSize({ width: 390, height: 950 });
   await page.screenshot({ path: testInfo.outputPath('match-centre-mobile.png'), fullPage: true });
+
+  const breadcrumb = page.getByRole('navigation', { name: 'Breadcrumb' });
+  await breadcrumb.getByRole('link', { name: 'HOME' }).click();
+  await expect(page).toHaveURL(/\/\?round=1$/);
+  await expect(page.getByRole('button', { name: 'Enter the match centre' })).toBeVisible();
 });
 
 test('ribbon switches fixtures, round changes follow, deep links align the round', async ({
@@ -120,10 +127,10 @@ test('ribbon switches fixtures, round changes follow, deep links align the round
 }) => {
   await mockApi(page);
   await page.goto(`/match/${STORMERS}?round=1`);
-  await expect(page.locator('.match-header')).toContainText('Connacht');
+  await expect(page.locator('app-match-hero')).toContainText('Connacht');
   await page.locator('.fixture-ribbon button').filter({ hasText: 'Benetton' }).click();
   await expect(page).toHaveURL(/\/match\/292584\?round=1/);
-  await expect(page.locator('.match-header')).toContainText('Benetton');
+  await expect(page.locator('app-match-hero')).toContainText('Benetton');
   await expect(page.locator('.fixture-ribbon button.active')).toContainText('Benetton');
 
   await page.getByRole('button', { name: 'Next round' }).click();
@@ -136,7 +143,7 @@ test('ribbon switches fixtures, round changes follow, deep links align the round
   await page.goto(`/match/${STORMERS}?round=5`);
   await expect(page).toHaveURL(new RegExp(`/match/${STORMERS}\\?round=1`));
   await expect(page.getByRole('region', { name: 'Selected round' })).toContainText('Round 01');
-  await expect(page.locator('.match-header')).toContainText('Connacht');
+  await expect(page.locator('app-match-hero')).toContainText('Connacht');
 
   await page.goto('/match/nope?round=3');
   await expect(page).toHaveURL(/\/\?round=3$/);
@@ -162,7 +169,7 @@ test('sections explain missing data and the page survives an API outage', async 
   await page.route('**/v1/matches/*', (route) => route.fulfill({ status: 503, body: 'down' }));
   await page.getByRole('button', { name: 'Next round' }).click();
   await expect(page.getByRole('alert')).toContainText('The league API could not be reached');
-  await expect(page.locator('.match-header')).toBeVisible();
+  await expect(page.locator('app-match-hero')).toBeVisible();
   await page.unroute('**/v1/matches/*');
   await mockApi(page);
   await page.getByRole('button', { name: 'Try again' }).click();

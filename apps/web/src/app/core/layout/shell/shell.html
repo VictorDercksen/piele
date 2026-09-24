@@ -94,14 +94,14 @@
             [disabled]="round().id === 1"
             (click)="selectRound(round().id - 1)"
           >
-            ←</button
+            <img src="assets/images/arrows/arrow-left.webp" alt="" /></button
           ><button
             type="button"
             aria-label="Next round"
             [disabled]="round().id === rounds.length"
             (click)="selectRound(round().id + 1)"
           >
-            →
+            <img src="assets/images/arrows/arrow-right.webp" alt="" />
           </button>
         </div>
       </section>
@@ -111,7 +111,20 @@
     </div>
     <div class="page-heading">
       <div>
-        @if (!isHome()) {
+        @if (page().parent; as parent) {
+          <nav class="breadcrumbs" aria-label="Breadcrumb">
+            <ol class="eyebrow">
+              <li>
+                <a [routerLink]="parent.path" queryParamsHandling="preserve"
+                  ><img class="crumb-arrow" src="assets/images/arrows/arrow-left.webp" alt="" />{{
+                    parent.label.toUpperCase()
+                  }}</a
+                >
+              </li>
+              <li aria-current="page">ROUND {{ round().code }} / {{ page().eyebrow }}</li>
+            </ol>
+          </nav>
+        } @else if (!isHome()) {
           <p class="eyebrow">ROUND {{ round().code }} / {{ page().eyebrow }}</p>
         }
         <h1>{{ page().title }}</h1>

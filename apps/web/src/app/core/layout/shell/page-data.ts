@@ -6,4 +6,6 @@ export interface PageData {
   readonly seasonWide?: boolean;
   /** Pages reached from More on mobile. */
   readonly underMore?: boolean;
+  /** The page a breadcrumb leads back to. */
+  readonly parent?: { readonly label: string; readonly path: string };
 }

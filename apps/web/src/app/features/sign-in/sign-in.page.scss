@@ -104,6 +104,7 @@ h2 {
   cursor: pointer;
 }
 .google-button {
+  border-radius: 999px;
   background: var(--rugby-surface), var(--rugby-white);
   color: var(--rugby-ink);
   border: 1px solid var(--rugby-teal);

@@ -188,6 +188,20 @@
   margin-bottom: 4px;
 }
 
+.match-venue .stadium-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stadium-flag {
+  width: 16px;
+  height: 12px;
+  object-fit: cover;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px #f2efdf40;
+}
+
 .match-venue strong {
   font-size: 21px;
   line-height: 1.2;

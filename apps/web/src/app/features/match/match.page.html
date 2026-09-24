@@ -1,38 +1,11 @@
 @if (fixture(); as fixture) {
-  <section
-    class="match-header"
-    [attr.aria-label]="fixture.home + ' versus ' + fixture.away"
-    [style.--home-colour]="homeBanner()?.colour"
-    [style.--away-colour]="awayBanner()?.colour"
-  >
-    <div class="club home" [class.yours]="fixture.homeAsset === favouriteTeam()?.id">
-      @if (homeBanner(); as banner) {
-        <img class="crest" [src]="banner.crest" alt="" />
-      } @else {
-        <img class="crest" [src]="jersey(fixture.homeAsset)" alt="" />
-      }
-      <h2>{{ homeBanner()?.name ?? fixture.home }}</h2>
-      <span>HOME{{ fixture.homeAsset === favouriteTeam()?.id ? ' / YOUR TEAM' : '' }}</span>
-    </div>
-    <div class="kickoff">
-      <span>{{ fixture.score ? 'RESULT' : 'KICKOFF' }}</span>
-      <strong>{{ fixture.score || fixture.time }}</strong>
-      <small>{{ fixture.score ? 'FULL TIME' : fixture.kickoffUtc ? 'SAST' : 'TIME TBC' }}</small>
-      <em>{{ fixture.day }}</em>
-    </div>
-    <div class="club away" [class.yours]="fixture.awayAsset === favouriteTeam()?.id">
-      @if (awayBanner(); as banner) {
-        <img class="crest" [src]="banner.crest" alt="" />
-      } @else {
-        <img class="crest" [src]="jersey(fixture.awayAsset)" alt="" />
-      }
-      <h2>{{ awayBanner()?.name ?? fixture.away }}</h2>
-      <span>AWAY{{ fixture.awayAsset === favouriteTeam()?.id ? ' / YOUR TEAM' : '' }}</span>
-    </div>
-    <p class="venue">
-      <span>THE STADIUM</span><strong>{{ fixture.venue }}</strong>
-    </p>
-  </section>
+  <app-match-hero
+    [fixture]="fixture"
+    [favourite]="favouriteTeam()?.id ?? ''"
+    [roundCode]="view.round().code"
+    label="MATCH CENTRE"
+    [linked]="false"
+  />
 
   <div class="deadline-banner">
     <app-icon name="clock" /><span
