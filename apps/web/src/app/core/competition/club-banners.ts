@@ -98,7 +98,7 @@ export const CLUB_BANNERS: Readonly<Record<string, ClubBanner>> = {
   },
 };
 
-interface ClubBanner {
+export interface ClubBanner {
   readonly name: string;
   readonly colour: string;
   readonly pattern: string;

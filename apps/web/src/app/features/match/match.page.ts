@@ -27,6 +27,7 @@ import {
 import { Icon } from '../../shared/icon/icon';
 import { Loader } from '../../shared/loader/loader';
 import { MatchHero } from '../home/match-hero/match-hero';
+import { sheetView } from './teamsheet';
 import { weatherSky } from './weather-sky';
 
 /** South African Standard Time has no daylight saving, so a fixed offset is exact. */
@@ -76,6 +77,20 @@ export class MatchPage {
   readonly data = computed(() => (this.centre.hasValue() ? this.centre.value() : undefined));
   readonly loading = computed(() => this.centre.isLoading());
   readonly failed = computed(() => this.centre.status() === 'error');
+  /** Both teamsheets with ages, flags and club artwork, when they are published. */
+  readonly sheets = computed(() => {
+    const fixture = this.fixture();
+    const centre = this.data();
+    const section = centre?.teamsheets;
+    if (!fixture || section?.status !== 'ok' || !section.home || !section.away) {
+      return null;
+    }
+    const kickoff = centre?.kickoffUtc ?? fixture.kickoffUtc;
+    return [
+      sheetView(fixture.home, fixture.homeAsset, section.home, kickoff),
+      sheetView(fixture.away, fixture.awayAsset, section.away, kickoff),
+    ];
+  });
   /** Sky backdrop for the kickoff forecast, when there is one. */
   readonly sky = computed(() => {
     const weather = this.data()?.weather;

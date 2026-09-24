@@ -7,8 +7,10 @@ function player(number: number, side: string, captain = false) {
   return {
     number,
     name: `${side} Player ${number}`,
-    position: number === 1 ? 'Prop' : null,
+    position: number === 1 ? 'Prop' : number > 15 ? `sub ${number - 15}` : null,
     captain,
+    dateOfBirth: '2000-01-01',
+    birthCountry: number === 2 ? null : 'South Africa',
   };
 }
 
@@ -96,6 +98,13 @@ test('hero opens the featured fixture with teamsheets and forecast', async ({ pa
   await expect(sheets.locator('.players li')).toHaveCount(46);
   await expect(sheets.locator('.players .name i')).toHaveCount(2);
   await expect(sheets).toContainText('Stormers Player 8');
+  // Country-of-birth flags and ages at kickoff, with each side's average age.
+  await expect(sheets.getByRole('img', { name: 'South Africa' })).toHaveCount(44);
+  await expect(sheets.locator('.players .age').first()).toHaveText('26');
+  await expect(sheets.locator('.average-age')).toHaveCount(2);
+  await expect(sheets.locator('.average-age').first()).toContainText('26.7');
+  await expect(sheets.locator('.sheet.has-banner')).toHaveCount(2);
+  await expect(sheets).not.toContainText('sub 1');
   await expect(sheets).toContainText('checked 23 Sep 13:30 SAST');
 
   const weather = page.locator('.panel.weather');
