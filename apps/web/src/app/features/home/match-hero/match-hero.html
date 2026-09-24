@@ -1,6 +1,6 @@
 <section class="match-story" [attr.aria-label]="'Round ' + roundCode() + ' match centre'">
   <div class="match-heading">
-    <span class="match-label">{{ fixture().score ? 'FULL TIME' : 'FEATURED MATCH' }}</span>
+    <span class="match-label">{{ fixture().score ? 'FULL TIME' : label() }}</span>
     <span class="match-date">{{ fixture().day }}</span>
   </div>
   <div class="score-bug">
@@ -49,11 +49,24 @@
         <path d="M17 21h14m-7-3v6" />
       </svg>
       <div>
-        <span>THE STADIUM</span><strong>{{ fixture().venue }}</strong>
+        <span class="stadium-label"
+          >THE STADIUM
+          @if (country(); as country) {
+            <img
+              class="stadium-flag"
+              [src]="country.flag"
+              [alt]="country.name"
+              [title]="country.name"
+            />
+          }
+        </span>
+        <strong>{{ fixture().venue }}</strong>
       </div>
     </div>
-    <button type="button" class="match-link" (click)="explore.emit()">
-      Enter the match centre <app-icon name="arrow" />
-    </button>
+    @if (linked()) {
+      <button type="button" class="match-link" (click)="explore.emit()">
+        Enter the match centre <app-icon name="arrow" />
+      </button>
+    }
   </div>
 </section>

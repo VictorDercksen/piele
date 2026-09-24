@@ -6,6 +6,7 @@ Private league application for Piele URC 26/27. Angular frontend (Floodlights de
 
 From this directory:
 
+- Node 24 (`.nvmrc`; `nvm use` picks it up). Angular CLI needs Node 22.22.3+, 24.15+ or 26.
 - `npm run setup` and `npm start` run the frontend at http://localhost:4200.
 - `npm run setup:api` and `npm run api` run the API at http://127.0.0.1:8000. See [apps/api/README.md](apps/api/README.md).
 

@@ -2,101 +2,8 @@
   display: block;
   container-type: inline-size;
 }
-.match-header {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 150px minmax(0, 1fr);
-  align-items: stretch;
-  gap: 12px;
-  padding: 24px 26px 20px;
-  margin-bottom: 20px;
-  background: var(--surface-grain), var(--surface);
-  border: 1px solid var(--line);
-  border-top: 3px solid #d4d9c4;
-  box-shadow: 0 8px 24px #0003;
-  color: var(--chalk);
-}
-.club {
-  position: relative;
-  isolation: isolate;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 22px 14px;
-  text-align: center;
-  border: 1px solid #ffffff24;
-  border-top: 3px solid var(--club-colour, #263f52);
-  background: color-mix(in srgb, var(--club-colour, #263f52) 26%, transparent);
-}
-.club.home {
-  --club-colour: var(--home-colour);
-}
-.club.away {
-  --club-colour: var(--away-colour);
-}
-.club.yours {
-  box-shadow: inset 0 0 0 1px var(--member-accent);
-}
-.crest {
-  width: 84px;
-  height: 80px;
-  object-fit: contain;
-  filter: drop-shadow(0 3px 6px #0006);
-}
-.club h2 {
-  margin: 0;
-  font-size: clamp(18px, 2.4cqw, 28px);
-  line-height: 1.05;
-  font-weight: 900;
-  font-style: italic;
-  text-transform: uppercase;
-  overflow-wrap: anywhere;
-}
-.club span,
-.kickoff > span,
-.kickoff small,
-.venue span {
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 1.5px;
-  color: #b8c4bd;
-}
-.kickoff {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  align-self: center;
-  padding: 16px 8px;
-  text-align: center;
-  border-block: 1px solid #e0e4d578;
-  background: var(--surface-grain), #081316de;
-}
-.kickoff strong {
-  font-size: 34px;
-  line-height: 1.1;
-  font-variant-numeric: tabular-nums;
-}
-.kickoff em {
-  font-style: normal;
-  font-size: 11px;
-  letter-spacing: 1px;
-  color: #c5d4de;
-}
-.venue {
-  grid-column: 1 / -1;
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-  margin: 8px 0 0;
-  padding-top: 14px;
-  border-top: 1px dashed #e0e4d552;
-}
-.venue strong {
-  font-size: 15px;
+app-match-hero {
+  margin-bottom: 30px;
 }
 .deadline-banner {
   display: flex;
@@ -261,24 +168,6 @@
   }
 }
 @container (max-width: 600px) {
-  .match-header {
-    grid-template-columns: minmax(0, 1fr) 96px minmax(0, 1fr);
-    gap: 8px;
-    padding: 16px 14px;
-  }
-  .club {
-    padding: 14px 6px;
-  }
-  .crest {
-    width: 56px;
-    height: 54px;
-  }
-  .kickoff strong {
-    font-size: 24px;
-  }
-  .kickoff {
-    padding: 10px 4px;
-  }
   .deadline-banner {
     flex-wrap: wrap;
     padding: 16px;
@@ -295,13 +184,5 @@
   }
   .sheets {
     grid-template-columns: 1fr;
-  }
-}
-@container (max-width: 350px) {
-  .match-header {
-    grid-template-columns: minmax(0, 1fr) 80px minmax(0, 1fr);
-  }
-  .club h2 {
-    font-size: 15px;
   }
 }

@@ -169,7 +169,7 @@ test('Floodlights layouts and club assets work from desktop to 320px', async ({
   await page.getByRole('button', { name: 'Enter the match centre' }).click();
   await expect(page).toHaveURL(/\/match\/\d+\?round=2/);
   await expect(page.locator('.page-heading .eyebrow')).toContainText('ROUND 02 / MATCH CENTRE');
-  await expect(page.locator('.match-header')).toContainText('Stormers');
+  await expect(page.locator('app-match-hero')).toContainText('Stormers');
   await page.getByRole('link', { name: 'My profile', exact: true }).click();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.setViewportSize({ width: 390, height: 950 });

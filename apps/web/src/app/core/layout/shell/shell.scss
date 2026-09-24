@@ -285,16 +285,59 @@ app-season-timeline {
   margin-left: auto;
 }
 .context-pager button {
-  width: 37px;
+  display: grid;
+  place-items: center;
+  width: 44px;
   height: 44px;
-  border: 1px solid var(--line);
-  background: var(--rugby-surface), var(--rugby-white);
-  color: var(--rugby-ink);
-  font-size: 18px;
+  padding: 0;
+  border: 1px solid #f2efdf33;
+  border-radius: 8px;
+  background: #f2efdf0d;
+  cursor: pointer;
+}
+.context-pager button:hover:not(:disabled) {
+  background: #f2efdf1f;
+}
+.context-pager img {
+  width: 28px;
+  height: auto;
 }
 .context-pager button:disabled {
   opacity: 0.3;
   cursor: default;
+}
+.breadcrumbs ol {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.breadcrumbs li + li::before {
+  content: '/';
+  margin-right: 8px;
+  color: var(--muted);
+}
+.breadcrumbs a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  color: inherit;
+  text-decoration: none;
+}
+.breadcrumbs a:hover {
+  text-decoration: underline;
+}
+.crumb-arrow {
+  width: 26px;
+  height: auto;
+  transition: transform 0.15s ease;
+}
+.breadcrumbs a:hover .crumb-arrow {
+  transform: translateX(-3px);
 }
 .page-heading {
   display: flex;
@@ -551,9 +594,11 @@ app-season-timeline {
     gap: 3px;
   }
   .context-pager button {
-    width: 29px;
+    width: 38px;
     height: 40px;
-    font-size: 16px;
+  }
+  .context-pager img {
+    width: 24px;
   }
   .page-heading {
     margin-bottom: 17px;

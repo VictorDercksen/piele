@@ -5,14 +5,13 @@ import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
 import { filter, startWith } from 'rxjs';
 import { MatchCentreService } from '../../core/api/match-centre.service';
 import { SectionStatus } from '../../core/api/match-centre.models';
-import { CLUB_BANNERS } from '../../core/competition/club-banners';
 import { CompetitionService } from '../../core/competition/competition.service';
 import { SelectedRoundService } from '../../core/competition/selected-round.service';
-import { jersey } from '../../core/competition/teams';
 import { RoundViewService } from '../../core/league/round-view.service';
 import { ProfileStore } from '../../core/profile/profile.store';
 import { Icon } from '../../shared/icon/icon';
 import { Loader } from '../../shared/loader/loader';
+import { MatchHero } from '../home/match-hero/match-hero';
 
 /** South African Standard Time has no daylight saving, so a fixed offset is exact. */
 export const SAST = '+0200';
@@ -23,7 +22,7 @@ export const SAST = '+0200';
   templateUrl: './match.page.html',
   styleUrl: './match.page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, DecimalPipe, Icon, Loader],
+  imports: [DatePipe, DecimalPipe, Icon, Loader, MatchHero],
 })
 export class MatchPage {
   private readonly route = inject(ActivatedRoute);
@@ -33,7 +32,6 @@ export class MatchPage {
   private readonly matchCentre = inject(MatchCentreService);
   readonly view = inject(RoundViewService);
   readonly favouriteTeam = inject(ProfileStore).team;
-  readonly jersey = jersey;
   readonly sast = SAST;
 
   /** The fixture named in the URL, which the shell's selected round follows. */
@@ -41,8 +39,6 @@ export class MatchPage {
     const id = this.view.featured()?.id;
     return id ? this.competition.locate(id)?.fixture : undefined;
   });
-  readonly homeBanner = computed(() => CLUB_BANNERS[this.fixture()?.homeAsset ?? '']);
-  readonly awayBanner = computed(() => CLUB_BANNERS[this.fixture()?.awayAsset ?? '']);
   readonly configured = this.matchCentre.configured;
   readonly centre = this.matchCentre.centre(() => this.fixture()?.id ?? null);
   readonly data = computed(() => (this.centre.hasValue() ? this.centre.value() : undefined));

@@ -1,0 +1,7 @@
+{
+  "source": "https://github.com/lipis/flag-icons",
+  "package": "flag-icons@7.2.3",
+  "license": "MIT, Copyright (c) 2013 Panayiotis Lipiridis",
+  "retrievedAt": "2026-09-24",
+  "flags": ["za.svg", "ie.svg", "gb.svg", "gb-sct.svg", "gb-wls.svg", "it.svg"]
+}

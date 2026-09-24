@@ -46,7 +46,11 @@ export const routes: Routes = [
       {
         path: 'match/:fixtureId',
         title: 'Match centre · Piele',
-        data: page({ eyebrow: 'MATCH CENTRE', title: 'The match centre.' }),
+        data: page({
+          eyebrow: 'MATCH CENTRE',
+          title: 'The match centre.',
+          parent: { label: 'Home', path: '/' },
+        }),
         loadComponent: () => import('./features/match/match.page').then((m) => m.MatchPage),
       },
       {
