@@ -266,6 +266,10 @@ legend span {
   font-size: 12px;
   font-style: normal;
 }
+.team-option i ng-icon {
+  --ng-icon__size: 14px;
+  display: block;
+}
 .photo-control {
   display: flex;
   align-items: center;
@@ -331,8 +335,8 @@ legend span {
   padding: 14px 24px;
   font-weight: 700;
 }
-.save-button span {
-  font-size: 20px;
+.save-button .link-icon {
+  --ng-icon__size: 20px;
 }
 .sign-out {
   margin-top: 14px;

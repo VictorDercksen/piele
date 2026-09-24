@@ -4,6 +4,8 @@ import { Router, RouterLink } from '@angular/router';
 import { formatLeagueTime } from '../../core/competition/league-time';
 import { RoundDutyView, RoundViewService } from '../../core/league/round-view.service';
 import { ProfileStore } from '../../core/profile/profile.store';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import { lucideArrowRight } from '@ng-icons/lucide';
 import { Icon } from '../../shared/icon/icon';
 import { EvidenceDialog } from '../duties/evidence-dialog/evidence-dialog';
 import { Feed } from './feed/feed';
@@ -15,7 +17,8 @@ import { MatchHero } from './match-hero/match-hero';
   templateUrl: './home.page.html',
   styleUrl: './home.page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, RouterLink, Icon, MatchHero, EvidenceDialog, Feed],
+  imports: [DecimalPipe, RouterLink, Icon, NgIcon, MatchHero, EvidenceDialog, Feed],
+  viewProviders: [provideIcons({ lucideArrowRight })],
 })
 export class HomePage {
   private readonly router = inject(Router);

@@ -17,7 +17,8 @@
   <span
     >{{ competition.season }} · {{ competition.fixtureCount }} league fixtures + 7 playoff slots ·
     Times in SAST</span
-  ><a [href]="competition.source" target="_blank" rel="noopener noreferrer">Official URC source ↗</a
+  ><a [href]="competition.source" target="_blank" rel="noopener noreferrer"
+    >Official URC source<ng-icon class="link-icon" name="lucideExternalLink" /></a
   ><small
     >Snapshot checked {{ competition.retrievedAt | date: 'd MMMM y' }}. Fixtures can change. Playoff
     kickoffs remain TBC.</small

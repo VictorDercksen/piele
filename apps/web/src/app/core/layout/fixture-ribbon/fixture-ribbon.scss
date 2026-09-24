@@ -49,7 +49,14 @@ button > span:last-child {
   font-weight: 700;
   white-space: nowrap;
 }
+b {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: inherit;
+}
 img {
+  flex-shrink: 0;
   width: 28px;
   height: 32px;
   object-fit: contain;

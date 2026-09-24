@@ -8,6 +8,8 @@ import {
   viewChild,
   viewChildren,
 } from '@angular/core';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import { lucideCheck, lucideLocateFixed } from '@ng-icons/lucide';
 import { CompetitionRound } from '../../competition/competition.models';
 
 @Component({
@@ -17,7 +19,7 @@ import { CompetitionRound } from '../../competition/competition.models';
     <div class="timeline-heading">
       <span>THE SEASON</span><strong>26 / 27</strong
       ><button type="button" class="current-link" (click)="choose.emit(current())">
-        Current round ↗
+        Current round<ng-icon class="link-icon" name="lucideLocateFixed" />
       </button>
     </div>
     <div #track class="round-track">
@@ -33,7 +35,12 @@ import { CompetitionRound } from '../../competition/competition.models';
           (click)="choose.emit(round.id)"
           (keydown)="move($event, round.id)"
         >
-          <span class="round-node">{{ round.status === 'Completed' ? '✓' : round.code }}</span
+          <span class="round-node">
+            @if (round.status === 'Completed') {
+              <ng-icon name="lucideCheck" />
+            } @else {
+              {{ round.code }}
+            }</span
           ><span class="round-label"
             ><strong>{{ round.title }}</strong
             ><small>{{ round.dates.replace(' 2026', '').replace(' 2027', '') }}</small
@@ -45,6 +52,8 @@ import { CompetitionRound } from '../../competition/competition.models';
     <p class="timeline-foot">18 rounds. The playoffs.<br />One clubhouse.</p>
   </nav>`,
   styleUrl: './season-timeline.scss',
+  imports: [NgIcon],
+  viewProviders: [provideIcons({ lucideCheck, lucideLocateFixed })],
 })
 export class SeasonTimeline {
   readonly current = input(1);

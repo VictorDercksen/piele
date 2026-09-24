@@ -43,6 +43,11 @@ button {
   font-size: 11px;
   text-align: left;
   min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+}
+.round-node ng-icon {
+  --ng-icon__size: 14px;
 }
 .round-track {
   flex: 1;

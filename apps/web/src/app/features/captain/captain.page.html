@@ -18,7 +18,9 @@
         }
         <div class="review-actions">
           @if (!view.sample) {
-            <button type="button" class="text-button" (click)="watch(review)">Watch video ↗</button>
+            <button type="button" class="text-button" (click)="watch(review)">
+              Watch video<ng-icon class="link-icon" name="lucidePlay" />
+            </button>
           }
           @if (review.selfReview) {
             <span class="tag">NEEDS AN UNINVOLVED REVIEWER</span>
@@ -56,11 +58,14 @@
     @for (member of view.members(); track member.id) {
       <li>
         <span class="member-name"
-          ><strong>{{ member.name }}</strong><small>{{ member.fullName }}</small></span
+          ><strong>{{ member.name }}</strong
+          ><small>{{ member.fullName }}</small></span
         >
         @if (editing() === member.id) {
           <span class="member-edit">
-            <label class="visually-hidden" for="email-{{ member.id }}">Email for {{ member.name }}</label>
+            <label class="visually-hidden" for="email-{{ member.id }}"
+              >Email for {{ member.name }}</label
+            >
             <input
               id="email-{{ member.id }}"
               type="email"

@@ -22,7 +22,7 @@ test('all published rounds, playoffs, timezone and selection persistence', async
     await expect(ribbon).toHaveCount(round <= 18 ? 8 : round === 19 ? 4 : round === 20 ? 2 : 1);
     if (round > 18) {
       await expect(ribbon.first()).toContainText('TBC');
-      await expect(ribbon.first()).toContainText('To be confirmed');
+      await expect(ribbon.first()).toContainText('TBCvTBC');
     }
   }
   await expect(page.getByRole('region', { name: 'Selected round' })).toContainText('Grand final');

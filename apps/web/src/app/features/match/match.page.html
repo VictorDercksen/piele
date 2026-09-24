@@ -13,8 +13,8 @@
     >
     @if (view.round().status === 'Current') {
       <a href="https://www.superbru.com/" target="_blank" rel="noopener noreferrer"
-        >Open Superbru ↗</a
-      >
+        >Open Superbru<ng-icon class="link-icon" name="lucideExternalLink"
+      /></a>
     }
   </div>
 
@@ -29,7 +29,9 @@
       <app-icon name="rounds" />
       <h3>The league API could not be reached.</h3>
       <p>Teamsheets and the forecast will appear when it is back.</p>
-      <button type="button" class="text-button" (click)="reload()">Try again →</button>
+      <button type="button" class="text-button" (click)="reload()">
+        Try again<ng-icon class="link-icon" name="lucideRotateCcw" />
+      </button>
     </div>
   } @else if (loading() && !data()) {
     <div class="centre-loading"><app-loader [size]="72" label="Loading match details" /></div>

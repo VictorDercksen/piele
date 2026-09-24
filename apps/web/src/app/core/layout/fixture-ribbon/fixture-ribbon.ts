@@ -28,8 +28,9 @@ import { RoundViewService } from '../../league/round-view.service';
         <span
           >{{ match.day }} <strong>{{ match.score || match.time }}</strong></span
         ><span
-          ><img [src]="jersey(match.homeAsset)" alt="" />{{ match.home }}<i>v</i>{{ match.away
-          }}<img [src]="jersey(match.awayAsset)" alt=""
+          ><img [src]="jersey(match.homeAsset)" alt="" /><b>{{ team(match.home) }}</b
+          ><i>v</i><b>{{ team(match.away) }}</b
+          ><img [src]="jersey(match.awayAsset)" alt=""
         /></span>
       </button>
     }
@@ -45,6 +46,11 @@ export class FixtureRibbon {
 
   constructor() {
     effect(() => this.artwork.warm(this.view.fixtures()));
+  }
+
+  /** Unconfirmed playoff teams read as TBC so two of them fit a ribbon card. */
+  team(name: string): string {
+    return name === 'To be confirmed' ? 'TBC' : name;
   }
 
   /** Loads a matchup's artwork on hover or focus in case warming has not reached it. */

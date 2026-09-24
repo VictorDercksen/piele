@@ -94,6 +94,16 @@
   font-weight: 700;
   color: var(--ink);
 }
+/* Trailing Lucide icon on text links and buttons. */
+.link-icon {
+  --ng-icon__size: 1.3em;
+  flex-shrink: 0;
+  margin-inline-start: 0.35em;
+  vertical-align: -0.3em;
+}
+.text-button .link-icon {
+  margin-inline-start: 0;
+}
 .context-note {
   color: var(--muted);
   font-size: 12px;

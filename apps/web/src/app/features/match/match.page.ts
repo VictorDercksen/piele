@@ -9,6 +9,8 @@ import { CompetitionService } from '../../core/competition/competition.service';
 import { SelectedRoundService } from '../../core/competition/selected-round.service';
 import { RoundViewService } from '../../core/league/round-view.service';
 import { ProfileStore } from '../../core/profile/profile.store';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import { lucideExternalLink, lucideRotateCcw } from '@ng-icons/lucide';
 import { Icon } from '../../shared/icon/icon';
 import { Loader } from '../../shared/loader/loader';
 import { MatchHero } from '../home/match-hero/match-hero';
@@ -22,7 +24,8 @@ export const SAST = '+0200';
   templateUrl: './match.page.html',
   styleUrl: './match.page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, DecimalPipe, Icon, Loader, MatchHero],
+  imports: [DatePipe, DecimalPipe, Icon, NgIcon, Loader, MatchHero],
+  viewProviders: [provideIcons({ lucideExternalLink, lucideRotateCcw })],
 })
 export class MatchPage {
   private readonly route = inject(ActivatedRoute);

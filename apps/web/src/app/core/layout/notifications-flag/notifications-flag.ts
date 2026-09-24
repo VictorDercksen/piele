@@ -12,6 +12,8 @@ import {
 import { Router } from '@angular/router';
 import { formatLeagueTime } from '../../competition/league-time';
 import { RoundViewService } from '../../league/round-view.service';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import { lucideArrowRight } from '@ng-icons/lucide';
 import { Icon } from '../../../shared/icon/icon';
 
 const READ_KEY = 'piele-notifications-read-v1';
@@ -27,7 +29,8 @@ const UNFURL_MS = 1800;
   templateUrl: './notifications-flag.html',
   styleUrl: './notifications-flag.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Icon],
+  imports: [Icon, NgIcon],
+  viewProviders: [provideIcons({ lucideArrowRight })],
   host: {
     '[class.open]': 'open()',
     '[class.settled]': 'settled()',
@@ -59,7 +62,7 @@ export class NotificationsFlag {
         icon: 'rounds',
         title: round.status,
         detail: this.view.activity(),
-        action: featured ? 'Open the match centre →' : 'Back to the clubhouse →',
+        action: featured ? 'Open the match centre' : 'Back to the clubhouse',
         path: featured ? `/match/${featured.id}` : '/',
         spoon: false,
       },
@@ -73,7 +76,7 @@ export class NotificationsFlag {
           duty.display === 'overdue'
             ? `Overdue since ${formatLeagueTime(duty.deadlineAt)} · ${duty.marks.marks} ${duty.marks.marks === 1 ? 'mark' : 'marks'}`
             : `${duty.statusLabel} · due ${formatLeagueTime(duty.deadlineAt)}`,
-        action: 'View duty →',
+        action: 'View duty',
         path: '/duties',
         spoon: duty.spoon,
       });
@@ -84,7 +87,7 @@ export class NotificationsFlag {
         icon: 'decisions',
         title: poll.question,
         detail: `${poll.status} · ${poll.closes}`,
-        action: 'View decision →',
+        action: 'View decision',
         path: '/decisions',
         spoon: false,
       });
