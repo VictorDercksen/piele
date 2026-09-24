@@ -25,7 +25,7 @@ import {
   lucideSun,
 } from '@ng-icons/lucide';
 import { Icon } from '../../shared/icon/icon';
-import { Loader } from '../../shared/loader/loader';
+import { BallLoader } from '../../shared/ball-loader/ball-loader';
 import { MatchHero } from '../home/match-hero/match-hero';
 import { sheetView } from './teamsheet';
 import { weatherSky } from './weather-sky';
@@ -39,7 +39,7 @@ export const SAST = '+0200';
   templateUrl: './match.page.html',
   styleUrl: './match.page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, DecimalPipe, Icon, NgIcon, Loader, MatchHero],
+  imports: [DatePipe, DecimalPipe, Icon, NgIcon, BallLoader, MatchHero],
   viewProviders: [
     provideIcons({
       lucideCloud,

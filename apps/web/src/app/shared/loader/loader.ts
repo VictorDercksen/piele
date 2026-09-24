@@ -1,11 +1,11 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 
-/** Spinning URC match ball. Announces its label to screen readers as a status. */
+/** Spinning arc for buttons and inline waits. Takes the text colour. Announces its label to screen readers as a status. */
 @Component({
   selector: 'app-loader',
-  template: `<img src="assets/images/urc-ball.webp" alt="" />
+  template: `<span class="arc"></span>
     @if (showLabel()) {
-      <span>{{ label() }}</span>
+      <span class="label">{{ label() }}</span>
     }`,
   styleUrl: './loader.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -16,8 +16,8 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
   },
 })
 export class Loader {
-  readonly size = input(64);
+  readonly size = input(18);
   readonly label = input('Loading');
-  /** Shows the label beside the ball instead of only announcing it. */
+  /** Shows the label beside the arc instead of only announcing it. */
   readonly showLabel = input(false);
 }

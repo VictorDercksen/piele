@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 200" preserveAspectRatio="none">
+  <g fill="none" stroke="#f2efdf" stroke-width="1" vector-effect="non-scaling-stroke">
+    <line x1="0" y1="18" x2="100" y2="18" vector-effect="non-scaling-stroke"/>
+    <line x1="0" y1="52" x2="100" y2="52" vector-effect="non-scaling-stroke"/>
+    <line x1="0" y1="80" x2="100" y2="80" stroke-dasharray="10 10" vector-effect="non-scaling-stroke"/>
+    <line x1="0" y1="100" x2="100" y2="100" stroke-width="2" vector-effect="non-scaling-stroke"/>
+    <line x1="0" y1="120" x2="100" y2="120" stroke-dasharray="10 10" vector-effect="non-scaling-stroke"/>
+    <line x1="0" y1="148" x2="100" y2="148" vector-effect="non-scaling-stroke"/>
+    <line x1="0" y1="182" x2="100" y2="182" vector-effect="non-scaling-stroke"/>
+    <line x1="8" y1="0" x2="8" y2="200" stroke-dasharray="6 16" vector-effect="non-scaling-stroke"/>
+    <line x1="92" y1="0" x2="92" y2="200" stroke-dasharray="6 16" vector-effect="non-scaling-stroke"/>
+  </g>
+</svg>

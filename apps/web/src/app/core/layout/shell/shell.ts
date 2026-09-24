@@ -19,7 +19,7 @@ import { ToastService } from '../../feedback/toast.service';
 import { RoundViewService } from '../../league/round-view.service';
 import { ProfileStore } from '../../profile/profile.store';
 import { Icon } from '../../../shared/icon/icon';
-import { Loader } from '../../../shared/loader/loader';
+import { BallLoader } from '../../../shared/ball-loader/ball-loader';
 import { FixtureRibbon } from '../fixture-ribbon/fixture-ribbon';
 import { NotificationsFlag } from '../notifications-flag/notifications-flag';
 import { SeasonTimeline } from '../season-timeline/season-timeline';
@@ -36,7 +36,7 @@ import { PageData } from './page-data';
     RouterLink,
     RouterLinkActive,
     Icon,
-    Loader,
+    BallLoader,
     SeasonTimeline,
     NotificationsFlag,
     FixtureRibbon,

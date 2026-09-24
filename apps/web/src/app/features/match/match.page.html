@@ -34,7 +34,7 @@
       </button>
     </div>
   } @else if (loading() && !data()) {
-    <div class="centre-loading"><app-loader [size]="72" label="Loading match details" /></div>
+    <div class="centre-loading"><app-ball-loader [size]="64" label="Loading match details" /></div>
   } @else if (data(); as centre) {
     <div class="match-grid">
       <section class="panel teamsheets" aria-labelledby="teamsheets-title">
