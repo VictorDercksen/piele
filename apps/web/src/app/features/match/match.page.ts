@@ -10,10 +10,24 @@ import { SelectedRoundService } from '../../core/competition/selected-round.serv
 import { RoundViewService } from '../../core/league/round-view.service';
 import { ProfileStore } from '../../core/profile/profile.store';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideExternalLink, lucideRotateCcw } from '@ng-icons/lucide';
+import {
+  lucideCloud,
+  lucideCloudDrizzle,
+  lucideCloudFog,
+  lucideCloudLightning,
+  lucideCloudMoon,
+  lucideCloudRain,
+  lucideCloudSnow,
+  lucideCloudSun,
+  lucideExternalLink,
+  lucideMoon,
+  lucideRotateCcw,
+  lucideSun,
+} from '@ng-icons/lucide';
 import { Icon } from '../../shared/icon/icon';
 import { Loader } from '../../shared/loader/loader';
 import { MatchHero } from '../home/match-hero/match-hero';
+import { weatherSky } from './weather-sky';
 
 /** South African Standard Time has no daylight saving, so a fixed offset is exact. */
 export const SAST = '+0200';
@@ -25,7 +39,22 @@ export const SAST = '+0200';
   styleUrl: './match.page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [DatePipe, DecimalPipe, Icon, NgIcon, Loader, MatchHero],
-  viewProviders: [provideIcons({ lucideExternalLink, lucideRotateCcw })],
+  viewProviders: [
+    provideIcons({
+      lucideCloud,
+      lucideCloudDrizzle,
+      lucideCloudFog,
+      lucideCloudLightning,
+      lucideCloudMoon,
+      lucideCloudRain,
+      lucideCloudSnow,
+      lucideCloudSun,
+      lucideExternalLink,
+      lucideMoon,
+      lucideRotateCcw,
+      lucideSun,
+    }),
+  ],
 })
 export class MatchPage {
   private readonly route = inject(ActivatedRoute);
@@ -47,6 +76,11 @@ export class MatchPage {
   readonly data = computed(() => (this.centre.hasValue() ? this.centre.value() : undefined));
   readonly loading = computed(() => this.centre.isLoading());
   readonly failed = computed(() => this.centre.status() === 'error');
+  /** Sky backdrop for the kickoff forecast, when there is one. */
+  readonly sky = computed(() => {
+    const weather = this.data()?.weather;
+    return weather?.status === 'ok' ? weatherSky(weather) : null;
+  });
 
   private lastFixtureId: string | null = null;
 

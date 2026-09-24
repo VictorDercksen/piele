@@ -37,6 +37,7 @@ export interface WeatherSection extends Section {
   readonly gustKmh?: number | null;
   readonly weatherCode?: number | null;
   readonly condition?: string;
+  readonly isDay?: boolean | null;
 }
 
 export interface MatchCentreClub {
