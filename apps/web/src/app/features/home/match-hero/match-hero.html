@@ -33,19 +33,23 @@
   </div>
   <div class="match-footer">
     <div class="match-venue">
-      <svg
-        class="stadium-icon"
-        viewBox="0 0 48 48"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="1.5"
-        aria-hidden="true"
-      >
-        <path
-          d="M5 22 12 16h24l7 6v16H5V22Z M5 22l8 6h22l8-6 M13 28v10m22-10v10 M16 38v-6h16v6 M9 18V7m30 11V7 M6 7h6m24 0h6 M18 16V9m12 7V9 M15 9h6m6 0h6"
-        />
-        <path d="M17 21h14m-7-3v6" />
-      </svg>
+      @if (stadiumIcon(); as icon) {
+        <img class="stadium-icon" [src]="icon" alt="" (error)="iconFailed.set(icon)" />
+      } @else {
+        <svg
+          class="stadium-icon"
+          viewBox="0 0 48 48"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          aria-hidden="true"
+        >
+          <path
+            d="M5 22 12 16h24l7 6v16H5V22Z M5 22l8 6h22l8-6 M13 28v10m22-10v10 M16 38v-6h16v6 M9 18V7m30 11V7 M6 7h6m24 0h6 M18 16V9m12 7V9 M15 9h6m6 0h6"
+          />
+          <path d="M17 21h14m-7-3v6" />
+        </svg>
+      }
       <div>
         <span class="stadium-label"
           >THE STADIUM

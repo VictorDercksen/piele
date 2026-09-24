@@ -7,11 +7,12 @@ import {
   input,
   linkedSignal,
   output,
+  signal,
 } from '@angular/core';
 import { CLUB_BANNERS } from '../../../core/competition/club-banners';
 import { Fixture } from '../../../core/competition/competition.models';
 import { MatchArtwork } from '../../../core/competition/match-artwork';
-import { stadiumCountry } from '../../../core/competition/stadiums';
+import { stadiumCountry, stadiumIcon } from '../../../core/competition/stadiums';
 import { Icon } from '../../../shared/icon/icon';
 
 /** Featured fixture with official club banners and stadium details. */
@@ -44,6 +45,13 @@ export class MatchHero {
   readonly homeBanner = computed(() => CLUB_BANNERS[this.shown().homeAsset]);
   readonly awayBanner = computed(() => CLUB_BANNERS[this.shown().awayAsset]);
   readonly country = computed(() => stadiumCountry(this.shown().venue));
+  /** An icon that failed to load, replaced by the generic stadium drawing. */
+  readonly iconFailed = signal<string | undefined>(undefined);
+  /** The venue's own icon; unknown venues and failed loads fall back to the generic drawing. */
+  readonly stadiumIcon = computed(() => {
+    const icon = stadiumIcon(this.shown().venue);
+    return icon === this.iconFailed() ? undefined : icon;
+  });
 
   constructor() {
     effect(() => this.artwork.preload(this.fixture()));
