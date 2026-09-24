@@ -54,8 +54,12 @@
       autocomplete="nickname"
       maxlength="50"
       placeholder="Your clubhouse name"
+      [readonly]="leagueName"
       [attr.aria-invalid]="submitted() && form.controls.displayName.invalid"
     />
+    @if (leagueName) {
+      <p class="field-hint">Your Superbru nickname, set by the league.</p>
+    }
     @if (submitted() && form.controls.displayName.invalid) {
       <p class="validation" role="alert">Enter your name to continue.</p>
     }
@@ -115,10 +119,15 @@
       <p class="validation" role="alert">{{ error() }}</p>
     }
     <div class="save-profile">
-      <p>Your profile and photo are saved only in this browser until sign-in is available.</p>
+      <p>Your favourite team and photo are saved only in this browser.</p>
       <button class="save-button" type="submit" [disabled]="busy()">
         {{ existing ? 'Save profile' : 'Enter the clubhouse' }} <span aria-hidden="true">→</span>
       </button>
+      @if (canSignOut) {
+        <button class="sign-out" type="button" (click)="signOut()" [disabled]="busy()">
+          Sign out{{ accountEmail() ? ' of ' + accountEmail() : '' }}
+        </button>
+      }
     </div>
   </form>
 </section>

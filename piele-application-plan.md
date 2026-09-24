@@ -411,3 +411,16 @@ Deliver usable vertical flows at each phase. Do not implement all tables and lea
 | G8 | Event/RSVP scope and post-retention challenges | Confirm P8. A late challenge still exists after video deletion but uses retained records and available evidence. No automatic re-creation of deleted files. |
 
 Technical sources were checked on 22 September 2026. Recheck platform limits at implementation and deployment. The companion design brief maps every user-facing capability to mobile and desktop screens.
+
+## Decisions recorded on 2026-09-24
+
+These league decisions supersede the proposals above where they differ.
+
+| Topic | Decision |
+| --- | --- |
+| Joining | A member signs in (Google or email and password) and claims their own Superbru name from the unclaimed list. The captain may reserve a name for a specific email address, and may release a wrong claim. Invitation tokens (M4) are not used. |
+| Display names | The Superbru nickname is the display name. |
+| Spoon deadline | A Spoon duty is due at the first kickoff of the next round. Without a published kickoff the duty waits for a deadline and earns nothing. |
+| Evidence completion time | A member's own accepted evidence completes the duty at submission time. Evidence the captain records on a member's behalf completes it at the captain-entered completion time. |
+| Challenges and marks | A challenge never pauses accrual. If the challenge is resolved against the member the marks stand; if it is resolved in the member's favour the overdue clock restarts from the resolution (`duties.clock_reset_at`). Duty pause intervals (M20, interpretation D1) are not used. |
+| Superbru sync and the Spoon | The sync does not exist yet. When it does, the round's last-placed member is proposed as an import finding for one-tap captain confirmation (P3), never created automatically. Until then the captain creates Spoon duties from the register. |

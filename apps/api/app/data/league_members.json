@@ -1,0 +1,18 @@
+{
+  "league": "Piele",
+  "season": { "name": "URC 2026/27", "competition": "United Rugby Championship 2026/27" },
+  "captain": "Victor Dercksen",
+  "members": [
+    { "fullName": "Barnard, Eugene", "displayName": "Eugene" },
+    { "fullName": "Booysen, Daniel", "displayName": "DanB97" },
+    { "fullName": "Burger, Wihan", "displayName": "Wihan4" },
+    { "fullName": "Burger, Steven", "displayName": "Steven13" },
+    { "fullName": "Crous, Jason", "displayName": "jason" },
+    { "fullName": "Dercksen, Victor", "displayName": "Victor Dercksen" },
+    { "fullName": "Engelbrecht, Deon", "displayName": "Deon" },
+    { "fullName": "Hanekom, Willie", "displayName": "Willie" },
+    { "fullName": "Korsten, Laurie", "displayName": "Trokkie" },
+    { "fullName": "Lotter, Theo", "displayName": "TheoLotter" },
+    { "fullName": "Schnetler, Anrich", "displayName": "Annas" }
+  ]
+}

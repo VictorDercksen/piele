@@ -52,6 +52,9 @@ Both `vercel.json` files set `ignoreCommand`, so Vercel builds only `staging` an
 | `ALLOWED_ORIGINS` | The production web origin, e.g. `https://piele-web.vercel.app` |
 | `DATABASE_URL` | Runtime role URL for the production project, as in step 1.3 (sensitive) |
 | `SUPABASE_URL` | `https://<production-ref>.supabase.co` |
+| `SUPABASE_SERVICE_ROLE_KEY` | The production service role key (sensitive). Needed for evidence upload grants and playback. |
+| `SUPABASE_STORAGE_BUCKET` | `evidence` (create it as a private bucket first) |
+| `SUPABASE_JWT_SECRET` | Only if the project still signs tokens with the legacy shared secret; leave unset for JWT signing keys (JWKS) |
 
 `piele-web`, Production environment:
 
@@ -65,9 +68,14 @@ Do not set `PIELE_SAMPLE_LEAGUE_DATA` in Production. Never copy staging credenti
 
 In both projects, clear Settings > Git > Ignored Build Step; `vercel.json` now owns it. Decide on custom domains before the first release, because `ALLOWED_ORIGINS` and `PIELE_API_URL` must match them exactly.
 
-### 4. Decide production access
+### 4. Sign-in, membership and evidence storage
 
-The application has no sign-in yet (plan phase H2). Profiles live in each browser and production shows only the published URC schedule. Either keep Vercel Authentication on the production web deployment until sign-in exists, or make it public knowingly. The API serves only health and public match-centre data.
+1. Supabase > Authentication > Providers: enable Email (keep "Confirm email" on) and Google. Google needs an OAuth client in Google Cloud with the Supabase callback URL (`https://<ref>.supabase.co/auth/v1/callback`) as an authorised redirect URI; paste its client ID and secret into the provider.
+2. Authentication > URL Configuration: set the Site URL to the production web origin and add `https://<web origin>/sign-in` (and the staging origin's `/sign-in`) to Redirect URLs. OAuth returns to `/sign-in?returnUrl=…`.
+3. Settings > JWT Keys: projects on JWT signing keys need nothing more; the API verifies against `/auth/v1/.well-known/jwks.json`. A project still on the legacy secret needs `SUPABASE_JWT_SECRET` on the API.
+4. Storage: create a private bucket named `evidence` (no public access, no RLS policies for anon or authenticated). The API's service role key is the only writer and signer.
+5. Bootstrap the league once against the production database, as the runtime role: from `apps/api` with the production `DATABASE_URL` in the environment, run `uv run python -m app.league.bootstrap --captain-email <the captain's Google or sign-up email>`. It refuses to run twice. Then share the web link: each member signs in and claims their own Superbru name. The captain can reserve a name for a specific email from More > captain's desk, and release a name the wrong account claimed.
+6. Any signed-in account can claim an unclaimed name, so keep the link within the league until everyone has claimed theirs, or keep Google in Testing mode with the members as test users. The captain's desk shows who has claimed what. Every league endpoint requires a verified member token.
 
 ## Each release
 
@@ -83,4 +91,4 @@ The application has no sign-in yet (plan phase H2). Profiles live in each browse
 
 ## Not yet production-ready
 
-This release completes plan phase H1's deployment work. The plan's H8 launch gate still needs authentication and invitations (H2), duties and private evidence (H3), cases and voting (H4), competition administration (H5), closure and operations (H7), a restore rehearsal and the acceptance tests in plan section 12.
+H1 (deployment), the sign-in and membership core of H2 and the duties, marks and evidence core of H3 are in place. Still outstanding for the plan's H8 launch gate: invitations by token and captain transfer (H2), pause intervals, corrections and a real phone upload and playback proof against a live bucket (H3), cases and voting (H4), competition administration and the Superbru sync that proposes Spoon duties (H5), closure, media retention and operations (H7), a restore rehearsal and the acceptance tests in plan section 12.

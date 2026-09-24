@@ -1,0 +1,83 @@
+@if (duty().spoon) {
+  <div class="spoon-art" aria-hidden="true"></div>
+}
+<div class="spoon-content">
+  <div class="register-heading">
+    <span class="tag" [class.warn]="duty().display === 'overdue'">{{ duty().statusLabel }}</span
+    ><span class="eyebrow">ROUND {{ roundCode() }} / {{ duty().memberName }}</span>
+  </div>
+  <h2>{{ duty().title }}</h2>
+  @if (sample()) {
+    <p>Sample duty in Round {{ roundCode() }}. No live league obligation exists.</p>
+  } @else if (duty().reason) {
+    <p>{{ duty().reason }}</p>
+  }
+  <dl>
+    <div>
+      <dt>Deadline</dt>
+      <dd>{{ deadline() }}</dd>
+    </div>
+    <div>
+      <dt>House marks</dt>
+      <dd>
+        {{ duty().marks.marks }} {{ duty().marks.marks === 1 ? 'mark' : 'marks' }}
+        @if (nextMark(); as next) {
+          <small>Next mark {{ next }}</small>
+        }
+        @if (clockReset(); as reset) {
+          <small>Clock reset {{ reset }}</small>
+        }
+      </dd>
+    </div>
+    <div>
+      <dt>Evidence</dt>
+      <dd>{{ evidenceSummary() }}</dd>
+    </div>
+  </dl>
+  @if (duty().evidence.length) {
+    <ul class="evidence-trail">
+      @for (evidence of duty().evidence; track evidence.id) {
+        <li>
+          <span class="evidence-line"
+            ><strong>{{ evidence.submitterName }}</strong> · {{ when(evidence) }} ·
+            <span class="decision" [attr.data-decision]="evidence.decision">{{
+              decisionLabel(evidence)
+            }}</span></span
+          >
+          @if (evidence.note) {
+            <span class="evidence-note">“{{ evidence.note }}”</span>
+          }
+          @if (evidence.reason) {
+            <span class="evidence-note">Reviewer: {{ evidence.reason }}</span>
+          }
+          @if (!sample()) {
+            <button type="button" class="text-button" (click)="watch(evidence)">
+              Watch video ↗
+            </button>
+          }
+        </li>
+      }
+    </ul>
+    @if (playbackError()) {
+      <p class="error-message" role="alert">{{ playbackError() }}</p>
+    }
+  }
+  <div class="card-actions">
+    @if (canUpload()) {
+      <button type="button" class="primary-button" (click)="upload.emit()">
+        <app-icon name="upload" />Upload evidence
+      </button>
+    }
+    @if (canRecord()) {
+      <button type="button" class="primary-button" (click)="record.emit()">
+        <app-icon name="upload" />Record evidence
+      </button>
+    }
+    @if (canReset()) {
+      <button type="button" class="text-button" (click)="resetClock.emit()">Reset clock</button>
+    }
+    @if (captain() && live()) {
+      <button type="button" class="text-button" (click)="voided.emit()">Void duty</button>
+    }
+  </div>
+</div>

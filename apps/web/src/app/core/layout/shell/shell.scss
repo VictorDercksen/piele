@@ -345,6 +345,13 @@ app-season-timeline {
   background: var(--rugby-surface), var(--rugby-white);
   color: var(--rugby-ink);
 }
+.toast.error {
+  border-left-color: #ff795e;
+}
+.toast.error button {
+  padding: 0 14px;
+  font-weight: 700;
+}
 .club-footer {
   display: flex;
   align-items: center;

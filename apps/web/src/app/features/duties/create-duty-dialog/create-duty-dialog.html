@@ -1,0 +1,84 @@
+<dialog
+  #dialog
+  class="detail-dialog compact-dialog"
+  [class.spoon-duty]="type() === 'spoon'"
+  aria-labelledby="create-duty-title"
+>
+  <form [formGroup]="form" (ngSubmit)="submit()">
+    <div class="dialog-top">
+      <span class="eyebrow">PIELE / CAPTAIN'S DESK</span
+      ><button type="button" class="icon-button" aria-label="Close dialog" (click)="close()">
+        <app-icon name="close" />
+      </button>
+    </div>
+    <h2 id="create-duty-title">Put it on the register.</h2>
+    <div class="field-grid">
+      <label class="field">
+        <span>Member</span>
+        <select formControlName="memberId" [attr.aria-invalid]="submitted() && form.controls.memberId.invalid">
+          <option value="" disabled>Choose a member</option>
+          @for (member of members(); track member.id) {
+            <option [value]="member.id">{{ member.name }}</option>
+          }
+        </select>
+      </label>
+      <label class="field">
+        <span>Duty</span>
+        <select formControlName="type">
+          <option value="spoon">Spoon duty</option>
+          <option value="pick_confirmation">Pick confirmation</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>Round</span>
+        <select formControlName="roundId">
+          @for (round of rounds; track round.id) {
+            <option [value]="round.id">{{ round.title }}</option>
+          }
+        </select>
+      </label>
+      <label class="field">
+        <span>Deadline (SAST)</span>
+        <input type="datetime-local" formControlName="deadline" />
+      </label>
+    </div>
+    @if (submitted() && form.controls.memberId.invalid) {
+      <p class="error-message" role="alert">Choose the member who owes the duty.</p>
+    }
+    <p class="deadline-note">
+      @if (type() === 'spoon' && !deadlineOverridden()) {
+        Due when the next round kicks off: <strong>{{ defaultDeadlineLabel() }}</strong
+        >.
+        @if (defaultDeadline()) {
+          <button type="button" class="link-button" (click)="suggestDefault()">Change</button>
+        } @else {
+          No kickoff is published yet, so the duty waits for a deadline.
+        }
+      } @else if (type() === 'spoon') {
+        Custom deadline.
+        <button type="button" class="link-button" (click)="useDefault()">Use the next kickoff</button>
+      } @else {
+        A pick confirmation needs the deadline you agreed with the member.
+      }
+    </p>
+    <label class="field-label" for="duty-reason">Reason <span>(shown on the register)</span></label>
+    <textarea
+      id="duty-reason"
+      rows="2"
+      maxlength="500"
+      formControlName="reason"
+      placeholder="Last place in the round, missing picks…"
+    ></textarea>
+    @if (error()) {
+      <p class="error-message" role="alert">{{ error() }}</p>
+    }
+    <button type="submit" class="primary-button wide" [disabled]="busy()" [attr.aria-busy]="busy()">
+      Create duty
+      @if (busy()) {
+        <app-loader [size]="18" aria-hidden="true" />
+      } @else {
+        <app-icon name="arrow" />
+      }
+    </button>
+  </form>
+</dialog>

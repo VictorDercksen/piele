@@ -9,21 +9,21 @@ From this directory:
 - `npm run setup` and `npm start` run the frontend at http://localhost:4200.
 - `npm run setup:api` and `npm run api` run the API at http://127.0.0.1:8000. See [apps/api/README.md](apps/api/README.md).
 
-First-time visitors choose a name and favourite team. The home match centre opens a match details page for the featured fixture, with the house pick deadline, teamsheets and the kickoff-hour forecast once the API is connected. The fixture ribbon under the round bar switches fixtures. The development build shows labelled sample league records (standings, duties, votes and a captain's desk) for rounds 1 to 3. The production build shows only the published URC schedule until the league API supplies records.
+Members sign in with Google or an email and password (Supabase Auth); on first sign-in each member claims their own Superbru name from the team sheet. First-time visitors then choose a favourite team. The home page shows the featured match, the member's next duty, standings and the league feed (this round or the whole season). The duty register lists each duty's deadline, house marks and evidence trail; members upload evidence videos, and the captain creates and voids duties, resets a duty's clock when a challenge is upheld, records evidence for members, decides evidence and manages the team sheet (reservations and releases) from the captain's desk. The development build uses labelled sample league records without sign-in; the production build talks to the league API.
 
 The frontend uses Angular 22.1.7 with CLI 22.1.8. Use a compatible Node 22.22.3+, 24.15+ or 26 release. The API needs Python 3.12+ and uv.
 
 ## Structure
 
 - `apps/web`: Angular app. `src/app/core` holds services, layout and data sources, `src/app/features` holds one folder per page, `src/app/shared` holds reusable components. Read its `AGENTS.md` and `CLAUDE.md` before changes.
-- `apps/api`: FastAPI app with `GET /v1/health`, `GET /v1/matches/{fixtureId}` (teamsheets and kickoff forecast for one fixture, cached in PostgreSQL), Supabase pooler configuration.
+- `apps/api`: FastAPI app with `GET /v1/health`, `GET /v1/matches/{fixtureId}` (teamsheets and kickoff forecast for one fixture, cached in PostgreSQL) and the league endpoints under `/v1` (members, duties, marks, evidence, feed) behind Supabase Auth token verification. See [apps/api/README.md](apps/api/README.md) for the bootstrap command and Storage setup.
 - `docs`: operating instructions, starting with the production runbook.
 - `supabase`: SQL migrations applied to the Supabase project by its GitHub integration on pushes to the connected branch. Application tables live in the private `piele` schema.
 - `fixtures`: Official public URC schedule snapshot and provenance.
 
 The schedule contains 144 regular-season fixtures and seven playoff slots for 2026/27, checked on 23 September 2026. Times display in SAST. Playoff teams and kickoffs remain TBC. This is a local snapshot, not live synchronization.
 
-Profiles and photos persist only in this browser. There is no authentication or server upload yet.
+Favourite team and photo persist only in this browser; the display name is the member's Superbru nickname from the league. Evidence videos upload directly to a private Supabase Storage bucket with an API-issued grant.
 
 The asset pack contains 12 team jerseys. Edinburgh, Leinster, Lions and Ospreys use illustrated supporter-shirt SVGs. These are visual placeholders, not official season kit reproductions.
 

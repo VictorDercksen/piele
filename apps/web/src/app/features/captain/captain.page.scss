@@ -1,9 +1,20 @@
+section + section {
+  margin-top: 44px;
+}
 .review-row {
   display: flex;
   gap: 15px;
   align-items: flex-start;
   padding: 20px 0;
   border-bottom: 1px solid var(--line);
+}
+.review-row.spoon-duty {
+  padding: 20px 16px;
+  margin: 12px 0;
+}
+.review-body {
+  flex: 1;
+  min-width: 0;
 }
 .review-row h3 {
   font-size: 16px;
@@ -12,10 +23,130 @@
 }
 .review-row p {
   font-size: 13px;
+  color: var(--muted);
 }
-.review-row app-icon {
+.review-row .note {
+  color: var(--ink);
+  margin-top: 6px;
+}
+.review-row > app-icon {
   margin-top: 4px;
+  flex-shrink: 0;
 }
-.review-row .tag {
+.review-row > .tag {
   margin-left: auto;
+}
+.review-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.member-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.member-list li {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+.member-name {
+  display: grid;
+  min-width: 160px;
+}
+.member-name small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.member-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+.member-status small {
+  color: var(--muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.tag.claimed {
+  background: #1d3f36;
+  color: #7fe0c2;
+}
+.member-edit {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  flex-wrap: wrap;
+}
+.member-edit input,
+.add-grid input {
+  font-family: inherit;
+  font-size: 14px;
+  min-height: 44px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  padding: 8px 12px;
+  border-radius: 3px;
+  flex: 1;
+  min-width: 200px;
+}
+.add-member {
+  margin-top: 26px;
+  padding: 22px;
+  background: var(--surface-grain), var(--surface);
+  border-top: 2px solid var(--line);
+}
+.add-member h3 {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 14px;
+}
+.add-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 16px;
+}
+.add-grid label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.add-grid em {
+  font-style: normal;
+  font-weight: 400;
+  color: var(--muted);
+}
+.add-grid input {
+  width: 100%;
+  min-width: 0;
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+@container (max-width: 700px) {
+  .add-grid {
+    grid-template-columns: 1fr;
+  }
+  .member-list li {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
 }
