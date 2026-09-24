@@ -77,10 +77,14 @@
               type="radio"
               formControlName="teamId"
               [value]="team.id"
-              [attr.aria-label]="team.name"
-            /><img [src]="team.jersey" alt="" /><span>{{ team.shortName }}</span
-            ><i aria-hidden="true">{{ teamId() === team.id ? '✓' : '' }}</i></label
-          >
+              [attr.aria-label]="team.name" /><img [src]="team.jersey" alt="" /><span>{{
+              team.shortName
+            }}</span
+            ><i aria-hidden="true">
+              @if (teamId() === team.id) {
+                <ng-icon name="lucideCheck" />
+              }</i
+          ></label>
         }
       </div>
       @if (submitted() && !teamId()) {
@@ -121,7 +125,8 @@
     <div class="save-profile">
       <p>Your favourite team and photo are saved only in this browser.</p>
       <button class="save-button" type="submit" [disabled]="busy()">
-        {{ existing ? 'Save profile' : 'Enter the clubhouse' }} <span aria-hidden="true">→</span>
+        {{ existing ? 'Save profile' : 'Enter the clubhouse'
+        }}<ng-icon class="link-icon" name="lucideArrowRight" />
       </button>
       @if (canSignOut) {
         <button class="sign-out" type="button" (click)="signOut()" [disabled]="busy()">

@@ -5,6 +5,8 @@ import { RouterLink } from '@angular/router';
 import { ApiService } from '../../core/api/api.service';
 import { CompetitionService } from '../../core/competition/competition.service';
 import { RoundViewService } from '../../core/league/round-view.service';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import { lucideExternalLink } from '@ng-icons/lucide';
 import { Icon } from '../../shared/icon/icon';
 import { Loader } from '../../shared/loader/loader';
 
@@ -14,7 +16,8 @@ import { Loader } from '../../shared/loader/loader';
   templateUrl: './more.page.html',
   styleUrl: './more.page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, RouterLink, Icon, Loader],
+  imports: [DatePipe, RouterLink, Icon, NgIcon, Loader],
+  viewProviders: [provideIcons({ lucideExternalLink })],
 })
 export class MorePage {
   readonly view = inject(RoundViewService);

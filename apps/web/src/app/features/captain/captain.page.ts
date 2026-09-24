@@ -5,6 +5,8 @@ import { ToastService } from '../../core/feedback/toast.service';
 import { LeagueData } from '../../core/league/league-data';
 import { LeagueMember } from '../../core/league/league.models';
 import { ReviewView, RoundViewService } from '../../core/league/round-view.service';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import { lucidePlay } from '@ng-icons/lucide';
 import { Icon } from '../../shared/icon/icon';
 import { Loader } from '../../shared/loader/loader';
 import { ReasonDialog } from '../duties/reason-dialog/reason-dialog';
@@ -15,7 +17,8 @@ import { ReasonDialog } from '../duties/reason-dialog/reason-dialog';
   templateUrl: './captain.page.html',
   styleUrl: './captain.page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, Icon, Loader, ReasonDialog],
+  imports: [ReactiveFormsModule, Icon, NgIcon, Loader, ReasonDialog],
+  viewProviders: [provideIcons({ lucidePlay })],
 })
 export class CaptainPage {
   private readonly league = inject(LeagueData);
@@ -114,7 +117,9 @@ export class CaptainPage {
           : `${member.name} is open for any member to claim.`,
       );
     } catch (error) {
-      this.memberError.set(error instanceof Error ? error.message : 'The email could not be saved.');
+      this.memberError.set(
+        error instanceof Error ? error.message : 'The email could not be saved.',
+      );
     } finally {
       this.memberBusy.set(null);
     }
@@ -149,7 +154,9 @@ export class CaptainPage {
       this.newMember.reset();
       this.toast.show(`${name.trim()} added to the league.`);
     } catch (error) {
-      this.memberError.set(error instanceof Error ? error.message : 'The member could not be added.');
+      this.memberError.set(
+        error instanceof Error ? error.message : 'The member could not be added.',
+      );
     } finally {
       this.addingMember.set(false);
     }

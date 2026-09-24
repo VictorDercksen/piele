@@ -60,7 +60,11 @@
             <app-icon name="clock" /><span>{{ deadline(duty) }}</span>
           </div>
           <div class="duty-actions">
-            @if (duty.display === 'open' || duty.display === 'overdue' || duty.display === 'pending_deadline') {
+            @if (
+              duty.display === 'open' ||
+              duty.display === 'overdue' ||
+              duty.display === 'pending_deadline'
+            ) {
               <button type="button" class="primary-button" (click)="evidence().open(duty)">
                 <app-icon name="upload" />Upload evidence
               </button>
@@ -70,8 +74,8 @@
               </button>
             }
             <a class="text-button" routerLink="/duties" queryParamsHandling="preserve"
-              >Duty details ↗</a
-            >
+              >Duty details<ng-icon class="link-icon" name="lucideArrowRight"
+            /></a>
           </div>
         </div>
       </article>
@@ -91,8 +95,10 @@
           routerLink="/duties"
           [queryParams]="{ scope: 'league' }"
           queryParamsHandling="merge"
-          >League duties ({{ view.duties().length }}) →</a
-        >
+          >League duties ({{ view.duties().length }})<ng-icon
+            class="link-icon"
+            name="lucideArrowRight"
+        /></a>
       </article>
     }
     @if (view.isCaptain() && view.reviewCount()) {

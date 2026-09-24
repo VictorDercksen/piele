@@ -16,6 +16,8 @@ import { LeagueData } from '../../core/league/league-data';
 import { preparePhoto } from '../../core/profile/profile-photo';
 import { ProfileStore } from '../../core/profile/profile.store';
 import { TEAMS, club } from '../../core/competition/teams';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import { lucideArrowRight, lucideCheck } from '@ng-icons/lucide';
 import { Loader } from '../../shared/loader/loader';
 
 /** Onboarding and profile form: display name, favourite team and optional photo. */
@@ -24,7 +26,8 @@ import { Loader } from '../../shared/loader/loader';
   templateUrl: './profile-editor.html',
   styleUrl: './profile-editor.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, RouterLink, Loader],
+  imports: [ReactiveFormsModule, RouterLink, NgIcon, Loader],
+  viewProviders: [provideIcons({ lucideArrowRight, lucideCheck })],
 })
 export class ProfileEditor {
   private readonly store = inject(ProfileStore);

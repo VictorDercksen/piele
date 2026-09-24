@@ -1,9 +1,19 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+  input,
+  output,
+  signal,
+} from '@angular/core';
 import { formatLeagueTime, formatRelative } from '../../../core/competition/league-time';
 import { LeagueData } from '../../../core/league/league-data';
 import { DutyEvidence } from '../../../core/league/league.models';
 import { RoundDutyView } from '../../../core/league/round-view.service';
 import { Icon } from '../../../shared/icon/icon';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import { lucidePlay } from '@ng-icons/lucide';
 
 /** One register entry: status, deadline, marks, evidence trail and the actions the viewer may take. */
 @Component({
@@ -11,7 +21,8 @@ import { Icon } from '../../../shared/icon/icon';
   templateUrl: './duty-card.html',
   styleUrl: './duty-card.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Icon],
+  imports: [Icon, NgIcon],
+  viewProviders: [provideIcons({ lucidePlay })],
   host: {
     class: 'register-card',
     '[class.personal-duty]': 'duty().mine',
@@ -44,7 +55,11 @@ export class DutyCard {
   readonly canUpload = computed(() => this.duty().mine && this.live());
   readonly canRecord = computed(() => this.captain() && !this.duty().mine && this.live());
   readonly canReset = computed(
-    () => this.captain() && !this.duty().mine && this.duty().status === 'open' && !!this.duty().deadlineAt,
+    () =>
+      this.captain() &&
+      !this.duty().mine &&
+      this.duty().status === 'open' &&
+      !!this.duty().deadlineAt,
   );
   readonly clockReset = computed(() => {
     const at = this.duty().clockResetAt;
@@ -52,7 +67,8 @@ export class DutyCard {
   });
   readonly evidenceSummary = computed(() => {
     const duty = this.duty();
-    if (duty.status === 'completed') return `Accepted · completed ${formatLeagueTime(duty.completedAt)}`;
+    if (duty.status === 'completed')
+      return `Accepted · completed ${formatLeagueTime(duty.completedAt)}`;
     if (duty.status === 'voided') return `Voided · ${duty.voidReason || 'no reason given'}`;
     if (duty.evidence.some((e) => e.decision === 'pending')) return 'Submitted for review';
     if (duty.evidence.some((e) => e.decision === 'rejected')) return 'Rejected · submit again';
@@ -64,9 +80,12 @@ export class DutyCard {
   }
 
   decisionLabel(evidence: DutyEvidence): string {
-    return { pending: 'Pending', accepted: 'Accepted', rejected: 'Rejected', superseded: 'Superseded' }[
-      evidence.decision
-    ];
+    return {
+      pending: 'Pending',
+      accepted: 'Accepted',
+      rejected: 'Rejected',
+      superseded: 'Superseded',
+    }[evidence.decision];
   }
 
   async watch(evidence: DutyEvidence): Promise<void> {
