@@ -1,6 +1,16 @@
-import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  inject,
+  input,
+  linkedSignal,
+  output,
+} from '@angular/core';
 import { CLUB_BANNERS } from '../../../core/competition/club-banners';
 import { Fixture } from '../../../core/competition/competition.models';
+import { MatchArtwork } from '../../../core/competition/match-artwork';
 import { stadiumCountry } from '../../../core/competition/stadiums';
 import { Icon } from '../../../shared/icon/icon';
 
@@ -13,6 +23,7 @@ import { Icon } from '../../../shared/icon/icon';
   imports: [Icon],
 })
 export class MatchHero {
+  private readonly artwork = inject(MatchArtwork);
   readonly fixture = input.required<Fixture>();
   readonly roundCode = input.required<string>();
   readonly favourite = input('');
@@ -21,7 +32,20 @@ export class MatchHero {
   /** Shows the link into the match centre. */
   readonly linked = input(true);
   readonly explore = output<void>();
-  readonly homeBanner = computed(() => CLUB_BANNERS[this.fixture().homeAsset]);
-  readonly awayBanner = computed(() => CLUB_BANNERS[this.fixture().awayAsset]);
-  readonly country = computed(() => stadiumCountry(this.fixture().venue));
+  /**
+   * The fixture on screen. Holds the previous matchup until the next one's artwork
+   * has decoded, so the whole hero changes in one frame.
+   */
+  readonly shown = linkedSignal<Fixture, Fixture>({
+    source: this.fixture,
+    computation: (next, previous) =>
+      !previous || this.artwork.ready(next) ? next : previous.value,
+  });
+  readonly homeBanner = computed(() => CLUB_BANNERS[this.shown().homeAsset]);
+  readonly awayBanner = computed(() => CLUB_BANNERS[this.shown().awayAsset]);
+  readonly country = computed(() => stadiumCountry(this.shown().venue));
+
+  constructor() {
+    effect(() => this.artwork.preload(this.fixture()));
+  }
 }

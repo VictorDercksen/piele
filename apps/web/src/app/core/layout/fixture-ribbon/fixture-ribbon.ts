@@ -1,5 +1,7 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, effect, inject } from '@angular/core';
 import { Router } from '@angular/router';
+import { Fixture } from '../../competition/competition.models';
+import { MatchArtwork } from '../../competition/match-artwork';
 import { jersey } from '../../competition/teams';
 import { RoundViewService } from '../../league/round-view.service';
 
@@ -20,6 +22,8 @@ import { RoundViewService } from '../../league/round-view.service';
         [class.active]="view.featured()?.id === match.id"
         [attr.aria-pressed]="view.featured()?.id === match.id"
         (click)="choose(match.id)"
+        (pointerenter)="prepare(match)"
+        (focus)="prepare(match)"
       >
         <span
           >{{ match.day }} <strong>{{ match.score || match.time }}</strong></span
@@ -35,8 +39,18 @@ import { RoundViewService } from '../../league/round-view.service';
 })
 export class FixtureRibbon {
   private readonly router = inject(Router);
+  private readonly artwork = inject(MatchArtwork);
   readonly view = inject(RoundViewService);
   readonly jersey = jersey;
+
+  constructor() {
+    effect(() => this.artwork.warm(this.view.fixtures()));
+  }
+
+  /** Loads a matchup's artwork on hover or focus in case warming has not reached it. */
+  prepare(match: Fixture): void {
+    this.artwork.preload(match);
+  }
 
   choose(fixtureId: string): void {
     if (this.router.url.split(/[?#]/)[0].startsWith('/match/')) {

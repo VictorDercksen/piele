@@ -1,7 +1,7 @@
 <section class="match-story" [attr.aria-label]="'Round ' + roundCode() + ' match centre'">
   <div class="match-heading">
-    <span class="match-label">{{ fixture().score ? 'FULL TIME' : label() }}</span>
-    <span class="match-date">{{ fixture().day }}</span>
+    <span class="match-label">{{ shown().score ? 'FULL TIME' : label() }}</span>
+    <span class="match-date">{{ shown().day }}</span>
   </div>
   <div class="score-bug">
     <div class="club-banner" [style.--club-colour]="homeBanner()?.colour">
@@ -9,17 +9,15 @@
         <img class="club-pattern" [src]="banner.pattern" alt="" />
         <img class="club-crest" [src]="banner.crest" alt="" />
       }
-      <h2>{{ homeBanner()?.name ?? fixture().home }}</h2>
+      <h2>{{ homeBanner()?.name ?? shown().home }}</h2>
       <span class="club-side"
-        >HOME{{ fixture().homeAsset === favourite() ? ' / YOUR TEAM' : '' }}</span
+        >HOME{{ shown().homeAsset === favourite() ? ' / YOUR TEAM' : '' }}</span
       >
     </div>
     <div class="match-time">
-      <span>{{ fixture().score ? 'RESULT' : 'KICKOFF' }}</span>
-      <strong>{{ fixture().score || fixture().time }}</strong>
-      <small>{{
-        fixture().score ? 'FULL TIME' : fixture().kickoffUtc ? 'SAST' : 'TIME TBC'
-      }}</small>
+      <span>{{ shown().score ? 'RESULT' : 'KICKOFF' }}</span>
+      <strong>{{ shown().score || shown().time }}</strong>
+      <small>{{ shown().score ? 'FULL TIME' : shown().kickoffUtc ? 'SAST' : 'TIME TBC' }}</small>
       <span class="versus" aria-hidden="true">VS</span>
     </div>
     <div class="club-banner" [style.--club-colour]="awayBanner()?.colour">
@@ -27,9 +25,9 @@
         <img class="club-pattern" [src]="banner.pattern" alt="" />
         <img class="club-crest" [src]="banner.crest" alt="" />
       }
-      <h2>{{ awayBanner()?.name ?? fixture().away }}</h2>
+      <h2>{{ awayBanner()?.name ?? shown().away }}</h2>
       <span class="club-side"
-        >AWAY{{ fixture().awayAsset === favourite() ? ' / YOUR TEAM' : '' }}</span
+        >AWAY{{ shown().awayAsset === favourite() ? ' / YOUR TEAM' : '' }}</span
       >
     </div>
   </div>
@@ -60,7 +58,7 @@
             />
           }
         </span>
-        <strong>{{ fixture().venue }}</strong>
+        <strong>{{ shown().venue }}</strong>
       </div>
     </div>
     @if (linked()) {
