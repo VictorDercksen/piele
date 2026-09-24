@@ -108,12 +108,27 @@ export class CaptainPage {
     try {
       await this.league.updateMember(member.id, this.emailControl.value.trim() || null);
       this.editing.set(null);
-      this.toast.show(`${member.name}'s sign-in email updated.`);
+      this.toast.show(
+        this.emailControl.value.trim()
+          ? `${member.name} is reserved for ${this.emailControl.value.trim()}.`
+          : `${member.name} is open for any member to claim.`,
+      );
     } catch (error) {
       this.memberError.set(error instanceof Error ? error.message : 'The email could not be saved.');
     } finally {
       this.memberBusy.set(null);
     }
+  }
+
+  release(member: LeagueMember): void {
+    this.reasonDialog().open({
+      title: `Release ${member.name}?`,
+      description: `The account that claimed ${member.name} loses access to the clubhouse and the name becomes claimable again. Duties and marks stay with ${member.name}.`,
+      submitLabel: 'Release name',
+      required: false,
+      action: () => this.league.releaseMember(member.id),
+      done: () => this.toast.show(`${member.name} can be claimed again.`),
+    });
   }
 
   async addMember(): Promise<void> {

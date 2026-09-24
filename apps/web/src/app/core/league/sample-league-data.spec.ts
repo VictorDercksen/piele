@@ -59,6 +59,27 @@ describe('sample league data', () => {
     await expect(data.voidDuty('duty-1', 'x')).rejects.toThrow();
   });
 
+  it('keeps marks through a challenge and resets the clock only when it is upheld', async () => {
+    const data = new SampleLeagueData();
+    const before = data.duties().find((d) => d.id === 'duty-4')!;
+    expect(before.marks.marks).toBeGreaterThanOrEqual(3);
+    await data.resetClock('duty-4', 'Challenge upheld');
+    const after = data.duties().find((d) => d.id === 'duty-4')!;
+    expect(after.marks.marks).toBe(0);
+    expect(after.clockResetAt).not.toBeNull();
+    expect(after.display).toBe('overdue');
+    expect(data.feed()[0].kind).toBe('duty_clock_reset');
+    await expect(data.resetClock('duty-2', 'x')).rejects.toThrow(/uninvolved/);
+    await expect(data.resetClock('duty-1', 'x')).rejects.toThrow(/open/);
+  });
+
+  it('releases a claimed name except the captain’s own', async () => {
+    const data = new SampleLeagueData();
+    await data.releaseMember('member-lm');
+    expect(data.members().find((m) => m.id === 'member-lm')?.claimed).toBe(false);
+    await expect(data.releaseMember('member-me')).rejects.toThrow();
+  });
+
   it('counts a revised ballot once and rejects closed polls', async () => {
     const data = new SampleLeagueData();
     await data.castVote('poll-2', 'Accept correction');

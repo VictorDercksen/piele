@@ -9,6 +9,7 @@ from uuid import UUID, uuid4
 
 from fastapi import HTTPException
 from sqlalchemy import and_, func, insert, or_, select, update
+from sqlalchemy.engine import Connection
 from sqlalchemy.exc import IntegrityError
 
 from app.league import tables as t
@@ -116,6 +117,63 @@ def members(actor: Actor) -> Sequence[Any]:
         .where(m.c.league_id == actor.league_id)
         .order_by(m.c.full_name)
     ).all()
+
+
+def unclaimed_memberships(connection: Connection) -> Sequence[Any]:
+    """Names a signed-in account may claim: active, unclaimed and not reserved for an email."""
+    m = t.league_memberships
+    return connection.execute(
+        select(m.c.id, m.c.display_name, m.c.full_name)
+        .where(m.c.user_id.is_(None), m.c.status == "active", m.c.invited_email.is_(None))
+        .order_by(m.c.full_name)
+    ).all()
+
+
+def claim_membership(connection: Connection, user_id: UUID, membership_id: UUID) -> bool:
+    """Binds the account to the chosen name. False when it was taken, reserved or unknown."""
+    m = t.league_memberships
+    existing = connection.execute(
+        select(m.c.id).where(m.c.user_id == user_id, m.c.status == "active")
+    ).first()
+    if existing is not None:
+        raise problem(409, "already_member", "This account already has a Superbru name.")
+    claimed = connection.execute(
+        update(m)
+        .where(
+            m.c.id == membership_id,
+            m.c.user_id.is_(None),
+            m.c.status == "active",
+            m.c.invited_email.is_(None),
+        )
+        .values(user_id=user_id, updated_at=func.now(), version=m.c.version + 1)
+        .returning(m.c.id)
+    ).first()
+    return claimed is not None
+
+
+def release_membership(actor: Actor, membership_id: UUID) -> None:
+    """Captain undoes a claim so the right account can take the name. Not for the captain's own."""
+    if membership_id == actor.membership_id:
+        raise problem(409, "captain_membership", "The captain's own membership cannot be released.")
+    m = t.league_memberships
+    row = actor.connection.execute(select(m).where(m.c.id == membership_id).with_for_update()).first()
+    if row is None:
+        raise problem(404, "unknown_member", "Unknown member.")
+    if row.user_id is None:
+        raise problem(409, "not_claimed", "That name has not been claimed.")
+    actor.connection.execute(
+        update(m)
+        .where(m.c.id == membership_id, m.c.version == row.version)
+        .values(user_id=None, updated_at=func.now(), version=m.c.version + 1)
+    )
+    record(
+        actor,
+        action="membership.released",
+        entity_type="league_membership",
+        entity_id=membership_id,
+        before={"claimed": True},
+        after={"claimed": False},
+    )
 
 
 def add_member(actor: Actor, *, display_name: str, full_name: str, email: str | None) -> UUID:
@@ -248,6 +306,7 @@ def duties(actor: Actor, round_number: int | None = None, duty_id: UUID | None =
             voided=row.status == "voided",
             now=now,
             closure_at=actor.season_closed_at,
+            clock_reset_at=row.clock_reset_at,
         )
         views.append(DutyView(row, row.member_id, row.member_name, marks, _display(row, duty_links, now), duty_links))
     return views
@@ -362,6 +421,46 @@ def void_duty(actor: Actor, duty_id: UUID, *, reason: str) -> None:
         feed=FeedEntry(
             kind="duty_voided",
             title=f"{view.member_name}: {duty_title(row.type, row.round_number)} voided.",
+            detail=reason,
+            round_number=row.round_number,
+            subject_membership_id=view.member_id,
+            duty_id=duty_id,
+        ),
+    )
+
+
+def reset_clock(actor: Actor, duty_id: UUID, *, reason: str) -> None:
+    """A challenge resolved in the member's favour restarts the overdue clock from now.
+
+    League decision: challenges never pause accrual. Resolved against the member, the marks
+    stand and nothing is recorded here; resolved in their favour, elapsed time resets.
+    """
+    d = t.duties
+    row = actor.connection.execute(select(d).where(d.c.id == duty_id).with_for_update()).first()
+    if row is None:
+        raise problem(404, "unknown_duty", "Unknown duty.")
+    if row.status != "open":
+        raise problem(409, "duty_closed", "Only an open duty's clock can be reset.")
+    view = duties(actor, duty_id=duty_id)[0]
+    if view.member_id == actor.membership_id:
+        raise problem(403, "self_review", "A challenge about your own duty needs an uninvolved decision.")
+    now = now_utc()
+    actor.connection.execute(
+        update(d)
+        .where(d.c.id == duty_id, d.c.version == row.version)
+        .values(clock_reset_at=now, updated_at=func.now(), version=d.c.version + 1)
+    )
+    record(
+        actor,
+        action="duty.clock_reset",
+        entity_type="duty",
+        entity_id=duty_id,
+        reason=reason,
+        before={"clockResetAt": _iso(row.clock_reset_at), "marks": view.marks.marks},
+        after={"clockResetAt": _iso(now), "marks": 0},
+        feed=FeedEntry(
+            kind="duty_clock_reset",
+            title=f"{view.member_name}: {duty_title(row.type, row.round_number)} clock reset.",
             detail=reason,
             round_number=row.round_number,
             subject_membership_id=view.member_id,

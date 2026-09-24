@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from app.config import Settings
 from app.league import service
-from app.league.context import Actor, actor_dependency, captain_dependency
+from app.league.context import Account, Actor, account_dependency, actor_dependency, actor_for, captain_dependency
 from app.league.storage import Storage
 
 router = APIRouter(tags=["league"])
@@ -51,6 +51,38 @@ def me(actor: Actor = Depends(actor_dependency)) -> Me:
         seasonName=actor.season_name,
         inSeason=actor.season_membership_id is not None,
     )
+
+
+class UnclaimedName(BaseModel):
+    id: UUID
+    displayName: str
+    fullName: str
+
+
+@router.get("/memberships/unclaimed", response_model=list[UnclaimedName])
+def unclaimed(account: Account = Depends(account_dependency)) -> list[UnclaimedName]:
+    return [
+        UnclaimedName(id=row.id, displayName=row.display_name, fullName=row.full_name)
+        for row in service.unclaimed_memberships(account.connection)
+    ]
+
+
+class Claim(BaseModel):
+    memberId: UUID
+
+
+@router.post("/memberships/claim", response_model=Me)
+def claim(body: Claim, account: Account = Depends(account_dependency)) -> Me:
+    """A signed-in account without a membership takes one of the unclaimed Superbru names."""
+    if not service.claim_membership(account.connection, account.user_id, body.memberId):
+        raise service.problem(409, "name_taken", "That name is no longer available. Choose another.")
+    actor = actor_for(account, just_claimed=True)
+    return me(actor)
+
+
+@router.post("/members/{member_id}/release", status_code=204)
+def release_member(member_id: UUID, actor: Actor = Depends(captain_dependency)) -> None:
+    service.release_membership(actor, member_id)
 
 
 class Member(BaseModel):
@@ -153,6 +185,7 @@ class Duty(BaseModel):
     status: Lifecycle
     display: Display
     completedAt: datetime | None
+    clockResetAt: datetime | None
     voidReason: str | None
     createdAt: datetime
     marks: Marks
@@ -173,6 +206,7 @@ def _duty(view: service.DutyView) -> Duty:
         status=row.status,
         display=view.display,
         completedAt=row.completed_at,
+        clockResetAt=row.clock_reset_at,
         voidReason=row.void_reason,
         createdAt=row.created_at,
         marks=Marks(
@@ -248,6 +282,13 @@ class Reason(BaseModel):
 @router.post("/duties/{duty_id}/void", response_model=Duty)
 def void_duty(duty_id: UUID, body: Reason, actor: Actor = Depends(captain_dependency)) -> Duty:
     service.void_duty(actor, duty_id, reason=body.reason.strip())
+    return _duty(service.duties(actor, duty_id=duty_id)[0])
+
+
+@router.post("/duties/{duty_id}/reset-clock", response_model=Duty)
+def reset_duty_clock(duty_id: UUID, body: Reason, actor: Actor = Depends(captain_dependency)) -> Duty:
+    """Records a challenge resolved in the member's favour: the overdue clock restarts now."""
+    service.reset_clock(actor, duty_id, reason=body.reason.strip())
     return _duty(service.duties(actor, duty_id=duty_id)[0])
 
 

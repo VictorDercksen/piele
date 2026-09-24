@@ -30,6 +30,8 @@ export class DutyCard {
   /** The captain records evidence on the member's behalf. */
   readonly record = output<void>();
   readonly voided = output<void>();
+  /** The captain records a challenge resolved in the member's favour. */
+  readonly resetClock = output<void>();
   readonly playbackError = signal('');
   readonly deadline = computed(() => formatLeagueTime(this.duty().deadlineAt));
   readonly nextMark = computed(() => {
@@ -41,6 +43,13 @@ export class DutyCard {
   );
   readonly canUpload = computed(() => this.duty().mine && this.live());
   readonly canRecord = computed(() => this.captain() && !this.duty().mine && this.live());
+  readonly canReset = computed(
+    () => this.captain() && !this.duty().mine && this.duty().status === 'open' && !!this.duty().deadlineAt,
+  );
+  readonly clockReset = computed(() => {
+    const at = this.duty().clockResetAt;
+    return at ? formatLeagueTime(at) : null;
+  });
   readonly evidenceSummary = computed(() => {
     const duty = this.duty();
     if (duty.status === 'completed') return `Accepted · completed ${formatLeagueTime(duty.completedAt)}`;

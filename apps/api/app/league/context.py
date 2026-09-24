@@ -49,10 +49,19 @@ def now_utc() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def resolve_actor(connection: Connection, claims: Claims, request_id: str) -> Actor:
+@dataclass
+class Account:
+    """A verified sign-in that may or may not belong to the league yet."""
+
+    connection: Connection
+    request_id: str
+    claims: Claims
+    user_id: UUID
+
+
+def resolve_account(connection: Connection, claims: Claims, request_id: str) -> Account:
     set_context(connection, "auth_subject", str(claims.subject))
     set_context(connection, "auth_email", claims.email if claims.email_verified else None)
-
     user = connection.execute(select(t.users).where(t.users.c.auth_subject == claims.subject)).first()
     if user is None:
         user = connection.execute(
@@ -62,15 +71,24 @@ def resolve_actor(connection: Connection, claims: Claims, request_id: str) -> Ac
         connection.execute(
             update(t.users).where(t.users.c.id == user.id).values(email=claims.email, updated_at=func.now())
         )
+    return Account(connection, request_id, claims, user.id)
 
+
+def resolve_actor(connection: Connection, claims: Claims, request_id: str) -> Actor:
+    account = resolve_account(connection, claims, request_id)
+    return actor_for(account)
+
+
+def actor_for(account: Account, *, just_claimed: bool = False) -> Actor:
+    connection, claims, user_id = account.connection, account.claims, account.user_id
     membership = connection.execute(
         select(t.league_memberships).where(
-            t.league_memberships.c.user_id == user.id, t.league_memberships.c.status == "active"
+            t.league_memberships.c.user_id == user_id, t.league_memberships.c.status == "active"
         )
     ).first()
-    claimed = False
+    claimed = just_claimed
     if membership is None and claims.email and claims.email_verified:
-        # A verified sign-in with the invited address claims the membership exactly once.
+        # A verified sign-in with the reserved address claims the membership exactly once.
         membership = connection.execute(
             update(t.league_memberships)
             .where(
@@ -78,7 +96,7 @@ def resolve_actor(connection: Connection, claims: Claims, request_id: str) -> Ac
                 t.league_memberships.c.status == "active",
                 func.lower(t.league_memberships.c.invited_email) == claims.email,
             )
-            .values(user_id=user.id, updated_at=func.now(), version=t.league_memberships.c.version + 1)
+            .values(user_id=user_id, updated_at=func.now(), version=t.league_memberships.c.version + 1)
             .returning(t.league_memberships)
         ).first()
         claimed = membership is not None
@@ -105,8 +123,8 @@ def resolve_actor(connection: Connection, claims: Claims, request_id: str) -> Ac
 
     actor = Actor(
         connection=connection,
-        request_id=request_id,
-        user_id=user.id,
+        request_id=account.request_id,
+        user_id=user_id,
         league_id=league.id,
         league_name=league.name,
         membership_id=membership.id,
@@ -130,20 +148,37 @@ def resolve_actor(connection: Connection, claims: Claims, request_id: str) -> Ac
     return actor
 
 
-def actor_dependency(
-    request: Request, credentials: HTTPAuthorizationCredentials | None = Depends(bearer)
-) -> Iterator[Actor]:
+def _verified_claims(request: Request, credentials: HTTPAuthorizationCredentials | None) -> Claims:
     if credentials is None or credentials.scheme.lower() != "bearer":
         raise HTTPException(status_code=401, detail={"code": "unauthenticated", "message": "Sign in to continue."})
     verifier: TokenVerifier = request.app.state.token_verifier
     try:
-        claims = verifier.verify(credentials.credentials)
+        return verifier.verify(credentials.credentials)
     except TokenError as exc:
         raise HTTPException(status_code=401, detail={"code": "invalid_token", "message": str(exc)}) from exc
+
+
+def _engine(request: Request):
     engine = get_engine(request.app.state.settings)
     if engine is None:
         raise HTTPException(status_code=503, detail={"code": "no_database", "message": "The league database is not configured."})
-    with engine.begin() as connection:
+    return engine
+
+
+def account_dependency(
+    request: Request, credentials: HTTPAuthorizationCredentials | None = Depends(bearer)
+) -> Iterator[Account]:
+    """A verified sign-in, member or not. Used only to list and claim unclaimed names."""
+    claims = _verified_claims(request, credentials)
+    with _engine(request).begin() as connection:
+        yield resolve_account(connection, claims, request.state.request_id)
+
+
+def actor_dependency(
+    request: Request, credentials: HTTPAuthorizationCredentials | None = Depends(bearer)
+) -> Iterator[Actor]:
+    claims = _verified_claims(request, credentials)
+    with _engine(request).begin() as connection:
         yield resolve_actor(connection, claims, request.state.request_id)
 
 

@@ -81,6 +81,7 @@ duties = Table(
     Column("type", String(30), nullable=False),
     Column("reason", Text, nullable=False),
     _ts("deadline_at"),
+    _ts("clock_reset_at"),
     Column("status", String(20), nullable=False),
     _ts("completed_at"),
     _ts("voided_at"),

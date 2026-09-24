@@ -127,6 +127,10 @@ export class RoundViewService {
     return this.league.voidDuty(dutyId, reason);
   }
 
+  resetClock(dutyId: string, reason: string): Promise<void> {
+    return this.league.resetClock(dutyId, reason);
+  }
+
   castVote(pollId: string, choice: string): Promise<void> {
     return this.league.castVote(pollId, choice);
   }

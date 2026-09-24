@@ -46,6 +46,18 @@ export class DutiesPage {
     });
   }
 
+  resetClock(duty: RoundDutyView): void {
+    this.reasonDialog().open({
+      title: 'Challenge upheld?',
+      description: `Use this only when a challenge about ${duty.title} is resolved in ${duty.memberName}'s favour. The ${duty.marks.marks} ${duty.marks.marks === 1 ? 'mark' : 'marks'} so far are cleared and the overdue clock restarts now. A challenge that fails needs nothing here: the marks kept accruing.`,
+      submitLabel: 'Reset the clock',
+      required: true,
+      spoon: duty.spoon,
+      action: (reason) => this.view.resetClock(duty.id, reason),
+      done: () => this.toast.show(`${duty.title} clock reset for ${duty.memberName}.`),
+    });
+  }
+
   created(duty: { title: string; memberName: string; deadlineAt: string | null }): void {
     this.toast.show(
       `${duty.title} created for ${duty.memberName}. Due ${formatLeagueTime(duty.deadlineAt)}.`,

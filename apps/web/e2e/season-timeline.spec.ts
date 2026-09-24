@@ -127,6 +127,11 @@ test('sample league duties, evidence, votes and round scoping', async ({ page })
   await page.getByRole('link', { name: "Round 03 captain's desk" }).click();
   await expect(page.locator('.round-empty')).toContainText('Nothing needs your decision');
   await expect(page.locator('.member-list li')).toHaveCount(6);
+  const liam = page.locator('.member-list li').filter({ hasText: 'Liam' });
+  await liam.getByRole('button', { name: 'Release Liam' }).click();
+  await page.getByRole('dialog').filter({ hasText: 'Release Liam?' }).getByRole('button', { name: 'Release name' }).click();
+  await expect(liam).toContainText('OPEN');
+  await expect(page.locator('.member-list li').filter({ hasText: 'You' }).getByRole('button', { name: /Release/ })).toHaveCount(0);
   await page.goto('/constitution');
   await expect(page.getByRole('heading', { name: 'Same club. Shared rules.' })).toBeVisible();
 });
@@ -259,11 +264,27 @@ test('captain creates, records and decides duties; the feed follows', async ({ p
   await feed.getByRole('button', { name: 'Season' }).click();
   await expect(feed.locator('.feed-item')).toHaveCount(13);
   await expect(feed.locator('.feed-item').last()).toContainText('URC 2026/27 is open');
-  await page.goto('/standings?round=2');
+  await nav.getByRole('link', { name: 'Standings', exact: true }).click();
   await page.getByRole('button', { name: 'House marks' }).click();
   const arno = page.locator('.standing-row').filter({ hasText: 'Arno' });
   await expect(arno).toContainText('1 open duty');
   expect(Number(await arno.locator('strong').textContent())).toBeGreaterThanOrEqual(3);
+
+  // A challenge upheld in Arno's favour clears his marks and restarts the clock.
+  await page.getByRole('navigation', { name: 'Season timeline' }).locator('.round-stop').first().click();
+  await nav.getByRole('link', { name: 'Duties', exact: true }).click();
+  await page.getByRole('link', { name: 'League duties', exact: true }).click();
+  const arnoDuty = page.locator('.register-card').filter({ hasText: 'Arno' });
+  await expect(arnoDuty).toContainText('Overdue');
+  await arnoDuty.getByRole('button', { name: 'Reset clock' }).click();
+  const upheld = page.getByRole('dialog').filter({ hasText: 'Challenge upheld?' });
+  await upheld.getByLabel('Reason').fill('Picks were submitted on time');
+  await upheld.getByRole('button', { name: 'Reset the clock' }).click();
+  await expect(arnoDuty).toContainText('0 marks');
+  await expect(arnoDuty).toContainText('Clock reset');
+  await nav.getByRole('link', { name: 'Standings', exact: true }).click();
+  await page.getByRole('button', { name: 'House marks' }).click();
+  await expect(page.locator('.standing-row').filter({ hasText: 'Arno' }).locator('strong')).toHaveText('0');
 });
 
 test('evidence dialog is centred on desktop and phone', async ({ page }) => {

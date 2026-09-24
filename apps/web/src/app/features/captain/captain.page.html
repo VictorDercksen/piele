@@ -48,8 +48,9 @@
     <span>SEASON</span>
   </div>
   <p class="page-description">
-    A member signs in with Google or a password on the email you record here. Their first
-    sign-in with that address claims the membership.
+    Members sign in with Google or a password and claim their own name. Reserving a name for an
+    email is optional: only a sign-in with that address can then take it. Release a name if the
+    wrong account claimed it.
   </p>
   <ul class="member-list">
     @for (member of view.members(); track member.id) {
@@ -82,18 +83,37 @@
         } @else {
           <span class="member-status">
             <span class="tag" [class.claimed]="member.claimed">{{
-              member.claimed ? 'SIGNED IN' : member.email ? 'INVITED' : 'NO EMAIL'
+              member.claimed ? 'CLAIMED' : member.email ? 'RESERVED' : 'OPEN'
             }}</span>
-            <small>{{ member.email || 'No sign-in email yet' }}</small>
+            <small>{{
+              member.email
+                ? (member.claimed ? 'Reserved for ' : 'Only ') + member.email
+                : member.claimed
+                  ? 'Claimed by a signed-in account'
+                  : 'Any member can claim this name'
+            }}</small>
           </span>
-          <button
-            type="button"
-            class="text-button"
-            (click)="edit(member)"
-            [attr.aria-label]="'Edit email for ' + member.name"
-          >
-            {{ member.email ? 'Change' : 'Add email' }}
-          </button>
+          @if (member.claimed && member.id !== view.memberId()) {
+            <button
+              type="button"
+              class="text-button"
+              (click)="release(member)"
+              [disabled]="memberBusy() === member.id"
+              [attr.aria-label]="'Release ' + member.name"
+            >
+              Release
+            </button>
+          }
+          @if (!member.claimed) {
+            <button
+              type="button"
+              class="text-button"
+              (click)="edit(member)"
+              [attr.aria-label]="'Reserve ' + member.name + ' for an email'"
+            >
+              {{ member.email ? 'Change' : 'Reserve' }}
+            </button>
+          }
         }
       </li>
     }

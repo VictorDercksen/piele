@@ -1,7 +1,7 @@
 import { Routes } from '@angular/router';
 import { Shell } from './core/layout/shell/shell';
 import { PageData } from './core/layout/shell/page-data';
-import { memberRequired, signedIn, signedOut } from './core/auth/auth.guards';
+import { memberRequired, notYetMember, signedIn, signedOut } from './core/auth/auth.guards';
 import { profileMissing, profileRequired } from './core/profile/profile.guards';
 import { captainOnly } from './features/captain/captain.guard';
 
@@ -15,11 +15,10 @@ export const routes: Routes = [
     loadComponent: () => import('./features/sign-in/sign-in.page').then((m) => m.SignInPage),
   },
   {
-    path: 'not-a-member',
-    title: 'Members only · Piele',
-    canActivate: [signedIn],
-    loadComponent: () =>
-      import('./features/sign-in/not-a-member.page').then((m) => m.NotAMemberPage),
+    path: 'claim',
+    title: 'Claim your name · Piele',
+    canActivate: [signedIn, notYetMember],
+    loadComponent: () => import('./features/sign-in/claim.page').then((m) => m.ClaimPage),
   },
   {
     path: 'welcome',

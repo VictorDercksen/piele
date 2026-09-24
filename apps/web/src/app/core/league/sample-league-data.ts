@@ -57,6 +57,7 @@ interface DutyRecord {
   readonly deadlineAt: string | null;
   readonly status: Duty['status'];
   readonly completedAt: string | null;
+  readonly clockResetAt: string | null;
   readonly voidReason: string | null;
   readonly createdAt: string;
   readonly evidence: readonly DutyEvidence[];
@@ -97,6 +98,7 @@ export class SampleLeagueData extends LeagueData {
       deadlineAt: '2026-10-02T18:45:00Z',
       status: 'completed',
       completedAt: '2026-09-27T14:10:00Z',
+      clockResetAt: null,
       voidReason: null,
       createdAt: '2026-09-26T08:00:00Z',
       evidence: [
@@ -125,6 +127,7 @@ export class SampleLeagueData extends LeagueData {
       deadlineAt: '2026-10-09T18:45:00Z',
       status: 'open',
       completedAt: null,
+      clockResetAt: null,
       voidReason: null,
       createdAt: '2026-10-03T08:00:00Z',
       evidence: [],
@@ -138,6 +141,7 @@ export class SampleLeagueData extends LeagueData {
       deadlineAt: '2026-10-09T18:45:00Z',
       status: 'open',
       completedAt: null,
+      clockResetAt: null,
       voidReason: null,
       createdAt: '2026-10-03T08:05:00Z',
       evidence: [
@@ -166,6 +170,7 @@ export class SampleLeagueData extends LeagueData {
       deadlineAt: '2026-09-01T18:45:00Z',
       status: 'open',
       completedAt: null,
+      clockResetAt: null,
       voidReason: null,
       createdAt: '2026-08-30T08:00:00Z',
       evidence: [],
@@ -176,7 +181,13 @@ export class SampleLeagueData extends LeagueData {
     const now = new Date(this.clock());
     const members = this.memberRecords();
     return this.dutyRecords().map((record) => {
-      const marks = sampleMarks(record.deadlineAt, record.completedAt, record.status === 'voided', now);
+      const marks = sampleMarks(
+        record.deadlineAt,
+        record.completedAt,
+        record.status === 'voided',
+        now,
+        record.clockResetAt,
+      );
       const pending = record.evidence.some((e) => e.decision === 'pending');
       const display =
         record.status !== 'open'
@@ -335,6 +346,7 @@ export class SampleLeagueData extends LeagueData {
         deadlineAt,
         status: deadlineAt ? 'open' : 'pending_deadline',
         completedAt: null,
+        clockResetAt: null,
         voidReason: null,
         createdAt: new Date().toISOString(),
         evidence: [],
@@ -357,6 +369,19 @@ export class SampleLeagueData extends LeagueData {
     );
     const name = this.memberRecords().find((m) => m.id === duty.memberId)?.name ?? 'Member';
     this.post('duty_voided', duty.roundId, `${name}: ${title(duty.type, duty.roundId)} voided.`, reason, name);
+    return Promise.resolve();
+  }
+
+  resetClock(dutyId: string, reason: string): Promise<void> {
+    const duty = this.dutyRecords().find((d) => d.id === dutyId);
+    if (!duty || duty.status !== 'open') return Promise.reject(new Error('Only an open duty’s clock can be reset.'));
+    if (duty.memberId === ME)
+      return Promise.reject(new Error('A challenge about your own duty needs an uninvolved decision.'));
+    this.dutyRecords.update((duties) =>
+      duties.map((d) => (d.id === dutyId ? { ...d, clockResetAt: new Date().toISOString() } : d)),
+    );
+    const name = this.memberRecords().find((m) => m.id === duty.memberId)?.name ?? 'Member';
+    this.post('duty_clock_reset', duty.roundId, `${name}: ${title(duty.type, duty.roundId)} clock reset.`, reason, name);
     return Promise.resolve();
   }
 
@@ -401,6 +426,14 @@ export class SampleLeagueData extends LeagueData {
       { ...memberRecord(id, member.name, member.fullName, ''), claimed: false, email: member.email },
     ]);
     this.post('member_added', null, `${member.name} was added to the league.`, '', member.name);
+    return Promise.resolve();
+  }
+
+  releaseMember(memberId: string): Promise<void> {
+    if (memberId === ME) return Promise.reject(new Error('The captain’s own membership cannot be released.'));
+    this.memberRecords.update((members) =>
+      members.map((m) => (m.id === memberId ? { ...m, claimed: false } : m)),
+    );
     return Promise.resolve();
   }
 

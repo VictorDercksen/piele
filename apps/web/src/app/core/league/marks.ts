@@ -11,12 +11,17 @@ export function sampleMarks(
   completedAt: string | null,
   voided: boolean,
   now: Date,
+  clockResetAt: string | null = null,
 ): DutyMarks {
   const asOf = now.toISOString();
   if (voided) return { marks: 0, overdueHours: 0, asOf, nextMarkAt: null, explanation: 'Voided duties earn no marks.' };
   if (!deadlineAt)
     return { marks: 0, overdueHours: 0, asOf, nextMarkAt: null, explanation: 'No confirmed deadline, so no marks accrue.' };
-  const deadline = new Date(deadlineAt).getTime();
+  // A challenge resolved in the member's favour restarts the clock; otherwise it never pauses.
+  const deadline = Math.max(
+    new Date(deadlineAt).getTime(),
+    clockResetAt ? new Date(clockResetAt).getTime() : -Infinity,
+  );
   const end = Math.min(now.getTime(), completedAt ? new Date(completedAt).getTime() : Infinity);
   if (end <= deadline)
     return {

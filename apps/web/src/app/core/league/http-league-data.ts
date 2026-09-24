@@ -13,6 +13,7 @@ import {
   NewDuty,
   NewMember,
   Poll,
+  UnclaimedName,
   RoundNote,
   RoundStanding,
 } from './league.models';
@@ -173,6 +174,29 @@ export class HttpLeagueData extends LeagueData {
   async updateMember(memberId: string, email: string | null): Promise<void> {
     await this.request('PATCH', `/members/${memberId}`, email ? { email } : { clearEmail: true });
     await this.refresh();
+  }
+
+  async resetClock(dutyId: string, reason: string): Promise<void> {
+    await this.request('POST', `/duties/${dutyId}/reset-clock`, { reason });
+    await this.refresh();
+  }
+
+  async releaseMember(memberId: string): Promise<void> {
+    await this.request('POST', `/members/${memberId}/release`);
+    await this.refresh();
+  }
+
+  /** Superbru names nobody has claimed yet, for a signed-in account without one. */
+  unclaimedNames(): Promise<UnclaimedName[]> {
+    return this.request<UnclaimedName[]>('GET', '/memberships/unclaimed');
+  }
+
+  /** Claims a name for this account, then loads the league as that member. */
+  async claim(memberId: string): Promise<void> {
+    const me = await this.request<Me>('POST', '/memberships/claim', { memberId });
+    this.me.set(me);
+    await this.refresh();
+    this.membership.set('member');
   }
 
   castVote(): Promise<void> {

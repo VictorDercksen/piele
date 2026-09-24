@@ -5,7 +5,7 @@
       <span class="brand"><img src="assets/images/piele-crest.png" alt="" />PIELE</span>
       <span class="eyebrow">THE RUGBY CLUBHOUSE / URC 26/27</span>
       <h1>Members<br /><em>only.</em></h1>
-      <p>Sign in with the email address your captain has on record.</p>
+      <p>Sign in, then claim your Superbru name from the team sheet.</p>
     </div>
   </div>
   <form class="panel" [formGroup]="form" (ngSubmit)="withPassword()">
@@ -72,7 +72,7 @@
       {{ mode() === 'sign-in' ? 'No account yet? Create one' : 'Have an account? Sign in' }}
     </button>
     <p class="fine-print">
-      Your account only opens the clubhouse when its email matches a league membership.
+      After signing in you pick your own Superbru name. It stays tied to this account.
     </p>
   </form>
 </section>

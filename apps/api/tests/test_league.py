@@ -106,6 +106,8 @@ def client(storage: FakeStorage) -> TestClient:
     client = TestClient(create_app(settings, storage=storage))
     client.captain_email = email  # type: ignore[attr-defined]
     client.subjects = {}  # type: ignore[attr-defined]
+    # Test leagues share one database, so reservations must not collide between tests.
+    client.mo_email = f"mo-{uuid4().hex[:8]}@example.com"  # type: ignore[attr-defined]
     return client
 
 
@@ -195,24 +197,24 @@ def test_captain_claims_membership_by_verified_email(client: TestClient) -> None
 
 def test_strangers_and_unverified_emails_are_not_members(client: TestClient) -> None:
     assert client.get("/v1/me", headers=auth(subject(client, "STRANGER"), "nobody@example.com")).json()["detail"]["code"] == "not_a_member"
-    invite(client, "Mo", "mo@example.com")
-    unverified = client.get("/v1/me", headers=auth(subject(client, "MO"), "mo@example.com", verified=False))
+    invite(client, "Mo", client.mo_email)
+    unverified = client.get("/v1/me", headers=auth(subject(client, "MO"), client.mo_email, verified=False))
     assert unverified.status_code == 403
-    verified = client.get("/v1/me", headers=auth(subject(client, "MO"), "MO@example.com"))
+    verified = client.get("/v1/me", headers=auth(subject(client, "MO"), client.mo_email.upper()))
     assert verified.status_code == 200 and verified.json()["isCaptain"] is False
     # The invitation is single-use: another account with the same email is still a stranger.
-    assert client.get("/v1/me", headers=auth(subject(client, "STRANGER"), "mo@example.com")).status_code == 403
+    assert client.get("/v1/me", headers=auth(subject(client, "STRANGER"), client.mo_email)).status_code == 403
 
 
 def test_only_the_captain_manages_members(client: TestClient) -> None:
-    invite(client, "Mo", "mo@example.com")
-    mo = auth(subject(client, "MO"), "mo@example.com")
+    invite(client, "Mo", client.mo_email)
+    mo = auth(subject(client, "MO"), client.mo_email)
     assert client.get("/v1/me", headers=mo).status_code == 200
     members = client.get("/v1/members", headers=mo).json()
     assert {m["displayName"] for m in members} == {"Captain", "Mo", "Ola"}
     assert all(m["email"] is None for m in members)
     captain_view = client.get("/v1/members", headers=captain_headers(client)).json()
-    assert next(m for m in captain_view if m["displayName"] == "Mo")["email"] == "mo@example.com"
+    assert next(m for m in captain_view if m["displayName"] == "Mo")["email"] == client.mo_email
     denied = client.post("/v1/members", json={"displayName": "New", "fullName": "New, Person"}, headers=mo)
     assert denied.status_code == 403
     created = client.post(
@@ -232,7 +234,7 @@ def test_only_the_captain_manages_members(client: TestClient) -> None:
 
 
 def test_captain_creates_spoon_duty_with_next_round_kickoff_deadline(client: TestClient) -> None:
-    mo_id = invite(client, "Mo", "mo@example.com")
+    mo_id = invite(client, "Mo", client.mo_email)
     duty = open_duty(client, mo_id, round_number=2)
     assert duty["title"] == "Round 02 Spoon duty"
     assert duty["status"] == "open" and duty["memberName"] == "Mo"
@@ -241,15 +243,15 @@ def test_captain_creates_spoon_duty_with_next_round_kickoff_deadline(client: Tes
     assert default.json()["deadlineAt"] is None  # playoff kickoffs are unknown
     pending = open_duty(client, mo_id, round_number=18)
     assert pending["status"] == "pending_deadline" and pending["marks"]["marks"] == 0
-    listed = client.get("/v1/duties", params={"round": 2}, headers=auth(subject(client, "MO"), "mo@example.com")).json()
+    listed = client.get("/v1/duties", params={"round": 2}, headers=auth(subject(client, "MO"), client.mo_email)).json()
     assert [d["id"] for d in listed] == [duty["id"]]
     feed = client.get("/v1/feed", params={"round": 2}, headers=captain_headers(client)).json()
     assert feed[0]["kind"] == "duty_created" and feed[0]["subjectName"] == "Mo"
 
 
 def test_duty_rules_and_captain_authority(client: TestClient) -> None:
-    mo_id = invite(client, "Mo", "mo@example.com")
-    mo = auth(subject(client, "MO"), "mo@example.com")
+    mo_id = invite(client, "Mo", client.mo_email)
+    mo = auth(subject(client, "MO"), client.mo_email)
     body = {"memberId": str(mo_id), "type": "spoon", "roundNumber": 3}
     assert client.post("/v1/duties", json=body, headers=mo).status_code == 403
     open_duty(client, mo_id, round_number=3)
@@ -268,12 +270,12 @@ def test_duty_rules_and_captain_authority(client: TestClient) -> None:
 
 
 def test_marks_accrue_per_full_week_overdue(client: TestClient) -> None:
-    mo_id = invite(client, "Mo", "mo@example.com")
+    mo_id = invite(client, "Mo", client.mo_email)
     weeks_ago = (now_utc() - timedelta(hours=168 * 2 + 3)).isoformat()
     duty = open_duty(client, mo_id, round_number=5, duty_type="pick_confirmation", deadlineAt=weeks_ago)
     assert duty["display"] == "overdue" and duty["marks"]["marks"] == 2
     assert duty["marks"]["nextMarkAt"] is not None
-    totals = client.get("/v1/marks", headers=auth(subject(client, "MO"), "mo@example.com")).json()
+    totals = client.get("/v1/marks", headers=auth(subject(client, "MO"), client.mo_email)).json()
     assert totals == [{"memberId": str(mo_id), "memberName": "Mo", "marks": 2, "openDuties": 1}]
 
 
@@ -281,8 +283,8 @@ def test_marks_accrue_per_full_week_overdue(client: TestClient) -> None:
 
 
 def test_member_evidence_is_reviewed_and_completion_counts_from_submission(client: TestClient, storage: FakeStorage) -> None:
-    mo_id = invite(client, "Mo", "mo@example.com")
-    mo = auth(subject(client, "MO"), "mo@example.com")
+    mo_id = invite(client, "Mo", client.mo_email)
+    mo = auth(subject(client, "MO"), client.mo_email)
     duty = open_duty(client, mo_id, round_number=2)
     submission = upload_and_submit(client, storage, mo, [duty["id"]], note="Done on Sunday")
     listed = client.get("/v1/duties", params={"round": 2}, headers=mo).json()[0]
@@ -306,7 +308,7 @@ def test_member_evidence_is_reviewed_and_completion_counts_from_submission(clien
 
 
 def test_captain_submits_on_behalf_with_claimed_completion_time(client: TestClient, storage: FakeStorage) -> None:
-    mo_id = invite(client, "Mo", "mo@example.com")
+    mo_id = invite(client, "Mo", client.mo_email)
     duty = open_duty(client, mo_id, round_number=2)
     captain = captain_headers(client)
     missing_time = client.post(
@@ -325,8 +327,8 @@ def test_captain_submits_on_behalf_with_claimed_completion_time(client: TestClie
 
 
 def test_captain_cannot_review_own_evidence_and_members_cannot_submit_for_others(client: TestClient, storage: FakeStorage) -> None:
-    mo_id = invite(client, "Mo", "mo@example.com")
-    mo = auth(subject(client, "MO"), "mo@example.com")
+    mo_id = invite(client, "Mo", client.mo_email)
+    mo = auth(subject(client, "MO"), client.mo_email)
     captain = captain_headers(client)
     captain_id = client.get("/v1/me", headers=captain).json()["memberId"]
     own = open_duty(client, UUID(captain_id), round_number=2)
@@ -344,8 +346,8 @@ def test_captain_cannot_review_own_evidence_and_members_cannot_submit_for_others
 
 
 def test_upload_validation_and_storage_failures(client: TestClient, storage: FakeStorage) -> None:
-    mo_id = invite(client, "Mo", "mo@example.com")
-    mo = auth(subject(client, "MO"), "mo@example.com")
+    mo_id = invite(client, "Mo", client.mo_email)
+    mo = auth(subject(client, "MO"), client.mo_email)
     duty = open_duty(client, mo_id, round_number=2)
     bad_type = client.post("/v1/evidence/uploads", json={"filename": "a.txt", "contentType": "text/plain", "sizeBytes": 10}, headers=mo)
     assert bad_type.json()["detail"]["code"] == "not_a_video"
@@ -370,7 +372,7 @@ def test_upload_validation_and_storage_failures(client: TestClient, storage: Fak
 
 
 def test_failed_mutation_leaves_no_audit_or_feed_rows(client: TestClient) -> None:
-    mo_id = invite(client, "Mo", "mo@example.com")
+    mo_id = invite(client, "Mo", client.mo_email)
     before = len(client.get("/v1/feed", headers=captain_headers(client)).json())
     open_duty(client, mo_id, round_number=6)
     duplicate = client.post("/v1/duties", json={"memberId": str(mo_id), "type": "spoon", "roundNumber": 6}, headers=captain_headers(client))
@@ -380,7 +382,7 @@ def test_failed_mutation_leaves_no_audit_or_feed_rows(client: TestClient) -> Non
 
 def test_leagues_are_isolated(client: TestClient) -> None:
     """A second bootstrapped league never sees the first one's rows."""
-    mo_id = invite(client, "Mo", "mo@example.com")
+    mo_id = invite(client, "Mo", client.mo_email)
     open_duty(client, mo_id, round_number=2)
     engine = get_engine(client.app.state.settings)
     email = f"other-{uuid4().hex[:8]}@example.com"
@@ -390,3 +392,93 @@ def test_leagues_are_isolated(client: TestClient) -> None:
     assert client.get("/v1/duties", headers=other).json() == []
     assert len(client.get("/v1/members", headers=other).json()) == 3
     assert client.get("/v1/feed", headers=other).json()[0]["kind"] == "member_joined"
+
+
+# Claiming a Superbru name --------------------------------------------------------------
+
+
+def league_member_id(client: TestClient, name: str) -> str:
+    members = client.get("/v1/members", headers=captain_headers(client)).json()
+    return next(m["id"] for m in members if m["displayName"] == name)
+
+
+def test_signed_in_account_claims_an_unclaimed_name_once(client: TestClient) -> None:
+    ola_id = league_member_id(client, "Ola")
+    ola = auth(subject(client, "OLA"), "ola@example.com")
+    assert client.get("/v1/me", headers=ola).json()["detail"]["code"] == "not_a_member"
+    names = client.get("/v1/memberships/unclaimed", headers=ola).json()
+    assert ola_id in {n["id"] for n in names}
+    captain_id = league_member_id(client, "Captain")
+    assert captain_id not in {n["id"] for n in names}  # reserved for the captain's email
+    claimed = client.post("/v1/memberships/claim", json={"memberId": ola_id}, headers=ola)
+    assert claimed.status_code == 200, claimed.text
+    assert claimed.json()["displayName"] == "Ola" and claimed.json()["isCaptain"] is False
+    assert client.get("/v1/me", headers=ola).json()["memberId"] == ola_id
+    # Taken names disappear, a second account cannot take it and a member cannot take two.
+    assert ola_id not in {n["id"] for n in client.get("/v1/memberships/unclaimed", headers=ola).json()}
+    other = auth(subject(client, "OTHER"), "other@example.com")
+    assert client.post("/v1/memberships/claim", json={"memberId": ola_id}, headers=other).json()["detail"]["code"] == "name_taken"
+    mo_id = league_member_id(client, "Mo")
+    assert client.post("/v1/memberships/claim", json={"memberId": mo_id}, headers=ola).json()["detail"]["code"] == "already_member"
+    reserved = client.post("/v1/memberships/claim", json={"memberId": captain_id}, headers=other)
+    assert reserved.json()["detail"]["code"] == "name_taken"
+    assert client.get("/v1/memberships/unclaimed").status_code == 401
+    kinds = [f["kind"] for f in client.get("/v1/feed", headers=ola).json()]
+    assert kinds[0] == "member_joined"
+
+
+def test_captain_releases_a_wrong_claim(client: TestClient) -> None:
+    ola_id = league_member_id(client, "Ola")
+    wrong = auth(subject(client, "WRONG"), "wrong@example.com")
+    client.post("/v1/memberships/claim", json={"memberId": ola_id}, headers=wrong)
+    assert client.post(f"/v1/members/{ola_id}/release", headers=wrong).status_code == 403
+    assert client.post(f"/v1/members/{ola_id}/release", headers=captain_headers(client)).status_code == 204
+    assert client.get("/v1/me", headers=wrong).status_code == 403
+    right = auth(subject(client, "RIGHT"), "right@example.com")
+    assert client.post("/v1/memberships/claim", json={"memberId": ola_id}, headers=right).status_code == 200
+    captain_id = league_member_id(client, "Captain")
+    assert client.post(f"/v1/members/{captain_id}/release", headers=captain_headers(client)).status_code == 409
+    mo_id = league_member_id(client, "Mo")
+    assert client.post(f"/v1/members/{mo_id}/release", headers=captain_headers(client)).json()["detail"]["code"] == "not_claimed"
+
+
+# Challenges and the overdue clock --------------------------------------------------------
+
+
+def test_a_challenge_upheld_for_the_member_resets_the_overdue_clock(client: TestClient) -> None:
+    mo_id = invite(client, "Mo", client.mo_email)
+    weeks_ago = (now_utc() - timedelta(hours=168 * 2 + 3)).isoformat()
+    duty = open_duty(client, mo_id, round_number=5, duty_type="pick_confirmation", deadlineAt=weeks_ago)
+    assert duty["marks"]["marks"] == 2
+    mo = auth(subject(client, "MO"), client.mo_email)
+    assert client.post(f"/v1/duties/{duty['id']}/reset-clock", json={"reason": "x"}, headers=mo).status_code == 403
+    reset = client.post(
+        f"/v1/duties/{duty['id']}/reset-clock", json={"reason": "Challenge upheld: picks were in"}, headers=captain_headers(client)
+    )
+    assert reset.status_code == 200, reset.text
+    body = reset.json()
+    assert body["marks"]["marks"] == 0 and body["clockResetAt"] is not None
+    assert body["display"] == "overdue"  # the duty stays open and accrues again from now
+    feed = client.get("/v1/feed", params={"round": 5}, headers=mo).json()
+    assert feed[0]["kind"] == "duty_clock_reset" and feed[0]["detail"] == "Challenge upheld: picks were in"
+    captain_id = UUID(client.get("/v1/me", headers=captain_headers(client)).json()["memberId"])
+    own = open_duty(client, captain_id, round_number=5, duty_type="pick_confirmation", deadlineAt=weeks_ago)
+    assert client.post(f"/v1/duties/{own['id']}/reset-clock", json={"reason": "x"}, headers=captain_headers(client)).status_code == 403
+
+
+def test_marks_rule_keeps_accruing_and_resets_from_the_reset_time() -> None:
+    from app.league.marks import calculate
+
+    deadline = datetime(2026, 10, 2, 18, 45, tzinfo=timezone.utc)
+    now = deadline + timedelta(hours=400)
+    assert calculate(deadline_at=deadline, completed_at=None, voided=False, now=now).marks == 2
+    reset = calculate(
+        deadline_at=deadline, completed_at=None, voided=False, now=now, clock_reset_at=deadline + timedelta(hours=300)
+    )
+    assert reset.marks == 0 and reset.next_mark_at == deadline + timedelta(hours=468)
+    later = calculate(
+        deadline_at=deadline, completed_at=None, voided=False, now=deadline + timedelta(hours=480), clock_reset_at=deadline + timedelta(hours=300)
+    )
+    assert later.marks == 1
+    done = calculate(deadline_at=deadline, completed_at=deadline + timedelta(hours=200), voided=False, now=now)
+    assert done.marks == 1 and done.next_mark_at is None

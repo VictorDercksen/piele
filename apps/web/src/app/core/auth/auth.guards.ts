@@ -23,10 +23,21 @@ export const signedOut: CanActivateFn = async () => {
   return !auth.signedIn() || inject(Router).createUrlTree(['/']);
 };
 
-/** The account must belong to an active league member. Decided by the API, never the client. */
+/**
+ * The account must belong to an active league member. Decided by the API, never the client.
+ * An account without a membership goes on to claim its Superbru name.
+ */
 export const memberRequired: CanActivateFn = async () => {
   const league = inject(LeagueData);
   if (!(league instanceof HttpLeagueData)) return true;
   const state = await league.ensureLoaded();
-  return state === 'member' || inject(Router).createUrlTree(['/not-a-member']);
+  return state === 'member' || inject(Router).createUrlTree(['/claim']);
+};
+
+/** The claim page is only for signed-in accounts that have not claimed a name yet. */
+export const notYetMember: CanActivateFn = async () => {
+  const league = inject(LeagueData);
+  if (!(league instanceof HttpLeagueData)) return inject(Router).createUrlTree(['/']);
+  const state = await league.ensureLoaded();
+  return state !== 'member' || inject(Router).createUrlTree(['/']);
 };

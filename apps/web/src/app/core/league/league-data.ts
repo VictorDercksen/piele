@@ -38,6 +38,8 @@ export abstract class LeagueData {
   abstract submitEvidence(submission: EvidenceSubmission): Promise<void>;
   abstract createDuty(duty: NewDuty): Promise<void>;
   abstract voidDuty(dutyId: string, reason: string): Promise<void>;
+  /** A challenge resolved in the member's favour: the overdue clock restarts now. */
+  abstract resetClock(dutyId: string, reason: string): Promise<void>;
   abstract decideEvidence(
     linkId: string,
     decision: 'accepted' | 'rejected',
@@ -47,6 +49,8 @@ export abstract class LeagueData {
   abstract playbackUrl(assetId: string): Promise<string>;
   abstract addMember(member: NewMember): Promise<void>;
   abstract updateMember(memberId: string, email: string | null): Promise<void>;
+  /** Undo a wrong claim so the right account can take the name. */
+  abstract releaseMember(memberId: string): Promise<void>;
   abstract castVote(pollId: string, choice: string): Promise<void>;
 }
 
@@ -81,6 +85,10 @@ export class EmptyLeagueData extends LeagueData {
     return unavailable('Duties');
   }
 
+  resetClock(): Promise<void> {
+    return unavailable('Duties');
+  }
+
   decideEvidence(): Promise<void> {
     return unavailable('Evidence review');
   }
@@ -94,6 +102,10 @@ export class EmptyLeagueData extends LeagueData {
   }
 
   updateMember(): Promise<void> {
+    return unavailable('Membership changes');
+  }
+
+  releaseMember(): Promise<void> {
     return unavailable('Membership changes');
   }
 

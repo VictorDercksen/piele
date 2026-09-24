@@ -72,6 +72,8 @@ export interface Duty {
   readonly status: DutyLifecycle;
   readonly display: DutyDisplay;
   readonly completedAt: string | null;
+  /** Set when a challenge was resolved in the member's favour: the overdue clock restarted here. */
+  readonly clockResetAt: string | null;
   readonly voidReason: string | null;
   readonly createdAt: string;
   readonly marks: DutyMarks;
@@ -114,6 +116,7 @@ export type FeedKind =
   | 'member_added'
   | 'duty_created'
   | 'duty_voided'
+  | 'duty_clock_reset'
   | 'evidence_submitted'
   | 'evidence_accepted'
   | 'evidence_rejected'
@@ -141,6 +144,13 @@ export interface EvidenceSubmission {
   /** Captain only: the member the evidence is for and when they completed the duty. */
   readonly subjectMemberId?: string;
   readonly claimedCompletedAt?: string;
+}
+
+/** A Superbru name a signed-in account may claim. */
+export interface UnclaimedName {
+  readonly id: string;
+  readonly displayName: string;
+  readonly fullName: string;
 }
 
 export interface NewMember {

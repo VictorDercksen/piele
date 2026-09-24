@@ -38,8 +38,9 @@ create table piele.leagues (
   updated_at timestamptz not null default now()
 );
 
--- M3. display_name is the member's Superbru nickname. invited_email lets a verified sign-in
--- with that address claim the membership once; there is no role column.
+-- M3. display_name is the member's Superbru nickname. A signed-in account claims an
+-- unclaimed membership by choosing its name; invited_email, when set, reserves the
+-- membership for a verified sign-in with that address instead. There is no role column.
 create table piele.league_memberships (
   id uuid primary key default gen_random_uuid(),
   league_id uuid not null references piele.leagues (id),
@@ -105,7 +106,9 @@ create table piele.season_memberships (
 
 -- M17. round_number is the round's position in the bundled URC schedule (1-18 regular,
 -- 19-21 playoffs). deadline_at null means unknown, which earns no marks. completed_at is the
--- accepted effective completion time. overdue and under_review are derived, never stored.
+-- accepted effective completion time. clock_reset_at restarts the overdue clock after a
+-- challenge is resolved in the member's favour (league decision: challenges never pause
+-- accrual). overdue and under_review are derived, never stored.
 create table piele.duties (
   id uuid primary key default gen_random_uuid(),
   league_id uuid not null references piele.leagues (id),
@@ -115,6 +118,7 @@ create table piele.duties (
   type varchar(30) not null check (type in ('spoon', 'pick_confirmation')),
   reason text not null default '',
   deadline_at timestamptz,
+  clock_reset_at timestamptz,
   status varchar(20) not null check (status in ('pending_deadline', 'open', 'completed', 'voided')),
   completed_at timestamptz,
   voided_at timestamptz,
@@ -261,8 +265,8 @@ revoke update, delete on piele.audit_events from piele_api;
 
 -- Row level security. The runtime role sees only its own auth account and the league it
 -- has set in context. Memberships are additionally readable through the caller's own
--- account or a pending invitation for the caller's verified email, so the API can resolve
--- the league before setting it.
+-- account, a reservation for the caller's verified email, or while unclaimed for any
+-- verified account, so the API can resolve or claim the league before setting it.
 alter table piele.users enable row level security;
 create policy users_self on piele.users for all to piele_api
   using (auth_subject = piele.current_auth_subject())
@@ -278,7 +282,7 @@ create policy league_memberships_current on piele.league_memberships for all to 
   using (
     league_id = piele.current_league_id()
     or user_id in (select id from piele.users where auth_subject = piele.current_auth_subject())
-    or (user_id is null and lower(invited_email) = piele.current_auth_email())
+    or (user_id is null and piele.current_auth_subject() is not null)
   )
   with check (
     league_id = piele.current_league_id()

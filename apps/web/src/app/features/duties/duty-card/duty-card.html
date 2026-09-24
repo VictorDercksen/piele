@@ -24,6 +24,9 @@
         @if (nextMark(); as next) {
           <small>Next mark {{ next }}</small>
         }
+        @if (clockReset(); as reset) {
+          <small>Clock reset {{ reset }}</small>
+        }
       </dd>
     </div>
     <div>
@@ -69,6 +72,9 @@
       <button type="button" class="primary-button" (click)="record.emit()">
         <app-icon name="upload" />Record evidence
       </button>
+    }
+    @if (canReset()) {
+      <button type="button" class="text-button" (click)="resetClock.emit()">Reset clock</button>
     }
     @if (captain() && live()) {
       <button type="button" class="text-button" (click)="voided.emit()">Void duty</button>
