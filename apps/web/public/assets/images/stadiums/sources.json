@@ -1,0 +1,29 @@
+{
+  "source": "Piele URC stadium asset pack 2026-27 (supplied by the project owner)",
+  "season": "2026-27",
+  "retrievedAt": "2026-09-24",
+  "processing": "Original 1254 px transparent PNGs trimmed to their drawing, padded square and saved as 256 px WebP.",
+  "note": "Stylized illustrations, not surveyed architectural drawings.",
+  "stadiums": {
+    "affidea-stadium.webp": "Affidea Stadium",
+    "aviva-stadium.webp": "Aviva Stadium",
+    "cardiff-arms-park.webp": "Cardiff Arms Park",
+    "dexcom-stadium.webp": "Dexcom Stadium",
+    "dhl-stadium.webp": "DHL Stadium",
+    "ellis-park.webp": "10bet Ellis Park",
+    "hampden-park.webp": "Hampden Park",
+    "hive-stadium.webp": "Hive Stadium",
+    "kings-park.webp": "Hollywoodbets Kings Park",
+    "laya-arena.webp": "Laya Arena",
+    "loftus-versfeld.webp": "Loftus Versfeld",
+    "murrayfield.webp": "Scottish Gas Murrayfield",
+    "parc-y-scarlets.webp": "Parc y Scarlets",
+    "rodney-parade.webp": "Rodney Parade",
+    "scotstoun-stadium.webp": "Scotstoun Stadium",
+    "st-helens.webp": "St Helen's",
+    "stadio-lanfranchi.webp": "Stadio Sergio Lanfranchi",
+    "stadio-monigo.webp": "Stadio Monigo",
+    "thomond-park.webp": "Thomond Park",
+    "virgin-media-park.webp": "Virgin Media Park"
+  }
+}

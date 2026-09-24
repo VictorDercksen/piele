@@ -37,6 +37,11 @@ test('first visit requires a favourite team and saves a personal identity', asyn
   await expect(page.locator('.scope-note')).toHaveCount(0);
   await expect(page.locator('.broadcast-cover')).toHaveCount(0);
   await expect(page.locator('.match-venue')).toContainText('Dexcom Stadium');
+  const stadiumIcon = page.locator('.match-venue img.stadium-icon');
+  await expect(stadiumIcon).toHaveAttribute('src', /stadiums\/dexcom-stadium\.webp/);
+  await expect
+    .poll(() => stadiumIcon.evaluate((img: HTMLImageElement) => img.naturalWidth))
+    .toBeGreaterThan(0);
   await page.reload();
   await expect(page.locator('.header-profile')).toContainText('Victor Dercksen');
   await expect(page.getByRole('heading', { name: 'Who do you back?' })).toHaveCount(0);

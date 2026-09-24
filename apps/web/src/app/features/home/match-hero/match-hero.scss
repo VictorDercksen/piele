@@ -171,10 +171,11 @@
 }
 
 .stadium-icon {
-  width: 48px;
-  height: 48px;
+  width: 64px;
+  height: 64px;
   flex-shrink: 0;
   color: #9fb9ca;
+  object-fit: contain;
 }
 
 .match-venue span,
@@ -309,8 +310,8 @@
     font-size: 19px;
   }
   .stadium-icon {
-    width: 40px;
-    height: 40px;
+    width: 52px;
+    height: 52px;
   }
   .match-link {
     width: 100%;
