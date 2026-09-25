@@ -13,7 +13,7 @@ export interface PreviewTarget {
  * health check and nothing else.
  */
 export default defineChannel<undefined, void, PreviewTarget>({
-  routes: [GET('/previews/health', () => new Response(null, { status: 204 }))],
+  routes: [GET('/previews/health', async () => new Response(null, { status: 204 }))],
   receive: ({ message, target, auth }, { from }) =>
     from(`fixture-${target.fixtureId}-attempt-${target.attempt}`).send(message, { auth }),
 });
