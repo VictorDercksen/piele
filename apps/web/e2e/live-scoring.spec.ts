@@ -51,7 +51,14 @@ const SECOND_HALF: Stage = {
   away: 7,
   events: [...FIRST_HALF, event(5, '52', 'home', 'penalty_try', 7, [10, 7], 'second half')],
 };
-const FULL_TIME: Stage = { ...SECOND_HALF, state: 'full_time', minute: null };
+// Double figures on both sides, to check the score bug keeps them on one line.
+const FULL_TIME: Stage = {
+  state: 'full_time',
+  minute: null,
+  home: 10,
+  away: 12,
+  events: [...SECOND_HALF.events, event(6, '78', 'away', 'drop_goal', 3, [10, 10], 'second half')],
+};
 
 function score(stage: Stage, fetchedAt: string) {
   return {
@@ -180,6 +187,18 @@ test('a live match updates the ribbon, hero and scoring timeline', async ({ page
   await expect(ribbon).toContainText('FULL TIME');
   await expect(ribbon).not.toHaveClass(/live/);
   await expect(panel.locator('.tag')).toHaveText('full time');
+  const result = hero.locator('.match-time strong');
+  await expect(result).toHaveText('10–12');
+  for (const width of [390, 320]) {
+    await page.setViewportSize({ width, height: 950 });
+    const box = await result.boundingBox();
+    const lineHeight = await result.evaluate((el) => parseFloat(getComputedStyle(el).lineHeight));
+    expect(box!.height).toBeLessThan(lineHeight * 1.5);
+    await page.screenshot({ path: testInfo.outputPath(`result-${width}.png`) });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+  }
 });
 
 test('rounds that have not started make no score request', async ({ page }) => {
