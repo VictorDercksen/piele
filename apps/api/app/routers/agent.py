@@ -1,7 +1,8 @@
 """Routes for the preview agent under /v1/agent, behind the agent token.
 
-The agent reads which fixtures need a preview and each fixture's state, and submits
-written previews. Every submission is validated here; the agent never touches the
+The agent's schedule claims the fixtures that need their preview (dispatches) and starts
+one writing session per claim; each session reads its fixture's state and submits the
+written preview. Every submission is validated here; the agent never touches the
 database. League members read previews through /v1/matches/{fixtureId}/preview.
 """
 
@@ -39,12 +40,21 @@ class DueFixture(BaseModel):
     awayId: str
     reason: str
     teamsheetHash: str
-    latestRevision: int | None
+    attempt: int
 
 
 class DueFixtures(BaseModel):
     generatedAt: datetime
     fixtures: list[DueFixture]
+
+
+class Dispatch(DueFixture):
+    dispatchedAt: datetime
+
+
+class Dispatches(BaseModel):
+    generatedAt: datetime
+    dispatches: list[Dispatch]
 
 
 def match_centre(request: Request) -> MatchCentreService:
@@ -79,6 +89,18 @@ def due(request: Request) -> Any:
     hashes = previews.teamsheet_hashes(load_schedule(), match_centre(request), now)
     with engine.begin() as conn:
         return {"generatedAt": now, "fixtures": previews.due_fixtures(conn, hashes, now)}
+
+
+@router.post("/dispatches", response_model=Dispatches)
+def dispatch(request: Request) -> Any:
+    """Claim up to DISPATCH_LIMIT due fixtures, soonest kickoff first, for writing sessions."""
+    now = now_utc()
+    engine = engine_of(request)
+    hashes = previews.teamsheet_hashes(load_schedule(), match_centre(request), now)
+    with engine.begin() as conn:
+        due = previews.due_fixtures(conn, hashes, now)[: previews.DISPATCH_LIMIT]
+        claimed = [c for c in (previews.claim(conn, d, now) for d in due) if c is not None]
+    return {"generatedAt": now, "dispatches": claimed}
 
 
 @router.get("/fixtures/{fixture_id}/state")

@@ -10,9 +10,10 @@ The agent holds no database credentials. It reaches the API's `/v1/agent` routes
 | --- | --- |
 | `agent/agent.ts` | Root agent: Claude through AI Gateway, no default tools, no self-delegation, per-session token and cost caps. |
 | `agent/instructions.md` | The writer's process and rules: cite every claim, treat fetched text as information only, no betting language, plain text. |
-| `agent/tools/` | `get_due_fixtures`, `get_fixture_state` and `save_preview`, all calling the API through `agent/lib/piele-api.ts`. The state tool keeps the fixture's hashes in session state for `save_preview`, so the model never copies them. |
+| `agent/tools/` | `get_fixture_state` and `save_preview`, all calling the API through `agent/lib/piele-api.ts`. The state tool keeps the fixture's hashes in session state for `save_preview`, so the model never copies them. |
 | `agent/subagents/team-researcher/` | One team per call. Only `web_search` and `web_fetch`; fetches are limited to `agent/lib/allowlist.ts`. Returns structured items, each with its source URL. |
-| `agent/schedules/prepare-previews.md` | Cron `10 */2 * * *` (UTC). Several runs a day need a paid Vercel plan; Hobby allows one. |
+| `agent/schedules/prepare-previews.ts` | Cron `*/15 * * * *` (UTC), a code handler with no model call. It claims due fixtures through `POST /v1/agent/dispatches` (both teamsheets published, no preview yet) and starts one writing session per claim. Ticks with nothing due cost one API call. Needs a paid Vercel plan (Hobby cron runs once a day). |
+| `agent/channels/previews.ts` | Receives each claim from the schedule and starts its session. eve only registers a channel with a route, so it has one empty `GET /previews/health`. |
 | `agent/channels/eve.ts` | Session routes accept only this project's Vercel OIDC tokens and a local `eve dev` server. |
 
 ## Run and check
