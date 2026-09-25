@@ -195,7 +195,7 @@ def main(argv: list[str]) -> None:
         "run": args.run,
         "createdAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "commit": git("rev-parse", "HEAD"),
-        "dirty": bool(git("status", "--porcelain")),
+        "dirty": bool(git("status", "--porcelain", "--untracked-files=no")),
         "seasons": {"tuning": common.TUNING_SEASON, "reported": list(common.REPORTED_SEASONS), "jev": args.seasons},
         "arms": arms,
         "leadHours": LEAD.total_seconds() / 3600,
