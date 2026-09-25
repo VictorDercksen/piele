@@ -425,6 +425,11 @@ legend span {
 .photo-label app-loader {
   margin-right: 8px;
 }
+.saving {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
 
 .profile-form h2 {
   font-weight: 900;

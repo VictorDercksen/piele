@@ -7,13 +7,13 @@ import { ProfileStore } from './core/profile/profile.store';
 
 describe('App routes', () => {
   beforeEach(() => {
+    localStorage.clear();
     TestBed.configureTestingModule({
       providers: [provideRouter(routes), { provide: LeagueData, useClass: EmptyLeagueData }],
     });
   });
 
   it('sends first-time visitors to onboarding', async () => {
-    TestBed.inject(ProfileStore).profile.set(null);
     const harness = await RouterTestingHarness.create('/?round=3');
     expect(TestBed.inject(Router).url).toBe('/welcome?returnUrl=%2F%3Fround%3D3');
     expect(harness.routeNativeElement?.querySelector('h1')?.textContent).toContain('allegiance.');
@@ -21,7 +21,7 @@ describe('App routes', () => {
   });
 
   it('shows the clubhouse to returning members without league records', async () => {
-    TestBed.inject(ProfileStore).profile.set({
+    await TestBed.inject(ProfileStore).save({
       displayName: 'Test Member',
       teamId: 'dhl-stormers',
       photo: null,
@@ -34,7 +34,7 @@ describe('App routes', () => {
   });
 
   it('keeps the captain desk behind the captain check', async () => {
-    TestBed.inject(ProfileStore).profile.set({
+    await TestBed.inject(ProfileStore).save({
       displayName: 'Test Member',
       teamId: 'dhl-stormers',
       photo: null,

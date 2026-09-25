@@ -35,6 +35,9 @@ export class ProfileEditor {
   private readonly league = inject(LeagueData);
   private readonly router = inject(Router);
   readonly existing = this.store.profile();
+  /** Starts from the saved profile, else one this browser kept before profiles moved to the account. */
+  private readonly start = this.existing ?? this.store.earlier;
+  readonly persisted = this.store.persisted;
   /** The league's nickname for the member, which the browser profile cannot override. */
   readonly leagueName = this.league.currentMemberName();
   readonly canSignOut = this.auth.configured;
@@ -47,7 +50,7 @@ export class ProfileEditor {
       nonNullable: true,
       validators: [Validators.required, Validators.maxLength(50), Validators.pattern(/\S/)],
     }),
-    teamId: new FormControl(this.existing?.teamId ?? '', {
+    teamId: new FormControl(this.start?.teamId ?? '', {
       nonNullable: true,
       validators: [Validators.required],
     }),
@@ -67,8 +70,9 @@ export class ProfileEditor {
       .join('')
       .toUpperCase(),
   );
-  readonly photo = signal(this.existing?.photo ?? null);
+  readonly photo = signal(this.start?.photo ?? null);
   readonly busy = signal(false);
+  readonly saving = signal(false);
   readonly error = signal('');
   readonly submitted = signal(false);
   async choosePhoto(event: Event): Promise<void> {
@@ -96,15 +100,16 @@ export class ProfileEditor {
       this.busy.set(false);
     }
   }
-  save(): void {
+  async save(): Promise<void> {
     this.submitted.set(true);
-    if (this.form.invalid || this.busy()) {
+    if (this.form.invalid || this.busy() || this.saving()) {
       this.form.markAllAsTouched();
       return;
     }
     this.error.set('');
+    this.saving.set(true);
     try {
-      this.store.save({
+      await this.store.save({
         displayName: this.form.controls.displayName.value.trim(),
         teamId: this.form.controls.teamId.value,
         photo: this.photo(),
@@ -112,6 +117,8 @@ export class ProfileEditor {
       this.saved.emit();
     } catch (error) {
       this.error.set(error instanceof Error ? error.message : 'Unable to save your profile.');
+    } finally {
+      this.saving.set(false);
     }
   }
 }

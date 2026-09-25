@@ -39,10 +39,14 @@ class Me(BaseModel):
     leagueName: str
     seasonName: str
     inSeason: bool
+    # The caller's own profile. photoUrl is short-lived; download it straight away.
+    favouriteTeamId: str | None
+    photoUrl: str | None
 
 
 @router.get("/me", response_model=Me)
-def me(actor: Actor = Depends(actor_dependency)) -> Me:
+def me(request: Request, actor: Actor = Depends(actor_dependency)) -> Me:
+    profile = service.profile(actor, storage_of(request), settings_of(request).profile_photo_url_ttl_seconds)
     return Me(
         memberId=actor.membership_id,
         displayName=actor.display_name,
@@ -50,7 +54,52 @@ def me(actor: Actor = Depends(actor_dependency)) -> Me:
         leagueName=actor.league_name,
         seasonName=actor.season_name,
         inSeason=actor.season_membership_id is not None,
+        favouriteTeamId=profile.favourite_team_id,
+        photoUrl=profile.photo_url,
     )
+
+
+class PhotoUploadRequest(BaseModel):
+    contentType: str = Field(min_length=1, max_length=100)
+    sizeBytes: int = Field(gt=0)
+
+
+class PhotoUploadGrant(BaseModel):
+    bucket: str
+    path: str
+    token: str
+
+
+@router.post("/me/photo/uploads", response_model=PhotoUploadGrant, status_code=201)
+def reserve_photo_upload(body: PhotoUploadRequest, request: Request, actor: Actor = Depends(actor_dependency)) -> Any:
+    return service.reserve_photo_upload(
+        actor,
+        storage_of(request),
+        content_type=body.contentType,
+        size_bytes=body.sizeBytes,
+        max_bytes=settings_of(request).profile_photo_max_bytes,
+    )
+
+
+class ProfileUpdate(BaseModel):
+    favouriteTeamId: str = Field(min_length=1, max_length=40)
+    # A path from /me/photo/uploads after the upload finished; omit it to keep the photo.
+    photoPath: str | None = Field(default=None, max_length=300)
+    removePhoto: bool = False
+
+
+@router.put("/me/profile", response_model=Me)
+def update_profile(body: ProfileUpdate, request: Request, actor: Actor = Depends(actor_dependency)) -> Me:
+    """Saves the caller's favourite team and photo. Nobody can change another member's profile."""
+    service.update_profile(
+        actor,
+        storage_of(request),
+        favourite_team_id=body.favouriteTeamId,
+        photo_path=body.photoPath,
+        remove_photo=body.removePhoto,
+        max_bytes=settings_of(request).profile_photo_max_bytes,
+    )
+    return me(request, actor)
 
 
 class UnclaimedName(BaseModel):
@@ -72,12 +121,12 @@ class Claim(BaseModel):
 
 
 @router.post("/memberships/claim", response_model=Me)
-def claim(body: Claim, account: Account = Depends(account_dependency)) -> Me:
+def claim(body: Claim, request: Request, account: Account = Depends(account_dependency)) -> Me:
     """A signed-in account without a membership takes one of the unclaimed Superbru names."""
     if not service.claim_membership(account.connection, account.user_id, body.memberId):
         raise service.problem(409, "name_taken", "That name is no longer available. Choose another.")
     actor = actor_for(account, just_claimed=True)
-    return me(actor)
+    return me(request, actor)
 
 
 @router.post("/members/{member_id}/release", status_code=204)

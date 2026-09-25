@@ -109,11 +109,16 @@
             type="file"
             accept="image/jpeg,image/png,image/webp"
             (change)="choosePhoto($event)"
-            [disabled]="busy()"
+            [disabled]="busy() || saving()"
         /></label>
         <p>Optional · JPG, PNG or WebP · Up to 5 MB</p>
         @if (photo()) {
-          <button class="remove-photo" type="button" (click)="photo.set(null)" [disabled]="busy()">
+          <button
+            class="remove-photo"
+            type="button"
+            (click)="photo.set(null)"
+            [disabled]="busy() || saving()"
+          >
             Remove photo
           </button>
         }
@@ -123,13 +128,23 @@
       <p class="validation" role="alert">{{ error() }}</p>
     }
     <div class="save-profile">
-      <p>Your favourite team and photo are saved only in this browser.</p>
-      <button class="save-button" type="submit" [disabled]="busy()">
-        {{ existing ? 'Save profile' : 'Enter the clubhouse'
-        }}<ng-icon class="link-icon" name="lucideArrowRight" />
+      <p>
+        {{
+          persisted
+            ? 'Your favourite team and photo are saved to your league account.'
+            : 'Your favourite team and photo are saved only in this browser.'
+        }}
+      </p>
+      <button class="save-button" type="submit" [disabled]="busy() || saving()">
+        @if (saving()) {
+          <span class="saving"><app-loader [size]="18" aria-hidden="true" />Saving…</span>
+        } @else {
+          {{ existing ? 'Save profile' : 'Enter the clubhouse' }}
+        }
+        <ng-icon class="link-icon" name="lucideArrowRight" />
       </button>
       @if (canSignOut) {
-        <button class="sign-out" type="button" (click)="signOut()" [disabled]="busy()">
+        <button class="sign-out" type="button" (click)="signOut()" [disabled]="busy() || saving()">
           Sign out{{ accountEmail() ? ' of ' + accountEmail() : '' }}
         </button>
       }

@@ -35,3 +35,24 @@ export async function preparePhoto(file: File): Promise<string> {
     bitmap.close();
   }
 }
+
+/** The JPEG bytes of a prepared photo, for upload. Avoids fetch(), which the CSP blocks for data URLs. */
+export function jpegBlob(dataUrl: string): Blob {
+  const base64 = dataUrl.slice(dataUrl.indexOf(',') + 1);
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new Blob([bytes], { type: 'image/jpeg' });
+}
+
+/** A downloaded photo as a JPEG data URL, or null when the bytes are not a JPEG. */
+export async function jpegDataUrl(blob: Blob): Promise<string | null> {
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  if (bytes[0] !== 0xff || bytes[1] !== 0xd8 || bytes[2] !== 0xff) return null;
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : null);
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(new Blob([bytes], { type: 'image/jpeg' }));
+  });
+}

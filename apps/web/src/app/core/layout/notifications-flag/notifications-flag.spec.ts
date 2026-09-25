@@ -7,12 +7,12 @@ import { ProfileStore } from '../../profile/profile.store';
 import { routes } from '../../../app.routes';
 
 describe('NotificationsFlag', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     localStorage.clear();
     TestBed.configureTestingModule({
       providers: [provideRouter(routes), { provide: LeagueData, useClass: SampleLeagueData }],
     });
-    TestBed.inject(ProfileStore).profile.set({
+    await TestBed.inject(ProfileStore).save({
       displayName: 'Test Member',
       teamId: 'dhl-stormers',
       photo: null,
