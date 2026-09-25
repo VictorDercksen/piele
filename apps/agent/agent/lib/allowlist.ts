@@ -23,24 +23,40 @@ export const ALLOWED_DOMAINS: readonly string[] = [
   'thestormers.com',
   'ulsterrugby.com',
   'zebreparma.it',
-  // News
+  // News: general
   'bbc.co.uk',
   'bbc.com',
-  'rte.ie',
-  'irishtimes.com',
-  'independent.ie',
-  'the42.ie',
-  'irishexaminer.com',
-  'walesonline.co.uk',
-  'heraldscotland.com',
-  'scotsman.com',
-  'news24.com',
-  'supersport.com',
-  'sarugby.co.za',
   'planetrugby.com',
   'rugbypass.com',
+  'rugbyworld.com',
   'ruck.co.uk',
+  // News: South Africa
+  'news24.com',
+  'sarugby.co.za',
+  'sarugbymag.co.za',
+  'supersport.com',
+  // News: Wales
+  'walesonline.co.uk',
+  // News: Scotland
+  'heraldscotland.com',
+  'scotsman.com',
+  // News: Ireland
+  'independent.ie',
+  'irishexaminer.com',
+  'irishmirror.ie',
+  'irishtimes.com',
+  'rte.ie',
+  'the42.ie',
+  // News: Italy
   'onrugby.it',
+  // News: New Zealand (Stuff, including Rugby Heaven)
+  'stuff.co.nz',
+  // News: Australia
+  'smh.com.au',
+  // News: England
+  'theguardian.com',
+  'thetimes.co.uk',
+  'thetimes.com',
 ];
 
 /** True for an http(s) URL on an allowed domain. */
