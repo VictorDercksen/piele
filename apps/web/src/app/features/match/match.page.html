@@ -37,11 +37,7 @@
     <div class="centre-loading"><app-ball-loader [size]="64" label="Loading match details" /></div>
   } @else if (data(); as centre) {
     @if (scoring(); as scoring) {
-      <section
-        class="panel scoring"
-        [class.live]="scoring.live"
-        aria-labelledby="scoring-title"
-      >
+      <section class="panel scoring" [class.live]="scoring.live" aria-labelledby="scoring-title">
         <div class="section-title">
           <h2 id="scoring-title">Scoring.</h2>
           <span class="tag" [class.live]="scoring.live && !scoring.stale">{{ scoring.tag }}</span>
@@ -63,8 +59,8 @@
                       <span class="team">{{ row.team }}</span>
                     }
                     <div>
-                      <strong
-                        >@if (row.card) {
+                      <strong>
+                        @if (row.card) {
                           <i class="card" [class]="row.card" aria-hidden="true"></i>
                         }
                         {{ row.label }}</strong
@@ -94,7 +90,78 @@
         </p>
       </section>
     }
-    <div class="match-grid">
+    <div class="match-grid" [class.has-preview]="previewConfigured">
+      @if (previewConfigured) {
+        <app-match-preview
+          class="panel preview"
+          [fixtureId]="fixture.id"
+          [home]="fixture.home"
+          [away]="fixture.away"
+          [homeClub]="fixture.homeAsset"
+          [awayClub]="fixture.awayAsset"
+        />
+      }
+      <section
+        class="panel weather"
+        [class.has-sky]="sky()"
+        [attr.data-sky]="sky()?.scene"
+        [attr.data-time]="sky()?.time"
+        aria-labelledby="weather-title"
+      >
+        @if (sky()) {
+          <div class="sky" aria-hidden="true">
+            <span class="sky-glow"></span>
+            <span class="sky-clouds"></span>
+            <span class="sky-precip"></span>
+          </div>
+        }
+        <div class="section-title">
+          <h2 id="weather-title">Kickoff forecast.</h2>
+          <span class="tag">{{ centre.weather.status.replace('_', ' ') }}</span>
+        </div>
+        @if (centre.weather.status === 'ok') {
+          <div class="forecast-body">
+            <div class="forecast">
+              @if (sky(); as s) {
+                <ng-icon class="condition-icon" [name]="s.icon" aria-hidden="true" />
+              }
+              <strong class="temperature"
+                >{{ centre.weather.temperatureC | number: '1.0-0' }}°</strong
+              >
+              <span class="condition">{{ centre.weather.condition }}</span>
+            </div>
+            <dl class="forecast-facts">
+              <div>
+                <dt>Feels like</dt>
+                <dd>{{ centre.weather.feelsLikeC | number: '1.0-0' }}°</dd>
+              </div>
+              <div>
+                <dt>Rain chance</dt>
+                <dd>{{ centre.weather.rainChancePercent ?? '—' }}%</dd>
+              </div>
+              <div>
+                <dt>Wind</dt>
+                <dd>{{ centre.weather.windKmh | number: '1.0-0' }} km/h</dd>
+              </div>
+              <div>
+                <dt>Gusts</dt>
+                <dd>{{ centre.weather.gustKmh | number: '1.0-0' }} km/h</dd>
+              </div>
+            </dl>
+          </div>
+          <p class="panel-source">
+            {{ centre.weather.stadium }}, {{ centre.weather.city }} at
+            {{ centre.weather.forecastHourUtc | date: 'HH:mm' : sast }} SAST ·
+            {{ centre.weather.source }}
+            @if (centre.weather.fetchedAt; as at) {
+              · updated {{ at | date: 'd MMM HH:mm' : sast }}
+            }
+          </p>
+        } @else {
+          <p class="panel-empty">{{ message('weather', centre.weather.status) }}</p>
+          <p class="panel-source">{{ centre.weather.source }}</p>
+        }
+      </section>
       <section class="panel teamsheets" aria-labelledby="teamsheets-title">
         <div class="section-title">
           <h2 id="teamsheets-title">Teamsheets.</h2>
@@ -208,75 +275,7 @@
           }
         </p>
       </section>
-
-      <section
-        class="panel weather"
-        [class.has-sky]="sky()"
-        [attr.data-sky]="sky()?.scene"
-        [attr.data-time]="sky()?.time"
-        aria-labelledby="weather-title"
-      >
-        @if (sky()) {
-          <div class="sky" aria-hidden="true">
-            <span class="sky-glow"></span>
-            <span class="sky-clouds"></span>
-            <span class="sky-precip"></span>
-          </div>
-        }
-        <div class="section-title">
-          <h2 id="weather-title">Kickoff forecast.</h2>
-          <span class="tag">{{ centre.weather.status.replace('_', ' ') }}</span>
-        </div>
-        @if (centre.weather.status === 'ok') {
-          <div class="forecast">
-            @if (sky(); as s) {
-              <ng-icon class="condition-icon" [name]="s.icon" aria-hidden="true" />
-            }
-            <strong class="temperature"
-              >{{ centre.weather.temperatureC | number: '1.0-0' }}°</strong
-            >
-            <span class="condition">{{ centre.weather.condition }}</span>
-          </div>
-          <dl class="forecast-facts">
-            <div>
-              <dt>Feels like</dt>
-              <dd>{{ centre.weather.feelsLikeC | number: '1.0-0' }}°</dd>
-            </div>
-            <div>
-              <dt>Rain chance</dt>
-              <dd>{{ centre.weather.rainChancePercent ?? '—' }}%</dd>
-            </div>
-            <div>
-              <dt>Wind</dt>
-              <dd>{{ centre.weather.windKmh | number: '1.0-0' }} km/h</dd>
-            </div>
-            <div>
-              <dt>Gusts</dt>
-              <dd>{{ centre.weather.gustKmh | number: '1.0-0' }} km/h</dd>
-            </div>
-          </dl>
-          <p class="panel-source">
-            {{ centre.weather.stadium }}, {{ centre.weather.city }} at
-            {{ centre.weather.forecastHourUtc | date: 'HH:mm' : sast }} SAST ·
-            {{ centre.weather.source }}
-            @if (centre.weather.fetchedAt; as at) {
-              · updated {{ at | date: 'd MMM HH:mm' : sast }}
-            }
-          </p>
-        } @else {
-          <p class="panel-empty">{{ message('weather', centre.weather.status) }}</p>
-          <p class="panel-source">{{ centre.weather.source }}</p>
-        }
-      </section>
     </div>
-  }
-  @if (previewConfigured) {
-    <app-match-preview
-      class="panel preview"
-      [fixtureId]="fixture.id"
-      [home]="fixture.home"
-      [away]="fixture.away"
-    />
   }
   <p class="context-note">
     Published competition fixture. House pick deadlines require a separate captain confirmation.

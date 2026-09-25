@@ -78,6 +78,24 @@ describe('MatchPreview', () => {
     expect(links.every((a) => a.rel.includes('noopener') && a.target === '_blank')).toBe(true);
   });
 
+  it('keeps the sources closed until asked for', async () => {
+    const { fixture, http } = setup();
+    http.expectOne(URL).flush({ fixtureId: '292605', preview: PREVIEW });
+    await settle(fixture);
+    const drawer: HTMLDetailsElement = fixture.nativeElement.querySelector('.sources-drawer');
+    expect(drawer.open).toBe(false);
+    expect(drawer.querySelector('summary')?.textContent).toContain('Sources');
+    expect(drawer.querySelector('.count')?.textContent).toBe('2');
+  });
+
+  it('fills each mood scale to its step', async () => {
+    const { fixture, http } = setup();
+    http.expectOne(URL).flush({ fixtureId: '292605', preview: PREVIEW });
+    await settle(fixture);
+    const meters = [...fixture.nativeElement.querySelectorAll('.meter')] as HTMLElement[];
+    expect(meters.map((m) => m.querySelectorAll('i.on').length)).toEqual([5, 2]);
+  });
+
   it('renders agent text as text, never markup', async () => {
     const { fixture, http } = setup();
     const summary = '<img src=x onerror=alert(1)><b>bold</b>';

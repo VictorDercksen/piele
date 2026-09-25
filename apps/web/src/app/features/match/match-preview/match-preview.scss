@@ -1,36 +1,109 @@
 :host {
   display: block;
+  container-type: inline-size;
+}
+
+/*
+ * Floodlit poster: the ground photo under a dark scrim, washed in the home club's
+ * colour from the left and the away club's from the right, with glass cards per side.
+ */
+.poster {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding: 26px 26px 24px;
+  background:
+    linear-gradient(
+      105deg,
+      color-mix(in srgb, var(--home-accent, #3b5a63) 38%, transparent),
+      transparent 45%
+    ),
+    linear-gradient(
+      255deg,
+      color-mix(in srgb, var(--away-accent, #3b5a63) 38%, transparent),
+      transparent 45%
+    ),
+    linear-gradient(180deg, #0b1518cc, #0b1518f2),
+    var(--ground-photo) center / cover;
+  border: 1px solid #ffffff24;
+}
+.poster-head {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 110px;
+  margin-bottom: 18px;
+}
+.crest {
+  position: absolute;
+  left: 0;
+  width: 96px;
+  height: 96px;
+  object-fit: contain;
+  opacity: 0.9;
+  filter: drop-shadow(0 2px 4px #0008);
+}
+.crest.away {
+  left: auto;
+  right: 0;
+}
+.poster-title {
+  margin: 0;
+  font-size: 46px;
+  font-weight: 900;
+  font-style: italic;
+  line-height: 0.9;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: -1px;
+  color: var(--chalk);
+  text-shadow: 0 4px 20px #000c;
 }
 .summary {
-  font-size: 15px;
-  line-height: 1.55;
+  max-width: 760px;
+  margin: 0 auto 24px;
+  font-size: 17px;
+  line-height: 1.6;
+  text-align: center;
   white-space: pre-line;
-  margin: 0 0 20px;
+  color: #f2efdfe6;
 }
 .sides {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 22px;
 }
+.side {
+  min-width: 0;
+  padding: 16px 18px 18px;
+  background: #0b151899;
+  border: 1px solid #ffffff1f;
+  border-radius: 14px;
+  backdrop-filter: blur(10px);
+  box-shadow: inset 0 3px 0 var(--club-accent, transparent);
+}
 .side-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 10px;
-  border-bottom: 1px solid var(--line);
-  padding-bottom: 8px;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
-.side-head h3 {
-  font-size: 16px;
+.side h3 {
   margin: 0;
+  font-size: 18px;
+  font-weight: 900;
+  font-style: italic;
+  text-transform: uppercase;
 }
 .mood {
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 1px;
   text-transform: uppercase;
-  padding: 4px 8px;
+  padding: 4px 10px;
+  border-radius: 999px;
   white-space: nowrap;
   background: #ffffff14;
   color: var(--muted);
@@ -43,35 +116,116 @@
   background: #4a2b26;
   color: #efc2b8;
 }
+/* Five-step mood scale, filled up to the side's step in its tone colour. */
+.meter {
+  --tone: #b8c4bd;
+  display: flex;
+  gap: 3px;
+  margin-bottom: 10px;
+}
+.meter[data-tone='up'] {
+  --tone: #6fd3a8;
+}
+.meter[data-tone='down'] {
+  --tone: #ff8e78;
+}
+.meter i {
+  flex: 1;
+  min-width: 18px;
+  height: 6px;
+  border-radius: 2px;
+  background: #ffffff1f;
+}
+.meter i.on {
+  background: var(--tone);
+}
 .mood-note {
   font-size: 13px;
   color: var(--muted);
-  margin: 0 0 10px;
+  margin: 0 0 12px;
 }
 .factors {
+  list-style: none;
   margin: 0;
-  padding-left: 18px;
+  padding: 0;
   font-size: 14px;
   line-height: 1.45;
 }
+.factors li {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
 .factors li + li {
-  margin-top: 6px;
+  margin-top: 8px;
+}
+.factors p {
+  min-width: 0;
+  margin: 0;
+}
+.num {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--club-accent, var(--accent));
+  color: #0b1518;
+  font-size: 11px;
+  font-weight: 900;
 }
 .cite {
   font-size: 9px;
   color: var(--muted);
   white-space: nowrap;
 }
-.sources-title {
+
+/* Sources: a disclosure, closed by default. */
+.sources-drawer {
+  margin-top: 22px;
+  border-top: 1px solid var(--line);
+}
+.sources-drawer summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  cursor: pointer;
+  list-style: none;
   font-size: 10px;
-  letter-spacing: 1px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
   text-transform: uppercase;
   color: var(--muted);
-  margin: 22px 0 8px;
+}
+.sources-drawer summary::-webkit-details-marker {
+  display: none;
+}
+.sources-drawer summary:hover {
+  color: var(--ink);
+}
+.sources-drawer summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.sources-drawer .count {
+  min-width: 20px;
+  padding: 2px 6px;
+  text-align: center;
+  background: #ffffff14;
+  font-variant-numeric: tabular-nums;
+}
+.sources-drawer .chevron {
+  margin-left: auto;
+  transition: transform 0.2s;
+}
+.sources-drawer[open] .chevron {
+  transform: rotate(180deg);
 }
 .sources {
   list-style: none;
-  margin: 0;
+  margin: 0 0 4px;
   padding: 0;
 }
 .sources li {
@@ -106,11 +260,27 @@
   font-size: 10px;
   letter-spacing: 0.4px;
   color: var(--muted);
-  margin: 14px 0 0;
+  margin: 4px 0 0;
   padding-top: 10px;
   border-top: 1px dashed var(--line);
 }
 @container (max-width: 600px) {
+  .poster {
+    padding: 20px 16px;
+  }
+  .poster-head {
+    min-height: 72px;
+  }
+  .crest {
+    width: 56px;
+    height: 56px;
+  }
+  .poster-title {
+    font-size: 32px;
+  }
+  .summary {
+    font-size: 15px;
+  }
   .sides {
     grid-template-columns: 1fr;
   }

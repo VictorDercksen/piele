@@ -11,45 +11,68 @@
 } @else if (loading()) {
   <p class="preview-empty">Loading the preview.</p>
 } @else if (view(); as preview) {
-  <p class="summary">{{ preview.summary }}</p>
-  <div class="sides">
-    @for (side of preview.sides; track side.label) {
-      <div class="side">
-        <div class="side-head">
-          <h3>{{ side.label }}</h3>
-          <span class="mood" [attr.data-tone]="side.mood.tone">{{ side.mood.label }}</span>
-        </div>
-        <p class="mood-note">
-          {{ side.mood.note }}
-          <sup class="cite" [title]="'Sources ' + side.mood.cites">{{ side.mood.cites }}</sup>
-        </p>
-        @if (side.factors.length) {
-          <ul class="factors">
+  <div class="poster">
+    <div class="poster-head">
+      @for (side of preview.sides; track side.label; let away = $index) {
+        @if (side.crest) {
+          <img class="crest" [class.away]="away" [src]="side.crest" alt="" />
+        }
+      }
+      <p class="poster-title">Piele's<br />read.</p>
+    </div>
+    <p class="summary">{{ preview.summary }}</p>
+    <div class="sides">
+      @for (side of preview.sides; track side.label) {
+        <div class="side" [style.--club-accent]="side.accent">
+          <div class="side-head">
+            <h3>{{ side.label }}</h3>
+            <span class="mood" [attr.data-tone]="side.mood.tone">{{ side.mood.label }}</span>
+          </div>
+          <span class="meter" [attr.data-tone]="side.mood.tone" aria-hidden="true">
+            @for (step of steps; track step) {
+              <i [class.on]="step <= side.mood.step"></i>
+            }
+          </span>
+          <p class="mood-note">
+            {{ side.mood.note }}
+            <sup class="cite" [title]="'Sources ' + side.mood.cites">{{ side.mood.cites }}</sup>
+          </p>
+          <ol class="factors">
             @for (factor of side.factors; track $index) {
               <li>
-                {{ factor.text }}
-                <sup class="cite" [title]="'Sources ' + factor.cites">{{ factor.cites }}</sup>
+                <span class="num">{{ $index + 1 }}</span>
+                <p>
+                  {{ factor.text }}
+                  <sup class="cite" [title]="'Sources ' + factor.cites">{{ factor.cites }}</sup>
+                </p>
               </li>
             }
-          </ul>
-        }
-      </div>
-    }
+          </ol>
+        </div>
+      }
+    </div>
   </div>
-  <h3 class="sources-title">Sources</h3>
-  <ol class="sources">
-    @for (source of preview.sources; track source.number) {
-      <li>
-        <span class="source-number">{{ source.number }}</span>
-        <a [href]="source.url" target="_blank" rel="noopener noreferrer nofollow"
-          >{{ source.title }}<ng-icon class="link-icon" name="lucideExternalLink"
-        /></a>
-        @if (source.origin) {
-          <small>{{ source.origin }}</small>
-        }
-      </li>
-    }
-  </ol>
+
+  <details class="sources-drawer">
+    <summary>
+      <span>Sources</span>
+      <span class="count">{{ preview.sources.length }}</span>
+      <ng-icon class="chevron" name="lucideChevronDown" aria-hidden="true" />
+    </summary>
+    <ol class="sources">
+      @for (source of preview.sources; track source.number) {
+        <li>
+          <span class="source-number">{{ source.number }}</span>
+          <a [href]="source.url" target="_blank" rel="noopener noreferrer nofollow"
+            >{{ source.title }}<ng-icon class="link-icon" name="lucideExternalLink"
+          /></a>
+          @if (source.origin) {
+            <small>{{ source.origin }}</small>
+          }
+        </li>
+      }
+    </ol>
+  </details>
   <p class="preview-note">
     As of {{ preview.generatedAt | date: 'd MMM HH:mm' : sast }} SAST. Written by the Piele agent
     from public sources and the published teamsheets. It can be wrong.
