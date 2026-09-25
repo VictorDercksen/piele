@@ -1,4 +1,6 @@
+import json
 from datetime import timedelta
+from pathlib import Path
 
 from app.matchcentre import service as service_module
 from app.matchcentre.providers import espn, scores
@@ -271,3 +273,24 @@ def test_espn_states() -> None:
     assert espn.event_state("STATUS_CANCELED", "post") == "cancelled"
     scheduled = espn.parse_event(espn_event("25927", "25967", "STATUS_SCHEDULED", "pre"))
     assert scheduled[1]["home"]["score"] is None
+
+
+def test_captured_second_half_from_the_live_feed() -> None:
+    """Connacht v Stormers, 25 September 2026, 55th minute, as the URC feed returned it."""
+    body = json.loads((Path(__file__).parent / "data" / "urc-live-second-half-292585.json").read_text())
+    match = scores.parse_match(body["data"]["matchstats"][0])
+    assert match["state"] == "live"
+    assert match["period"] == "second half"
+    assert match["minute"] == 55
+    assert match["home"] == {"score": 15, "halfTime": 12}
+    assert match["away"] == {"score": 10, "halfTime": 10}
+    assert [(e["kind"], e["side"], e["score"]) for e in match["events"]] == [
+        ("penalty_goal", "away", [0, 3]),
+        ("try", "away", [0, 8]),
+        ("conversion", "away", [0, 10]),
+        ("try", "home", [5, 10]),
+        ("conversion", "home", [7, 10]),
+        ("try", "home", [12, 10]),
+        ("penalty_goal", "home", [15, 10]),
+        ("yellow_card", "home", None),
+    ]

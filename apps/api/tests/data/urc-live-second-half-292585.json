@@ -1,0 +1,426 @@
+{
+ "data": {
+  "matchstats": [
+   {
+    "match_id": 292585,
+    "match_status": "in-play",
+    "match_period": "second half",
+    "home_team_id": 5483,
+    "away_team_id": 3994,
+    "home_score": 15,
+    "away_score": 10,
+    "stats_data": {
+     "matchStatus": "in-play",
+     "period": "second half",
+     "minute": 55,
+     "timerRunning": true,
+     "finalised": 0,
+     "homeTeam": {
+      "id": null,
+      "team": {
+       "id": 5483
+      },
+      "score": {
+       "currentScore": 15,
+       "htScore": 12
+      }
+     },
+     "awayTeam": {
+      "id": null,
+      "team": {
+       "id": 3994
+      },
+      "score": {
+       "currentScore": 10,
+       "htScore": 10
+      }
+     },
+     "events": [
+      {
+       "id": 20731676,
+       "minute": 0,
+       "second": 0,
+       "time": "0",
+       "display": "first half start",
+       "type": {
+        "name": "period"
+       },
+       "period": {
+        "name": "first half"
+       },
+       "team": null,
+       "player": null
+      },
+      {
+       "id": 20732466,
+       "minute": 8,
+       "second": 49,
+       "time": "8",
+       "display": "penalty goal",
+       "type": {
+        "name": "goal kick"
+       },
+       "period": {
+        "name": "first half"
+       },
+       "team": {
+        "id": 3994
+       },
+       "player": {
+        "name": "Jurie Matthee"
+       }
+      },
+      {
+       "id": 20733553,
+       "minute": 19,
+       "second": 47,
+       "time": "19",
+       "display": "try",
+       "type": {
+        "name": "try"
+       },
+       "period": {
+        "name": "first half"
+       },
+       "team": {
+        "id": 3994
+       },
+       "player": {
+        "name": "Warrick Gelant"
+       }
+      },
+      {
+       "id": 20733650,
+       "minute": 20,
+       "second": 28,
+       "time": "20",
+       "display": "conversion",
+       "type": {
+        "name": "goal kick"
+       },
+       "period": {
+        "name": "first half"
+       },
+       "team": {
+        "id": 3994
+       },
+       "player": {
+        "name": "Jurie Matthee"
+       }
+      },
+      {
+       "id": 20736085,
+       "minute": 37,
+       "second": 47,
+       "time": "37",
+       "display": "try",
+       "type": {
+        "name": "try"
+       },
+       "period": {
+        "name": "first half"
+       },
+       "team": {
+        "id": 5483
+       },
+       "player": {
+        "name": "Mack Hansen"
+       }
+      },
+      {
+       "id": 20736198,
+       "minute": 38,
+       "second": 51,
+       "time": "38",
+       "display": "conversion",
+       "type": {
+        "name": "goal kick"
+       },
+       "period": {
+        "name": "first half"
+       },
+       "team": {
+        "id": 5483
+       },
+       "player": {
+        "name": "Sam Gilbert"
+       }
+      },
+      {
+       "id": 20736474,
+       "minute": 41,
+       "second": 33,
+       "time": "40+1",
+       "display": "try",
+       "type": {
+        "name": "try"
+       },
+       "period": {
+        "name": "first half"
+       },
+       "team": {
+        "id": 5483
+       },
+       "player": {
+        "name": "Josh Ioane"
+       }
+      },
+      {
+       "id": 20736587,
+       "minute": 42,
+       "second": 40,
+       "time": "40+2",
+       "display": "missed conversion",
+       "type": {
+        "name": "goal kick"
+       },
+       "period": {
+        "name": "first half"
+       },
+       "team": {
+        "id": 5483
+       },
+       "player": {
+        "name": "Sam Gilbert"
+       }
+      },
+      {
+       "id": 20736600,
+       "minute": 42,
+       "second": 47,
+       "time": "40+2",
+       "display": "first half end",
+       "type": {
+        "name": "period"
+       },
+       "period": {
+        "name": "first half"
+       },
+       "team": null,
+       "player": null
+      },
+      {
+       "id": 20737506,
+       "minute": 40,
+       "second": 0,
+       "time": "40",
+       "display": "second half start",
+       "type": {
+        "name": "period"
+       },
+       "period": {
+        "name": "second half"
+       },
+       "team": null,
+       "player": null
+      },
+      {
+       "id": 20737792,
+       "minute": 44,
+       "second": 4,
+       "time": "44",
+       "display": "missed penalty",
+       "type": {
+        "name": "goal kick"
+       },
+       "period": {
+        "name": "second half"
+       },
+       "team": {
+        "id": 3994
+       },
+       "player": {
+        "name": "Jurie Matthee"
+       }
+      },
+      {
+       "id": 20738010,
+       "minute": 46,
+       "second": 18,
+       "time": "46",
+       "display": "substitution",
+       "type": {
+        "name": "substitution"
+       },
+       "period": {
+        "name": "second half"
+       },
+       "team": {
+        "id": 3994
+       },
+       "player": null
+      },
+      {
+       "id": 20738015,
+       "minute": 46,
+       "second": 18,
+       "time": "46",
+       "display": "substitution",
+       "type": {
+        "name": "substitution"
+       },
+       "period": {
+        "name": "second half"
+       },
+       "team": {
+        "id": 3994
+       },
+       "player": null
+      },
+      {
+       "id": 20738026,
+       "minute": 46,
+       "second": 18,
+       "time": "46",
+       "display": "substitution",
+       "type": {
+        "name": "substitution"
+       },
+       "period": {
+        "name": "second half"
+       },
+       "team": {
+        "id": 3994
+       },
+       "player": null
+      },
+      {
+       "id": 20738031,
+       "minute": 46,
+       "second": 18,
+       "time": "46",
+       "display": "substitution",
+       "type": {
+        "name": "substitution"
+       },
+       "period": {
+        "name": "second half"
+       },
+       "team": {
+        "id": 3994
+       },
+       "player": null
+      },
+      {
+       "id": 20738271,
+       "minute": 47,
+       "second": 51,
+       "time": "47",
+       "display": "substitution",
+       "type": {
+        "name": "substitution"
+       },
+       "period": {
+        "name": "second half"
+       },
+       "team": {
+        "id": 5483
+       },
+       "player": null
+      },
+      {
+       "id": 20738685,
+       "minute": 52,
+       "second": 1,
+       "time": "52",
+       "display": "penalty goal",
+       "type": {
+        "name": "goal kick"
+       },
+       "period": {
+        "name": "second half"
+       },
+       "team": {
+        "id": 5483
+       },
+       "player": {
+        "name": "Sam Gilbert"
+       }
+      },
+      {
+       "id": 20738909,
+       "minute": 54,
+       "second": 21,
+       "time": "54",
+       "display": "yellow",
+       "type": {
+        "name": "card"
+       },
+       "period": {
+        "name": "second half"
+       },
+       "team": {
+        "id": 5483
+       },
+       "player": {
+        "name": "Paul Boyle"
+       }
+      },
+      {
+       "id": 20739032,
+       "minute": 55,
+       "second": 43,
+       "time": "55",
+       "display": "substitution",
+       "type": {
+        "name": "substitution"
+       },
+       "period": {
+        "name": "second half"
+       },
+       "team": {
+        "id": 5483
+       },
+       "player": null
+      },
+      {
+       "id": 20739041,
+       "minute": 55,
+       "second": 43,
+       "time": "55",
+       "display": "substitution",
+       "type": {
+        "name": "substitution"
+       },
+       "period": {
+        "name": "second half"
+       },
+       "team": {
+        "id": 5483
+       },
+       "player": null
+      },
+      {
+       "id": 20739054,
+       "minute": 55,
+       "second": 43,
+       "time": "55",
+       "display": "substitution",
+       "type": {
+        "name": "substitution"
+       },
+       "period": {
+        "name": "second half"
+       },
+       "team": {
+        "id": 5483
+       },
+       "player": null
+      }
+     ]
+    }
+   }
+  ]
+ },
+ "extensions": {
+  "debug": [
+   {
+    "type": "DEBUG_LOGS_INACTIVE",
+    "message": "GraphQL Debug logging is not active. To see debug logs, GRAPHQL_DEBUG must be enabled."
+   }
+  ],
+  "graphqlSmartCache": {
+   "graphqlObjectCache": []
+  }
+ }
+}
