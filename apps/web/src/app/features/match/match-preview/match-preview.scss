@@ -4,52 +4,40 @@
 }
 
 /*
- * Floodlit poster: the ground photo under a dark scrim, washed in the home club's
- * colour from the left and the away club's from the right, with glass cards per side.
+ * Floodlit poster without edges: the ground photo and both clubs' colours sit on a
+ * layer behind the content that fades out on every side into the panel.
  */
 .poster {
   position: relative;
   isolation: isolate;
-  overflow: hidden;
-  padding: 26px 26px 24px;
-  background:
-    linear-gradient(
-      105deg,
-      color-mix(in srgb, var(--home-accent, #3b5a63) 38%, transparent),
-      transparent 45%
-    ),
-    linear-gradient(
-      255deg,
-      color-mix(in srgb, var(--away-accent, #3b5a63) 38%, transparent),
-      transparent 45%
-    ),
-    linear-gradient(180deg, #0b1518cc, #0b1518f2),
-    var(--ground-photo) center / cover;
-  border: 1px solid #ffffff24;
+  padding: 34px 26px 28px;
 }
-.poster-head {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 110px;
-  margin-bottom: 18px;
-}
-.crest {
+.poster::before {
+  content: '';
   position: absolute;
-  left: 0;
-  width: 96px;
-  height: 96px;
-  object-fit: contain;
+  inset: -22px -24px;
+  z-index: -1;
+  background:
+    radial-gradient(
+      ellipse 55% 70% at 0% 40%,
+      color-mix(in srgb, var(--home-accent, #3b5a63) 22%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      ellipse 55% 70% at 100% 40%,
+      color-mix(in srgb, var(--away-accent, #3b5a63) 22%, transparent),
+      transparent 70%
+    ),
+    linear-gradient(180deg, #0b1518b3, #0b1518e6),
+    var(--ground-photo) center / cover;
   opacity: 0.9;
-  filter: drop-shadow(0 2px 4px #0008);
-}
-.crest.away {
-  left: auto;
-  right: 0;
+  mask-image:
+    linear-gradient(90deg, #0000, #000 14%, #000 86%, #0000),
+    linear-gradient(180deg, #0000, #000 18%, #000 72%, #0000);
+  mask-composite: intersect;
 }
 .poster-title {
-  margin: 0;
+  margin: 0 0 18px;
   font-size: 46px;
   font-weight: 900;
   font-style: italic;
@@ -75,13 +63,24 @@
   gap: 22px;
 }
 .side {
+  position: relative;
   min-width: 0;
-  padding: 16px 18px 18px;
-  background: #0b151899;
-  border: 1px solid #ffffff1f;
+  padding: 18px;
   border-radius: 14px;
-  backdrop-filter: blur(10px);
-  box-shadow: inset 0 3px 0 var(--club-accent, transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--club-accent, #3b5a63) 12%, #0b151866),
+    #0b151800 90%
+  );
+}
+/* A club-coloured rule across the top that fades out towards the far edge. */
+.side::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--club-accent, transparent), transparent 85%);
 }
 .side-head {
   display: flex;
@@ -268,12 +267,8 @@
   .poster {
     padding: 20px 16px;
   }
-  .poster-head {
-    min-height: 72px;
-  }
-  .crest {
-    width: 56px;
-    height: 56px;
+  .poster::before {
+    inset: -18px -16px;
   }
   .poster-title {
     font-size: 32px;
