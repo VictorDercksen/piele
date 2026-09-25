@@ -21,7 +21,7 @@ All three `vercel.json` files set `ignoreCommand`, so Vercel builds only `stagin
 - API: with `ENVIRONMENT=production` it refuses to start without HTTPS `ALLOWED_ORIGINS` and a `DATABASE_URL`, and turns off `/docs`, `/redoc` and `/openapi.json`. Every response has `Cache-Control: no-store`, `nosniff` and a request ID.
 - Database: migration `20260924080000_runtime_role.sql` creates the restricted `piele_api` role (no login until an operator sets a password, no `BYPASSRLS`, grants on the `piele` schema only).
 - TLS: `apps/api/certs/supabase-prod-ca-2021.crt` is Supabase's public root certificate. Add `sslmode=verify-full&sslrootcert=certs/supabase-prod-ca-2021.crt` to `DATABASE_URL` to verify the server certificate.
-- Preview agent: `apps/agent` is an eve project. It needs `PIELE_API_URL` and the same `PIELE_AGENT_TOKEN` as the API in its environment; see [apps/agent/README.md](../apps/agent/README.md). Its session routes accept only the project's own Vercel OIDC tokens. Several scheduled runs a day need a paid Vercel plan.
+- Preview agent: `apps/agent` is an eve project. It needs `PIELE_API_URL` and the same `PIELE_AGENT_TOKEN` as the API in its environment; see [apps/agent/README.md](../apps/agent/README.md). Its session routes accept only the project's own Vercel OIDC tokens. Its schedule checks every 15 minutes without a model call and starts a writing session only when a fixture's teamsheets are first published; the 15-minute cron needs a paid Vercel plan.
 - Smoke check: `npm run smoke -- --web <origin> --api <origin>` from the repository root.
 
 ## One-time setup, in order

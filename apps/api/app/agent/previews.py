@@ -1,7 +1,10 @@
-"""Stored match previews and the rule for when a fixture needs a new one.
+"""Stored match previews and the rule for when a fixture needs one.
 
-Mirrors supabase/migrations/20260925120000_match_previews.sql. Previews are global
-competition data: append-only revisions per fixture, written only through the API.
+Mirrors supabase/migrations/20260925120000_match_previews.sql and
+20260925180000_preview_dispatches.sql. Previews are global competition data: append-only
+revisions per fixture, written only through the API. A fixture gets one preview, written
+once both teamsheets are published; the agent's schedule claims it first (a dispatch), so
+overlapping ticks never start two sessions for the same fixture.
 """
 
 from concurrent.futures import ThreadPoolExecutor
@@ -51,9 +54,22 @@ match_previews = Table(
     schema="piele",
 )
 
-# Before kickoff, a preview older than FINAL_REFRESH_AGE is rewritten once inside this window.
-FINAL_REFRESH_WINDOW = timedelta(hours=2)
-FINAL_REFRESH_AGE = timedelta(hours=6)
+preview_dispatches = Table(
+    "preview_dispatches",
+    metadata,
+    Column("fixture_id", String(40), primary_key=True),
+    Column("attempt", Integer, primary_key=True),
+    Column("dispatched_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    Column("teamsheet_hash", CHAR(64), nullable=False),
+    schema="piele",
+)
+
+# A claimed fixture is not claimed again while its session may still be writing.
+DISPATCH_LEASE = timedelta(minutes=45)
+# Sessions that saved nothing are retried after the lease, up to this many claims in all.
+MAX_DISPATCHES = 3
+# Claims per schedule tick; the rest wait for the next tick.
+DISPATCH_LIMIT = 8
 SAVE_ATTEMPTS = 3
 
 
@@ -71,17 +87,22 @@ def open_for_preview(fixture: Fixture, now: datetime) -> bool:
     )
 
 
-def due_reason(kickoff: datetime, now: datetime, current_hash: str | None, latest: Row | None) -> str | None:
-    """Why the fixture needs a preview now, or None. Never after kickoff or before teamsheets."""
-    if current_hash is None or now >= kickoff:
+def due_reason(
+    kickoff: datetime, now: datetime, current_hash: str | None, preview: Row | None, dispatch: Row | None
+) -> str | None:
+    """Why the fixture needs its preview now, or None.
+
+    Only a fixture with both teamsheets published and no preview yet, before kickoff, and
+    not claimed within the lease. A claim whose session saved nothing is retried a limited
+    number of times.
+    """
+    if current_hash is None or now >= kickoff or preview is not None:
         return None
-    if latest is None:
+    if dispatch is None:
         return "first_preview"
-    if latest.teamsheet_hash != current_hash:
-        return "teamsheet_changed"
-    if kickoff - now <= FINAL_REFRESH_WINDOW and now - latest.generated_at > FINAL_REFRESH_AGE:
-        return "final_refresh"
-    return None
+    if dispatch.attempt >= MAX_DISPATCHES or now - dispatch.dispatched_at < DISPATCH_LEASE:
+        return None
+    return "retry"
 
 
 def teamsheet_hashes(schedule: Schedule, centre: MatchCentreService, now: datetime) -> dict[Fixture, str | None]:
@@ -93,12 +114,13 @@ def teamsheet_hashes(schedule: Schedule, centre: MatchCentreService, now: dateti
 
 
 def due_fixtures(connection: Connection, hashes: dict[Fixture, str | None], now: datetime) -> list[dict[str, Any]]:
-    latest = latest_by_fixture(connection, [f.id for f in hashes])
+    ids = [f.id for f in hashes]
+    previews, dispatches = latest_by_fixture(connection, ids), latest_dispatches(connection, ids)
     due = []
     for fixture, current in sorted(hashes.items(), key=lambda item: (item[0].kickoff_utc, item[0].id)):
         assert fixture.kickoff_utc is not None
-        previous = latest.get(fixture.id)
-        reason = due_reason(fixture.kickoff_utc, now, current, previous)
+        dispatch = dispatches.get(fixture.id)
+        reason = due_reason(fixture.kickoff_utc, now, current, previews.get(fixture.id), dispatch)
         if reason:
             due.append(
                 {
@@ -109,10 +131,41 @@ def due_fixtures(connection: Connection, hashes: dict[Fixture, str | None], now:
                     "awayId": fixture.away_id,
                     "reason": reason,
                     "teamsheetHash": current,
-                    "latestRevision": previous.revision if previous else None,
+                    "attempt": dispatch.attempt + 1 if dispatch else 1,
                 }
             )
     return due
+
+
+def claim(connection: Connection, due: dict[str, Any], now: datetime) -> dict[str, Any] | None:
+    """Record the dispatch of a due fixture, or None when a concurrent claim took it first."""
+    try:
+        with connection.begin_nested():
+            row = connection.execute(
+                insert(preview_dispatches)
+                .values(
+                    fixture_id=due["fixtureId"],
+                    attempt=due["attempt"],
+                    dispatched_at=now,
+                    teamsheet_hash=due["teamsheetHash"],
+                )
+                .returning(preview_dispatches.c.dispatched_at)
+            ).one()
+    except IntegrityError:
+        return None
+    return {**due, "dispatchedAt": row.dispatched_at}
+
+
+def latest_dispatches(connection: Connection, fixture_ids: list[str]) -> dict[str, Row]:
+    if not fixture_ids:
+        return {}
+    rows = connection.execute(
+        select(preview_dispatches)
+        .where(preview_dispatches.c.fixture_id.in_(fixture_ids))
+        .distinct(preview_dispatches.c.fixture_id)
+        .order_by(preview_dispatches.c.fixture_id, preview_dispatches.c.attempt.desc())
+    ).all()
+    return {row.fixture_id: row for row in rows}
 
 
 def latest(connection: Connection, fixture_id: str) -> Row | None:

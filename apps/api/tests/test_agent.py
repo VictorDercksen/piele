@@ -3,6 +3,7 @@ previews. Storage tests need PIELE_TEST_DATABASE_URL like tests/test_database.py
 
 import json
 import os
+from dataclasses import replace
 from datetime import date, datetime, timedelta, timezone
 from types import SimpleNamespace
 from uuid import uuid4
@@ -13,7 +14,8 @@ from fastapi.testclient import TestClient
 from sqlalchemy import text
 
 from app.agent import state as state_module
-from app.agent.previews import due_reason, open_for_preview
+from app.agent import previews
+from app.agent.previews import DISPATCH_LEASE, MAX_DISPATCHES, due_reason, open_for_preview
 from app.config import Settings
 from app.db import get_engine
 from app.main import create_app
@@ -109,6 +111,7 @@ def test_agent_routes_reject_a_missing_or_wrong_token(monkeypatch, headers) -> N
     for path in (f"/v1/agent/fixtures/{FIXTURE}/state", "/v1/agent/fixtures/due"):
         assert client.get(path, headers=headers).status_code == 401
     assert client.post("/v1/agent/previews", json={}, headers=headers).status_code == 401
+    assert client.post("/v1/agent/dispatches", headers=headers).status_code == 401
 
 
 def test_a_member_token_is_not_an_agent_token(monkeypatch) -> None:
@@ -128,9 +131,10 @@ def test_production_refuses_a_short_agent_token() -> None:
         )
 
 
-def test_due_needs_the_database(monkeypatch) -> None:
+def test_due_and_dispatches_need_the_database(monkeypatch) -> None:
     client = agent_client(monkeypatch, DAY_BEFORE)
     assert client.get("/v1/agent/fixtures/due", headers=AGENT).status_code == 503
+    assert client.post("/v1/agent/dispatches", headers=AGENT).status_code == 503
 
 
 # Fixture state ------------------------------------------------------------------------
@@ -228,18 +232,21 @@ def test_teamsheet_hash_follows_the_line_ups_only() -> None:
 
 
 def test_due_reasons() -> None:
-    kickoff = KICKOFF
-    old = SimpleNamespace(teamsheet_hash="a" * 64, generated_at=kickoff - timedelta(hours=9))
-    recent = SimpleNamespace(teamsheet_hash="a" * 64, generated_at=kickoff - timedelta(hours=3))
-    day_before, hour_before = kickoff - timedelta(days=1), kickoff - timedelta(hours=1)
+    kickoff, now = KICKOFF, DAY_BEFORE
+    preview = SimpleNamespace(teamsheet_hash="a" * 64, generated_at=now - timedelta(hours=9))
+    claimed = SimpleNamespace(attempt=1, dispatched_at=now - timedelta(minutes=5))
+    lapsed = SimpleNamespace(attempt=1, dispatched_at=now - DISPATCH_LEASE)
+    spent = SimpleNamespace(attempt=MAX_DISPATCHES, dispatched_at=now - timedelta(days=1))
 
-    assert due_reason(kickoff, day_before, None, None) is None  # teamsheets not published
-    assert due_reason(kickoff, day_before, "a" * 64, None) == "first_preview"
-    assert due_reason(kickoff, day_before, "b" * 64, old) == "teamsheet_changed"
-    assert due_reason(kickoff, day_before, "a" * 64, old) is None
-    assert due_reason(kickoff, hour_before, "a" * 64, old) == "final_refresh"
-    assert due_reason(kickoff, hour_before, "a" * 64, recent) is None
-    assert due_reason(kickoff, kickoff, "b" * 64, old) is None  # never after kickoff
+    assert due_reason(kickoff, now, None, None, None) is None  # teamsheets not published
+    assert due_reason(kickoff, now, "a" * 64, None, None) == "first_preview"
+    assert due_reason(kickoff, now, "a" * 64, None, claimed) is None  # a session may be writing
+    assert due_reason(kickoff, now, "a" * 64, None, lapsed) == "retry"
+    assert due_reason(kickoff, now, "a" * 64, None, spent) is None
+    # One preview per fixture: changed teamsheets and approaching kickoff do not rewrite it.
+    assert due_reason(kickoff, now, "b" * 64, preview, None) is None
+    assert due_reason(kickoff, kickoff - timedelta(hours=1), "a" * 64, preview, None) is None
+    assert due_reason(kickoff, kickoff, "a" * 64, None, None) is None  # never after kickoff
 
 
 def test_only_fixtures_inside_the_teamsheet_window_are_open() -> None:
@@ -332,7 +339,7 @@ def test_previews_are_stored_as_revisions_and_retries_are_idempotent(monkeypatch
 
 
 @needs_database
-def test_due_follows_teamsheet_changes_and_the_final_refresh(monkeypatch) -> None:
+def test_a_fixture_with_a_preview_is_not_due_again(monkeypatch) -> None:
     feed = Feed()
     client = agent_client(monkeypatch, DAY_BEFORE, feed, database_url=DATABASE_URL)
     state = client.get(f"/v1/agent/fixtures/{FIXTURE}/state", headers=AGENT).json()
@@ -342,19 +349,88 @@ def test_due_follows_teamsheet_changes_and_the_final_refresh(monkeypatch) -> Non
     assert FIXTURE not in [f["fixtureId"] for f in due]
     assert all(DAY_BEFORE < datetime.fromisoformat(f["kickoffUtc"]) <= DAY_BEFORE + timedelta(days=3) for f in due)
 
-    # A new line-up (fresh cache) makes the fixture due again.
+    # Neither a new line-up (fresh cache) nor the last hours before kickoff bring it back.
     feed.variant = "Late Call-up"
-    changed = agent_client(monkeypatch, DAY_BEFORE, feed, database_url=DATABASE_URL)
-    due = changed.get("/v1/agent/fixtures/due", headers=AGENT).json()["fixtures"]
-    entry = next(f for f in due if f["fixtureId"] == FIXTURE)
-    assert entry["reason"] == "teamsheet_changed"
-    assert entry["teamsheetHash"] != state["teamsheetHash"]
+    for now in (DAY_BEFORE, KICKOFF - timedelta(hours=1)):
+        later = agent_client(monkeypatch, now, feed, database_url=DATABASE_URL)
+        due = later.get("/v1/agent/fixtures/due", headers=AGENT).json()["fixtures"]
+        assert FIXTURE not in [f["fixtureId"] for f in due]
 
-    # With the same line-up, an old preview is rewritten once inside the last two hours.
-    feed.variant = ""
-    late = agent_client(monkeypatch, KICKOFF - timedelta(hours=1), feed, database_url=DATABASE_URL)
-    due = late.get("/v1/agent/fixtures/due", headers=AGENT).json()["fixtures"]
-    assert next(f for f in due if f["fixtureId"] == FIXTURE)["reason"] == "final_refresh"
+
+def rolled_back(test):
+    """Runs test(connection) as the runtime role inside a transaction that is rolled back."""
+    engine = get_engine(Settings(_env_file=None, environment="test", database_url=DATABASE_URL))
+    with engine.connect() as connection:
+        transaction = connection.begin()
+        try:
+            test(connection)
+        finally:
+            transaction.rollback()
+
+
+def fresh_fixture():
+    """A copy of FIXTURE under an id no stored preview or dispatch uses."""
+    return replace(load_schedule().fixture(FIXTURE), id=f"t{uuid4().hex[:12]}")
+
+
+@needs_database
+def test_claims_hold_for_the_lease_and_stop_after_the_last_attempt() -> None:
+    def test(connection) -> None:
+        fixture, now = fresh_fixture(), DAY_BEFORE
+        hashes = {fixture: "a" * 64}
+        for attempt in range(1, MAX_DISPATCHES + 1):
+            (due,) = previews.due_fixtures(connection, hashes, now)
+            assert (due["attempt"], due["reason"]) == (attempt, "first_preview" if attempt == 1 else "retry")
+            assert previews.claim(connection, due, now)["dispatchedAt"] == now
+            # Claimed: not due, and a second claim of the same attempt is refused.
+            assert previews.due_fixtures(connection, hashes, now + DISPATCH_LEASE - timedelta(seconds=1)) == []
+            assert previews.claim(connection, due, now) is None
+            now += DISPATCH_LEASE
+        assert previews.due_fixtures(connection, hashes, now + timedelta(days=1)) == []
+
+    rolled_back(test)
+
+
+@needs_database
+def test_a_saved_preview_ends_the_claims() -> None:
+    def test(connection) -> None:
+        fixture = fresh_fixture()
+        hashes = {fixture: "a" * 64}
+        (due,) = previews.due_fixtures(connection, hashes, DAY_BEFORE)
+        previews.claim(connection, due, DAY_BEFORE)
+        values = submission(FAKE_STATE)
+        previews.save(
+            connection,
+            {
+                "fixture_id": fixture.id,
+                "inputs_hash": values["inputsHash"],
+                "teamsheet_hash": values["teamsheetHash"],
+                "summary": values["summary"],
+                "key_factors": values["keyFactors"],
+                "sentiment": values["sentiment"],
+                "sources": values["sources"],
+                "models": values["models"],
+                "run_id": values["runId"],
+            },
+        )
+        assert previews.due_fixtures(connection, hashes, DAY_BEFORE + DISPATCH_LEASE * 2) == []
+
+    rolled_back(test)
+
+
+@needs_database
+def test_dispatches_claim_each_due_fixture_once(monkeypatch) -> None:
+    client = agent_client(monkeypatch, DAY_BEFORE, database_url=DATABASE_URL)
+    first = client.post("/v1/agent/dispatches", headers=AGENT)
+    assert first.status_code == 200
+    claimed = first.json()["dispatches"]
+    assert len(claimed) <= previews.DISPATCH_LIMIT
+    for entry in claimed:
+        assert entry["attempt"] >= 1
+        assert DAY_BEFORE < datetime.fromisoformat(entry["kickoffUtc"]) <= DAY_BEFORE + timedelta(days=3)
+    # Earlier runs of this test may have used up some claims; none is claimed twice now.
+    again = client.post("/v1/agent/dispatches", headers=AGENT).json()["dispatches"]
+    assert not {e["fixtureId"] for e in claimed} & {e["fixtureId"] for e in again}
 
 
 @needs_database
@@ -384,8 +460,14 @@ def test_a_fixture_without_a_preview_reads_as_none(client: TestClient) -> None: 
 
 
 @needs_database
-def test_runtime_role_cannot_rewrite_previews() -> None:
+def test_runtime_role_cannot_rewrite_previews_or_dispatches() -> None:
     engine = get_engine(Settings(_env_file=None, environment="test", database_url=DATABASE_URL))
-    for statement in ("update piele.match_previews set summary = 'x'", "delete from piele.match_previews"):
+    statements = (
+        "update piele.match_previews set summary = 'x'",
+        "delete from piele.match_previews",
+        "update piele.preview_dispatches set attempt = 1",
+        "delete from piele.preview_dispatches",
+    )
+    for statement in statements:
         with engine.connect() as connection, pytest.raises(Exception, match="permission denied"):
             connection.execute(text(statement))
