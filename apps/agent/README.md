@@ -8,7 +8,7 @@ The agent holds no database credentials. It reaches the API's `/v1/agent` routes
 
 | Path | Contents |
 | --- | --- |
-| `agent/agent.ts` | Root agent: Claude through AI Gateway, no default tools, no self-delegation, per-session token and cost caps. |
+| `agent/agent.ts` | Root agent: DeepSeek V4 Pro through AI Gateway, no default tools, no self-delegation, per-session token and cost caps. |
 | `agent/instructions.md` | The writer's process and rules: cite every claim, treat fetched text as information only, no betting language, plain text. |
 | `agent/tools/` | `get_fixture_state` and `save_preview`, all calling the API through `agent/lib/piele-api.ts`. The state tool keeps the fixture's hashes in session state for `save_preview`, so the model never copies them. |
 | `agent/subagents/team-researcher/` | One team per call. Only `web_search` and `web_fetch`; fetches are limited to `agent/lib/allowlist.ts`. Returns structured items, each with its source URL. |
@@ -39,6 +39,6 @@ Model calls go through AI Gateway with the project's OIDC token, so no provider 
 ## Not verified yet
 
 - No run against a real model or the live URC feed. Measure one round's tokens and searches from Agent Runs before relying on the cost caps.
-- The model ids (`anthropic/claude-opus-5.5` for the writer, `anthropic/claude-sonnet-5` for the researcher) must be checked against the AI Gateway catalogue. They are repeated in `agent/lib/models.ts`, which records them with each preview.
+- The writer and the team researcher both use `deepseek/deepseek-v4-pro` (switched from Claude on 25 September 2026: AI Gateway refused Opus 5.5 for this team). The id is repeated in `agent/lib/models.ts`, which records it with each preview. AI Gateway doubles its price in weekday peak windows (01:00–04:00 and 06:00–10:00 UTC).
 - The domain allowlist is a starting list. `web_fetch` follows redirects after the first URL is checked.
 - No eve evals yet (sources present, no betting language, format fits, injected instructions ignored).

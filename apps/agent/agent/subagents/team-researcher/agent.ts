@@ -5,7 +5,7 @@ export default defineAgent({
   description:
     'Research one URC team before a fixture: injuries, selection news, coach comments, travel ' +
     "and rest notes, and the camp's mood, each with the source URL it came from.",
-  model: 'anthropic/claude-sonnet-5',
+  model: 'deepseek/deepseek-v4-pro',
   defaultTools: false,
   limits: {
     maxInputTokensPerSession: 600_000,
