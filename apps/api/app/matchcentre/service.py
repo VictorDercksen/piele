@@ -10,7 +10,7 @@ import httpx
 from app.config import Settings
 from app.matchcentre.cache import Fetched, Snapshot, SnapshotCache, cached, now_utc
 from app.matchcentre.catalogue import Club, Stadium, club, stadium
-from app.matchcentre.providers import scores, teamsheets, weather
+from app.matchcentre.providers import espn, scores, teamsheets, weather
 from app.matchcentre.schedule import Fixture, load_schedule
 
 logger = logging.getLogger(__name__)
@@ -81,15 +81,47 @@ class MatchCentreService:
         live = [f for f in fixtures if scores.started(f, now)]
         if not live:
             return _section("too_early", SCORES_SOURCE)
-        snapshot = cached(
-            self._cache,
-            f"scores:round:{round_number}",
-            lambda: self._with_client(
-                lambda c: scores.fetch_scores(c, self._settings.urc_graphql_url, fixtures, now)
-            ),
-            now=now,
-        )
-        return _from_snapshot(snapshot, SCORES_SOURCE)
+        key = f"scores:round:{round_number}"
+        snapshot = cached(self._cache, key, lambda: self._fetch_round(key, fixtures, now), now=now)
+        section = _from_snapshot(snapshot, SCORES_SOURCE)
+        section.pop("urcRetryAt", None)
+        return section
+
+    def _fetch_round(self, key: str, fixtures: list[Fixture], now: datetime) -> Fetched:
+        """The URC feed first; ESPN when it fails or is backing off after a failure."""
+        retry_at = self._urc_retry_at(key)
+        urc_error: Exception | None = None
+        if retry_at is None or now >= retry_at:
+            try:
+                return self._with_client(
+                    lambda c: scores.fetch_scores(c, self._settings.urc_graphql_url, fixtures, now)
+                )
+            except Exception as exc:  # noqa: BLE001 - the fallback decides what is reported
+                logger.warning("URC scores failed for %s: %s", key, type(exc).__name__)
+                urc_error = exc
+                retry_at = now + scores.URC_BACKOFF
+        try:
+            fetched = self._with_client(
+                lambda c: espn.fetch_scores(c, self._settings.espn_scoreboard_url, fixtures, now)
+            )
+        except Exception:
+            if urc_error is not None:
+                raise urc_error from None
+            raise
+        payload = {**fetched.payload, "urcRetryAt": retry_at.isoformat() if retry_at else None}
+        return Fetched(fetched.status, payload, fetched.ttl)
+
+    def _urc_retry_at(self, key: str) -> datetime | None:
+        """When the URC feed may be tried again, from the round's last snapshot."""
+        try:
+            previous = self._cache.get(key)
+        except Exception:  # noqa: BLE001 - no back-off without a readable cache
+            return None
+        value = previous.payload.get("urcRetryAt") if previous else None
+        try:
+            return datetime.fromisoformat(value) if isinstance(value, str) else None
+        except ValueError:
+            return None
 
     def teamsheets(self, fixture: Fixture, now: datetime) -> dict[str, Any]:
         """The teamsheets section, fetched through the snapshot cache."""
@@ -161,7 +193,9 @@ def _section(status: str, source: str, fetched_at: datetime | None = None, **pay
 
 
 def _from_snapshot(snapshot: Snapshot, source: str) -> dict[str, Any]:
+    """The snapshot as a section. A payload may name its own source (the ESPN fallback)."""
     payload = dict(snapshot.payload)
+    source = payload.pop("source", source)
     return _section(snapshot.status, source, fetched_at=snapshot.fetched_at, **payload)
 
 

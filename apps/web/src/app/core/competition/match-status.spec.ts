@@ -40,7 +40,11 @@ describe('match status', () => {
     expect(scoreBug(half).heading).toBe('HALF TIME');
     expect(ribbonStatus(half)).toBe('HALF TIME');
     const result = { ...FIXTURE, state: 'full_time' as const, score: '24–20' };
-    expect(scoreBug(result)).toMatchObject({ heading: 'FULL TIME', caption: 'RESULT', value: '24–20' });
+    expect(scoreBug(result)).toMatchObject({
+      heading: 'FULL TIME',
+      caption: 'RESULT',
+      value: '24–20',
+    });
     expect(ribbonStatus(result)).toBe('FULL TIME');
     expect(scoreBug({ ...FIXTURE, state: 'postponed' }).value).toBe('20:45');
   });

@@ -91,9 +91,7 @@ export class RoundViewService {
     () => this.league.marks().find((m) => m.memberId === this.league.currentMemberId())?.marks ?? 0,
   );
   /** Every duty in the season, decorated for display. */
-  readonly seasonDuties = computed(() =>
-    this.league.duties().map((d) => this.decorate(d)),
-  );
+  readonly seasonDuties = computed(() => this.league.duties().map((d) => this.decorate(d)));
   readonly duties = computed(() =>
     this.seasonDuties().filter((d) => d.roundId === this.round().id),
   );

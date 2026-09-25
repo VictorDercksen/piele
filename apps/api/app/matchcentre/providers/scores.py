@@ -6,8 +6,10 @@ reports `match_status: "fixture"` and `period: "pre match"`; afterwards `"result
 `"post match"` and `finalised: 1`. Period events (`first half end`, `second half start`)
 mark half time. Only scoring events and cards are kept for the match centre timeline.
 
-The snapshot's lifetime follows the round: short while a match is live or about to start,
-long once every started match is finalised.
+The snapshot's lifetime follows the round: a minute while a match is live or about to start,
+long once every started match is finalised. The feed stopped answering five minutes before
+kickoff on 25 September 2026 and Cloudflare then blocked the polling address, so the service
+falls back to ESPN (providers/espn.py) and backs off the URC feed for a few minutes.
 """
 
 from datetime import datetime, timedelta
@@ -22,10 +24,12 @@ from app.matchcentre.schedule import Fixture
 PRE_KICKOFF = timedelta(minutes=15)
 # A match not finalised this long after kickoff no longer keeps the round polling.
 MATCH_WINDOW = timedelta(hours=3)
-TTL_LIVE = timedelta(seconds=20)
+TTL_LIVE = timedelta(minutes=1)
 TTL_IDLE_MAX = timedelta(hours=6)
 TTL_IDLE_MIN = timedelta(minutes=1)
 TTL_FAILED = timedelta(minutes=1)
+# After a failed URC request, the next attempt waits this long; ESPN serves meanwhile.
+URC_BACKOFF = timedelta(minutes=5)
 
 QUERY = """
 query RoundScores($ids: [Int]) {

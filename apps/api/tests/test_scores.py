@@ -1,7 +1,7 @@
 from datetime import timedelta
 
 from app.matchcentre import service as service_module
-from app.matchcentre.providers import scores
+from app.matchcentre.providers import espn, scores
 from app.matchcentre.schedule import load_schedule
 from tests.test_matches import FIXTURE, KICKOFF, Upstream, make_client
 
@@ -96,9 +96,13 @@ def test_live_round_is_cached_briefly(monkeypatch) -> None:
     client.get(f"/v1/matches/{FIXTURE}")
     assert len(upstream.score_requests) == 1
 
-    monkeypatch.setattr(service_module, "now_utc", lambda: now + timedelta(seconds=25))
+    monkeypatch.setattr(service_module, "now_utc", lambda: now + timedelta(seconds=45))
+    client.get("/v1/rounds/1/scores")
+    assert len(upstream.score_requests) == 1
+    monkeypatch.setattr(service_module, "now_utc", lambda: now + timedelta(seconds=65))
     client.get("/v1/rounds/1/scores")
     assert len(upstream.score_requests) == 2
+    assert upstream.espn_requests == []
 
 
 def test_match_centre_timeline_and_half_time(monkeypatch) -> None:
@@ -135,7 +139,8 @@ def test_full_time_and_feed_failure(monkeypatch) -> None:
     assert section["state"] == "full_time"
     assert section["minute"] is None
 
-    down = make_client(Upstream(fail={"www.unitedrugby.com"}), KICKOFF + timedelta(minutes=10), monkeypatch)
+    both = {"www.unitedrugby.com", "site.api.espn.com"}
+    down = make_client(Upstream(fail=both), KICKOFF + timedelta(minutes=10), monkeypatch)
     body = down.get("/v1/rounds/1/scores").json()
     assert body["status"] == "unavailable"
     assert body["reason"] == "HTTP 503"
@@ -144,7 +149,7 @@ def test_full_time_and_feed_failure(monkeypatch) -> None:
 
 
 def test_rejected_scores_query_is_unavailable(monkeypatch) -> None:
-    upstream = Upstream(scores={"errors": [{"message": "Cannot query field minute"}]})
+    upstream = Upstream(scores={"errors": [{"message": "Cannot query field minute"}]}, fail={"site.api.espn.com"})
     client = make_client(upstream, KICKOFF + timedelta(minutes=10), monkeypatch)
     body = client.get("/v1/rounds/1/scores").json()
     assert body["status"] == "unavailable"
@@ -177,3 +182,76 @@ def test_snapshot_lifetime_follows_the_round() -> None:
     assert scores.snapshot_ttl(fixtures, live, saturday - timedelta(hours=1)) == timedelta(minutes=45)
     finished = {f.id: {"state": "full_time"} for f in fixtures}
     assert scores.snapshot_ttl(fixtures, finished, saturday + timedelta(hours=10)) == scores.TTL_IDLE_MAX
+
+
+def espn_event(home, away, name, state, score=("0", "0")):
+    return {
+        "status": {"type": {"name": name, "state": state}, "displayClock": "1'"},
+        "competitions": [
+            {
+                "competitors": [
+                    {"homeAway": "home", "team": {"id": home}, "score": score[0]},
+                    {"homeAway": "away", "team": {"id": away}, "score": score[1]},
+                ]
+            }
+        ],
+    }
+
+
+# Friday 25 September on ESPN: Benetton v Dragons live, Connacht v Stormers at half time.
+ESPN_FRIDAY = {
+    "events": [
+        espn_event("25927", "25967", "STATUS_FIRST_HALF", "in", ("14", "7")),
+        espn_event("25923", "25962", "STATUS_HALFTIME", "in", ("0", "10")),
+        espn_event("99999", "25926", "STATUS_FIRST_HALF", "in", ("5", "13")),
+    ]
+}
+
+
+def test_espn_serves_when_the_urc_feed_fails(monkeypatch) -> None:
+    upstream = Upstream(fail={"www.unitedrugby.com"}, espn=ESPN_FRIDAY)
+    now = KICKOFF + timedelta(minutes=35)
+    client = make_client(upstream, now, monkeypatch)
+    body = client.get("/v1/rounds/1/scores").json()
+    assert body["status"] == "ok"
+    assert body["source"] == "ESPN"
+    by_id = {m["fixtureId"]: m for m in body["matches"]}
+    assert by_id[FIXTURE]["state"] == "live"
+    assert by_id[FIXTURE]["minute"] is None
+    assert by_id[FIXTURE]["home"] == {"score": 14, "halfTime": None}
+    assert by_id["292585"]["state"] == "half_time"
+    # An unknown ESPN team leaves its fixture scheduled rather than guessing.
+    assert by_id["292586"]["state"] == "scheduled"
+    # Only Friday has kicked off, so one ESPN request.
+    assert upstream.espn_requests == ["20260925"]
+
+    section = client.get(f"/v1/matches/{FIXTURE}").json()["score"]
+    assert section["source"] == "ESPN"
+    assert section["timeline"] is False
+    assert section["events"] == []
+    assert "urcRetryAt" not in section
+
+    # While backing off, refreshes go straight to ESPN; after five minutes URC is tried again.
+    urc_calls = upstream.calls["www.unitedrugby.com"]
+    monkeypatch.setattr(service_module, "now_utc", lambda: now + timedelta(minutes=2))
+    client.get("/v1/rounds/1/scores")
+    assert upstream.calls["www.unitedrugby.com"] == urc_calls
+    assert len(upstream.espn_requests) == 2
+    upstream.fail.clear()
+    upstream.scores = round_feed(feed_match(int(FIXTURE), status="live", period="first half", minute=41, score=(14, 7)))
+    monkeypatch.setattr(service_module, "now_utc", lambda: now + timedelta(minutes=6))
+    body = client.get("/v1/rounds/1/scores").json()
+    assert body["source"] == "URC match centre"
+    assert next(m for m in body["matches"] if m["fixtureId"] == FIXTURE)["minute"] == 41
+
+
+def test_espn_states() -> None:
+    assert espn.event_state("STATUS_SCHEDULED", "pre") == "scheduled"
+    assert espn.event_state("STATUS_FIRST_HALF", "in") == "live"
+    assert espn.event_state("STATUS_SECOND_HALF", "in") == "live"
+    assert espn.event_state("STATUS_HALFTIME", "in") == "half_time"
+    assert espn.event_state("STATUS_FINAL", "post") == "full_time"
+    assert espn.event_state("STATUS_POSTPONED", "post") == "postponed"
+    assert espn.event_state("STATUS_CANCELED", "post") == "cancelled"
+    scheduled = espn.parse_event(espn_event("25927", "25967", "STATUS_SCHEDULED", "pre"))
+    assert scheduled[1]["home"]["score"] is None

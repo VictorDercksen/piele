@@ -24,7 +24,17 @@ function event(
   score: [number, number] | null,
   period = 'first half',
 ) {
-  return { id, minute: Number.parseInt(time), time, period, side, kind, points, player: `Player ${id}`, score };
+  return {
+    id,
+    minute: Number.parseInt(time),
+    time,
+    period,
+    side,
+    kind,
+    points,
+    player: `Player ${id}`,
+    score,
+  };
 }
 
 const FIRST_HALF = [
@@ -84,7 +94,9 @@ async function mockLiveApi(page: Page, stage: { current: Stage }) {
         source: 'URC match centre',
         fetchedAt: now,
         matches: ROUND_ONE.map((id) =>
-          id === BENETTON ? { fixtureId: id, ...live, status: undefined, source: undefined, fetchedAt: undefined } : scheduled(id),
+          id === BENETTON
+            ? { fixtureId: id, ...live, status: undefined, source: undefined, fetchedAt: undefined }
+            : scheduled(id),
         ),
       },
     });

@@ -33,6 +33,8 @@ class Settings(BaseSettings):
     # Match centre providers.
     urc_graphql_url: str = "https://www.unitedrugby.com/graphql"
     weather_api_url: str = "https://api.open-meteo.com/v1/forecast"
+    # Fallback live scores when the URC feed fails.
+    espn_scoreboard_url: str = "https://site.api.espn.com/apis/site/v2/sports/rugby/270557/scoreboard"
     external_timeout_seconds: float = 6.0
 
     # Bearer token for the preview agent's /v1/agent routes. Unset turns those routes off.

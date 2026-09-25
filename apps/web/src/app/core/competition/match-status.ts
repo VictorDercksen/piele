@@ -18,13 +18,22 @@ export function scoreBug(fixture: Fixture): ScoreBug {
         heading: 'LIVE',
         caption: 'LIVE',
         value: score || fixture.time,
-        note: fixture.minute !== null && fixture.minute !== undefined ? `${fixture.minute}'` : 'IN PLAY',
+        note:
+          fixture.minute !== null && fixture.minute !== undefined
+            ? `${fixture.minute}'`
+            : 'IN PLAY',
         live: true,
       };
     case 'half_time':
       return { heading: 'HALF TIME', caption: 'LIVE', value: score, note: 'HALF TIME', live: true };
     case 'full_time':
-      return { heading: 'FULL TIME', caption: 'RESULT', value: score, note: 'FULL TIME', live: false };
+      return {
+        heading: 'FULL TIME',
+        caption: 'RESULT',
+        value: score,
+        note: 'FULL TIME',
+        live: false,
+      };
     case 'postponed':
     case 'cancelled': {
       const label = fixture.state.toUpperCase();
