@@ -15,8 +15,25 @@ const FIXTURE: Fixture = {
 };
 const NOW = Date.parse('2026-09-25T20:00:00Z');
 
-function event(id: number, time: string, side: 'home' | 'away', kind: ScoreEvent['kind'], period = 'first half', score: [number, number] | null = null): ScoreEvent {
-  return { id, minute: Number.parseInt(time), time, period, side, kind, points: 0, player: `Player ${id}`, score };
+function event(
+  id: number,
+  time: string,
+  side: 'home' | 'away',
+  kind: ScoreEvent['kind'],
+  period = 'first half',
+  score: [number, number] | null = null,
+): ScoreEvent {
+  return {
+    id,
+    minute: Number.parseInt(time),
+    time,
+    period,
+    side,
+    kind,
+    points: 0,
+    player: `Player ${id}`,
+    score,
+  };
 }
 
 function section(overrides: Partial<ScoreSection> = {}): ScoreSection {
@@ -41,7 +58,9 @@ function section(overrides: Partial<ScoreSection> = {}): ScoreSection {
 describe('scoring view', () => {
   it('stays hidden before the kickoff window', () => {
     expect(scoringView(FIXTURE, undefined, NOW)).toBeNull();
-    expect(scoringView(FIXTURE, { status: 'too_early', source: 'x', fetchedAt: null }, NOW)).toBeNull();
+    expect(
+      scoringView(FIXTURE, { status: 'too_early', source: 'x', fetchedAt: null }, NOW),
+    ).toBeNull();
   });
 
   it('lists events by side with a half-time divider', () => {
@@ -64,14 +83,29 @@ describe('scoring view', () => {
   });
 
   it('marks half time, delayed data and failures', () => {
-    const half = scoringView(FIXTURE, section({ state: 'half_time', events: section().events!.slice(0, 2) }), NOW)!;
+    const half = scoringView(
+      FIXTURE,
+      section({ state: 'half_time', events: section().events!.slice(0, 2) }),
+      NOW,
+    )!;
     expect(half.tag).toBe('half time');
     expect(half.rows.at(-1)).toEqual({ divider: true, key: 'half-time', label: 'Half time 10–7' });
     const old = new Date(NOW - STALE_MS - 1000).toISOString();
     expect(scoringView(FIXTURE, section({ fetchedAt: old }), NOW)!.tag).toBe('delayed');
     const waiting = scoringView(FIXTURE, section({ state: 'scheduled', events: [] }), NOW)!;
     expect(waiting.empty).toBe('Scores appear here from kickoff.');
-    const down = scoringView(FIXTURE, { status: 'unavailable', source: 'x', fetchedAt: null }, NOW)!;
+    const fallback = scoringView(
+      FIXTURE,
+      section({ source: 'ESPN', timeline: false, events: [] }),
+      NOW,
+    )!;
+    expect(fallback.rows).toEqual([]);
+    expect(fallback.empty).toContain('score comes from ESPN');
+    const down = scoringView(
+      FIXTURE,
+      { status: 'unavailable', source: 'x', fetchedAt: null },
+      NOW,
+    )!;
     expect(down.tag).toBe('unavailable');
   });
 });

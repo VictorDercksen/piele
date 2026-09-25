@@ -19,11 +19,13 @@ KICKOFF = datetime(2026, 9, 25, 18, 45, tzinfo=timezone.utc)
 class Upstream:
     """Fake providers behind an httpx MockTransport, counting calls per host."""
 
-    def __init__(self, *, graphql=None, weather_hours=None, fail=(), bios_fail=False, scores=None):
+    def __init__(self, *, graphql=None, weather_hours=None, fail=(), bios_fail=False, scores=None, espn=None):
         self.calls: dict[str, int] = {}
         self.graphql = graphql if graphql is not None else self.published()
         self.scores = scores if scores is not None else {"data": {"matchstats": []}}
         self.score_requests: list[dict] = []
+        self.espn = espn if espn is not None else {"events": []}
+        self.espn_requests: list[str] = []
         self.weather_hours = weather_hours
         self.fail = set(fail)
         self.bios_fail = bios_fail
@@ -120,6 +122,9 @@ class Upstream:
                 return httpx.Response(200, json=self.bios(body["variables"]["ids"]))
             assert body["variables"] == {"ids": [int(FIXTURE)]}
             return httpx.Response(200, json=self.graphql)
+        if host == "site.api.espn.com":
+            self.espn_requests.append(request.url.params["dates"])
+            return httpx.Response(200, json=self.espn)
         if host == "api.open-meteo.com":
             params = dict(request.url.params)
             assert params["latitude"] == str(stadium("Stadio Monigo").latitude)

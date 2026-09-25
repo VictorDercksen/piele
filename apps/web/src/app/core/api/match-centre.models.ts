@@ -44,7 +44,8 @@ export interface WeatherSection extends Section {
   readonly isDay?: boolean | null;
 }
 
-export type MatchState = 'scheduled' | 'live' | 'half_time' | 'full_time' | 'postponed' | 'cancelled';
+export type MatchState =
+  'scheduled' | 'live' | 'half_time' | 'full_time' | 'postponed' | 'cancelled';
 
 export interface SideScore {
   readonly score: number | null;
@@ -63,13 +64,7 @@ export interface MatchScore {
 }
 
 export type ScoreEventKind =
-  | 'try'
-  | 'penalty_try'
-  | 'conversion'
-  | 'penalty_goal'
-  | 'drop_goal'
-  | 'yellow_card'
-  | 'red_card';
+  'try' | 'penalty_try' | 'conversion' | 'penalty_goal' | 'drop_goal' | 'yellow_card' | 'red_card';
 
 /** A scoring event or card. `score` is the running score after it, or null for cards. */
 export interface ScoreEvent {
@@ -87,6 +82,8 @@ export interface ScoreEvent {
 
 export interface ScoreSection extends Section, Partial<MatchScore> {
   readonly events?: readonly ScoreEvent[];
+  /** False when the score comes from the ESPN fallback, which has no scoring timeline. */
+  readonly timeline?: boolean;
 }
 
 export interface RoundMatchScore extends MatchScore {

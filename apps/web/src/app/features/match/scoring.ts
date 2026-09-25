@@ -94,13 +94,15 @@ export function scoringView(
   if (!secondHalf && (state === 'half_time' || (state === 'full_time' && rows.length))) {
     rows.push(halfTime(section));
   }
+  const noTimeline = section.timeline === false && state !== 'scheduled';
   return {
     tag: stale ? 'delayed' : (TAGS[state] ?? state.replace('_', ' ')),
     live,
     stale,
     rows,
-    empty:
-      state === 'scheduled'
+    empty: noTimeline
+      ? `The URC match centre is unreachable, so the score comes from ${section.source} and the scoring timeline is unavailable.`
+      : state === 'scheduled'
         ? 'Scores appear here from kickoff.'
         : state === 'postponed' || state === 'cancelled'
           ? `The match has been ${state}.`
@@ -112,7 +114,11 @@ function halfTime(section: ScoreSection): DividerRow {
   const home = section.home?.halfTime;
   const away = section.away?.halfTime;
   const score = home !== null && home !== undefined && away !== null && away !== undefined;
-  return { divider: true, key: 'half-time', label: score ? `Half time ${home}–${away}` : 'Half time' };
+  return {
+    divider: true,
+    key: 'half-time',
+    label: score ? `Half time ${home}–${away}` : 'Half time',
+  };
 }
 
 function eventRow(fixture: Fixture, event: ScoreEvent): EventRow | null {
