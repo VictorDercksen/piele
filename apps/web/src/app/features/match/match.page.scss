@@ -36,34 +36,14 @@ app-match-hero {
   padding: 60px 0;
 }
 /*
- * Preview and forecast share the top row, the preview taking the width its two sides
- * need and the forecast's sky filling the row's height. Teamsheets run full width below
- * so both sides read at a comfortable width. Without a preview the forecast becomes a
- * full-width strip.
+ * One column: the forecast as a short strip, then the preview and both teamsheets at
+ * full width. A side column left the forecast stretched beside a much taller preview.
  */
 .match-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-areas:
-    'weather'
-    'sheets';
   gap: 20px;
   margin-bottom: 20px;
-}
-.match-grid.has-preview {
-  grid-template-columns: minmax(0, 1.8fr) minmax(280px, 1fr);
-  grid-template-areas:
-    'preview weather'
-    'sheets sheets';
-}
-.panel.preview {
-  grid-area: preview;
-}
-.panel.weather {
-  grid-area: weather;
-}
-.panel.teamsheets {
-  grid-area: sheets;
 }
 .panel {
   min-width: 0;
@@ -74,31 +54,18 @@ app-match-hero {
   box-shadow: 0 8px 24px #0003;
 }
 .panel.weather {
-  display: flex;
-  flex-direction: column;
   container-type: inline-size;
-}
-.panel.weather > .panel-source {
-  padding-top: 12px;
-}
-/* When the row is taller than the forecast, the reading sits in the middle of the sky. */
-.forecast-body {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
 }
 /* A wide forecast lays its reading and facts out in one row. */
 @container (min-width: 640px) {
   .forecast-body {
-    flex: none;
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
     align-items: center;
     gap: 28px;
   }
   .forecast-body .forecast-facts {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 190px));
     margin: 0;
   }
 }
@@ -725,15 +692,6 @@ app-match-hero {
   font-weight: 700;
   letter-spacing: 1.2px;
   text-transform: uppercase;
-}
-@container (max-width: 900px) {
-  .match-grid.has-preview {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-areas:
-      'preview'
-      'weather'
-      'sheets';
-  }
 }
 @container (max-width: 600px) {
   .deadline-banner {

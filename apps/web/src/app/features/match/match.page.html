@@ -90,17 +90,7 @@
         </p>
       </section>
     }
-    <div class="match-grid" [class.has-preview]="previewConfigured">
-      @if (previewConfigured) {
-        <app-match-preview
-          class="panel preview"
-          [fixtureId]="fixture.id"
-          [home]="fixture.home"
-          [away]="fixture.away"
-          [homeClub]="fixture.homeAsset"
-          [awayClub]="fixture.awayAsset"
-        />
-      }
+    <div class="match-grid">
       <section
         class="panel weather"
         [class.has-sky]="sky()"
@@ -162,6 +152,16 @@
           <p class="panel-source">{{ centre.weather.source }}</p>
         }
       </section>
+      @if (previewConfigured) {
+        <app-match-preview
+          class="panel preview"
+          [fixtureId]="fixture.id"
+          [home]="fixture.home"
+          [away]="fixture.away"
+          [homeClub]="fixture.homeAsset"
+          [awayClub]="fixture.awayAsset"
+        />
+      }
       <section class="panel teamsheets" aria-labelledby="teamsheets-title">
         <div class="section-title">
           <h2 id="teamsheets-title">Teamsheets.</h2>
