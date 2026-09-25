@@ -105,6 +105,15 @@ def test_live_round_is_cached_briefly(monkeypatch) -> None:
     assert upstream.espn_requests == []
 
 
+def test_second_half_reports_live_with_the_minute(monkeypatch) -> None:
+    first_half_end = {**event(9, 40, "period", "first half end"), "second": 13}
+    events = FIRST_HALF[:-1] + [first_half_end, event(10, 40, "period", "second half start", period="second half")]
+    playing = feed_match(int(FIXTURE), status="live", period="second half", minute=53, score=(19, 14), ht=(19, 7), events=events)
+    client = make_client(Upstream(scores=round_feed(playing)), KICKOFF + timedelta(minutes=75), monkeypatch)
+    match = next(m for m in client.get("/v1/rounds/1/scores").json()["matches"] if m["fixtureId"] == FIXTURE)
+    assert (match["state"], match["minute"], match["period"]) == ("live", 53, "second half")
+
+
 def test_match_centre_timeline_and_half_time(monkeypatch) -> None:
     half_time = feed_match(int(FIXTURE), status="live", period="first half", minute=40, score=(10, 7), ht=(10, 7), events=FIRST_HALF)
     client = make_client(Upstream(scores=round_feed(half_time)), KICKOFF + timedelta(minutes=50), monkeypatch)
@@ -162,6 +171,13 @@ def test_match_state_rules() -> None:
     assert scores.match_state("live", "half time", False, []) == "half_time"
     assert scores.match_state("live", "first half", False, FIRST_HALF) == "half_time"
     assert scores.match_state("live", "second half", False, FIRST_HALF + [event(10, 40, "period", "second half start")]) == "live"
+    # As on 25 September: second half start is stamped 40:00, first half end 40:13, and the
+    # period already reads second half.
+    first_half_end = {**event(9, 40, "period", "first half end"), "second": 13}
+    second_half = FIRST_HALF[:-1] + [first_half_end, event(10, 40, "period", "second half start")]
+    assert scores.match_state("live", "second half", False, second_half) == "live"
+    assert scores.match_state("live", "first half", False, second_half) == "live"
+    assert scores.match_state("live", "first half", False, FIRST_HALF[:-1] + [first_half_end]) == "half_time"
     assert scores.match_state("result", "post match", True, []) == "full_time"
     assert scores.match_state("postponed", "pre match", False, []) == "postponed"
     assert scores.match_state("cancelled", "", False, []) == "cancelled"

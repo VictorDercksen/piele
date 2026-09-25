@@ -54,6 +54,14 @@ describe('live score helpers', () => {
     expect(postponed.score).toBeUndefined();
     expect(withScore(FIXTURE, score({ state: 'full_time' })).score).toBe('10–7');
   });
+
+  it('advances the minute while the clock runs, at most five minutes ahead', () => {
+    expect(withScore(FIXTURE, score(), 90_000).minute).toBe(32);
+    expect(withScore(FIXTURE, score(), 20 * 60_000).minute).toBe(36);
+    expect(withScore(FIXTURE, score({ clockRunning: false }), 90_000).minute).toBe(31);
+    expect(withScore(FIXTURE, score({ state: 'half_time', minute: 40 }), 90_000).minute).toBe(40);
+    expect(withScore(FIXTURE, score({ minute: null }), 90_000).minute).toBeNull();
+  });
 });
 
 describe('LiveScoresService', () => {

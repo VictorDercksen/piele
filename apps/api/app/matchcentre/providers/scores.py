@@ -164,8 +164,15 @@ def match_state(status: str, period: str, finalised: bool, events: list[dict[str
         return "half_time"
     if period in ("", "pre match") and status in ("", "fixture"):
         return "scheduled"
-    markers = [str(e.get("display") or "") for e in events if _type(e) == "period"]
-    if markers and markers[-1] == "first half end":
+    if period != "first half":
+        return "live"
+    # In the first half's period, a recorded `first half end` means half time. Markers are
+    # taken in the order they were recorded (event id): the feed stamps `second half start`
+    # at 40:00, before a `first half end` at 40:13.
+    markers = sorted(
+        (e for e in events if _type(e) == "period"), key=lambda e: _int(e.get("id")) or 0
+    )
+    if markers and str(markers[-1].get("display") or "") == "first half end":
         return "half_time"
     return "live"
 
