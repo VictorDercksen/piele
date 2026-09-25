@@ -2,8 +2,10 @@
 
 One `matchstats(match_id: [...])` query returns every fixture of a round with its score,
 clock and event list (fields introspected 25 September 2026). Before a match the feed
-reports `match_status: "fixture"` and `period: "pre match"`; afterwards `"result"`,
-`"post match"` and `finalised: 1`. Period events (`first half end`, `second half start`)
+reports `match_status: "fixture"` and `period: "pre match"`; during play `"in-play"` with
+`"first half"` or `"second half"`; afterwards `"result"`, `"post match"` and `finalised: 1`.
+During play `homeTeam.id` is null and the team id is only in `homeTeam.team.id` and
+`home_team_id` (seen 25 September 2026; tests/data holds a captured second half). Period events (`first half end`, `second half start`)
 mark half time. Only scoring events and cards are kept for the match centre timeline.
 
 The snapshot's lifetime follows the round: a minute while a match is live or about to start,
@@ -37,6 +39,8 @@ query RoundScores($ids: [Int]) {
     match_id
     match_status
     match_period
+    home_team_id
+    away_team_id
     home_score
     away_score
     stats_data {
@@ -45,8 +49,8 @@ query RoundScores($ids: [Int]) {
       minute
       timerRunning
       finalised
-      homeTeam { id score { currentScore htScore } }
-      awayTeam { id score { currentScore htScore } }
+      homeTeam { id team { id } score { currentScore htScore } }
+      awayTeam { id team { id } score { currentScore htScore } }
       events {
         id
         minute
@@ -149,7 +153,7 @@ def parse_match(row: dict[str, Any]) -> dict[str, Any]:
             "score": away_score if scored else None,
             "halfTime": _score(away, "htScore", None) if scored else None,
         },
-        "events": timeline(raw_events, _int(home.get("id")), _int(away.get("id"))),
+        "events": timeline(raw_events, _team_id(home, row.get("home_team_id")), _team_id(away, row.get("away_team_id"))),
     }
 
 
@@ -164,8 +168,15 @@ def match_state(status: str, period: str, finalised: bool, events: list[dict[str
         return "half_time"
     if period in ("", "pre match") and status in ("", "fixture"):
         return "scheduled"
-    markers = [str(e.get("display") or "") for e in events if _type(e) == "period"]
-    if markers and markers[-1] == "first half end":
+    if period != "first half":
+        return "live"
+    # In the first half's period, a recorded `first half end` means half time. Markers are
+    # taken in the order they were recorded (event id): the feed stamps `second half start`
+    # at 40:00, before a `first half end` at 40:13.
+    markers = sorted(
+        (e for e in events if _type(e) == "period"), key=lambda e: _int(e.get("id")) or 0
+    )
+    if markers and str(markers[-1].get("display") or "") == "first half end":
         return "half_time"
     return "live"
 
@@ -201,6 +212,15 @@ def timeline(events: list[dict[str, Any]], home_id: int | None, away_id: int | N
             }
         )
     return items
+
+
+def _team_id(side: dict[str, Any], fallback: Any) -> int | None:
+    """A side's team id. During play the feed leaves `homeTeam.id` null and fills `team.id`."""
+    team = side.get("team") if isinstance(side.get("team"), dict) else {}
+    for value in (team.get("id"), side.get("id"), fallback):
+        if _int(value) is not None:
+            return _int(value)
+    return None
 
 
 def _type(event: dict[str, Any]) -> str:

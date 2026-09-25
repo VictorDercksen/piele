@@ -20,8 +20,14 @@ export function inPlayWindow(fixture: Fixture, now: number): boolean {
   return kickoff - PRE_KICKOFF_MS <= now && now <= kickoff + MATCH_WINDOW_MS;
 }
 
-/** The fixture with its live state and score line, when the API has reported one. */
-export function withScore(fixture: Fixture, score: MatchScore | undefined): Fixture {
+/** How far the displayed minute may run ahead of the last reported one. */
+const MAX_MINUTES_AHEAD = 5;
+
+/**
+ * The fixture with its live state and score line, when the API has reported one. While the
+ * match clock runs, the minute advances by the time since the score was fetched.
+ */
+export function withScore(fixture: Fixture, score: MatchScore | undefined, sinceMs = 0): Fixture {
   if (!score) return fixture;
   const { home, away, state } = score;
   const scored =
@@ -31,7 +37,10 @@ export function withScore(fixture: Fixture, score: MatchScore | undefined): Fixt
   return {
     ...fixture,
     state,
-    minute: score.minute,
+    minute:
+      state === 'live' && score.clockRunning && score.minute !== null
+        ? score.minute + Math.min(MAX_MINUTES_AHEAD, Math.max(0, Math.floor(sinceMs / 60_000)))
+        : score.minute,
     score: scored ? `${home.score}–${away.score}` : undefined,
   };
 }
@@ -97,7 +106,9 @@ export class LiveScoresService {
 
   /** The fixture with its live score merged in. */
   merge(fixture: Fixture): Fixture {
-    return withScore(fixture, this.byFixture().get(fixture.id));
+    const fetchedAt = this.scores()?.fetchedAt;
+    const since = fetchedAt ? this.now() - Date.parse(fetchedAt) : 0;
+    return withScore(fixture, this.byFixture().get(fixture.id), since);
   }
 
   private poll(): void {

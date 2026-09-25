@@ -114,6 +114,10 @@
   text-shadow: 0 2px 8px #0006;
 }
 
+.club-banner .name-short {
+  display: none;
+}
+
 .club-side {
   margin-top: 14px;
   font-size: 10px;
@@ -141,6 +145,8 @@
 
 .match-time strong {
   font-size: 38px;
+  /* A live score such as 12–10 stays on one line; the column widens to fit it. */
+  white-space: nowrap;
   color: #f4f0db;
   text-shadow: 0 0 16px #f4f0db30;
   line-height: 1.1;
@@ -268,7 +274,7 @@
 
 @container (max-width: 750px) {
   .score-bug {
-    grid-template-columns: minmax(0, 1fr) 108px minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) minmax(108px, max-content) minmax(0, 1fr);
     padding: 26px 18px 32px;
   }
   .club-banner {
@@ -299,7 +305,7 @@
     letter-spacing: 1px;
   }
   .score-bug {
-    grid-template-columns: minmax(0, 1fr) 66px minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) minmax(66px, max-content) minmax(0, 1fr);
     padding: 22px 12px 28px;
   }
   .club-banner {
@@ -313,8 +319,16 @@
     height: 72px;
     margin-bottom: 16px;
   }
+  /* Phones show the short club name, sized so the longest (Edinburgh) fits the banner. */
   .club-banner h2 {
-    font-size: 18px;
+    font-size: clamp(13px, 5.4cqw, 18px);
+    overflow-wrap: normal;
+  }
+  .club-banner .name-full {
+    display: none;
+  }
+  .club-banner .name-short {
+    display: inline;
   }
   .club-side {
     font-size: 8px;
@@ -326,7 +340,8 @@
     gap: 8px;
   }
   .match-time strong {
-    font-size: 21px;
+    font-size: 18px;
+    letter-spacing: -0.3px;
   }
   .match-time > span,
   .match-time small {

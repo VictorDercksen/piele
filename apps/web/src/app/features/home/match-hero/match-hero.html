@@ -9,7 +9,10 @@
         <img class="club-pattern" [src]="banner.pattern" alt="" />
         <img class="club-crest" [src]="banner.crest" alt="" />
       }
-      <h2>{{ homeBanner()?.name ?? shown().home }}</h2>
+      <h2>
+        <span class="name-full">{{ homeBanner()?.name ?? shown().home }}</span
+        ><span class="name-short">{{ shown().home }}</span>
+      </h2>
       <span class="club-side"
         >HOME{{ shown().homeAsset === favourite() ? ' / YOUR TEAM' : '' }}</span
       >
@@ -25,7 +28,10 @@
         <img class="club-pattern" [src]="banner.pattern" alt="" />
         <img class="club-crest" [src]="banner.crest" alt="" />
       }
-      <h2>{{ awayBanner()?.name ?? shown().away }}</h2>
+      <h2>
+        <span class="name-full">{{ awayBanner()?.name ?? shown().away }}</span
+        ><span class="name-short">{{ shown().away }}</span>
+      </h2>
       <span class="club-side"
         >AWAY{{ shown().awayAsset === favourite() ? ' / YOUR TEAM' : '' }}</span
       >
