@@ -29,11 +29,17 @@ const PLAYOFFS = [
   { code: 'F', title: 'Grand final', dates: '19 Jun 2027' },
 ];
 
-/** The round containing the next scheduled kickoff, or the final regular round. */
+/** A match is treated as in progress for this long after kickoff. */
+const MATCH_LENGTH_MS = 2 * 60 * 60_000;
+
+/**
+ * The round containing a match in progress or the next scheduled kickoff, else the final
+ * regular round. A round stays current until its last match has had time to finish.
+ */
 export function currentRoundId(now = Date.now()): number {
   return (
     URC_SCHEDULE.fixtures
-      .filter((m) => m.kickoffUtc && new Date(m.kickoffUtc).getTime() >= now)
+      .filter((m) => m.kickoffUtc && new Date(m.kickoffUtc).getTime() + MATCH_LENGTH_MS >= now)
       .sort((a, b) => a.kickoffUtc!.localeCompare(b.kickoffUtc!))[0]?.round ?? REGULAR_ROUNDS
   );
 }

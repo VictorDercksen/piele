@@ -1,4 +1,4 @@
-"""Assembles the match centre (teamsheets and kickoff forecast) from cached snapshots."""
+"""Assembles the match centre (teamsheets, kickoff forecast, live score) from cached snapshots."""
 
 import logging
 from concurrent.futures import ThreadPoolExecutor
@@ -10,8 +10,8 @@ import httpx
 from app.config import Settings
 from app.matchcentre.cache import Fetched, Snapshot, SnapshotCache, cached, now_utc
 from app.matchcentre.catalogue import Club, Stadium, club, stadium
-from app.matchcentre.providers import teamsheets, weather
-from app.matchcentre.schedule import Fixture
+from app.matchcentre.providers import scores, teamsheets, weather
+from app.matchcentre.schedule import Fixture, load_schedule
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +19,7 @@ HttpFactory = Callable[[], httpx.Client]
 
 TEAMSHEETS_SOURCE = "URC match centre"
 WEATHER_SOURCE = "Open-Meteo"
+SCORES_SOURCE = "URC match centre"
 
 
 class MatchCentreService:
@@ -31,10 +32,11 @@ class MatchCentreService:
         moment = now or now_utc()
         home = club(fixture.home_id)
         away = club(fixture.away_id)
-        with ThreadPoolExecutor(max_workers=2) as pool:
+        with ThreadPoolExecutor(max_workers=3) as pool:
             sections = {
                 "teamsheets": pool.submit(self.teamsheets, fixture, moment),
                 "weather": pool.submit(self.weather, fixture, moment),
+                "score": pool.submit(self._score, fixture, moment),
             }
             results = {name: future.result() for name, future in sections.items()}
         return {
@@ -47,6 +49,47 @@ class MatchCentreService:
             "generatedAt": moment,
             **results,
         }
+
+    def round_scores(self, round_number: int, now: datetime | None = None) -> dict[str, Any]:
+        """Every fixture of a round with its state and score, without the event timelines."""
+        moment = now or now_utc()
+        fixtures = load_schedule().round(round_number)
+        section = self._round_section(round_number, fixtures, moment)
+        found = section.pop("matches", {})
+        return {
+            "round": round_number,
+            "generatedAt": moment,
+            **section,
+            "matches": [
+                {"fixtureId": f.id, **_without_events(found.get(f.id) or _scheduled())}
+                for f in fixtures
+            ],
+        }
+
+    def _score(self, fixture: Fixture, now: datetime) -> dict[str, Any]:
+        if not scores.started(fixture, now):
+            return _section("too_early", SCORES_SOURCE, **_scheduled())
+        fixtures = load_schedule().round(fixture.round)
+        section = self._round_section(fixture.round, fixtures, now)
+        match = section.pop("matches", {}).get(fixture.id)
+        if section["status"] == "ok" and match is None:
+            return {**section, "status": "unavailable", "reason": "fixture not in feed"}
+        return {**section, **(match or {})}
+
+    def _round_section(self, round_number: int, fixtures: list[Fixture], now: datetime) -> dict[str, Any]:
+        """The round's score snapshot. No feed call until a kickoff is near."""
+        live = [f for f in fixtures if scores.started(f, now)]
+        if not live:
+            return _section("too_early", SCORES_SOURCE)
+        snapshot = cached(
+            self._cache,
+            f"scores:round:{round_number}",
+            lambda: self._with_client(
+                lambda c: scores.fetch_scores(c, self._settings.urc_graphql_url, fixtures, now)
+            ),
+            now=now,
+        )
+        return _from_snapshot(snapshot, SCORES_SOURCE)
 
     def teamsheets(self, fixture: Fixture, now: datetime) -> dict[str, Any]:
         """The teamsheets section, fetched through the snapshot cache."""
@@ -95,6 +138,22 @@ def _club_view(item: Club | None) -> dict[str, Any] | None:
     if item is None:
         return None
     return {"id": item.id, "name": item.name, "shortName": item.short_name}
+
+
+def _scheduled() -> dict[str, Any]:
+    return {
+        "state": "scheduled",
+        "period": None,
+        "minute": None,
+        "clockRunning": False,
+        "home": {"score": None, "halfTime": None},
+        "away": {"score": None, "halfTime": None},
+        "events": [],
+    }
+
+
+def _without_events(match: dict[str, Any]) -> dict[str, Any]:
+    return {k: v for k, v in match.items() if k != "events"}
 
 
 def _section(status: str, source: str, fetched_at: datetime | None = None, **payload: Any) -> dict[str, Any]:

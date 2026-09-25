@@ -1,6 +1,6 @@
 <section class="match-story" [attr.aria-label]="'Round ' + roundCode() + ' match centre'">
   <div class="match-heading">
-    <span class="match-label">{{ shown().score ? 'FULL TIME' : label() }}</span>
+    <span class="match-label" [class.live]="bug().live">{{ bug().heading ?? label() }}</span>
     <span class="match-date">{{ shown().day }}</span>
   </div>
   <div class="score-bug">
@@ -14,10 +14,10 @@
         >HOME{{ shown().homeAsset === favourite() ? ' / YOUR TEAM' : '' }}</span
       >
     </div>
-    <div class="match-time">
-      <span>{{ shown().score ? 'RESULT' : 'KICKOFF' }}</span>
-      <strong>{{ shown().score || shown().time }}</strong>
-      <small>{{ shown().score ? 'FULL TIME' : shown().kickoffUtc ? 'SAST' : 'TIME TBC' }}</small>
+    <div class="match-time" [class.live]="bug().live">
+      <span>{{ bug().caption }}</span>
+      <strong>{{ bug().value }}</strong>
+      <small>{{ bug().note }}</small>
       <span class="versus" aria-hidden="true">VS</span>
     </div>
     <div class="club-banner" [style.--club-colour]="awayBanner()?.colour">

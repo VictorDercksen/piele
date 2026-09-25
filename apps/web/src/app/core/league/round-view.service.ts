@@ -1,4 +1,5 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
+import { LiveScoresService } from '../api/live-scores.service';
 import { SelectedRoundService } from '../competition/selected-round.service';
 import { ProfileStore } from '../profile/profile.store';
 import { LeagueData } from './league-data';
@@ -10,13 +11,15 @@ export class RoundViewService {
   private readonly league = inject(LeagueData);
   private readonly profile = inject(ProfileStore);
   private readonly selected = inject(SelectedRoundService);
+  private readonly live = inject(LiveScoresService);
 
   readonly sample = this.league.source === 'sample';
   readonly source = this.league.source;
   readonly loading = this.league.loading;
   readonly error = this.league.error;
   readonly round = this.selected.round;
-  readonly fixtures = computed(() => this.round().fixtures);
+  /** The round's fixtures with live scores merged in once the round has started. */
+  readonly fixtures = computed(() => this.round().fixtures.map((f) => this.live.merge(f)));
   private readonly featuredId = signal<string | null>(null);
   /** The fixture shown in the match centre: the chosen one, else the member's team, else the opener. */
   readonly featured = computed(() => {

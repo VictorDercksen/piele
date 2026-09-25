@@ -95,3 +95,33 @@ button.active {
     padding: 9px 12px;
   }
 }
+
+/* A match in play: pulsing marker and the minute in the live colour. */
+button.live .status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #ff8a73;
+  font-weight: 700;
+}
+button.live .status::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ff6b52;
+  animation: live-pulse 1.6s ease-in-out infinite;
+}
+button.live strong {
+  color: #fff;
+}
+@keyframes live-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  button.live .status::before {
+    animation: none;
+  }
+}

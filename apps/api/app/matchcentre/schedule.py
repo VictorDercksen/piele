@@ -33,6 +33,9 @@ class Schedule:
     def fixture(self, fixture_id: str) -> Fixture | None:
         return next((f for f in self.fixtures if f.id == fixture_id), None)
 
+    def round(self, number: int) -> list[Fixture]:
+        return [f for f in self.fixtures if f.round == number]
+
 
 def _parse_kickoff(value: str | None) -> datetime | None:
     if not value:

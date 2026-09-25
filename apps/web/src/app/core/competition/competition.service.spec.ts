@@ -38,6 +38,9 @@ describe('published URC schedule', () => {
   it('derives the current round from the next kickoff', () => {
     expect(currentRoundId(Date.parse('2026-09-01T00:00:00Z'))).toBe(1);
     expect(currentRoundId(Date.parse('2026-09-28T00:00:00Z'))).toBe(2);
+    // Round one's last kickoff is 26 Sep 18:45 UTC; it stays current while that match runs.
+    expect(currentRoundId(Date.parse('2026-09-26T19:30:00Z'))).toBe(1);
+    expect(currentRoundId(Date.parse('2026-09-26T20:50:00Z'))).toBe(2);
     const later = buildRounds(3);
     expect(later.map((r) => r.status).slice(0, 4)).toEqual([
       'Completed',

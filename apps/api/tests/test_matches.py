@@ -19,9 +19,11 @@ KICKOFF = datetime(2026, 9, 25, 18, 45, tzinfo=timezone.utc)
 class Upstream:
     """Fake providers behind an httpx MockTransport, counting calls per host."""
 
-    def __init__(self, *, graphql=None, weather_hours=None, fail=(), bios_fail=False):
+    def __init__(self, *, graphql=None, weather_hours=None, fail=(), bios_fail=False, scores=None):
         self.calls: dict[str, int] = {}
         self.graphql = graphql if graphql is not None else self.published()
+        self.scores = scores if scores is not None else {"data": {"matchstats": []}}
+        self.score_requests: list[dict] = []
         self.weather_hours = weather_hours
         self.fail = set(fail)
         self.bios_fail = bios_fail
@@ -108,6 +110,9 @@ class Upstream:
             body = json.loads(request.content)
             if "__schema" in body["query"] or "__type" in body["query"]:
                 return httpx.Response(200, json=self.introspection(body["query"]))
+            if "query RoundScores" in body["query"]:
+                self.score_requests.append(body["variables"])
+                return httpx.Response(200, json=self.scores)
             if "query Bios" in body["query"]:
                 self.bio_requests.append(body["variables"])
                 if self.bios_fail:

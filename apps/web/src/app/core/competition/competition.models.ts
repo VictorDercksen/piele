@@ -1,3 +1,5 @@
+import { MatchState } from '../api/match-centre.models';
+
 export type RoundStatus = 'Completed' | 'Current' | 'Upcoming';
 
 export interface Fixture {
@@ -10,7 +12,12 @@ export interface Fixture {
   readonly day: string;
   readonly time: string;
   readonly venue: string;
+  /** `home–away` once the match has started. */
   readonly score?: string;
+  /** Live state from the league API; absent until the round has started. */
+  readonly state?: MatchState;
+  /** Match minute while live. */
+  readonly minute?: number | null;
 }
 
 export interface CompetitionRound {
