@@ -24,7 +24,7 @@ The frontend uses Angular 22.1.7 with CLI 22.1.8. Use a compatible Node 22.22.3+
 
 The schedule contains 144 regular-season fixtures and seven playoff slots for 2026/27, checked on 23 September 2026. Times display in SAST. Playoff teams and kickoffs remain TBC. This is a local snapshot, not live synchronization.
 
-Favourite team and photo persist only in this browser; the display name is the member's Superbru nickname from the league. Evidence videos upload directly to a private Supabase Storage bucket with an API-issued grant.
+Favourite team and photo are saved to the member's league account (photos in the private Storage bucket), so they follow the member to every device; the sample-data development build keeps them in the browser. The display name is the member's Superbru nickname from the league. Evidence videos upload directly to a private Supabase Storage bucket with an API-issued grant.
 
 The asset pack contains 12 team jerseys. Edinburgh, Leinster, Lions and Ospreys use illustrated supporter-shirt SVGs. These are visual placeholders, not official season kit reproductions.
 

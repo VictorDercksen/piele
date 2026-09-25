@@ -1,6 +1,7 @@
 """League domain operations. Every mutation runs inside the actor's transaction and writes
 its audit event and feed entry there, so the three commit or roll back together (I6)."""
 
+import re
 import secrets
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -16,6 +17,7 @@ from app.league import tables as t
 from app.league.context import Actor, now_utc
 from app.league.marks import MarkCalculation, calculate
 from app.league.storage import Storage, StorageError
+from app.matchcentre.catalogue import club
 from app.matchcentre.schedule import load_schedule
 
 REGULAR_ROUNDS = 18
@@ -239,6 +241,119 @@ def update_member(
         before={"displayName": current.display_name, "emailSet": current.invited_email is not None},
         after={"displayName": values.get("display_name", current.display_name), "emailSet": "invited_email" in values and values["invited_email"] is not None or ("invited_email" not in values and current.invited_email is not None)},
     )
+
+
+# Own profile --------------------------------------------------------------------------
+
+PHOTO_TYPE = "image/jpeg"
+
+
+@dataclass(frozen=True)
+class Profile:
+    favourite_team_id: str | None
+    photo_url: str | None
+
+
+def _photo_prefix(user_id: UUID) -> str:
+    return f"avatars/{user_id}/"
+
+
+def profile(actor: Actor, storage: Storage, url_ttl_seconds: int) -> Profile:
+    """The caller's own favourite team and a short-lived URL for their photo."""
+    user = actor.connection.execute(
+        select(t.users.c.favourite_team_id, t.users.c.photo_path).where(t.users.c.id == actor.user_id)
+    ).one()
+    photo_url = None
+    if user.photo_path:
+        try:
+            photo_url = storage.signed_url(user.photo_path, url_ttl_seconds)
+        except StorageError:
+            # The team still loads; the member sees their initials until Storage recovers.
+            photo_url = None
+    return Profile(user.favourite_team_id, photo_url)
+
+
+def reserve_photo_upload(actor: Actor, storage: Storage, *, content_type: str, size_bytes: int, max_bytes: int) -> dict[str, Any]:
+    """A signed upload for a new photo at a fresh path the caller owns."""
+    if content_type != PHOTO_TYPE:
+        raise problem(422, "not_a_jpeg", "Profile photos are uploaded as JPEG.")
+    if size_bytes <= 0 or size_bytes > max_bytes:
+        raise problem(422, "too_large", f"Choose a photo smaller than {max_bytes // 1024} KB.")
+    path = f"{_photo_prefix(actor.user_id)}{uuid4()}-{secrets.token_urlsafe(8)}.jpg"
+    try:
+        grant = storage.create_signed_upload(path)
+    except StorageError as exc:
+        raise problem(503, "storage_unavailable", "Photo storage is unavailable. Try again later.") from exc
+    return {"bucket": storage.bucket, "path": path, "token": grant.token}
+
+
+def update_profile(
+    actor: Actor,
+    storage: Storage,
+    *,
+    favourite_team_id: str,
+    photo_path: str | None,
+    remove_photo: bool,
+    max_bytes: int,
+) -> None:
+    """Changes only the caller's own profile. A new photo must be an upload the caller made."""
+    if club(favourite_team_id) is None:
+        raise problem(422, "unknown_team", "Choose a URC team.")
+    u = t.users
+    user = actor.connection.execute(
+        select(u.c.favourite_team_id, u.c.photo_path).where(u.c.id == actor.user_id).with_for_update()
+    ).one()
+    new_path = user.photo_path
+    if photo_path is not None:
+        pattern = rf"{re.escape(_photo_prefix(actor.user_id))}[0-9a-f-]{{36}}-[A-Za-z0-9_-]+\.jpg"
+        if not re.fullmatch(pattern, photo_path):
+            raise problem(404, "unknown_photo", "Unknown photo upload.")
+        try:
+            stored = storage.stored_object(photo_path)
+        except StorageError as exc:
+            raise problem(503, "storage_unavailable", "Photo storage is unavailable. Try again later.") from exc
+        if stored is None:
+            raise problem(409, "photo_missing", "The photo upload did not finish. Try again.")
+        try:
+            # The browser's type claim is not trusted: a JPEG starts with FF D8 FF.
+            is_jpeg = storage.read_prefix(photo_path, 3) == b"\xff\xd8\xff"
+        except StorageError as exc:
+            raise problem(503, "storage_unavailable", "Photo storage is unavailable. Try again later.") from exc
+        if not is_jpeg or stored.size_bytes is None or stored.size_bytes > max_bytes:
+            _discard(storage, photo_path)
+            raise problem(422, "invalid_photo", "That photo could not be used. Choose a different image.")
+        new_path = photo_path
+    elif remove_photo:
+        new_path = None
+
+    actor.connection.execute(
+        update(u)
+        .where(u.c.id == actor.user_id)
+        .values(
+            favourite_team_id=favourite_team_id,
+            photo_path=new_path,
+            photo_updated_at=func.now() if new_path != user.photo_path else u.c.photo_updated_at,
+            updated_at=func.now(),
+        )
+    )
+    record(
+        actor,
+        action="profile.updated",
+        entity_type="user",
+        entity_id=actor.user_id,
+        before={"favouriteTeamId": user.favourite_team_id, "photo": user.photo_path is not None},
+        after={"favouriteTeamId": favourite_team_id, "photo": new_path is not None},
+    )
+    if user.photo_path and user.photo_path != new_path:
+        _discard(storage, user.photo_path)
+
+
+def _discard(storage: Storage, path: str) -> None:
+    """Best-effort removal of a replaced or rejected photo. A leftover private object is harmless."""
+    try:
+        storage.delete_object(path)
+    except StorageError:
+        pass
 
 
 # Duties -------------------------------------------------------------------------------

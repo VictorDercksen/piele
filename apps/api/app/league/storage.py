@@ -1,4 +1,4 @@
-"""Supabase Storage grants for private evidence videos (plan section 7).
+"""Supabase Storage grants for private evidence videos (plan section 7) and profile photos.
 
 The service key stays server-side. The API issues a narrowly scoped upload grant for a
 path it reserved, the browser uploads directly, and the API checks the stored object
@@ -38,6 +38,10 @@ class Storage(Protocol):
 
     def signed_url(self, path: str, expires_in_seconds: int) -> str: ...
 
+    def read_prefix(self, path: str, length: int) -> bytes: ...
+
+    def delete_object(self, path: str) -> None: ...
+
 
 class SupabaseStorage:
     def __init__(self, supabase_url: str, service_key: str, bucket: str, timeout: float) -> None:
@@ -46,10 +50,10 @@ class SupabaseStorage:
         self._headers = {"Authorization": f"Bearer {service_key}", "apikey": service_key}
         self._timeout = timeout
 
-    def _request(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
+    def _request(self, method: str, path: str, headers: dict[str, str] | None = None, **kwargs: Any) -> httpx.Response:
         try:
             return httpx.request(
-                method, f"{self._base}{path}", headers=self._headers, timeout=self._timeout, **kwargs
+                method, f"{self._base}{path}", headers={**self._headers, **(headers or {})}, timeout=self._timeout, **kwargs
             )
         except httpx.HTTPError as exc:
             raise StorageError("Evidence storage is unavailable.") from exc
@@ -89,6 +93,20 @@ class SupabaseStorage:
             raise StorageError("Evidence storage returned no playback URL.")
         return f"{self._base}{signed}" if signed.startswith("/") else signed
 
+    def read_prefix(self, path: str, length: int) -> bytes:
+        """The object's first bytes, to check its real type rather than the uploader's claim."""
+        response = self._request(
+            "GET", f"/object/authenticated/{self.bucket}/{path}", headers={"Range": f"bytes=0-{length - 1}"}
+        )
+        if response.status_code not in (200, 206):
+            raise StorageError("Storage could not read the upload.")
+        return response.content[:length]
+
+    def delete_object(self, path: str) -> None:
+        response = self._request("DELETE", f"/object/{self.bucket}", json={"prefixes": [path]})
+        if response.status_code != 200:
+            raise StorageError("Storage could not remove the old file.")
+
 
 class UnconfiguredStorage:
     bucket = ""
@@ -100,4 +118,10 @@ class UnconfiguredStorage:
         raise StorageError("Evidence storage is not configured.")
 
     def signed_url(self, path: str, expires_in_seconds: int) -> str:
+        raise StorageError("Evidence storage is not configured.")
+
+    def read_prefix(self, path: str, length: int) -> bytes:
+        raise StorageError("Evidence storage is not configured.")
+
+    def delete_object(self, path: str) -> None:
         raise StorageError("Evidence storage is not configured.")

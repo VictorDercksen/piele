@@ -1,5 +1,5 @@
 """League API integration tests: token verification, membership claim, captain authority,
-duties, marks, evidence and the feed. They need PIELE_TEST_DATABASE_URL like
+duties, marks, evidence, own profiles and the feed. They need PIELE_TEST_DATABASE_URL like
 tests/test_database.py and run each test in a freshly bootstrapped league."""
 
 import os
@@ -31,6 +31,8 @@ class FakeStorage:
 
     def __init__(self) -> None:
         self.objects: dict[str, StoredObject] = {}
+        self.contents: dict[str, bytes] = {}
+        self.deleted: list[str] = []
         self.down = False
 
     def create_signed_upload(self, path: str) -> SignedUpload:
@@ -44,7 +46,20 @@ class FakeStorage:
         return self.objects.get(path)
 
     def signed_url(self, path: str, expires_in_seconds: int) -> str:
+        if self.down:
+            raise StorageError("Evidence storage is unavailable.")
         return f"https://storage.example/{path}?expires={expires_in_seconds}"
+
+    def read_prefix(self, path: str, length: int) -> bytes:
+        if self.down:
+            raise StorageError("Evidence storage is unavailable.")
+        return self.contents.get(path, b"")[:length]
+
+    def delete_object(self, path: str) -> None:
+        if self.down:
+            raise StorageError("Evidence storage is unavailable.")
+        self.deleted.append(path)
+        self.objects.pop(path, None)
 
 
 def token(subject: UUID, email: str | None, *, verified: bool = True, **overrides) -> str:
@@ -392,6 +407,84 @@ def test_leagues_are_isolated(client: TestClient) -> None:
     assert client.get("/v1/duties", headers=other).json() == []
     assert len(client.get("/v1/members", headers=other).json()) == 3
     assert client.get("/v1/feed", headers=other).json()[0]["kind"] == "member_joined"
+
+
+# Own profile --------------------------------------------------------------------------
+
+JPEG = b"\xff\xd8\xff\xe0" + b"\0" * 60
+
+
+def upload_photo(client: TestClient, storage: FakeStorage, headers: dict, content: bytes = JPEG) -> str:
+    grant = client.post("/v1/me/photo/uploads", json={"contentType": "image/jpeg", "sizeBytes": len(content)}, headers=headers)
+    assert grant.status_code == 201, grant.text
+    path = grant.json()["path"]
+    storage.objects[path] = StoredObject(size_bytes=len(content), content_type="image/jpeg")
+    storage.contents[path] = content
+    return path
+
+
+def test_members_save_their_own_team_and_photo(client: TestClient, storage: FakeStorage) -> None:
+    invite(client, "Mo", client.mo_email)
+    mo = auth(subject(client, "MO"), client.mo_email)
+    me = client.get("/v1/me", headers=mo).json()
+    assert me["favouriteTeamId"] is None and me["photoUrl"] is None
+    assert client.put("/v1/me/profile", json={"favouriteTeamId": "made-up-fc"}, headers=mo).json()["detail"]["code"] == "unknown_team"
+
+    saved = client.put("/v1/me/profile", json={"favouriteTeamId": "dhl-stormers"}, headers=mo)
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["favouriteTeamId"] == "dhl-stormers" and saved.json()["photoUrl"] is None
+
+    first = upload_photo(client, storage, mo)
+    with_photo = client.put("/v1/me/profile", json={"favouriteTeamId": "dhl-stormers", "photoPath": first}, headers=mo).json()
+    assert with_photo["photoUrl"].startswith(f"https://storage.example/{first}")
+    # Another device signs in later and gets the same profile.
+    again = client.get("/v1/me", headers=auth(subject(client, "MO"), client.mo_email)).json()
+    assert again["favouriteTeamId"] == "dhl-stormers" and again["photoUrl"].startswith(f"https://storage.example/{first}")
+    # Changing only the team keeps the photo.
+    kept = client.put("/v1/me/profile", json={"favouriteTeamId": "munster-rugby"}, headers=mo).json()
+    assert kept["favouriteTeamId"] == "munster-rugby" and kept["photoUrl"].startswith(f"https://storage.example/{first}")
+
+    second = upload_photo(client, storage, mo)
+    replaced = client.put("/v1/me/profile", json={"favouriteTeamId": "munster-rugby", "photoPath": second}, headers=mo).json()
+    assert replaced["photoUrl"].startswith(f"https://storage.example/{second}")
+    assert storage.deleted == [first]
+    removed = client.put("/v1/me/profile", json={"favouriteTeamId": "munster-rugby", "removePhoto": True}, headers=mo).json()
+    assert removed["photoUrl"] is None and storage.deleted == [first, second]
+    # The captain's profile is untouched by Mo's changes.
+    assert client.get("/v1/me", headers=captain_headers(client)).json()["favouriteTeamId"] is None
+
+
+def test_profile_photos_are_checked_and_owned(client: TestClient, storage: FakeStorage) -> None:
+    invite(client, "Mo", client.mo_email)
+    mo = auth(subject(client, "MO"), client.mo_email)
+    captain = captain_headers(client)
+    bad_type = client.post("/v1/me/photo/uploads", json={"contentType": "image/png", "sizeBytes": 10}, headers=mo)
+    assert bad_type.json()["detail"]["code"] == "not_a_jpeg"
+    too_big = client.post("/v1/me/photo/uploads", json={"contentType": "image/jpeg", "sizeBytes": 600 * 1024}, headers=mo)
+    assert too_big.json()["detail"]["code"] == "too_large"
+
+    captains_photo = upload_photo(client, storage, captain)
+    stolen = client.put("/v1/me/profile", json={"favouriteTeamId": "ospreys", "photoPath": captains_photo}, headers=mo)
+    assert stolen.json()["detail"]["code"] == "unknown_photo"
+    outside = client.put("/v1/me/profile", json={"favouriteTeamId": "ospreys", "photoPath": "https://elsewhere.test/me.jpg"}, headers=mo)
+    assert outside.json()["detail"]["code"] == "unknown_photo"
+
+    grant = client.post("/v1/me/photo/uploads", json={"contentType": "image/jpeg", "sizeBytes": 10}, headers=mo).json()
+    missing = client.put("/v1/me/profile", json={"favouriteTeamId": "ospreys", "photoPath": grant["path"]}, headers=mo)
+    assert missing.json()["detail"]["code"] == "photo_missing"
+    # The upload claimed to be a JPEG but is not one.
+    fake = upload_photo(client, storage, mo, content=b"<svg xmlns='http://www.w3.org/2000/svg'/>")
+    rejected = client.put("/v1/me/profile", json={"favouriteTeamId": "ospreys", "photoPath": fake}, headers=mo)
+    assert rejected.json()["detail"]["code"] == "invalid_photo" and fake in storage.deleted
+    assert client.get("/v1/me", headers=mo).json()["favouriteTeamId"] is None
+
+    good = upload_photo(client, storage, mo)
+    assert client.put("/v1/me/profile", json={"favouriteTeamId": "ospreys", "photoPath": good}, headers=mo).status_code == 200
+    storage.down = True
+    assert client.post("/v1/me/photo/uploads", json={"contentType": "image/jpeg", "sizeBytes": 10}, headers=mo).status_code == 503
+    # The team still loads when Storage cannot sign the photo.
+    me = client.get("/v1/me", headers=mo).json()
+    assert me["favouriteTeamId"] == "ospreys" and me["photoUrl"] is None
 
 
 # Claiming a Superbru name --------------------------------------------------------------

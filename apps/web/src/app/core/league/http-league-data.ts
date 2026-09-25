@@ -3,6 +3,8 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { AuthService } from '../auth/auth.service';
+import { jpegBlob, jpegDataUrl } from '../profile/profile-photo';
+import type { Profile } from '../profile/profile.store';
 import { LeagueData } from './league-data';
 import {
   Duty,
@@ -25,6 +27,15 @@ interface Me {
   readonly leagueName: string;
   readonly seasonName: string;
   readonly inSeason: boolean;
+  readonly favouriteTeamId: string | null;
+  /** Short-lived signed Storage URL, downloaded straight away. */
+  readonly photoUrl: string | null;
+}
+
+interface PhotoUploadGrant {
+  readonly bucket: string;
+  readonly path: string;
+  readonly token: string;
 }
 
 interface ApiMember {
@@ -70,6 +81,14 @@ export class HttpLeagueData extends LeagueData {
     return me?.isCaptain ? me.memberId : null;
   });
   readonly leagueName = computed(() => this.me()?.leagueName ?? null);
+  private readonly photo = signal<string | null>(null);
+  /** The member's saved profile; null until they have chosen a favourite team. */
+  readonly profile = computed<Profile | null>(() => {
+    const me = this.me();
+    return me?.favouriteTeamId
+      ? { displayName: me.displayName, teamId: me.favouriteTeamId, photo: this.photo() }
+      : null;
+  });
   private readonly memberRecords = signal<readonly LeagueMember[]>([]);
   readonly members = this.memberRecords.asReadonly();
   /** Superbru standings arrive with the sync; nothing is published before then. */
@@ -106,6 +125,7 @@ export class HttpLeagueData extends LeagueData {
   clear(): void {
     this.membership.set('unknown');
     this.me.set(null);
+    this.photo.set(null);
     this.memberRecords.set([]);
     this.markRecords.set([]);
     this.dutyRecords.set([]);
@@ -195,12 +215,57 @@ export class HttpLeagueData extends LeagueData {
   async claim(memberId: string): Promise<void> {
     const me = await this.request<Me>('POST', '/memberships/claim', { memberId });
     this.me.set(me);
-    await this.refresh();
+    await Promise.all([this.refresh(), this.loadPhoto(me.photoUrl)]);
     this.membership.set('member');
   }
 
   castVote(): Promise<void> {
     return Promise.reject(new Error('Voting is not available yet.'));
+  }
+
+  /**
+   * Saves the favourite team and photo to the member's account. A new photo goes straight to
+   * private Storage with an API-issued grant; null removes the photo.
+   */
+  async saveProfile(teamId: string, photo: string | null): Promise<void> {
+    const current = this.photo();
+    const change =
+      photo && photo !== current
+        ? { photoPath: await this.uploadPhoto(photo) }
+        : !photo && current
+          ? { removePhoto: true }
+          : {};
+    const me = await this.request<Me>('PUT', '/me/profile', { favouriteTeamId: teamId, ...change });
+    this.me.set(me);
+    this.photo.set(photo ?? null);
+  }
+
+  private async uploadPhoto(dataUrl: string): Promise<string> {
+    const photo = jpegBlob(dataUrl);
+    const grant = await this.request<PhotoUploadGrant>('POST', '/me/photo/uploads', {
+      contentType: photo.type,
+      sizeBytes: photo.size,
+    });
+    const upload = await this.auth
+      .storage()
+      .from(grant.bucket)
+      .uploadToSignedUrl(grant.path, grant.token, photo, { contentType: photo.type });
+    if (upload.error) throw new Error('The photo upload failed. Check your connection and try again.');
+    return grant.path;
+  }
+
+  /** Downloads the saved photo. On failure the member sees their initials instead. */
+  private async loadPhoto(url: string | null): Promise<void> {
+    if (!url) {
+      this.photo.set(null);
+      return;
+    }
+    try {
+      const blob = await firstValueFrom(this.http.get(url, { responseType: 'blob' }));
+      this.photo.set(await jpegDataUrl(blob));
+    } catch {
+      this.photo.set(null);
+    }
   }
 
   private async load(): Promise<MembershipState> {
@@ -209,7 +274,7 @@ export class HttpLeagueData extends LeagueData {
     try {
       const me = await this.request<Me>('GET', '/me');
       this.me.set(me);
-      await this.refresh();
+      await Promise.all([this.refresh(), this.loadPhoto(me.photoUrl)]);
       this.membership.set('member');
     } catch (error) {
       const status = error instanceof ApiError ? error.status : 0;
@@ -246,7 +311,7 @@ export class HttpLeagueData extends LeagueData {
     this.errorState.set(null);
   }
 
-  private async request<T>(method: 'GET' | 'POST' | 'PATCH', path: string, body?: unknown): Promise<T> {
+  private async request<T>(method: 'GET' | 'POST' | 'PUT' | 'PATCH', path: string, body?: unknown): Promise<T> {
     try {
       return await firstValueFrom(
         this.http.request<T>(method, `${this.base}${path}`, { body }),

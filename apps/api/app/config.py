@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     evidence_max_bytes: int = 50 * 1024 * 1024
     evidence_upload_ttl_seconds: int = 2 * 60 * 60
     evidence_playback_ttl_seconds: int = 10 * 60
+    # Profile photos share the bucket under avatars/. The browser uploads a 384 px JPEG.
+    profile_photo_max_bytes: int = 512 * 1024
+    profile_photo_url_ttl_seconds: int = 5 * 60
 
     # Match centre providers.
     urc_graphql_url: str = "https://www.unitedrugby.com/graphql"

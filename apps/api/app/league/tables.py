@@ -1,7 +1,8 @@
-"""SQLAlchemy Core tables mirroring supabase/migrations/20260924160000_league_foundation.sql.
+"""SQLAlchemy Core tables mirroring supabase/migrations/20260924160000_league_foundation.sql
+and the later migrations that extend it.
 
 Only the columns the API reads or writes are declared. Constraints and policies live in
-the migration, which is the single schema history.
+the migrations, which are the single schema history.
 """
 
 from sqlalchemy import BigInteger, Column, DateTime, Integer, MetaData, SmallInteger, String, Table, Text, text
@@ -20,6 +21,9 @@ users = Table(
     Column("id", UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")),
     Column("auth_subject", UUID(as_uuid=True), nullable=False),
     Column("email", String(320)),
+    Column("favourite_team_id", String(40)),
+    Column("photo_path", String(300)),
+    _ts("photo_updated_at"),
     _ts("updated_at", nullable=False),
 )
 
