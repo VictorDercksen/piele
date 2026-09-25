@@ -1,8 +1,16 @@
 import { DatePipe, DecimalPipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  inject,
+  untracked,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
 import { filter, startWith } from 'rxjs';
+import { LiveScoresService, inPlayWindow } from '../../core/api/live-scores.service';
 import { MatchCentreService } from '../../core/api/match-centre.service';
 import { SectionStatus } from '../../core/api/match-centre.models';
 import { CompetitionService } from '../../core/competition/competition.service';
@@ -27,13 +35,14 @@ import {
 import { Icon } from '../../shared/icon/icon';
 import { BallLoader } from '../../shared/ball-loader/ball-loader';
 import { MatchHero } from '../home/match-hero/match-hero';
+import { scoringView } from './scoring';
 import { sheetView } from './teamsheet';
 import { weatherSky } from './weather-sky';
 
 /** South African Standard Time has no daylight saving, so a fixed offset is exact. */
 export const SAST = '+0200';
 
-/** Match details for one fixture: kickoff, deadline, teamsheets and weather. */
+/** Match details for one fixture: kickoff, deadline, live score, teamsheets and weather. */
 @Component({
   selector: 'app-match-page',
   templateUrl: './match.page.html',
@@ -61,17 +70,15 @@ export class MatchPage {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly competition = inject(CompetitionService);
+  private readonly live = inject(LiveScoresService);
   private readonly selected = inject(SelectedRoundService);
   private readonly matchCentre = inject(MatchCentreService);
   readonly view = inject(RoundViewService);
   readonly favouriteTeam = inject(ProfileStore).team;
   readonly sast = SAST;
 
-  /** The fixture named in the URL, which the shell's selected round follows. */
-  readonly fixture = computed(() => {
-    const id = this.view.featured()?.id;
-    return id ? this.competition.locate(id)?.fixture : undefined;
-  });
+  /** The fixture named in the URL, with its live score, which the shell's selected round follows. */
+  readonly fixture = computed(() => this.view.featured());
   readonly configured = this.matchCentre.configured;
   readonly centre = this.matchCentre.centre(() => this.fixture()?.id ?? null);
   readonly data = computed(() => (this.centre.hasValue() ? this.centre.value() : undefined));
@@ -91,6 +98,11 @@ export class MatchPage {
       sheetView(fixture.away, fixture.awayAsset, section.away, kickoff),
     ];
   });
+  /** Live score and scoring timeline, hidden until the fixture's kickoff window. */
+  readonly scoring = computed(() => {
+    const fixture = this.fixture();
+    return fixture ? scoringView(fixture, this.data()?.score, Date.now()) : null;
+  });
   /** Sky backdrop for the kickoff forecast, when there is one. */
   readonly sky = computed(() => {
     const weather = this.data()?.weather;
@@ -108,6 +120,14 @@ export class MatchPage {
         takeUntilDestroyed(),
       )
       .subscribe({ next: () => this.reconcile() });
+    // Refresh the timeline with each live poll while this fixture is in play.
+    effect(() => {
+      if (!this.live.tick()) return;
+      untracked(() => {
+        const fixture = this.fixture();
+        if (fixture && inPlayWindow(fixture, Date.now())) this.centre.reload();
+      });
+    });
   }
 
   reload(): void {

@@ -36,6 +36,64 @@
   } @else if (loading() && !data()) {
     <div class="centre-loading"><app-ball-loader [size]="64" label="Loading match details" /></div>
   } @else if (data(); as centre) {
+    @if (scoring(); as scoring) {
+      <section
+        class="panel scoring"
+        [class.live]="scoring.live"
+        aria-labelledby="scoring-title"
+      >
+        <div class="section-title">
+          <h2 id="scoring-title">Scoring.</h2>
+          <span class="tag" [class.live]="scoring.live && !scoring.stale">{{ scoring.tag }}</span>
+        </div>
+        @if (scoring.rows.length) {
+          <ol class="timeline">
+            @for (row of scoring.rows; track row.key) {
+              @if (row.divider) {
+                <li class="divider">
+                  <span>{{ row.label }}</span>
+                </li>
+              } @else {
+                <li [class]="row.side" [style.--club-accent]="row.accent">
+                  <span class="minute">{{ row.time }}'</span>
+                  <div class="event">
+                    @if (row.crest) {
+                      <img class="crest" [src]="row.crest" [alt]="row.team" />
+                    } @else {
+                      <span class="team">{{ row.team }}</span>
+                    }
+                    <div>
+                      <strong
+                        >@if (row.card) {
+                          <i class="card" [class]="row.card" aria-hidden="true"></i>
+                        }
+                        {{ row.label }}</strong
+                      >
+                      @if (row.player) {
+                        <span class="player">{{ row.player }}</span>
+                      }
+                    </div>
+                    @if (row.score) {
+                      <span class="running" [attr.aria-label]="'score ' + row.score">{{
+                        row.score
+                      }}</span>
+                    }
+                  </div>
+                </li>
+              }
+            }
+          </ol>
+        } @else {
+          <p class="panel-empty">{{ scoring.empty }}</p>
+        }
+        <p class="panel-source">
+          {{ centre.score?.source }}
+          @if (centre.score?.fetchedAt; as at) {
+            · updated {{ at | date: 'HH:mm:ss' : sast }} SAST
+          }
+        </p>
+      </section>
+    }
     <div class="match-grid">
       <section class="panel teamsheets" aria-labelledby="teamsheets-title">
         <div class="section-title">
@@ -214,7 +272,7 @@
   }
   <p class="context-note">
     Published competition fixture. House pick deadlines require a separate captain confirmation.
-    Teamsheets and forecasts come from public sources and can change.
+    Live scores, teamsheets and forecasts come from public sources and can change.
   </p>
 } @else {
   <div class="round-empty">

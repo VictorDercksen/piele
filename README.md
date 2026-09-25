@@ -17,12 +17,12 @@ The frontend uses Angular 22.1.7 with CLI 22.1.8. Use a compatible Node 22.22.3+
 ## Structure
 
 - `apps/web`: Angular app. `src/app/core` holds services, layout and data sources, `src/app/features` holds one folder per page, `src/app/shared` holds reusable components. Read its `AGENTS.md` and `CLAUDE.md` before changes.
-- `apps/api`: FastAPI app with `GET /v1/health`, `GET /v1/matches/{fixtureId}` (teamsheets and kickoff forecast for one fixture, cached in PostgreSQL) and the league endpoints under `/v1` (members, duties, marks, evidence, feed) behind Supabase Auth token verification. See [apps/api/README.md](apps/api/README.md) for the bootstrap command and Storage setup.
+- `apps/api`: FastAPI app with `GET /v1/health`, `GET /v1/matches/{fixtureId}` (teamsheets, kickoff forecast and live score timeline for one fixture, cached in PostgreSQL), `GET /v1/rounds/{round}/scores` (live scores for a round) and the league endpoints under `/v1` (members, duties, marks, evidence, feed) behind Supabase Auth token verification. See [apps/api/README.md](apps/api/README.md) for the bootstrap command and Storage setup.
 - `docs`: operating instructions, starting with the production runbook.
 - `supabase`: SQL migrations applied to the Supabase project by its GitHub integration on pushes to the connected branch. Application tables live in the private `piele` schema.
 - `fixtures`: Official public URC schedule snapshot and provenance.
 
-The schedule contains 144 regular-season fixtures and seven playoff slots for 2026/27, checked on 23 September 2026. Times display in SAST. Playoff teams and kickoffs remain TBC. This is a local snapshot, not live synchronization.
+The schedule contains 144 regular-season fixtures and seven playoff slots for 2026/27, checked on 23 September 2026. Times display in SAST. Playoff teams and kickoffs remain TBC. This is a local snapshot, not live synchronization; live scores and results come from the API during and after each match. The frontend polls a round's scores every 30 seconds while one of its matches is in play and the tab is visible.
 
 Favourite team and photo are saved to the member's league account (photos in the private Storage bucket), so they follow the member to every device; the sample-data development build keeps them in the browser. The display name is the member's Superbru nickname from the league. Evidence videos upload directly to a private Supabase Storage bucket with an API-issued grant.
 

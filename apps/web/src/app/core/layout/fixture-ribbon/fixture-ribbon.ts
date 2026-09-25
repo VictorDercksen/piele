@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, effect, inject } from '@angular/cor
 import { Router } from '@angular/router';
 import { Fixture } from '../../competition/competition.models';
 import { MatchArtwork } from '../../competition/match-artwork';
+import { ribbonStatus } from '../../competition/match-status';
 import { jersey } from '../../competition/teams';
 import { RoundViewService } from '../../league/round-view.service';
 
@@ -20,13 +21,15 @@ import { RoundViewService } from '../../league/round-view.service';
       <button
         type="button"
         [class.active]="view.featured()?.id === match.id"
+        [class.live]="match.state === 'live' || match.state === 'half_time'"
         [attr.aria-pressed]="view.featured()?.id === match.id"
         (click)="choose(match.id)"
         (pointerenter)="prepare(match)"
         (focus)="prepare(match)"
       >
         <span
-          >{{ match.day }} <strong>{{ match.score || match.time }}</strong></span
+          ><span class="status">{{ status(match) }}</span>
+          <strong>{{ match.score || match.time }}</strong></span
         ><span
           ><img [src]="jersey(match.homeAsset)" alt="" /><b>{{ team(match.home) }}</b
           ><i>v</i><b>{{ team(match.away) }}</b
@@ -43,6 +46,7 @@ export class FixtureRibbon {
   private readonly artwork = inject(MatchArtwork);
   readonly view = inject(RoundViewService);
   readonly jersey = jersey;
+  readonly status = ribbonStatus;
 
   constructor() {
     effect(() => this.artwork.warm(this.view.fixtures()));

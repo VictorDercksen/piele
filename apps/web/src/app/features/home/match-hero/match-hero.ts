@@ -12,6 +12,7 @@ import {
 import { CLUB_BANNERS } from '../../../core/competition/club-banners';
 import { Fixture } from '../../../core/competition/competition.models';
 import { MatchArtwork } from '../../../core/competition/match-artwork';
+import { scoreBug } from '../../../core/competition/match-status';
 import { stadiumCountry, stadiumIcon } from '../../../core/competition/stadiums';
 import { Icon } from '../../../shared/icon/icon';
 
@@ -42,6 +43,8 @@ export class MatchHero {
     computation: (next, previous) =>
       !previous || this.artwork.ready(next) ? next : previous.value,
   });
+  /** Kickoff time, live score or result for the fixture on screen. */
+  readonly bug = computed(() => scoreBug(this.shown()));
   readonly homeBanner = computed(() => CLUB_BANNERS[this.shown().homeAsset]);
   readonly awayBanner = computed(() => CLUB_BANNERS[this.shown().awayAsset]);
   readonly country = computed(() => stadiumCountry(this.shown().venue));
