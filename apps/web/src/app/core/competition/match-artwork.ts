@@ -1,12 +1,12 @@
 import { Injectable, signal } from '@angular/core';
 import { CLUB_BANNERS } from './club-banners';
 import { Fixture } from './competition.models';
-import { stadiumCountry, stadiumIcon } from './stadiums';
+import { stadiumBackground, stadiumCountry, stadiumIcon } from './stadiums';
 
 /** Longest a matchup switch waits for artwork before showing it as it arrives. */
 const MAX_WAIT_MS = 600;
 
-/** Every image the match hero draws for a fixture: club patterns, crests, the stadium flag and icon. */
+/** Club artwork and venue images decoded together before changing the match hero. */
 export function matchArtwork(fixture: Fixture): string[] {
   const home = CLUB_BANNERS[fixture.homeAsset];
   const away = CLUB_BANNERS[fixture.awayAsset];
@@ -17,6 +17,7 @@ export function matchArtwork(fixture: Fixture): string[] {
     away?.crest,
     stadiumCountry(fixture.venue)?.flag,
     stadiumIcon(fixture.venue),
+    stadiumBackground(fixture.venue),
   ].filter((url): url is string => !!url);
 }
 

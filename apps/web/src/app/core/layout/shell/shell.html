@@ -70,6 +70,7 @@
     </div>
   </header>
   <main id="main-content" class="main-content">
+    <app-stadium-backdrop class="page-backdrop" [src]="pageBackground()" />
     <div class="round-bar">
       <section class="round-context" aria-label="Selected round" aria-live="polite">
         <div>
@@ -109,7 +110,10 @@
         <app-fixture-ribbon />
       }
     </div>
-    <div class="page-heading">
+    <div
+      class="page-heading"
+      [class.without-divider]="isHome() || currentUrl().startsWith('/match/')"
+    >
       <div>
         @if (page().parent; as parent) {
           <nav class="breadcrumbs" aria-label="Breadcrumb">
@@ -129,7 +133,7 @@
         }
         <h1>{{ page().title }}</h1>
       </div>
-      @if (!isHome()) {
+      @if (!isHome() && !currentUrl().startsWith('/match/')) {
         <span class="scope-note">{{
           page().seasonWide ? 'Applies to the whole season.' : 'Viewing ' + round().title + '.'
         }}</span>

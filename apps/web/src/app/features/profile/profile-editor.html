@@ -4,7 +4,7 @@
   [style.--team-accent]="selectedTeam()?.accent || '#ff957e'"
 >
   <div class="profile-poster">
-    <img class="poster-photo" src="assets/editorial/rugby-under-lights.webp" alt="" />
+    <app-stadium-backdrop class="poster-photo" [src]="selectedTeam()?.stadiumBackground" />
     <a class="profile-brand" routerLink="/" aria-label="Piele home"
       ><img src="assets/images/piele-crest.png" alt="" />PIELE <span>URC 26/27</span></a
     >

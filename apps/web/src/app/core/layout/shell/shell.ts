@@ -15,11 +15,13 @@ import {
 import { debounce, filter, map, of, timer } from 'rxjs';
 import { CompetitionService } from '../../competition/competition.service';
 import { SelectedRoundService } from '../../competition/selected-round.service';
+import { stadiumBackground } from '../../competition/stadiums';
 import { ToastService } from '../../feedback/toast.service';
 import { RoundViewService } from '../../league/round-view.service';
 import { ProfileStore } from '../../profile/profile.store';
 import { Icon } from '../../../shared/icon/icon';
 import { BallLoader } from '../../../shared/ball-loader/ball-loader';
+import { StadiumBackdrop } from '../../../shared/stadium-backdrop/stadium-backdrop';
 import { FixtureRibbon } from '../fixture-ribbon/fixture-ribbon';
 import { NotificationsFlag } from '../notifications-flag/notifications-flag';
 import { SeasonTimeline } from '../season-timeline/season-timeline';
@@ -40,6 +42,7 @@ import { PageData } from './page-data';
     SeasonTimeline,
     NotificationsFlag,
     FixtureRibbon,
+    StadiumBackdrop,
   ],
 })
 export class Shell {
@@ -80,6 +83,15 @@ export class Shell {
   );
   readonly currentUrl = computed(() => this.navigated());
   readonly isHome = computed(() => this.path(this.navigated()) === '/');
+  readonly pageBackground = computed(() => {
+    const path = this.path(this.navigated());
+    if (path === '/') return stadiumBackground(this.view.featured()?.venue);
+    if (path.startsWith('/match/')) {
+      const fixture = this.competition.locate(path.slice('/match/'.length))?.fixture;
+      return stadiumBackground(fixture?.venue);
+    }
+    return this.favouriteTeam()?.stadiumBackground;
+  });
   readonly page = computed<PageData>(() => {
     this.navigated();
     let route: ActivatedRouteSnapshot = this.router.routerState.snapshot.root;
