@@ -177,11 +177,13 @@ button {
   .round-track {
     display: flex;
     flex: none;
-    margin-top: 8px;
+    // Bleed past the 18px side padding so rounds scroll to the screen edge.
+    margin: 8px -18px 0;
     mask-image: none;
     overflow-x: auto;
     overflow-y: hidden;
-    padding: 0 0 7px;
+    padding: 0 18px 7px;
+    scroll-padding-inline: 18px;
     scrollbar-width: none;
   }
   .round-stop {
