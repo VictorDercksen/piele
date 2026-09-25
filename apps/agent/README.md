@@ -13,8 +13,23 @@ The agent holds no database credentials. It reaches the API's `/v1/agent` routes
 | `agent/tools/` | `get_fixture_state` and `save_preview`, all calling the API through `agent/lib/piele-api.ts`. The state tool keeps the fixture's hashes in session state for `save_preview`, so the model never copies them. |
 | `agent/subagents/team-researcher/` | One team per call. Only `web_search` and `web_fetch`; fetches are limited to `agent/lib/allowlist.ts`. Returns structured items, each with its source URL. |
 | `agent/schedules/prepare-previews.ts` | Cron `*/15 * * * *` (UTC), a code handler with no model call. It claims due fixtures through `POST /v1/agent/dispatches` (both teamsheets published, no preview yet) and starts one writing session per claim. Ticks with nothing due cost one API call. Needs a paid Vercel plan (Hobby cron runs once a day). |
-| `agent/channels/previews.ts` | Receives each claim from the schedule and starts its session. eve only registers a channel with a route, so it has one empty `GET /previews/health`. |
+| `agent/channels/previews.ts` | Starts one writing session per claim, from the schedule or from `POST /previews/run` (below), plus an empty `GET /previews/health`. |
 | `agent/channels/eve.ts` | Session routes accept only this project's Vercel OIDC tokens and a local `eve dev` server. |
+
+## Run previews on demand
+
+`POST /previews/run` on the agent's production URL does what a schedule tick does, straight away, behind the same bearer token as the API (`PIELE_AGENT_TOKEN`):
+
+```bash
+# Claim and start whatever is due now
+curl -X POST https://<piele-agent domain>/previews/run -H "Authorization: Bearer $PIELE_AGENT_TOKEN"
+# Only one fixture, if it is due
+curl -X POST https://<piele-agent domain>/previews/run -H "Authorization: Bearer $PIELE_AGENT_TOKEN" -d '{"fixtureId":"292584"}'
+# One fixture now, even if it has a preview, is inside a claim's 45 minutes or has used its 3 attempts
+curl -X POST https://<piele-agent domain>/previews/run -H "Authorization: Bearer $PIELE_AGENT_TOKEN" -d '{"fixtureId":"292584","force":true}'
+```
+
+It answers `202` with `{ started: [{ fixtureId, attempt, reason, sessionId }] }`, or `200` with an empty list when nothing was due. A forced run still needs both teamsheets published and a kickoff ahead, and a forced fixture with a preview gets a new revision. The claim is recorded in `piele.preview_dispatches` like a scheduled one.
 
 ## Run and check
 

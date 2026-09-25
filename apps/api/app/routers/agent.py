@@ -15,7 +15,7 @@ from sqlalchemy import Engine
 
 from app.agent import previews
 from app.agent.auth import agent_dependency
-from app.agent.models import PreviewSubmission
+from app.agent.models import DispatchRequest, PreviewSubmission
 from app.agent.state import build_state
 from app.db import get_engine
 from app.matchcentre.cache import now_utc
@@ -92,13 +92,20 @@ def due(request: Request) -> Any:
 
 
 @router.post("/dispatches", response_model=Dispatches)
-def dispatch(request: Request) -> Any:
-    """Claim up to DISPATCH_LIMIT due fixtures, soonest kickoff first, for writing sessions."""
+def dispatch(request: Request, body: DispatchRequest | None = None) -> Any:
+    """Claim up to DISPATCH_LIMIT due fixtures, soonest kickoff first, for writing sessions.
+
+    With a fixtureId, only that fixture is considered; with force as well, it is claimed even
+    when it has a preview, is inside a lease or has used its attempts.
+    """
+    body = body or DispatchRequest()
     now = now_utc()
     engine = engine_of(request)
-    hashes = previews.teamsheet_hashes(load_schedule(), match_centre(request), now)
+    if body.fixtureId is not None:
+        open_fixture(body.fixtureId, now)
+    hashes = previews.teamsheet_hashes(load_schedule(), match_centre(request), now, body.fixtureId)
     with engine.begin() as conn:
-        due = previews.due_fixtures(conn, hashes, now)[: previews.DISPATCH_LIMIT]
+        due = previews.due_fixtures(conn, hashes, now, body.force)[: previews.DISPATCH_LIMIT]
         claimed = [c for c in (previews.claim(conn, d, now) for d in due) if c is not None]
     return {"generatedAt": now, "dispatches": claimed}
 
