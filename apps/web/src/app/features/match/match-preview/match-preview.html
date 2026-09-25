@@ -1,0 +1,62 @@
+<div class="section-title">
+  <h2 id="preview-title">Piele preview.</h2>
+</div>
+@if (failed()) {
+  <p class="preview-empty" role="alert">
+    The preview could not be loaded.
+    <button type="button" class="text-button" (click)="reload()">
+      Try again<ng-icon class="link-icon" name="lucideRotateCcw" />
+    </button>
+  </p>
+} @else if (loading()) {
+  <p class="preview-empty">Loading the preview.</p>
+} @else if (view(); as preview) {
+  <p class="summary">{{ preview.summary }}</p>
+  <div class="sides">
+    @for (side of preview.sides; track side.label) {
+      <div class="side">
+        <div class="side-head">
+          <h3>{{ side.label }}</h3>
+          <span class="mood" [attr.data-tone]="side.mood.tone">{{ side.mood.label }}</span>
+        </div>
+        <p class="mood-note">
+          {{ side.mood.note }}
+          <sup class="cite" [title]="'Sources ' + side.mood.cites">{{ side.mood.cites }}</sup>
+        </p>
+        @if (side.factors.length) {
+          <ul class="factors">
+            @for (factor of side.factors; track $index) {
+              <li>
+                {{ factor.text }}
+                <sup class="cite" [title]="'Sources ' + factor.cites">{{ factor.cites }}</sup>
+              </li>
+            }
+          </ul>
+        }
+      </div>
+    }
+  </div>
+  <h3 class="sources-title">Sources</h3>
+  <ol class="sources">
+    @for (source of preview.sources; track source.number) {
+      <li>
+        <span class="source-number">{{ source.number }}</span>
+        <a [href]="source.url" target="_blank" rel="noopener noreferrer nofollow"
+          >{{ source.title }}<ng-icon class="link-icon" name="lucideExternalLink"
+        /></a>
+        @if (source.origin) {
+          <small>{{ source.origin }}</small>
+        }
+      </li>
+    }
+  </ol>
+  <p class="preview-note">
+    As of {{ preview.generatedAt | date: 'd MMM HH:mm' : sast }} SAST. Written by the Piele agent
+    from public sources and the published teamsheets. It can be wrong.
+  </p>
+} @else {
+  <p class="preview-empty">
+    No preview yet. Previews are written once teamsheets are published, about 48 hours before
+    kickoff.
+  </p>
+}

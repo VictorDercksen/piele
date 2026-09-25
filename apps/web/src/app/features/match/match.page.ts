@@ -35,6 +35,7 @@ import {
 import { Icon } from '../../shared/icon/icon';
 import { BallLoader } from '../../shared/ball-loader/ball-loader';
 import { MatchHero } from '../home/match-hero/match-hero';
+import { MatchPreview } from './match-preview/match-preview';
 import { scoringView } from './scoring';
 import { sheetView } from './teamsheet';
 import { weatherSky } from './weather-sky';
@@ -48,7 +49,7 @@ export const SAST = '+0200';
   templateUrl: './match.page.html',
   styleUrl: './match.page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, DecimalPipe, Icon, NgIcon, BallLoader, MatchHero],
+  imports: [DatePipe, DecimalPipe, Icon, NgIcon, BallLoader, MatchHero, MatchPreview],
   viewProviders: [
     provideIcons({
       lucideCloud,
@@ -80,6 +81,7 @@ export class MatchPage {
   /** The fixture named in the URL, with its live score, which the shell's selected round follows. */
   readonly fixture = computed(() => this.view.featured());
   readonly configured = this.matchCentre.configured;
+  readonly previewConfigured = this.matchCentre.previewConfigured;
   readonly centre = this.matchCentre.centre(() => this.fixture()?.id ?? null);
   readonly data = computed(() => (this.centre.hasValue() ? this.centre.value() : undefined));
   readonly loading = computed(() => this.centre.isLoading());

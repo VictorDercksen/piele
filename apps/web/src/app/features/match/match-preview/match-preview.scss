@@ -1,0 +1,123 @@
+:host {
+  display: block;
+}
+.summary {
+  font-size: 15px;
+  line-height: 1.55;
+  white-space: pre-line;
+  margin: 0 0 20px;
+}
+.sides {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+}
+.side-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+}
+.side-head h3 {
+  font-size: 16px;
+  margin: 0;
+}
+.mood {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 4px 8px;
+  white-space: nowrap;
+  background: #ffffff14;
+  color: var(--muted);
+}
+.mood[data-tone='up'] {
+  background: #203e3b;
+  color: #b5d9ce;
+}
+.mood[data-tone='down'] {
+  background: #4a2b26;
+  color: #efc2b8;
+}
+.mood-note {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 0 0 10px;
+}
+.factors {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.factors li + li {
+  margin-top: 6px;
+}
+.cite {
+  font-size: 9px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.sources-title {
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 22px 0 8px;
+}
+.sources {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.sources li {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 4px 10px;
+  padding: 6px 0;
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+}
+.sources a {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.source-number {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.sources small {
+  font-size: 10px;
+  color: var(--muted);
+}
+.preview-empty {
+  color: var(--muted);
+  margin: 6px 0 0;
+}
+.preview-empty .text-button {
+  margin-left: 6px;
+}
+.preview-note {
+  font-size: 10px;
+  letter-spacing: 0.4px;
+  color: var(--muted);
+  margin: 14px 0 0;
+  padding-top: 10px;
+  border-top: 1px dashed var(--line);
+}
+@container (max-width: 600px) {
+  .sides {
+    grid-template-columns: 1fr;
+  }
+  .sources li {
+    grid-template-columns: 18px minmax(0, 1fr);
+  }
+  .sources small {
+    grid-column: 2;
+  }
+}

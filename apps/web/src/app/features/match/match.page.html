@@ -270,9 +270,17 @@
       </section>
     </div>
   }
+  @if (previewConfigured) {
+    <app-match-preview
+      class="panel preview"
+      [fixtureId]="fixture.id"
+      [home]="fixture.home"
+      [away]="fixture.away"
+    />
+  }
   <p class="context-note">
     Published competition fixture. House pick deadlines require a separate captain confirmation.
-    Live scores, teamsheets and forecasts come from public sources and can change.
+    Live scores, teamsheets, forecasts and previews come from public sources and can change.
   </p>
 } @else {
   <div class="round-empty">

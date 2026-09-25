@@ -34,8 +34,8 @@ class MatchCentreService:
         away = club(fixture.away_id)
         with ThreadPoolExecutor(max_workers=3) as pool:
             sections = {
-                "teamsheets": pool.submit(self._teamsheets, fixture, moment),
-                "weather": pool.submit(self._weather, fixture, moment),
+                "teamsheets": pool.submit(self.teamsheets, fixture, moment),
+                "weather": pool.submit(self.weather, fixture, moment),
                 "score": pool.submit(self._score, fixture, moment),
             }
             results = {name: future.result() for name, future in sections.items()}
@@ -91,7 +91,8 @@ class MatchCentreService:
         )
         return _from_snapshot(snapshot, SCORES_SOURCE)
 
-    def _teamsheets(self, fixture: Fixture, now: datetime) -> dict[str, Any]:
+    def teamsheets(self, fixture: Fixture, now: datetime) -> dict[str, Any]:
+        """The teamsheets section, fetched through the snapshot cache."""
         if fixture.kickoff_utc is None or fixture.home_id is None or fixture.away_id is None:
             return _section("not_published", TEAMSHEETS_SOURCE)
         timing = teamsheets.timing_status(fixture.kickoff_utc, now)
@@ -109,7 +110,8 @@ class MatchCentreService:
         )
         return _from_snapshot(snapshot, TEAMSHEETS_SOURCE)
 
-    def _weather(self, fixture: Fixture, now: datetime) -> dict[str, Any]:
+    def weather(self, fixture: Fixture, now: datetime) -> dict[str, Any]:
+        """The kickoff forecast section, fetched through the snapshot cache."""
         place: Stadium | None = stadium(fixture.venue)
         if fixture.kickoff_utc is None or place is None:
             return _section("unavailable", WEATHER_SOURCE, reason="venue or kickoff unknown")
