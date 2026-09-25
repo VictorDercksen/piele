@@ -1,0 +1,25 @@
+{
+  "name": "piele-agent",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "eve dev",
+    "build": "eve build",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test agent/lib/*.test.ts"
+  },
+  "dependencies": {
+    "ai": "7.0.114",
+    "eve": "0.66.3",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "24.13.6",
+    "just-bash": "3.4.2",
+    "typescript": "6.0.3"
+  }
+}
