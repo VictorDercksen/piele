@@ -2,6 +2,8 @@
  * Sites the researcher may fetch and the preview may cite: URC and club channels, and
  * rugby news outlets in the URC's countries. A host matches a listed domain or any of
  * its subdomains. Extend the list deliberately; search results elsewhere stay uncited.
+ * Subscription-only outlets (The Times, the Irish Times, the Sydney Morning Herald, the
+ * Herald) are left out: the researcher cannot read them.
  */
 export const ALLOWED_DOMAINS: readonly string[] = [
   // Competition and clubs
@@ -23,24 +25,34 @@ export const ALLOWED_DOMAINS: readonly string[] = [
   'thestormers.com',
   'ulsterrugby.com',
   'zebreparma.it',
-  // News
+  // News: general
   'bbc.co.uk',
   'bbc.com',
-  'rte.ie',
-  'irishtimes.com',
-  'independent.ie',
-  'the42.ie',
-  'irishexaminer.com',
-  'walesonline.co.uk',
-  'heraldscotland.com',
-  'scotsman.com',
-  'news24.com',
-  'supersport.com',
-  'sarugby.co.za',
   'planetrugby.com',
   'rugbypass.com',
+  'rugbyworld.com',
   'ruck.co.uk',
+  // News: South Africa
+  'news24.com',
+  'sarugby.co.za',
+  'sarugbymag.co.za',
+  'supersport.com',
+  // News: Wales
+  'walesonline.co.uk',
+  // News: Scotland
+  'scotsman.com',
+  // News: Ireland
+  'independent.ie',
+  'irishexaminer.com',
+  'irishmirror.ie',
+  'rte.ie',
+  'the42.ie',
+  // News: Italy
   'onrugby.it',
+  // News: New Zealand (Stuff, including Rugby Heaven)
+  'stuff.co.nz',
+  // News: England
+  'theguardian.com',
 ];
 
 /** True for an http(s) URL on an allowed domain. */
