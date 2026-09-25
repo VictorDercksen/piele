@@ -19,6 +19,7 @@ The frontend uses Angular 22.1.7 with CLI 22.1.8. Use a compatible Node 22.22.3+
 - `apps/web`: Angular app. `src/app/core` holds services, layout and data sources, `src/app/features` holds one folder per page, `src/app/shared` holds reusable components. Read its `AGENTS.md` and `CLAUDE.md` before changes.
 - `apps/api`: FastAPI app with `GET /v1/health`, `GET /v1/matches/{fixtureId}` (teamsheets and kickoff forecast for one fixture, cached in PostgreSQL), `GET /v1/matches/{fixtureId}/preview` (the Piele match preview), the preview agent's token-protected `/v1/agent` routes and the league endpoints under `/v1` (members, duties, marks, evidence, feed) behind Supabase Auth token verification. See [apps/api/README.md](apps/api/README.md) for the bootstrap command and Storage setup.
 - `apps/agent`: the preview agent, an eve project that researches each fixture and stores a sourced match preview through the API's `/v1/agent` routes. See [apps/agent/README.md](apps/agent/README.md).
+- `backtest`: the planned Jev backtest over past URC seasons (Phase F). Not implemented yet; see [backtest/README.md](backtest/README.md).
 - `docs`: operating instructions, starting with the production runbook.
 - `supabase`: SQL migrations applied to the Supabase project by its GitHub integration on pushes to the connected branch. Application tables live in the private `piele` schema.
 - `fixtures`: Official public URC schedule snapshot and provenance.
