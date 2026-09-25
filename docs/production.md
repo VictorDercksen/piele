@@ -8,10 +8,11 @@ Production is the `master` branch. Staging is the `staging` branch. Changes reac
 | --- | --- | --- |
 | Web, Vercel project `piele-web` | Preview environment | Production environment |
 | API, Vercel project `piele-api` | Preview environment | Production environment |
+| Preview agent, Vercel project `piele-agent` (not created yet) | Preview environment | Production environment |
 | Database, Supabase | `piele-staging` (eu-west-2, currently paused for the free-plan limit) | `piele-production`, ref `lnifzhrdvuqskwiblmqh` (eu-west-2) |
 | Migrations | Supabase GitHub integration, branch `staging` | Supabase GitHub integration, branch `master` |
 
-Both `vercel.json` files set `ignoreCommand`, so Vercel builds only `staging` and `master`. This replaces the Ignored Build Step in the dashboard, which only allowed `staging`.
+All three `vercel.json` files set `ignoreCommand`, so Vercel builds only `staging` and `master`. This replaces the Ignored Build Step in the dashboard, which only allowed `staging`.
 
 ## Configured in the repository
 
@@ -20,6 +21,7 @@ Both `vercel.json` files set `ignoreCommand`, so Vercel builds only `staging` an
 - API: with `ENVIRONMENT=production` it refuses to start without HTTPS `ALLOWED_ORIGINS` and a `DATABASE_URL`, and turns off `/docs`, `/redoc` and `/openapi.json`. Every response has `Cache-Control: no-store`, `nosniff` and a request ID.
 - Database: migration `20260924080000_runtime_role.sql` creates the restricted `piele_api` role (no login until an operator sets a password, no `BYPASSRLS`, grants on the `piele` schema only).
 - TLS: `apps/api/certs/supabase-prod-ca-2021.crt` is Supabase's public root certificate. Add `sslmode=verify-full&sslrootcert=certs/supabase-prod-ca-2021.crt` to `DATABASE_URL` to verify the server certificate.
+- Preview agent: `apps/agent` is an eve project. It needs `PIELE_API_URL` and the same `PIELE_AGENT_TOKEN` as the API in its environment; see [apps/agent/README.md](../apps/agent/README.md). Its session routes accept only the project's own Vercel OIDC tokens. Several scheduled runs a day need a paid Vercel plan.
 - Smoke check: `npm run smoke -- --web <origin> --api <origin>` from the repository root.
 
 ## One-time setup, in order
@@ -55,6 +57,7 @@ Both `vercel.json` files set `ignoreCommand`, so Vercel builds only `staging` an
 | `SUPABASE_SERVICE_ROLE_KEY` | The production service role key (sensitive). Needed for evidence upload grants and playback. |
 | `SUPABASE_STORAGE_BUCKET` | `evidence` (create it as a private bucket first) |
 | `SUPABASE_JWT_SECRET` | Only if the project still signs tokens with the legacy shared secret; leave unset for JWT signing keys (JWKS) |
+| `PIELE_AGENT_TOKEN` | Optional. A random value of 32+ characters (sensitive) shared only with the preview agent. Leave unset until the agent is deployed; the `/v1/agent` routes answer 503 without it. |
 
 `piele-web`, Production environment:
 
