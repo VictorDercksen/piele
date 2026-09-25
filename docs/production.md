@@ -55,6 +55,7 @@ Both `vercel.json` files set `ignoreCommand`, so Vercel builds only `staging` an
 | `SUPABASE_SERVICE_ROLE_KEY` | The production service role key (sensitive). Needed for evidence upload grants and playback. |
 | `SUPABASE_STORAGE_BUCKET` | `evidence` (create it as a private bucket first) |
 | `SUPABASE_JWT_SECRET` | Only if the project still signs tokens with the legacy shared secret; leave unset for JWT signing keys (JWKS) |
+| `PIELE_AGENT_TOKEN` | Optional. A random value of 32+ characters (sensitive) shared only with the preview agent. Leave unset until the agent is deployed; the `/v1/agent` routes answer 503 without it. |
 
 `piele-web`, Production environment:
 

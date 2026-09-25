@@ -5,6 +5,8 @@ from functools import lru_cache
 from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+MIN_AGENT_TOKEN_LENGTH = 32
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
@@ -33,6 +35,9 @@ class Settings(BaseSettings):
     weather_api_url: str = "https://api.open-meteo.com/v1/forecast"
     external_timeout_seconds: float = 6.0
 
+    # Bearer token for the preview agent's /v1/agent routes. Unset turns those routes off.
+    piele_agent_token: SecretStr | None = None
+
     @property
     def allowed_origins(self) -> list[str]:
         origins = [o.strip().rstrip("/") for o in self.allowed_origins_raw.split(",")]
@@ -54,6 +59,9 @@ class Settings(BaseSettings):
             problems.append("ALLOWED_ORIGINS must use https")
         if self.database_url is None or not self.database_url.get_secret_value():
             problems.append("DATABASE_URL is not set")
+        token = self.piele_agent_token.get_secret_value() if self.piele_agent_token else ""
+        if token and len(token) < MIN_AGENT_TOKEN_LENGTH:
+            problems.append(f"PIELE_AGENT_TOKEN must be at least {MIN_AGENT_TOKEN_LENGTH} characters")
         if problems:
             raise ValueError("Invalid production configuration: " + "; ".join(problems))
         return self

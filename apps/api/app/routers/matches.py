@@ -1,9 +1,12 @@
 from datetime import datetime
 from typing import Any, Literal
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, ConfigDict
 
+from app.agent import previews
+from app.agent.models import MatchPreview
+from app.league.context import Actor, actor_dependency
 from app.matchcentre.schedule import load_schedule
 from app.matchcentre.service import MatchCentreService
 
@@ -50,3 +53,24 @@ def match_centre(fixture_id: str, request: Request) -> Any:
     if fixture is None:
         raise HTTPException(status_code=404, detail="Unknown fixture.")
     return match_centre_service(request).build(fixture)
+
+
+@router.get("/matches/{fixture_id}/preview", response_model=MatchPreview)
+def match_preview(fixture_id: str, actor: Actor = Depends(actor_dependency)) -> Any:
+    """The latest Piele preview for members. Written by the preview agent before kickoff."""
+    if load_schedule().fixture(fixture_id) is None:
+        raise HTTPException(status_code=404, detail="Unknown fixture.")
+    row = previews.latest(actor.connection, fixture_id)
+    if row is None:
+        return {"fixtureId": fixture_id, "preview": None}
+    return {
+        "fixtureId": fixture_id,
+        "preview": {
+            "revision": row.revision,
+            "generatedAt": row.generated_at,
+            "summary": row.summary,
+            "keyFactors": row.key_factors,
+            "sentiment": row.sentiment,
+            "sources": row.sources,
+        },
+    }

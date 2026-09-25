@@ -61,3 +61,44 @@ export interface MatchCentre {
   readonly teamsheets: TeamsheetsSection;
   readonly weather: WeatherSection;
 }
+
+/**
+ * Contract of `GET /v1/matches/{fixtureId}/preview`. Written by the preview agent from
+ * public sources; render every field as plain text.
+ */
+export interface PreviewSource {
+  readonly url: string;
+  readonly title: string;
+  readonly publisher: string | null;
+  readonly publishedAt: string | null;
+}
+
+export interface PreviewFactor {
+  readonly text: string;
+  /** Indexes into `MatchPreview.sources`. */
+  readonly sources: readonly number[];
+}
+
+export interface PreviewMood {
+  /** -2 (troubled) to +2 (buoyant). */
+  readonly score: number;
+  readonly note: string;
+  readonly sources: readonly number[];
+}
+
+export interface MatchPreview {
+  readonly revision: number;
+  readonly generatedAt: string;
+  readonly summary: string;
+  readonly keyFactors: {
+    readonly home: readonly PreviewFactor[];
+    readonly away: readonly PreviewFactor[];
+  };
+  readonly sentiment: { readonly home: PreviewMood; readonly away: PreviewMood };
+  readonly sources: readonly PreviewSource[];
+}
+
+export interface MatchPreviewResponse {
+  readonly fixtureId: string;
+  readonly preview: MatchPreview | null;
+}

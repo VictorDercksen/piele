@@ -13,7 +13,7 @@ from app.league.auth import JwksVerifier, SecretVerifier, TokenVerifier, Unconfi
 from app.league.storage import Storage, SupabaseStorage, UnconfiguredStorage
 from app.matchcentre.cache import MemorySnapshotCache, PostgresSnapshotCache, SnapshotCache
 from app.matchcentre.service import MatchCentreService, default_http_factory
-from app.routers import health, league, matches
+from app.routers import agent, health, league, matches
 
 REQUEST_ID_HEADER = "X-Request-ID"
 _SAFE_REQUEST_ID = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
@@ -44,6 +44,7 @@ def create_app(
     app.include_router(health.router, prefix="/v1")
     app.include_router(matches.router, prefix="/v1")
     app.include_router(league.router, prefix="/v1")
+    app.include_router(agent.router, prefix="/v1")
 
     # Added first so it sits inside the request-ID middleware below.
     app.add_middleware(

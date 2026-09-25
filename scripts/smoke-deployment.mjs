@@ -48,6 +48,10 @@ const foreign = await get(
 );
 check('CORS rejects other origins', !foreign.headers.get('access-control-allow-origin'));
 
+// 401 with the agent token configured, 503 before it is set; never open.
+const agent = await get(`${api}/v1/agent/fixtures/due`);
+check('Agent routes require the agent token', [401, 503].includes(agent.status), `status ${agent.status}`);
+
 if (values.environment === 'production') {
   const docs = await get(`${api}/docs`);
   check('Interactive API docs are off', docs.status === 404, `status ${docs.status}`);
