@@ -230,17 +230,25 @@ app-season-timeline {
 }
 .main-content {
   grid-area: main;
+  position: relative;
+  isolation: isolate;
   width: 100%;
   min-width: 0;
   --gutter: 25px;
   padding: 0 var(--gutter);
-  background-image:
-    linear-gradient(180deg, #0b1518a8, #0b1518e6 850px, var(--paper) 1350px), var(--ground-photo);
-  background-position: center top;
-  background-size:
-    auto,
-    auto 1350px;
-  background-repeat: no-repeat;
+  background: var(--paper);
+}
+.page-backdrop {
+  z-index: -2;
+  max-height: 1500px;
+}
+.main-content::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(180deg, #0b151899, #0b1518c9 650px, var(--paper) 1500px);
 }
 // Round header and fixtures stay pinned under the top bar. The bar bleeds into the
 // content padding so its dividers run edge to edge.
@@ -347,6 +355,9 @@ app-season-timeline {
   margin-bottom: 24px;
   padding: 7px 0 13px;
   border-bottom: 1px solid #f2efdf42;
+}
+.page-heading.without-divider {
+  border-bottom: 0;
 }
 .page-heading h1 {
   margin: 6px 0 0;

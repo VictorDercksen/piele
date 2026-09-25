@@ -7,9 +7,8 @@
 .match-story {
   position: relative;
   isolation: isolate;
-  background:
-    linear-gradient(180deg, #08131640, #081316a6),
-    var(--ground-photo) center 8% / cover;
+  overflow: hidden;
+  background: #08131640;
   border: 1px solid #e0e4d557;
   box-shadow:
     0 16px 40px #0004,
@@ -27,8 +26,7 @@
 }
 
 .match-heading {
-  border-bottom: 1px dashed #e0e4d552;
-  background: #0a161bba;
+  background: linear-gradient(180deg, #0a161bba, #0a161b00);
 }
 
 .match-label,
@@ -55,7 +53,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) 150px minmax(0, 1fr);
   align-items: stretch;
-  padding: 36px 26px 48px;
+  padding: 36px 26px 40px;
 }
 
 .club-banner {
@@ -69,12 +67,11 @@
   align-items: center;
   justify-content: center;
   padding: 30px 20px;
-  background:
-    var(--surface-grain), color-mix(in srgb, var(--club-colour, #263f52) 88%, transparent);
+  background: color-mix(in srgb, var(--club-colour, #263f52) 82%, transparent);
   border: 1px solid #ffffff30;
-  border-top: 3px solid #f2efdfaa;
+  border-top: 3px solid #f2efdf99;
+  border-bottom: 2px solid color-mix(in srgb, var(--club-colour, #263f52) 65%, #fff);
   border-radius: 2px;
-  box-shadow: 0 10px 24px #0007;
   text-align: center;
 }
 
@@ -94,7 +91,7 @@
   position: absolute;
   inset: 0;
   z-index: -1;
-  background: linear-gradient(180deg, #07152000 15%, #071520b8 100%);
+  background: linear-gradient(180deg, #07152000 15%, #071520a6 100%);
 }
 
 .club-crest {
@@ -134,8 +131,7 @@
   align-self: center;
   margin: 0 8px;
   border-block: 1px solid #e0e4d578;
-  background: var(--surface-grain), #081316de;
-  box-shadow: 0 4px 20px #0004;
+  background: #08131699;
 }
 
 .match-time > span,
@@ -193,8 +189,8 @@
 }
 
 .match-footer {
-  background: var(--surface-grain), #111e1be8;
-  border-top: 2px solid #e0e4d578;
+  background: #081316a6;
+  border-top: 1px solid #e0e4d540;
 }
 
 .match-venue {
@@ -273,7 +269,7 @@
 @container (max-width: 750px) {
   .score-bug {
     grid-template-columns: minmax(0, 1fr) 108px minmax(0, 1fr);
-    padding: 26px 18px 34px;
+    padding: 26px 18px 32px;
   }
   .club-banner {
     min-height: 250px;

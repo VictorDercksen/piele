@@ -6,6 +6,7 @@ export interface ClubTeam {
   readonly colour: string;
   readonly accent: string;
   readonly jersey: string;
+  readonly stadiumBackground: string;
   readonly illustrated: boolean;
 }
 
@@ -15,12 +16,12 @@ export const TEAMS: readonly ClubTeam[] = [
   team('cardiff-rugby', 4471, 'Cardiff Rugby', 'Cardiff', '#263b50', '#80c9ee'),
   team('connacht-rugby', 5483, 'Connacht Rugby', 'Connacht', '#17694f', '#77dfaa'),
   team('dragons-rfc', 3533, 'Dragons RFC', 'Dragons', '#971e31', '#ff8c91'),
-  team('edinburgh-rugby', 1641, 'Edinburgh Rugby', 'Edinburgh', '#15375e', '#ff9876', true),
+  team('edinburgh-rugby', 1641, 'Edinburgh Rugby', 'Edinburgh', '#15375e', '#ff9876'),
   team('glasgow-warriors', 3098, 'Glasgow Warriors', 'Glasgow', '#193d55', '#86cceb'),
-  team('leinster-rugby', 5356, 'Leinster Rugby', 'Leinster', '#154baf', '#80baff', true),
-  team('10bet-lions', 5092, 'Lions', 'Lions', '#a92432', '#ff9199', true),
+  team('leinster-rugby', 5356, 'Leinster Rugby', 'Leinster', '#154baf', '#80baff'),
+  team('10bet-lions', 5092, 'Lions', 'Lions', '#a92432', '#ff9199'),
   team('munster-rugby', 4377, 'Munster Rugby', 'Munster', '#a41e32', '#ff8d9b'),
-  team('ospreys', 5057, 'Ospreys', 'Ospreys', '#252d38', '#c3cddc', true),
+  team('ospreys', 5057, 'Ospreys', 'Ospreys', '#252d38', '#c3cddc'),
   team('scarlets', 3514, 'Scarlets', 'Scarlets', '#a92631', '#ff8d94'),
   team('hollywoodbets-sharks', 1527, 'Hollywoodbets Sharks', 'Sharks', '#252d36', '#c9d3df'),
   team('dhl-stormers', 3994, 'DHL Stormers', 'Stormers', '#174da0', '#87baff'),
@@ -46,6 +47,7 @@ function team(
     accent,
     illustrated,
     jersey: `assets/images/jerseys/${id}.${illustrated ? 'svg' : 'png'}`,
+    stadiumBackground: `assets/images/match-nights/${id}.webp`,
   };
 }
 

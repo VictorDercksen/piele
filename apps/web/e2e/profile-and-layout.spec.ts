@@ -42,6 +42,11 @@ test('first visit requires a favourite team and saves a personal identity', asyn
   await expect
     .poll(() => stadiumIcon.evaluate((img: HTMLImageElement) => img.naturalWidth))
     .toBeGreaterThan(0);
+  const stadiumBackground = page.locator('.page-backdrop img.visible');
+  await expect(stadiumBackground).toHaveAttribute('src', /match-nights\/connacht-rugby\.webp/);
+  await expect
+    .poll(() => stadiumBackground.evaluate((img: HTMLImageElement) => img.naturalWidth))
+    .toBeGreaterThan(0);
   await page.reload();
   await expect(page.locator('.header-profile')).toContainText('Victor Dercksen');
   await expect(page.getByRole('heading', { name: 'Who do you back?' })).toHaveCount(0);
@@ -80,6 +85,10 @@ test('profile photo, replacement, removal and team changes persist', async ({ pa
   await page.getByRole('button', { name: 'Save profile', exact: true }).click();
   await expect(page.locator('.header-profile')).toContainText('Munster');
   await expect(page.locator('.score-bug')).toContainText('Munster');
+  await expect(page.locator('.page-backdrop img.visible')).toHaveAttribute(
+    'src',
+    /match-nights\/munster-rugby\.webp/,
+  );
   await expect(page.locator('.header-profile .identity-avatar img')).toHaveCount(1);
   await page.reload();
   await expect(page.locator('.header-profile .identity-avatar img')).toHaveCount(1);

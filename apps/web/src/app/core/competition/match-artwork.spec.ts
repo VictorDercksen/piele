@@ -20,7 +20,7 @@ describe('match artwork', () => {
     vi.useRealTimers();
   });
 
-  it('lists both clubs’ patterns and crests and the stadium flag and icon', () => {
+  it('lists both clubs’ artwork and the venue flag, icon and background', () => {
     expect(matchArtwork(MUNSTER_GLASGOW)).toEqual([
       'assets/images/club-banners/munster-rugby-pattern.jpeg',
       'assets/images/club-banners/munster-rugby-crest.svg',
@@ -28,6 +28,7 @@ describe('match artwork', () => {
       'assets/images/club-banners/glasgow-warriors-crest.svg',
       'assets/images/flags/ie.svg',
       'assets/images/stadiums/thomond-park.webp',
+      'assets/images/match-nights/munster-rugby.webp',
     ]);
     expect(
       matchArtwork({ ...MUNSTER_GLASGOW, awayAsset: 'unknown', venue: 'To be confirmed' }),
@@ -43,7 +44,7 @@ describe('match artwork', () => {
 
     artwork.preload(MUNSTER_GLASGOW);
     artwork.preload(MUNSTER_GLASGOW);
-    expect(decode).toHaveBeenCalledTimes(6);
+    expect(decode).toHaveBeenCalledTimes(7);
     expect(artwork.ready(MUNSTER_GLASGOW)).toBe(false);
 
     finish();
@@ -71,7 +72,7 @@ describe('match artwork', () => {
     artwork.warm([MUNSTER_GLASGOW]);
     expect(decode).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(200);
-    expect(decode).toHaveBeenCalledTimes(6);
+    expect(decode).toHaveBeenCalledTimes(7);
     expect(artwork.ready(MUNSTER_GLASGOW)).toBe(true);
   });
 });

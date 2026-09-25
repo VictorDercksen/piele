@@ -1,3 +1,5 @@
+import { club } from './teams';
+
 /** A country flag shipped in public/assets/images/flags. Source details: sources.json there. */
 export interface StadiumCountry {
   readonly name: string;
@@ -8,6 +10,7 @@ export interface StadiumCountry {
 interface Stadium {
   readonly country: StadiumCountry;
   readonly icon: string;
+  readonly background?: string;
 }
 
 const COUNTRIES = {
@@ -24,25 +27,25 @@ const COUNTRIES = {
  * Mirrors the stadium list in apps/api/app/matchcentre/catalogue.py.
  */
 const STADIUMS: Readonly<Record<string, Stadium>> = {
-  '10bet Ellis Park': stadium(COUNTRIES.southAfrica, 'ellis-park'),
-  'Affidea Stadium': stadium(COUNTRIES.northernIreland, 'affidea-stadium'),
+  '10bet Ellis Park': stadium(COUNTRIES.southAfrica, 'ellis-park', '10bet-lions'),
+  'Affidea Stadium': stadium(COUNTRIES.northernIreland, 'affidea-stadium', 'ulster-rugby'),
   'Aviva Stadium': stadium(COUNTRIES.ireland, 'aviva-stadium'),
-  'Cardiff Arms Park': stadium(COUNTRIES.wales, 'cardiff-arms-park'),
-  'DHL Stadium': stadium(COUNTRIES.southAfrica, 'dhl-stadium'),
-  'Dexcom Stadium': stadium(COUNTRIES.ireland, 'dexcom-stadium'),
+  'Cardiff Arms Park': stadium(COUNTRIES.wales, 'cardiff-arms-park', 'cardiff-rugby'),
+  'DHL Stadium': stadium(COUNTRIES.southAfrica, 'dhl-stadium', 'dhl-stormers'),
+  'Dexcom Stadium': stadium(COUNTRIES.ireland, 'dexcom-stadium', 'connacht-rugby'),
   'Hampden Park': stadium(COUNTRIES.scotland, 'hampden-park'),
-  'Hive Stadium': stadium(COUNTRIES.scotland, 'hive-stadium'),
-  'Hollywoodbets Kings Park': stadium(COUNTRIES.southAfrica, 'kings-park'),
-  'Laya Arena': stadium(COUNTRIES.ireland, 'laya-arena'),
-  'Loftus Versfeld': stadium(COUNTRIES.southAfrica, 'loftus-versfeld'),
-  'Parc y Scarlets': stadium(COUNTRIES.wales, 'parc-y-scarlets'),
-  'Rodney Parade': stadium(COUNTRIES.wales, 'rodney-parade'),
-  'Scotstoun Stadium': stadium(COUNTRIES.scotland, 'scotstoun-stadium'),
+  'Hive Stadium': stadium(COUNTRIES.scotland, 'hive-stadium', 'edinburgh-rugby'),
+  'Hollywoodbets Kings Park': stadium(COUNTRIES.southAfrica, 'kings-park', 'hollywoodbets-sharks'),
+  'Laya Arena': stadium(COUNTRIES.ireland, 'laya-arena', 'leinster-rugby'),
+  'Loftus Versfeld': stadium(COUNTRIES.southAfrica, 'loftus-versfeld', 'vodacom-bulls'),
+  'Parc y Scarlets': stadium(COUNTRIES.wales, 'parc-y-scarlets', 'scarlets'),
+  'Rodney Parade': stadium(COUNTRIES.wales, 'rodney-parade', 'dragons-rfc'),
+  'Scotstoun Stadium': stadium(COUNTRIES.scotland, 'scotstoun-stadium', 'glasgow-warriors'),
   'Scottish Gas Murrayfield': stadium(COUNTRIES.scotland, 'murrayfield'),
-  'Stadio Monigo': stadium(COUNTRIES.italy, 'stadio-monigo'),
-  'Stadio Sergio Lanfranchi': stadium(COUNTRIES.italy, 'stadio-lanfranchi'),
-  "St Helen's": stadium(COUNTRIES.wales, 'st-helens'),
-  'Thomond Park': stadium(COUNTRIES.ireland, 'thomond-park'),
+  'Stadio Monigo': stadium(COUNTRIES.italy, 'stadio-monigo', 'benetton-rugby'),
+  'Stadio Sergio Lanfranchi': stadium(COUNTRIES.italy, 'stadio-lanfranchi', 'zebre-parma'),
+  "St Helen's": stadium(COUNTRIES.wales, 'st-helens', 'ospreys'),
+  'Thomond Park': stadium(COUNTRIES.ireland, 'thomond-park', 'munster-rugby'),
   'Virgin Media Park': stadium(COUNTRIES.ireland, 'virgin-media-park'),
 };
 
@@ -58,6 +61,11 @@ export function stadiumIcon(venue: string | null | undefined): string | undefine
   return find(venue)?.icon;
 }
 
+/** Match-night artwork for the actual venue. Alternate grounds use the generic fallback. */
+export function stadiumBackground(venue: string | null | undefined): string | undefined {
+  return find(venue)?.background;
+}
+
 function find(venue: string | null | undefined): Stadium | undefined {
   return BY_NAME.get((venue ?? '').trim().toLowerCase());
 }
@@ -66,6 +74,10 @@ function country(name: string, code: string): StadiumCountry {
   return { name, flag: `assets/images/flags/${code}.svg` };
 }
 
-function stadium(country: StadiumCountry, icon: string): Stadium {
-  return { country, icon: `assets/images/stadiums/${icon}.webp` };
+function stadium(country: StadiumCountry, icon: string, teamId?: string): Stadium {
+  return {
+    country,
+    icon: `assets/images/stadiums/${icon}.webp`,
+    background: club(teamId ?? '')?.stadiumBackground,
+  };
 }

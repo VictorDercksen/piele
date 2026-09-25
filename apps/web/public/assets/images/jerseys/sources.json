@@ -1,0 +1,27 @@
+{
+  "retrievedAt": "2026-09-25",
+  "sourcePage": "https://www.superbru.com/tournaments/rugby-union/urc/2026-27",
+  "notes": "Jersey illustrations supplied by Superbru, downloaded unchanged. Season accuracy is as provided by Superbru.",
+  "assets": [
+    {
+      "file": "edinburgh-rugby.png",
+      "source": "https://superbru-cdn.superbru.com/teams/images/generic/logo_large/257.png",
+      "teamId": "edinburgh-rugby"
+    },
+    {
+      "file": "leinster-rugby.png",
+      "source": "https://superbru-cdn.superbru.com/teams/images/generic/logo_large/260.png",
+      "teamId": "leinster-rugby"
+    },
+    {
+      "file": "10bet-lions.png",
+      "source": "https://superbru-cdn.superbru.com/teams/images/generic/logo_large/4.png",
+      "teamId": "10bet-lions"
+    },
+    {
+      "file": "ospreys.png",
+      "source": "https://superbru-cdn.superbru.com/teams/images/generic/logo_large/266.png",
+      "teamId": "ospreys"
+    }
+  ]
+}

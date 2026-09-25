@@ -19,6 +19,7 @@ import { TEAMS, club } from '../../core/competition/teams';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideArrowRight, lucideCheck } from '@ng-icons/lucide';
 import { Loader } from '../../shared/loader/loader';
+import { StadiumBackdrop } from '../../shared/stadium-backdrop/stadium-backdrop';
 
 /** Onboarding and profile form: display name, favourite team and optional photo. */
 @Component({
@@ -26,7 +27,7 @@ import { Loader } from '../../shared/loader/loader';
   templateUrl: './profile-editor.html',
   styleUrl: './profile-editor.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, RouterLink, NgIcon, Loader],
+  imports: [ReactiveFormsModule, RouterLink, NgIcon, Loader, StadiumBackdrop],
   viewProviders: [provideIcons({ lucideArrowRight, lucideCheck })],
 })
 export class ProfileEditor {
