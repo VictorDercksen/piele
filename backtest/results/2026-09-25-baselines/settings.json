@@ -1,0 +1,66 @@
+{
+  "run": "2026-09-25-baselines",
+  "createdAt": "2026-09-25T13:22:14+00:00",
+  "commit": "459bf62690f226a756fc2012928a60f3d6643b6e",
+  "dirty": false,
+  "seasons": {
+    "tuning": "202101",
+    "reported": [
+      "202201",
+      "202301",
+      "202401",
+      "202501"
+    ],
+    "jev": [
+      "202201",
+      "202301",
+      "202401",
+      "202501"
+    ]
+  },
+  "arms": [
+    "named",
+    "anonymised"
+  ],
+  "leadHours": 1.0,
+  "scoringVersion": "superbru-super-rugby-2026-09-unconfirmed-for-urc",
+  "baselines": {
+    "home_by_7": {
+      "points": 7,
+      "sd": 19.187
+    },
+    "table_position": {
+      "points": 7,
+      "sd": 18.796
+    },
+    "elo": {
+      "k": 15,
+      "homeAdvantage": 50,
+      "scale": 0.1149,
+      "sd": 16.607,
+      "seasonCarry": 0.75
+    }
+  },
+  "jev": {
+    "url": "https://api.typesafe.ai/v1/systemone",
+    "modelRequested": "jev-latest",
+    "modelsReported": [],
+    "questionHash": "a1ba2eb41fba6118b7206f06bf52c38633055388e26acebfb46554ff9159957b",
+    "requests": 1208,
+    "answered": 0,
+    "notCached": 1208,
+    "sent": 0,
+    "failed": [],
+    "skippedWithoutTeamsheets": 0,
+    "inputTokensReported": 0,
+    "uncachedRequestCharacters": 5419985,
+    "mode": "dry run"
+  },
+  "data": {
+    "202101": "2026-09-25T12:46:50+00:00",
+    "202201": "2026-09-25T12:46:56+00:00",
+    "202301": "2026-09-25T12:47:01+00:00",
+    "202401": "2026-09-25T12:47:06+00:00",
+    "202501": "2026-09-25T12:47:11+00:00"
+  }
+}
