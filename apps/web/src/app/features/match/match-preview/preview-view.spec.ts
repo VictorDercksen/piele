@@ -40,6 +40,18 @@ describe('preview view', () => {
     expect(view.sides[1].mood.cites).toBe('2');
   });
 
+  it('places moods on a five-step scale and adds club colours and crests', () => {
+    const view = previewView(PREVIEW, 'Scarlets', 'Benetton', 'scarlets', 'benetton-rugby');
+    expect(view.sides.map((side) => side.mood.step)).toEqual([5, 2]);
+    expect(view.sides[1].accent).toBe('#73d8a0');
+    expect(view.sides[1].crest).toContain('benetton-rugby-crest');
+  });
+
+  it('leaves club artwork out for an unknown club', () => {
+    const side = previewView(PREVIEW, 'A', 'B', 'tbc', '').sides[0];
+    expect([side.accent, side.crest]).toEqual([undefined, undefined]);
+  });
+
   it('names each source by publisher, else by host', () => {
     const view = previewView(PREVIEW, 'Scarlets', 'Benetton');
     expect(view.sources.map((source) => [source.number, source.origin])).toEqual([

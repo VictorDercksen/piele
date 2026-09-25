@@ -1,13 +1,73 @@
 :host {
   display: block;
-  position: relative;
   container-type: inline-size;
 }
+
+/*
+ * Floodlit poster: the ground photo under a dark scrim, washed in the home club's
+ * colour from the left and the away club's from the right, with glass cards per side.
+ */
+.poster {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding: 26px 26px 24px;
+  background:
+    linear-gradient(
+      105deg,
+      color-mix(in srgb, var(--home-accent, #3b5a63) 38%, transparent),
+      transparent 45%
+    ),
+    linear-gradient(
+      255deg,
+      color-mix(in srgb, var(--away-accent, #3b5a63) 38%, transparent),
+      transparent 45%
+    ),
+    linear-gradient(180deg, #0b1518cc, #0b1518f2),
+    var(--ground-photo) center / cover;
+  border: 1px solid #ffffff24;
+}
+.poster-head {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 110px;
+  margin-bottom: 18px;
+}
+.crest {
+  position: absolute;
+  left: 0;
+  width: 96px;
+  height: 96px;
+  object-fit: contain;
+  opacity: 0.9;
+  filter: drop-shadow(0 2px 4px #0008);
+}
+.crest.away {
+  left: auto;
+  right: 0;
+}
+.poster-title {
+  margin: 0;
+  font-size: 46px;
+  font-weight: 900;
+  font-style: italic;
+  line-height: 0.9;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: -1px;
+  color: var(--chalk);
+  text-shadow: 0 4px 20px #000c;
+}
 .summary {
-  font-size: 15px;
-  line-height: 1.55;
+  max-width: 760px;
+  margin: 0 auto 24px;
+  font-size: 17px;
+  line-height: 1.6;
+  text-align: center;
   white-space: pre-line;
-  margin: 0 0 20px;
+  color: #f2efdfe6;
 }
 .sides {
   display: grid;
@@ -15,26 +75,35 @@
   gap: 22px;
 }
 .side {
-  position: relative;
   min-width: 0;
+  padding: 16px 18px 18px;
+  background: #0b151899;
+  border: 1px solid #ffffff1f;
+  border-radius: 14px;
+  backdrop-filter: blur(10px);
+  box-shadow: inset 0 3px 0 var(--club-accent, transparent);
+}
+.side-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
 }
 .side h3 {
-  font-size: 16px;
   margin: 0;
-}
-.crest {
-  flex: none;
-  width: 36px;
-  height: 36px;
-  object-fit: contain;
-  filter: drop-shadow(0 2px 4px #0008);
+  font-size: 18px;
+  font-weight: 900;
+  font-style: italic;
+  text-transform: uppercase;
 }
 .mood {
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 1px;
   text-transform: uppercase;
-  padding: 4px 8px;
+  padding: 4px 10px;
+  border-radius: 999px;
   white-space: nowrap;
   background: #ffffff14;
   color: var(--muted);
@@ -50,8 +119,9 @@
 /* Five-step mood scale, filled up to the side's step in its tone colour. */
 .meter {
   --tone: #b8c4bd;
-  display: inline-flex;
+  display: flex;
   gap: 3px;
+  margin-bottom: 10px;
 }
 .meter[data-tone='up'] {
   --tone: #6fd3a8;
@@ -60,10 +130,11 @@
   --tone: #ff8e78;
 }
 .meter i {
-  width: 16px;
+  flex: 1;
+  min-width: 18px;
   height: 6px;
+  border-radius: 2px;
   background: #ffffff1f;
-  transform: skewX(-20deg);
 }
 .meter i.on {
   background: var(--tone);
@@ -74,26 +145,35 @@
   margin: 0 0 12px;
 }
 .factors {
+  list-style: none;
   margin: 0;
-  padding-left: 18px;
+  padding: 0;
   font-size: 14px;
   line-height: 1.45;
+}
+.factors li {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
 }
 .factors li + li {
   margin-top: 8px;
 }
-.numbered {
-  list-style: none;
-  padding: 0;
-}
-.numbered li {
-  display: flex;
-  gap: 12px;
-  align-items: baseline;
-}
-.numbered p {
-  margin: 0;
+.factors p {
   min-width: 0;
+  margin: 0;
+}
+.num {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--club-accent, var(--accent));
+  color: #0b1518;
+  font-size: 11px;
+  font-weight: 900;
 }
 .cite {
   font-size: 9px;
@@ -184,609 +264,23 @@
   padding-top: 10px;
   border-top: 1px dashed var(--line);
 }
-
-/* 1. Broadcast: club-coloured matchup cards with numbered factors. */
-:host([data-variant='broadcast']) {
-  border-top-color: transparent;
-  &::before {
-    content: '';
-    position: absolute;
-    inset: -1px -1px auto;
-    height: 3px;
-    background: linear-gradient(
-      90deg,
-      var(--home-accent, #d4d9c4) 50%,
-      var(--away-accent, #d4d9c4) 50%
-    );
-  }
-  .lead {
-    font-size: 17px;
-    line-height: 1.6;
-    margin-bottom: 24px;
-    padding-left: 16px;
-    border-left: 3px solid var(--accent);
-  }
-  .side {
-    isolation: isolate;
-    overflow: hidden;
-    padding: 18px 18px 20px;
-    background: linear-gradient(
-      160deg,
-      color-mix(in srgb, var(--club-accent, #3b5a63) 16%, transparent),
-      transparent 60%
-    );
-    border: 1px solid #ffffff1a;
-    border-top: 3px solid var(--club-accent, var(--line));
-  }
-  .watermark {
-    position: absolute;
-    right: -30px;
-    bottom: -30px;
-    z-index: -1;
-    width: 170px;
-    height: 170px;
-    object-fit: contain;
-    opacity: 0.06;
-  }
-  .side-head {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 14px;
-  }
-  .where {
-    display: block;
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 1.4px;
-    text-transform: uppercase;
-    color: var(--club-accent, var(--muted));
-  }
-  .side h3 {
-    font-size: 20px;
-    font-weight: 900;
-    font-style: italic;
-    text-transform: uppercase;
-    letter-spacing: -0.3px;
-  }
-  .mood-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 8px;
-  }
-  .num {
-    font-size: 20px;
-    font-weight: 900;
-    font-style: italic;
-    line-height: 1;
-    color: var(--club-accent, var(--accent));
-  }
-  .numbered li {
-    padding-top: 10px;
-    border-top: 1px solid #ffffff14;
-  }
-  .numbered li + li {
-    margin-top: 10px;
-  }
-}
-
-/* 2. Programme: a printed match-programme insert on chalk paper. */
-:host([data-variant='programme']) {
-  .paper {
-    --ink: #1c2422;
-    --muted: #5b625c;
-    --line: #1c242226;
-    padding: 26px 28px 24px;
-    background: var(--surface-grain), linear-gradient(180deg, #f4f0df, #e8e2cb);
-    color: var(--ink);
-    box-shadow:
-      0 1px 0 #fff8 inset,
-      0 12px 30px #0006;
-    transform: rotate(-0.25deg);
-  }
-  .kicker {
-    display: flex;
-    justify-content: space-between;
-    margin: 0 0 14px;
-    padding-bottom: 8px;
-    border-bottom: 2px solid var(--ink);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-  }
-  .kicker span {
-    color: var(--muted);
-  }
-  .summary {
-    font-family: Georgia, 'Times New Roman', serif;
-    font-size: 16px;
-    line-height: 1.65;
-    columns: 2 260px;
-    column-gap: 28px;
-    column-rule: 1px solid var(--line);
-    margin-bottom: 24px;
-  }
-  .summary::first-letter {
-    float: left;
-    font-size: 54px;
-    line-height: 0.85;
-    font-weight: 700;
-    padding: 4px 8px 0 0;
-    color: #9b2f1e;
-  }
-  .sides {
-    gap: 0;
-    border-top: 1px solid var(--ink);
-  }
-  .side {
-    padding: 16px 20px 4px 0;
-  }
-  .side + .side {
-    padding: 16px 0 4px 20px;
-    border-left: 1px solid var(--line);
-  }
-  .side-head {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 8px;
-  }
-  .crest {
-    width: 30px;
-    height: 30px;
-    filter: none;
-  }
-  .side h3 {
-    font-size: 18px;
-    font-weight: 900;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-  .stamp {
-    margin-left: auto;
-    padding: 4px 9px;
-    background: none;
-    border: 2px solid currentColor;
-    color: #5b625c;
-    transform: rotate(-4deg);
-    font-size: 10px;
-    letter-spacing: 1.5px;
-  }
-  .stamp[data-tone='up'] {
-    background: none;
-    color: #1d6b4c;
-  }
-  .stamp[data-tone='down'] {
-    background: none;
-    color: #a1321f;
-  }
-  .mood-note {
-    font-family: Georgia, 'Times New Roman', serif;
-    font-style: italic;
-  }
-  .factors {
-    list-style: none;
-    padding: 0;
-  }
-  .factors li {
-    position: relative;
-    padding-left: 16px;
-  }
-  .factors li::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 0.5em;
-    width: 7px;
-    height: 7px;
-    background: var(--club-accent, var(--ink));
-  }
-  .sources-drawer,
-  .preview-note {
-    margin-inline: 4px;
-  }
-}
-
-/* 3. Momentum: a tug-of-war mood gauge between the clubs, then banner cards. */
-:host([data-variant='momentum']) {
-  .momentum {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 6px 16px;
-    margin-bottom: 22px;
-    padding: 16px 18px 12px;
-    background: #0000002e;
-    border: 1px solid var(--line);
-  }
-  .m-team {
-    grid-row: 1;
-    display: grid;
-    justify-items: start;
-    gap: 2px;
-  }
-  .m-team.away {
-    grid-column: 3;
-    justify-items: end;
-    text-align: right;
-  }
-  .m-team .crest {
-    width: 42px;
-    height: 42px;
-  }
-  .m-name {
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 1.2px;
-    text-transform: uppercase;
-  }
-  .m-mood {
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    color: var(--muted);
-  }
-  .m-mood[data-tone='up'] {
-    color: #6fd3a8;
-  }
-  .m-mood[data-tone='down'] {
-    color: #ff8e78;
-  }
-  .m-track {
-    grid-row: 1;
-    grid-column: 2;
-    position: relative;
-    height: 12px;
-    background: linear-gradient(
-      90deg,
-      var(--home-accent, #6fd3a8),
-      color-mix(in srgb, var(--home-accent, #6fd3a8) 30%, transparent) 50%,
-      color-mix(in srgb, var(--away-accent, #87baff) 30%, transparent) 50%,
-      var(--away-accent, #87baff)
-    );
-    border-radius: 999px;
-    box-shadow: inset 0 1px 3px #0008;
-  }
-  .m-mid {
-    position: absolute;
-    left: 50%;
-    top: -6px;
-    bottom: -6px;
-    border-left: 2px dashed #ffffff80;
-  }
-  .m-marker {
-    position: absolute;
-    top: 50%;
-    left: calc(50% - var(--balance) * 11%);
-    width: 26px;
-    height: 17px;
-    translate: -50% -50%;
-    background: var(--chalk);
-    border-radius: 50%;
-    box-shadow:
-      0 0 0 3px #0006,
-      0 3px 8px #000a;
-    transition: left 0.6s;
-  }
-  .m-marker::after {
-    content: '';
-    position: absolute;
-    inset: 7px 5px;
-    border-top: 1px solid #0006;
-  }
-  .m-caption {
-    grid-column: 1 / -1;
-    margin: 4px 0 0;
-    text-align: center;
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 1.2px;
-    text-transform: uppercase;
-    color: var(--muted);
-  }
-  .side {
-    overflow: hidden;
-    border: 1px solid #ffffff1a;
-    background: var(--surface);
-  }
-  .side-banner {
-    position: relative;
-    isolation: isolate;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 16px;
-    min-height: 72px;
-    border-bottom: 2px solid var(--club-accent, var(--line));
-  }
-  .pattern {
-    position: absolute;
-    inset: 0;
-    z-index: -1;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    opacity: 0.35;
-    mask-image: linear-gradient(90deg, #000, #0004);
-  }
-  .side-banner h3 {
-    font-size: 14px;
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
-    text-shadow: 0 1px 3px #000a;
-  }
-  .side-banner .mood {
-    margin-left: auto;
-  }
-  .mood-note {
-    margin: 14px 16px 12px;
-  }
-  .factors {
-    margin: 0 16px 16px;
-    list-style: none;
-    padding: 0;
-  }
-  .factors li {
-    position: relative;
-    padding-left: 18px;
-  }
-  .factors li::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 0.45em;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--club-accent, var(--accent));
-    box-shadow: 0 0 8px var(--club-accent, var(--accent));
-  }
-}
-
-/* 4. Tale of the tape: a pull-quote verdict, then a mirrored side-by-side comparison. */
-:host([data-variant='tape']) {
-  border-top-color: transparent;
-  &::before {
-    content: '';
-    position: absolute;
-    inset: -1px -1px auto;
-    height: 3px;
-    background: linear-gradient(
-      90deg,
-      var(--home-accent, #d4d9c4) 50%,
-      var(--away-accent, #d4d9c4) 50%
-    );
-  }
-  .verdict {
-    position: relative;
-    margin: 0 0 24px;
-    padding: 20px 24px 18px 64px;
-    background: linear-gradient(90deg, #ffffff0f, #ffffff05);
-    border-left: 3px solid var(--accent);
-  }
-  .quote {
-    position: absolute;
-    left: 20px;
-    top: 20px;
-    font-size: 28px;
-    color: var(--accent);
-  }
-  .verdict .summary {
-    font-size: 17px;
-    line-height: 1.6;
-    font-weight: 600;
-    margin: 0 0 8px;
-  }
-  .verdict cite {
-    font-size: 10px;
-    font-style: normal;
-    font-weight: 700;
-    letter-spacing: 1.4px;
-    text-transform: uppercase;
-    color: var(--muted);
-  }
-  .tape-row {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 96px minmax(0, 1fr);
-    align-items: center;
-    gap: 16px;
-    padding: 12px 0;
-    border-top: 1px solid var(--line);
-  }
-  .tape-head {
-    border-top: 0;
-    padding-top: 0;
-  }
-  .tape-head .side {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 12px;
-    padding-bottom: 10px;
-    border-bottom: 3px solid var(--club-accent, var(--line));
-  }
-  .tape-head .side.away {
-    flex-direction: row-reverse;
-  }
-  .tape-head h3 {
-    font-size: 22px;
-    font-weight: 900;
-    font-style: italic;
-    text-transform: uppercase;
-  }
-  .tape-head .crest {
-    width: 44px;
-    height: 44px;
-  }
-  .tape-label {
-    align-self: center;
-    justify-self: center;
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 1.4px;
-    text-transform: uppercase;
-    text-align: center;
-    color: var(--muted);
-    padding: 4px 8px;
-    border: 1px solid var(--line);
-    background: var(--surface);
-  }
-  .tape-label.vs {
-    font-size: 14px;
-    font-style: italic;
-    font-weight: 900;
-    color: var(--accent);
-    border: 0;
-    background: none;
-  }
-  .tape-cell {
-    margin: 0;
-    font-size: 14px;
-    line-height: 1.45;
-    text-align: right;
-  }
-  .tape-cell.away {
-    text-align: left;
-  }
-  .mood-cell {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 8px 10px;
-  }
-  .mood-cell .meter {
-    flex-direction: row-reverse;
-  }
-  .mood-cell.away {
-    flex-direction: row-reverse;
-  }
-  .mood-cell.away .meter {
-    flex-direction: row;
-  }
-  .mood-cell .mood-note {
-    flex-basis: 100%;
-    margin: 0;
-  }
-}
-
-/* 5. Poster: floodlit stadium backdrop washed in both club colours, glass cards. */
-:host([data-variant='poster']) {
+@container (max-width: 600px) {
   .poster {
-    position: relative;
-    isolation: isolate;
-    overflow: hidden;
-    padding: 26px 26px 24px;
-    background:
-      linear-gradient(
-        105deg,
-        color-mix(in srgb, var(--home-accent, #3b5a63) 38%, transparent),
-        transparent 45%
-      ),
-      linear-gradient(
-        255deg,
-        color-mix(in srgb, var(--away-accent, #3b5a63) 38%, transparent),
-        transparent 45%
-      ),
-      linear-gradient(180deg, #0b1518cc, #0b1518f2),
-      var(--ground-photo) center / cover;
-    border: 1px solid #ffffff24;
+    padding: 20px 16px;
   }
   .poster-head {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 110px;
-    margin-bottom: 18px;
+    min-height: 72px;
   }
-  .poster-head .crest {
-    position: absolute;
-    left: 0;
-    width: 96px;
-    height: 96px;
-    opacity: 0.9;
-  }
-  .poster-head .crest.away {
-    left: auto;
-    right: 0;
+  .crest {
+    width: 56px;
+    height: 56px;
   }
   .poster-title {
-    margin: 0;
-    font-size: 46px;
-    font-weight: 900;
-    font-style: italic;
-    line-height: 0.9;
-    text-align: center;
-    text-transform: uppercase;
-    letter-spacing: -1px;
-    color: var(--chalk);
-    text-shadow: 0 4px 20px #000c;
+    font-size: 32px;
   }
   .summary {
-    max-width: 760px;
-    margin: 0 auto 24px;
-    font-size: 17px;
-    line-height: 1.6;
-    text-align: center;
-    color: #f2efdfe6;
+    font-size: 15px;
   }
-  .side {
-    padding: 16px 18px 18px;
-    background: #0b151899;
-    border: 1px solid #ffffff1f;
-    border-radius: 14px;
-    backdrop-filter: blur(10px);
-    box-shadow: inset 0 3px 0 var(--club-accent, transparent);
-  }
-  .side-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    margin-bottom: 10px;
-  }
-  .side h3 {
-    font-size: 18px;
-    font-weight: 900;
-    font-style: italic;
-    text-transform: uppercase;
-  }
-  .mood {
-    border-radius: 999px;
-    padding: 4px 10px;
-  }
-  .meter {
-    margin-bottom: 10px;
-  }
-  .meter i {
-    flex: 1;
-    width: auto;
-    min-width: 18px;
-    border-radius: 2px;
-    transform: none;
-  }
-  .num {
-    flex: none;
-    display: grid;
-    place-items: center;
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    background: var(--club-accent, var(--accent));
-    color: #0b1518;
-    font-size: 11px;
-    font-weight: 900;
-  }
-  .numbered li {
-    align-items: flex-start;
-  }
-}
-
-@container (max-width: 600px) {
   .sides {
     grid-template-columns: 1fr;
   }
@@ -795,65 +289,5 @@
   }
   .sources small {
     grid-column: 2;
-  }
-  :host([data-variant='programme']) {
-    .paper {
-      padding: 20px 18px;
-    }
-    .side,
-    .side + .side {
-      padding: 16px 0 4px;
-      border-left: 0;
-    }
-    .side + .side {
-      border-top: 1px solid var(--line);
-    }
-  }
-  :host([data-variant='momentum']) .m-team .crest {
-    width: 30px;
-    height: 30px;
-  }
-  :host([data-variant='tape']) {
-    .verdict {
-      padding: 16px 16px 14px 48px;
-    }
-    .quote {
-      left: 14px;
-      top: 16px;
-      font-size: 22px;
-    }
-    .tape-row {
-      grid-template-columns: minmax(0, 1fr) 54px minmax(0, 1fr);
-      gap: 8px;
-    }
-    .tape-head h3 {
-      font-size: 15px;
-    }
-    .tape-head .crest {
-      width: 28px;
-      height: 28px;
-    }
-    .tape-cell {
-      font-size: 12px;
-    }
-    .tape-label {
-      padding: 3px 4px;
-      font-size: 8px;
-    }
-  }
-  :host([data-variant='poster']) {
-    .poster {
-      padding: 20px 16px;
-    }
-    .poster-head .crest {
-      width: 56px;
-      height: 56px;
-    }
-    .poster-title {
-      font-size: 32px;
-    }
-    .summary {
-      font-size: 15px;
-    }
   }
 }

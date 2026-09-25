@@ -6,11 +6,9 @@ export type MoodTone = 'down' | 'level' | 'up';
 
 export interface PreviewSideView {
   readonly label: string;
-  /** Club colours and artwork, when the club is known. */
+  /** Club colour and crest, when the club is known. */
   readonly accent: string | undefined;
-  readonly colour: string | undefined;
   readonly crest: string | undefined;
-  readonly pattern: string | undefined;
   readonly mood: {
     readonly label: string;
     readonly tone: MoodTone;
@@ -57,14 +55,10 @@ export function previewView(
   const side = (label: string, key: 'home' | 'away', clubId: string): PreviewSideView => {
     const mood = preview.sentiment[key];
     const score = Math.max(-2, Math.min(2, Math.round(mood.score)));
-    const banner = CLUB_BANNERS[clubId];
-    const team = club(clubId);
     return {
       label,
-      accent: team?.accent,
-      colour: team?.colour,
-      crest: banner?.crest,
-      pattern: banner?.pattern,
+      accent: club(clubId)?.accent,
+      crest: CLUB_BANNERS[clubId]?.crest,
       mood: { ...MOODS[score], step: score + 3, note: mood.note, cites: cites(mood.sources) },
       factors: preview.keyFactors[key].map((factor: PreviewFactor) => ({
         text: factor.text,
