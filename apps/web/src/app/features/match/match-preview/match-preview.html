@@ -11,45 +11,251 @@
 } @else if (loading()) {
   <p class="preview-empty">Loading the preview.</p>
 } @else if (view(); as preview) {
-  <p class="summary">{{ preview.summary }}</p>
-  <div class="sides">
-    @for (side of preview.sides; track side.label) {
-      <div class="side">
-        <div class="side-head">
-          <h3>{{ side.label }}</h3>
-          <span class="mood" [attr.data-tone]="side.mood.tone">{{ side.mood.label }}</span>
-        </div>
-        <p class="mood-note">
-          {{ side.mood.note }}
-          <sup class="cite" [title]="'Sources ' + side.mood.cites">{{ side.mood.cites }}</sup>
+  <ng-template #meter let-side>
+    <span class="meter" [attr.data-tone]="side.mood.tone" aria-hidden="true">
+      @for (step of steps; track step) {
+        <i [class.on]="step <= side.mood.step"></i>
+      }
+    </span>
+  </ng-template>
+  <ng-template #moodNote let-side>
+    <p class="mood-note">
+      {{ side.mood.note }}
+      <sup class="cite" [title]="'Sources ' + side.mood.cites">{{ side.mood.cites }}</sup>
+    </p>
+  </ng-template>
+
+  @switch (variant) {
+    @case ('programme') {
+      <div class="paper">
+        <p class="kicker">
+          Match programme <span>Rev. {{ preview.revision }}</span>
         </p>
-        @if (side.factors.length) {
-          <ul class="factors">
-            @for (factor of side.factors; track $index) {
-              <li>
-                {{ factor.text }}
-                <sup class="cite" [title]="'Sources ' + factor.cites">{{ factor.cites }}</sup>
-              </li>
+        <p class="summary">{{ preview.summary }}</p>
+        <div class="sides">
+          @for (side of preview.sides; track side.label; let away = $index) {
+            <div class="side" [style.--club-accent]="side.colour">
+              <div class="side-head">
+                @if (side.crest) {
+                  <img class="crest" [src]="side.crest" alt="" />
+                }
+                <h3>{{ side.label }}</h3>
+                <span class="mood stamp" [attr.data-tone]="side.mood.tone">{{
+                  side.mood.label
+                }}</span>
+              </div>
+              <ng-container *ngTemplateOutlet="moodNote; context: { $implicit: side }" />
+              <ul class="factors">
+                @for (factor of side.factors; track $index) {
+                  <li>
+                    {{ factor.text }}
+                    <sup class="cite" [title]="'Sources ' + factor.cites">{{ factor.cites }}</sup>
+                  </li>
+                }
+              </ul>
+            </div>
+          }
+        </div>
+      </div>
+    }
+    @case ('momentum') {
+      <div class="momentum" [style.--balance]="balance()">
+        @for (side of preview.sides; track side.label; let away = $index) {
+          <div class="m-team" [class.away]="away">
+            @if (side.crest) {
+              <img class="crest" [src]="side.crest" alt="" />
             }
-          </ul>
+            <span class="m-name">{{ side.label }}</span>
+            <span class="m-mood" [attr.data-tone]="side.mood.tone">{{ side.mood.label }}</span>
+          </div>
+        }
+        <div class="m-track" aria-hidden="true">
+          <span class="m-mid"></span>
+          <i class="m-marker"></i>
+        </div>
+        <p class="m-caption">
+          @if (balance() > 0) {
+            Dressing-room mood favours {{ preview.sides[0].label }}
+          } @else if (balance() < 0) {
+            Dressing-room mood favours {{ preview.sides[1].label }}
+          } @else {
+            Dressing-room mood is level
+          }
+        </p>
+      </div>
+      <p class="summary">{{ preview.summary }}</p>
+      <div class="sides">
+        @for (side of preview.sides; track side.label) {
+          <div class="side" [style.--club-accent]="side.accent">
+            <div class="side-banner">
+              @if (side.pattern) {
+                <img class="pattern" [src]="side.pattern" alt="" />
+              }
+              @if (side.crest) {
+                <img class="crest" [src]="side.crest" alt="" />
+              }
+              <h3>{{ side.label }}</h3>
+              <span class="mood" [attr.data-tone]="side.mood.tone">{{ side.mood.label }}</span>
+            </div>
+            <ng-container *ngTemplateOutlet="moodNote; context: { $implicit: side }" />
+            <ul class="factors">
+              @for (factor of side.factors; track $index) {
+                <li>
+                  {{ factor.text }}
+                  <sup class="cite" [title]="'Sources ' + factor.cites">{{ factor.cites }}</sup>
+                </li>
+              }
+            </ul>
+          </div>
         }
       </div>
     }
-  </div>
-  <h3 class="sources-title">Sources</h3>
-  <ol class="sources">
-    @for (source of preview.sources; track source.number) {
-      <li>
-        <span class="source-number">{{ source.number }}</span>
-        <a [href]="source.url" target="_blank" rel="noopener noreferrer nofollow"
-          >{{ source.title }}<ng-icon class="link-icon" name="lucideExternalLink"
-        /></a>
-        @if (source.origin) {
-          <small>{{ source.origin }}</small>
+    @case ('tape') {
+      <blockquote class="verdict">
+        <ng-icon class="quote" name="lucideQuote" aria-hidden="true" />
+        <p class="summary">{{ preview.summary }}</p>
+        <cite>Piele's read</cite>
+      </blockquote>
+      <div class="tape">
+        <div class="tape-row tape-head">
+          @for (side of preview.sides; track side.label; let away = $index) {
+            <div class="side" [class.away]="away" [style.--club-accent]="side.accent">
+              @if (side.crest) {
+                <img class="crest" [src]="side.crest" alt="" />
+              }
+              <h3>{{ side.label }}</h3>
+            </div>
+            @if (!away) {
+              <span class="tape-label vs">vs</span>
+            }
+          }
+        </div>
+        <div class="tape-row">
+          @for (side of preview.sides; track side.label; let away = $index) {
+            <div class="tape-cell mood-cell" [class.away]="away">
+              <span class="mood" [attr.data-tone]="side.mood.tone">{{ side.mood.label }}</span>
+              <ng-container *ngTemplateOutlet="meter; context: { $implicit: side }" />
+              <ng-container *ngTemplateOutlet="moodNote; context: { $implicit: side }" />
+            </div>
+            @if (!away) {
+              <span class="tape-label">Mood</span>
+            }
+          }
+        </div>
+        @for (pair of pairs(); track $index) {
+          <div class="tape-row">
+            <p class="tape-cell">
+              @if (pair.home; as factor) {
+                {{ factor.text }}
+                <sup class="cite" [title]="'Sources ' + factor.cites">{{ factor.cites }}</sup>
+              }
+            </p>
+            <span class="tape-label">Factor {{ $index + 1 }}</span>
+            <p class="tape-cell away">
+              @if (pair.away; as factor) {
+                {{ factor.text }}
+                <sup class="cite" [title]="'Sources ' + factor.cites">{{ factor.cites }}</sup>
+              }
+            </p>
+          </div>
         }
-      </li>
+      </div>
     }
-  </ol>
+    @case ('poster') {
+      <div class="poster">
+        <div class="poster-head">
+          @for (side of preview.sides; track side.label; let away = $index) {
+            @if (side.crest) {
+              <img class="crest" [class.away]="away" [src]="side.crest" alt="" />
+            }
+          }
+          <p class="poster-title">Piele's<br />read.</p>
+        </div>
+        <p class="summary">{{ preview.summary }}</p>
+        <div class="sides">
+          @for (side of preview.sides; track side.label) {
+            <div class="side" [style.--club-accent]="side.accent">
+              <div class="side-head">
+                <h3>{{ side.label }}</h3>
+                <span class="mood" [attr.data-tone]="side.mood.tone">{{ side.mood.label }}</span>
+              </div>
+              <ng-container *ngTemplateOutlet="meter; context: { $implicit: side }" />
+              <ng-container *ngTemplateOutlet="moodNote; context: { $implicit: side }" />
+              <ol class="factors numbered">
+                @for (factor of side.factors; track $index) {
+                  <li>
+                    <span class="num">{{ $index + 1 }}</span>
+                    <p>
+                      {{ factor.text }}
+                      <sup class="cite" [title]="'Sources ' + factor.cites">{{ factor.cites }}</sup>
+                    </p>
+                  </li>
+                }
+              </ol>
+            </div>
+          }
+        </div>
+      </div>
+    }
+    @default {
+      <p class="summary lead">{{ preview.summary }}</p>
+      <div class="sides">
+        @for (side of preview.sides; track side.label; let away = $index) {
+          <article class="side" [style.--club-accent]="side.accent">
+            @if (side.crest) {
+              <img class="watermark" [src]="side.crest" alt="" />
+            }
+            <div class="side-head">
+              @if (side.crest) {
+                <img class="crest" [src]="side.crest" alt="" />
+              }
+              <div>
+                <span class="where">{{ away ? 'Away' : 'Home' }}</span>
+                <h3>{{ side.label }}</h3>
+              </div>
+            </div>
+            <div class="mood-row">
+              <ng-container *ngTemplateOutlet="meter; context: { $implicit: side }" />
+              <span class="mood" [attr.data-tone]="side.mood.tone">{{ side.mood.label }}</span>
+            </div>
+            <ng-container *ngTemplateOutlet="moodNote; context: { $implicit: side }" />
+            <ol class="factors numbered">
+              @for (factor of side.factors; track $index) {
+                <li>
+                  <span class="num">0{{ $index + 1 }}</span>
+                  <p>
+                    {{ factor.text }}
+                    <sup class="cite" [title]="'Sources ' + factor.cites">{{ factor.cites }}</sup>
+                  </p>
+                </li>
+              }
+            </ol>
+          </article>
+        }
+      </div>
+    }
+  }
+
+  <details class="sources-drawer">
+    <summary>
+      <span>Sources</span>
+      <span class="count">{{ preview.sources.length }}</span>
+      <ng-icon class="chevron" name="lucideChevronDown" aria-hidden="true" />
+    </summary>
+    <ol class="sources">
+      @for (source of preview.sources; track source.number) {
+        <li>
+          <span class="source-number">{{ source.number }}</span>
+          <a [href]="source.url" target="_blank" rel="noopener noreferrer nofollow"
+            >{{ source.title }}<ng-icon class="link-icon" name="lucideExternalLink"
+          /></a>
+          @if (source.origin) {
+            <small>{{ source.origin }}</small>
+          }
+        </li>
+      }
+    </ol>
+  </details>
   <p class="preview-note">
     As of {{ preview.generatedAt | date: 'd MMM HH:mm' : sast }} SAST. Written by the Piele agent
     from public sources and the published teamsheets. It can be wrong.

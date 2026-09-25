@@ -1,12 +1,21 @@
 import { MatchPreview, PreviewFactor } from '../../../core/api/match-centre.models';
+import { CLUB_BANNERS } from '../../../core/competition/club-banners';
+import { club } from '../../../core/competition/teams';
 
 export type MoodTone = 'down' | 'level' | 'up';
 
 export interface PreviewSideView {
   readonly label: string;
+  /** Club colours and artwork, when the club is known. */
+  readonly accent: string | undefined;
+  readonly colour: string | undefined;
+  readonly crest: string | undefined;
+  readonly pattern: string | undefined;
   readonly mood: {
     readonly label: string;
     readonly tone: MoodTone;
+    /** Position on the five-step scale, 1 (troubled) to 5 (buoyant). */
+    readonly step: number;
     readonly note: string;
     readonly cites: string;
   };
@@ -38,13 +47,25 @@ const MOODS: Record<number, { label: string; tone: MoodTone }> = {
 };
 
 /** Display model of a preview: labelled moods and numbered source citations. */
-export function previewView(preview: MatchPreview, home: string, away: string): PreviewView {
-  const side = (label: string, key: 'home' | 'away'): PreviewSideView => {
+export function previewView(
+  preview: MatchPreview,
+  home: string,
+  away: string,
+  homeClub = '',
+  awayClub = '',
+): PreviewView {
+  const side = (label: string, key: 'home' | 'away', clubId: string): PreviewSideView => {
     const mood = preview.sentiment[key];
-    const scale = MOODS[Math.max(-2, Math.min(2, Math.round(mood.score)))];
+    const score = Math.max(-2, Math.min(2, Math.round(mood.score)));
+    const banner = CLUB_BANNERS[clubId];
+    const team = club(clubId);
     return {
       label,
-      mood: { ...scale, note: mood.note, cites: cites(mood.sources) },
+      accent: team?.accent,
+      colour: team?.colour,
+      crest: banner?.crest,
+      pattern: banner?.pattern,
+      mood: { ...MOODS[score], step: score + 3, note: mood.note, cites: cites(mood.sources) },
       factors: preview.keyFactors[key].map((factor: PreviewFactor) => ({
         text: factor.text,
         cites: cites(factor.sources),
@@ -55,7 +76,7 @@ export function previewView(preview: MatchPreview, home: string, away: string): 
     summary: preview.summary,
     generatedAt: preview.generatedAt,
     revision: preview.revision,
-    sides: [side(home, 'home'), side(away, 'away')],
+    sides: [side(home, 'home', homeClub), side(away, 'away', awayClub)],
     sources: preview.sources.map((source, index) => ({
       number: index + 1,
       url: source.url,
