@@ -32,7 +32,7 @@ export class MatchPreview {
   readonly fixtureId = input.required<string>();
   readonly home = input.required<string>();
   readonly away = input.required<string>();
-  /** Club ids for colours and crests. */
+  /** Club ids for colours. */
   readonly homeClub = input('');
   readonly awayClub = input('');
   readonly sast = SAST;

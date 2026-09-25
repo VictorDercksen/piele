@@ -1,14 +1,12 @@
 import { MatchPreview, PreviewFactor } from '../../../core/api/match-centre.models';
-import { CLUB_BANNERS } from '../../../core/competition/club-banners';
 import { club } from '../../../core/competition/teams';
 
 export type MoodTone = 'down' | 'level' | 'up';
 
 export interface PreviewSideView {
   readonly label: string;
-  /** Club colour and crest, when the club is known. */
+  /** Club colour, when the club is known. */
   readonly accent: string | undefined;
-  readonly crest: string | undefined;
   readonly mood: {
     readonly label: string;
     readonly tone: MoodTone;
@@ -58,7 +56,6 @@ export function previewView(
     return {
       label,
       accent: club(clubId)?.accent,
-      crest: CLUB_BANNERS[clubId]?.crest,
       mood: { ...MOODS[score], step: score + 3, note: mood.note, cites: cites(mood.sources) },
       factors: preview.keyFactors[key].map((factor: PreviewFactor) => ({
         text: factor.text,

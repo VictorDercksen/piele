@@ -12,14 +12,7 @@
   <p class="preview-empty">Loading the preview.</p>
 } @else if (view(); as preview) {
   <div class="poster">
-    <div class="poster-head">
-      @for (side of preview.sides; track side.label; let away = $index) {
-        @if (side.crest) {
-          <img class="crest" [class.away]="away" [src]="side.crest" alt="" />
-        }
-      }
-      <p class="poster-title">Piele's<br />read.</p>
-    </div>
+    <p class="poster-title">Piele's<br />read.</p>
     <p class="summary">{{ preview.summary }}</p>
     <div class="sides">
       @for (side of preview.sides; track side.label) {
