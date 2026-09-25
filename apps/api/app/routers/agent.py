@@ -16,7 +16,7 @@ from sqlalchemy import Engine
 from app.agent import previews
 from app.agent.auth import agent_dependency
 from app.agent.models import DispatchRequest, PreviewSubmission
-from app.agent.state import build_state
+from app.agent.state import LiveSource, build_state
 from app.db import get_engine
 from app.matchcentre.cache import now_utc
 from app.matchcentre.schedule import Fixture, load_schedule
@@ -113,7 +113,8 @@ def dispatch(request: Request, body: DispatchRequest | None = None) -> Any:
 @router.get("/fixtures/{fixture_id}/state")
 def fixture_state(fixture_id: str, request: Request) -> dict[str, Any]:
     now = now_utc()
-    return build_state(open_fixture(fixture_id, now), load_schedule(), match_centre(request), now)
+    fixture = open_fixture(fixture_id, now)
+    return build_state(fixture, LiveSource(load_schedule(), match_centre(request), now), now)
 
 
 @router.post("/previews", response_model=StoredPreview, status_code=201)

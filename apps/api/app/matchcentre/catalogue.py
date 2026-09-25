@@ -1,4 +1,5 @@
-"""Static competition catalogues: URC clubs and the stadiums in the published schedule.
+"""Static competition catalogues: URC clubs, the stadiums in the published schedule and the
+other venues of the past seasons replayed by the backtest (backtest/README.md).
 
 The club list mirrors apps/web/src/app/core/competition/teams.ts. Stadium coordinates
 are approximate pitch locations used only for weather forecasts. Countries are rugby
@@ -57,21 +58,30 @@ STADIUMS: tuple[Stadium, ...] = (
     Stadium("Affidea Stadium", "Belfast", "Ireland", 54.5806, -5.9139),
     Stadium("Aviva Stadium", "Dublin", "Ireland", 53.3352, -6.2285),
     Stadium("Cardiff Arms Park", "Cardiff", "Wales", 51.4794, -3.1839),
+    Stadium("Cardiff City Stadium", "Cardiff", "Wales", 51.4728, -3.2031),
+    Stadium("Croke Park", "Dublin", "Ireland", 53.3607, -6.2511),
     Stadium("DHL Stadium", "Cape Town", "South Africa", -33.9036, 18.4113),
+    Stadium("Danie Craven Stadium", "Stellenbosch", "South Africa", -33.9406, 18.8673),
     Stadium("Dexcom Stadium", "Galway", "Ireland", 53.2769, -9.0355),
+    Stadium("Electric Brewery Field", "Bridgend", "Wales", 51.5077, -3.5783),
     Stadium("Hampden Park", "Glasgow", "Scotland", 55.8256, -4.2520),
+    Stadium("Hastings Insurance MacHale Park", "Castlebar", "Ireland", 53.8553, -9.2902),
     Stadium("Hive Stadium", "Edinburgh", "Scotland", 55.9422, -3.2408),
     Stadium("Hollywoodbets Kings Park", "Durban", "South Africa", -29.8286, 31.0303),
     Stadium("Laya Arena", "Dublin", "Ireland", 53.3268, -6.2287),
     Stadium("Loftus Versfeld", "Pretoria", "South Africa", -25.7533, 28.2225),
+    Stadium("Nelson Mandela Bay Stadium", "Gqeberha", "South Africa", -33.9378, 25.5987),
     Stadium("Parc y Scarlets", "Llanelli", "Wales", 51.6806, -4.1272),
+    Stadium("Principality Stadium", "Cardiff", "Wales", 51.4782, -3.1826),
     Stadium("Rodney Parade", "Newport", "Wales", 51.5883, -2.9878),
     Stadium("Scotstoun Stadium", "Glasgow", "Scotland", 55.8836, -4.3395),
     Stadium("Scottish Gas Murrayfield", "Edinburgh", "Scotland", 55.9422, -3.2409),
     Stadium("Stadio Monigo", "Treviso", "Italy", 45.6864, 12.2126),
     Stadium("Stadio Sergio Lanfranchi", "Parma", "Italy", 44.8228, 10.3116),
     Stadium("St Helen's", "Swansea", "Wales", 51.6104, -3.9633),
+    Stadium("Swansea.com Stadium", "Swansea", "Wales", 51.6428, -3.9351),
     Stadium("Thomond Park", "Limerick", "Ireland", 52.6742, -8.6428),
+    Stadium("Twickenham Stoop", "London", "England", 51.4502, -0.3431),
     Stadium("Virgin Media Park", "Cork", "Ireland", 51.8836, -8.4877),
 )
 

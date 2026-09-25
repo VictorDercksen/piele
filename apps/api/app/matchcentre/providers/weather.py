@@ -92,7 +92,11 @@ def fetch_forecast(
         },
     )
     response.raise_for_status()
-    hourly = response.json().get("hourly") or {}
+    return forecast_at(response.json().get("hourly") or {}, stadium, kickoff)
+
+
+def forecast_at(hourly: dict[str, Any], stadium: Stadium, kickoff: datetime) -> Fetched:
+    """The kickoff-hour values from an Open-Meteo `hourly` block (UTC times)."""
     times: list[str] = hourly.get("time") or []
     index = _nearest_index(times, kickoff)
     if index is None:
