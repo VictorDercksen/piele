@@ -12,9 +12,7 @@ test('allows listed domains and their subdomains over http(s)', () => {
     'https://www.sarugbymag.co.za/stormers/',
     'https://www.irishmirror.ie/sport/rugby/',
     'https://www.stuff.co.nz/sport/rugby',
-    'https://www.smh.com.au/sport/rugby-union',
     'https://www.theguardian.com/sport/rugby-union',
-    'https://www.thetimes.com/sport/rugby-union',
   ]) {
     assert.equal(isAllowedUrl(url), true, url);
   }
@@ -22,6 +20,7 @@ test('allows listed domains and their subdomains over http(s)', () => {
 
 test('rejects other hosts, look-alikes, other schemes and credentials', () => {
   assert.equal(isAllowedUrl('https://example.org/'), false);
+  assert.equal(isAllowedUrl('https://www.thetimes.com/sport/rugby-union'), false); // paywalled
   assert.equal(isAllowedUrl('https://unitedrugby.com.evil.test/'), false);
   assert.equal(isAllowedUrl('https://notunitedrugby.com/'), false);
   assert.equal(isAllowedUrl('ftp://unitedrugby.com/'), false);

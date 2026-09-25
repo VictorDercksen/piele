@@ -2,6 +2,8 @@
  * Sites the researcher may fetch and the preview may cite: URC and club channels, and
  * rugby news outlets in the URC's countries. A host matches a listed domain or any of
  * its subdomains. Extend the list deliberately; search results elsewhere stay uncited.
+ * Subscription-only outlets (The Times, the Irish Times, the Sydney Morning Herald, the
+ * Herald) are left out: the researcher cannot read them.
  */
 export const ALLOWED_DOMAINS: readonly string[] = [
   // Competition and clubs
@@ -38,25 +40,19 @@ export const ALLOWED_DOMAINS: readonly string[] = [
   // News: Wales
   'walesonline.co.uk',
   // News: Scotland
-  'heraldscotland.com',
   'scotsman.com',
   // News: Ireland
   'independent.ie',
   'irishexaminer.com',
   'irishmirror.ie',
-  'irishtimes.com',
   'rte.ie',
   'the42.ie',
   // News: Italy
   'onrugby.it',
   // News: New Zealand (Stuff, including Rugby Heaven)
   'stuff.co.nz',
-  // News: Australia
-  'smh.com.au',
   // News: England
   'theguardian.com',
-  'thetimes.co.uk',
-  'thetimes.com',
 ];
 
 /** True for an http(s) URL on an allowed domain. */
