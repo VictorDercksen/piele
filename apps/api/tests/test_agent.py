@@ -247,6 +247,11 @@ def test_due_reasons() -> None:
     assert due_reason(kickoff, now, "b" * 64, preview, None) is None
     assert due_reason(kickoff, kickoff - timedelta(hours=1), "a" * 64, preview, None) is None
     assert due_reason(kickoff, kickoff, "a" * 64, None, None) is None  # never after kickoff
+    # A forced run skips the preview, lease and attempt checks, but not teamsheets or kickoff.
+    for preview_row, dispatch_row in ((preview, None), (None, claimed), (None, spent)):
+        assert due_reason(kickoff, now, "a" * 64, preview_row, dispatch_row, force=True) == "forced"
+    assert due_reason(kickoff, now, None, None, None, force=True) is None
+    assert due_reason(kickoff, kickoff, "a" * 64, None, None, force=True) is None
 
 
 def test_only_fixtures_inside_the_teamsheet_window_are_open() -> None:
@@ -416,6 +421,44 @@ def test_a_saved_preview_ends_the_claims() -> None:
         assert previews.due_fixtures(connection, hashes, DAY_BEFORE + DISPATCH_LEASE * 2) == []
 
     rolled_back(test)
+
+
+@needs_database
+def test_a_forced_claim_ignores_the_lease_the_attempt_limit_and_a_saved_preview() -> None:
+    def test(connection) -> None:
+        fixture, now = fresh_fixture(), DAY_BEFORE
+        hashes = {fixture: "a" * 64}
+        for attempt in range(1, MAX_DISPATCHES + 2):
+            (due,) = previews.due_fixtures(connection, hashes, now, force=True)
+            assert (due["attempt"], due["reason"]) == (attempt, "forced")
+            assert previews.claim(connection, due, now) is not None
+        assert previews.due_fixtures(connection, hashes, now) == []
+
+    rolled_back(test)
+
+
+@pytest.mark.parametrize(
+    ("body", "status"),
+    [({"force": True}, 422), ({"fixtureId": "nope"}, 422), ({"fixtureId": "999999"}, 404), ({"odd": 1}, 422)],
+)
+@needs_database
+def test_dispatch_requests_are_validated(monkeypatch, body, status) -> None:
+    client = agent_client(monkeypatch, DAY_BEFORE, database_url=DATABASE_URL)
+    assert client.post("/v1/agent/dispatches", json=body, headers=AGENT).status_code == status
+
+
+@needs_database
+def test_a_forced_dispatch_claims_one_fixture_every_time(monkeypatch) -> None:
+    client = agent_client(monkeypatch, DAY_BEFORE, database_url=DATABASE_URL)
+    body = {"fixtureId": FIXTURE, "force": True}
+    first = client.post("/v1/agent/dispatches", json=body, headers=AGENT).json()["dispatches"]
+    second = client.post("/v1/agent/dispatches", json=body, headers=AGENT).json()["dispatches"]
+    assert [d["fixtureId"] for d in first + second] == [FIXTURE, FIXTURE]
+    assert second[0]["attempt"] == first[0]["attempt"] + 1
+    assert first[0]["reason"] == "forced"
+    # After kickoff even a forced run is refused.
+    late = agent_client(monkeypatch, KICKOFF, database_url=DATABASE_URL)
+    assert late.post("/v1/agent/dispatches", json=body, headers=AGENT).json()["detail"]["code"] == "kicked_off"
 
 
 @needs_database

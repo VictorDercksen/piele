@@ -88,15 +88,25 @@ def open_for_preview(fixture: Fixture, now: datetime) -> bool:
 
 
 def due_reason(
-    kickoff: datetime, now: datetime, current_hash: str | None, preview: Row | None, dispatch: Row | None
+    kickoff: datetime,
+    now: datetime,
+    current_hash: str | None,
+    preview: Row | None,
+    dispatch: Row | None,
+    force: bool = False,
 ) -> str | None:
     """Why the fixture needs its preview now, or None.
 
     Only a fixture with both teamsheets published and no preview yet, before kickoff, and
     not claimed within the lease. A claim whose session saved nothing is retried a limited
-    number of times.
+    number of times. A forced run (asked for by hand) skips the preview, lease and attempt
+    checks but still needs published teamsheets and a kickoff ahead.
     """
-    if current_hash is None or now >= kickoff or preview is not None:
+    if current_hash is None or now >= kickoff:
+        return None
+    if force:
+        return "forced"
+    if preview is not None:
         return None
     if dispatch is None:
         return "first_preview"
@@ -105,22 +115,29 @@ def due_reason(
     return "retry"
 
 
-def teamsheet_hashes(schedule: Schedule, centre: MatchCentreService, now: datetime) -> dict[Fixture, str | None]:
-    """Current teamsheet hashes of the fixtures open for a preview. Calls providers; no database."""
-    candidates = [f for f in schedule.fixtures if open_for_preview(f, now)]
+def teamsheet_hashes(
+    schedule: Schedule, centre: MatchCentreService, now: datetime, fixture_id: str | None = None
+) -> dict[Fixture, str | None]:
+    """Current teamsheet hashes of the fixtures open for a preview (or of one of them).
+    Calls providers; no database."""
+    candidates = [
+        f for f in schedule.fixtures if open_for_preview(f, now) and fixture_id in (None, f.id)
+    ]
     with ThreadPoolExecutor(max_workers=4) as pool:
         sections = list(pool.map(lambda f: centre.teamsheets(f, now), candidates))
     return {fixture: teamsheet_hash(section) for fixture, section in zip(candidates, sections)}
 
 
-def due_fixtures(connection: Connection, hashes: dict[Fixture, str | None], now: datetime) -> list[dict[str, Any]]:
+def due_fixtures(
+    connection: Connection, hashes: dict[Fixture, str | None], now: datetime, force: bool = False
+) -> list[dict[str, Any]]:
     ids = [f.id for f in hashes]
     previews, dispatches = latest_by_fixture(connection, ids), latest_dispatches(connection, ids)
     due = []
     for fixture, current in sorted(hashes.items(), key=lambda item: (item[0].kickoff_utc, item[0].id)):
         assert fixture.kickoff_utc is not None
         dispatch = dispatches.get(fixture.id)
-        reason = due_reason(fixture.kickoff_utc, now, current, previews.get(fixture.id), dispatch)
+        reason = due_reason(fixture.kickoff_utc, now, current, previews.get(fixture.id), dispatch, force)
         if reason:
             due.append(
                 {

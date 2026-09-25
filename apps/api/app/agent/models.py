@@ -119,3 +119,16 @@ class PreviewView(BaseModel):
 class MatchPreview(BaseModel):
     fixtureId: str
     preview: PreviewView | None
+
+
+class DispatchRequest(Strict):
+    """Optional body of POST /v1/agent/dispatches: one fixture, and whether to force it."""
+
+    fixtureId: str | None = Field(default=None, pattern=r"^\d{1,12}$")
+    force: bool = False
+
+    @model_validator(mode="after")
+    def force_needs_a_fixture(self) -> "DispatchRequest":
+        if self.force and self.fixtureId is None:
+            raise ValueError("force needs a fixtureId")
+        return self
