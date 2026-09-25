@@ -6,7 +6,7 @@ import { defineAgent } from 'eve';
  * Keep the model id in step with lib/models.ts.
  */
 export default defineAgent({
-  model: 'anthropic/claude-opus-5.5',
+  model: 'deepseek/deepseek-v4-pro',
   defaultTools: false,
   tool: false,
   limits: {
