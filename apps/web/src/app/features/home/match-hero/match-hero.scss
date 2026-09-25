@@ -114,6 +114,10 @@
   text-shadow: 0 2px 8px #0006;
 }
 
+.club-banner .name-short {
+  display: none;
+}
+
 .club-side {
   margin-top: 14px;
   font-size: 10px;
@@ -315,8 +319,16 @@
     height: 72px;
     margin-bottom: 16px;
   }
+  /* Phones show the short club name, sized so the longest (Edinburgh) fits the banner. */
   .club-banner h2 {
-    font-size: 18px;
+    font-size: clamp(13px, 5.4cqw, 18px);
+    overflow-wrap: normal;
+  }
+  .club-banner .name-full {
+    display: none;
+  }
+  .club-banner .name-short {
+    display: inline;
   }
   .club-side {
     font-size: 8px;
