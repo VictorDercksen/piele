@@ -14,7 +14,7 @@ from uuid import UUID
 from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import func, insert, select, text, update
-from sqlalchemy.engine import Connection
+from sqlalchemy.engine import Connection, Engine
 
 from app.db import get_engine
 from app.league import tables as t
@@ -163,6 +163,19 @@ def _engine(request: Request):
     if engine is None:
         raise HTTPException(status_code=503, detail={"code": "no_database", "message": "The league database is not configured."})
     return engine
+
+
+def claims_dependency(
+    request: Request, credentials: HTTPAuthorizationCredentials | None = Depends(bearer)
+) -> Claims:
+    """The verified token alone, for handlers that must not hold a transaction while they
+    call providers: they resolve the actor themselves in a short transaction (see
+    app/matchcentre/updates.py) instead of through `actor_dependency`."""
+    return _verified_claims(request, credentials)
+
+
+def engine_dependency(request: Request) -> Engine:
+    return _engine(request)
 
 
 def account_dependency(
