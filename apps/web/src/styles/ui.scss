@@ -408,7 +408,9 @@
   color: var(--rugby-ink);
   border: 1px solid var(--rugby-teal);
 }
-.league .spoon-duty .text-button {
+// Plain text links take the timber's cream. Buttons are the textured pale pill and keep
+// their dark ink, which the cream would wash out.
+.league .spoon-duty a.text-button {
   color: #ffe0ad;
 }
 .league .spoon-duty::after {
