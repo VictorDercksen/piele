@@ -113,4 +113,9 @@
       </p>
     }
   </form>
+  @if (isAdmin()) {
+    <a class="manage-link" routerLink="/manage" (click)="close()"
+      >Manage leagues<ng-icon class="link-icon" name="lucideArrowRight"
+    /></a>
+  }
 </div>

@@ -70,6 +70,11 @@ describe('LeagueSwitcher', () => {
     // The same page in the other league, keeping the round on the same competition.
     expect(pofadder.getAttribute('href')).toBe('/pofadder-bowl/standings?round=2');
     expect(third.getAttribute('href')).toBe('/sample-third/standings?round=2');
+    // The admin's last item opens the management centre.
+    const manage = panel.querySelector<HTMLAnchorElement>('a.manage-link')!;
+    expect(manage.textContent?.trim()).toBe('Manage leagues');
+    expect(manage.getAttribute('href')).toBe('/manage');
+    expect(panel.lastElementChild).toBe(manage);
 
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     TestBed.tick();

@@ -122,6 +122,8 @@ export type FeedKind =
   | 'member_left'
   | 'member_returned'
   | 'emblem_updated'
+  | 'captain_appointed'
+  | 'league_restored'
   | 'duty_created'
   | 'duty_voided'
   | 'duty_clock_reset'

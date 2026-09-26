@@ -1,0 +1,74 @@
+<main class="league manage">
+  <header class="manage-top">
+    <a class="wordmark" routerLink="/" aria-label="The Pavilion home"
+      ><strong>THE PAVILION</strong><span>the rugby clubhouse</span></a
+    >
+    <a class="back-link" routerLink="/"
+      >Back to the clubhouse<ng-icon class="link-icon" name="lucideArrowRight"
+    /></a>
+  </header>
+
+  <div class="manage-body">
+    <span class="eyebrow">THE PAVILION / MANAGEMENT CENTRE</span>
+    <h1>Manage leagues.</h1>
+    <p class="page-description">
+      Every league in The Pavilion, archived ones included. Open a league, add yourself to it,
+      rename it, archive or restore it, appoint its captain, or start a new one below.
+    </p>
+    <p class="status" role="status">{{ status() }}</p>
+
+    <section class="leagues" aria-labelledby="leagues-heading">
+      <div class="section-title">
+        <h2 id="leagues-heading">The leagues.</h2>
+        <span>{{ active().length }} ACTIVE · {{ archived().length }} ARCHIVED</span>
+      </div>
+      @if (error(); as message) {
+        <div class="load-error">
+          <p class="error-message" role="alert">{{ message }}</p>
+          <button type="button" class="text-button" (click)="retry()">Try again</button>
+        </div>
+      } @else if (loading() && !leagues().length) {
+        <div class="loading"><app-ball-loader [size]="40" label="Loading the leagues" /></div>
+      } @else {
+        @if (active().length) {
+          <ul class="league-list" aria-label="Active leagues">
+            @for (league of active(); track league.id) {
+              <li>
+                <app-league-card [league]="league" [dialog]="dialog()" (changed)="onChanged($event)" />
+              </li>
+            }
+          </ul>
+        } @else {
+          <p class="empty">No active leagues. Start one below or restore an archived one.</p>
+        }
+        @if (archived().length) {
+          <details #archivedGroup class="archived-group">
+            <summary>
+              Archived <span class="count">{{ archived().length }}</span>
+            </summary>
+            <ul class="league-list" aria-label="Archived leagues">
+              @for (league of archived(); track league.id) {
+                <li>
+                  <app-league-card
+                    [league]="league"
+                    [dialog]="dialog()"
+                    (changed)="onChanged($event)"
+                  />
+                </li>
+              }
+            </ul>
+          </details>
+        }
+      }
+    </section>
+
+    <section class="create" aria-labelledby="create-heading">
+      <div class="section-title">
+        <h2 id="create-heading">Start a league.</h2>
+        <span>NEW LEAGUE</span>
+      </div>
+      <app-create-league-form />
+    </section>
+  </div>
+  <app-reason-dialog />
+</main>

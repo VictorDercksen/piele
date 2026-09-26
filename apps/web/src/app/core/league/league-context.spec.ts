@@ -16,7 +16,7 @@ import { LeagueTime } from '../competition/league-time';
 import { HttpLeagueData } from './http-league-data';
 import { LeagueContext } from './league-context';
 import { LeagueData } from './league-data';
-import { leagueHome, leagueRequired, legacyLeaguePath } from './league.guards';
+import { adminOnly, leagueHome, leagueRequired, legacyLeaguePath } from './league.guards';
 import { LeagueSummary } from './league.models';
 
 const API = `${environment.apiUrl}/v1`;
@@ -291,5 +291,29 @@ describe('league guards', () => {
       );
     expect(path(await result)).toBe('/');
     expect(context.home()?.slug).toBe('piele');
+  });
+
+  it('let the admin into the management centre', async () => {
+    const { http, run } = setup();
+    const result = run(adminOnly, '/manage');
+    await settle();
+    http.expectOne(`${API}/me`).flush(account([PIELE], { isAdmin: true }));
+    expect(await result).toBe(true);
+  });
+
+  it('send anyone else from the management centre to /', async () => {
+    const { http, run } = setup();
+    const result = run(adminOnly, '/manage');
+    await settle();
+    http.expectOne(`${API}/me`).flush(account([PIELE, POFADDER]));
+    expect(path(await result)).toBe('/');
+  });
+
+  it('send an account that failed to load from the management centre to /', async () => {
+    const { http, run } = setup();
+    const result = run(adminOnly, '/manage');
+    await settle();
+    http.expectOne(`${API}/me`).flush(null, { status: 500, statusText: 'Server Error' });
+    expect(path(await result)).toBe('/');
   });
 });

@@ -4,6 +4,7 @@ import { isAccentColour, isEmblemPreset } from './emblems';
 import { ApiError } from './http-league-data';
 import { LeagueData } from './league-data';
 import {
+  Account,
   AppearanceChange,
   Duty,
   DutyEvidence,
@@ -52,17 +53,24 @@ function title(
 export class SampleLeagueData extends LeagueData {
   private readonly competition = inject(CompetitionService);
   private readonly leagues = new Map<string, SampleLeague>();
+  /** Every sample league, including those made in the management centre this session. */
+  private readonly seeds = signal<readonly SampleLeagueSeed[]>(SAMPLE_LEAGUES);
   private readonly active = signal<SampleLeague>(this.league(SAMPLE_LEAGUES[0]));
   readonly source = 'sample';
+  /**
+   * Whether the sample account is the admin. Read once from the first page's address:
+   * `?sampleAdmin=0` makes it a plain member of Piele and the Pofadder Bowl.
+   */
+  readonly isAdmin = sampleAdmin();
   /** The slug of the league whose records are showing. */
   readonly slug = computed(() => this.active().seed.summary.slug);
   /** The sample member, or null in the league the sample account sees only as the admin. */
   readonly currentMemberId = computed(() => this.active().memberId);
   readonly currentMemberName = signal<string | null>(null).asReadonly();
-  readonly captainMemberId = computed(() => this.active().seed.captainId);
+  readonly captainMemberId = computed(() => this.active().captain());
   /** The sample account is the admin, so it stewards every sample league. */
   readonly administers = computed(
-    () => SAMPLE_ACCOUNT.isAdmin || this.active().seed.captainId === this.currentMemberId(),
+    () => this.isAdmin || this.active().captain() === this.currentMemberId(),
   );
   readonly joinCode = computed(() => (this.administers() ? this.active().joinCode() : null));
   readonly withdrawnMembers = this.from((league) => league.withdrawn);
@@ -81,13 +89,39 @@ export class SampleLeagueData extends LeagueData {
 
   /** Switches to a sample league's records. Unknown slugs keep the current league. */
   selectLeague(league: LeagueSummary): void {
-    const seed = SAMPLE_LEAGUES.find((s) => s.summary.slug === league.slug);
+    const seed = this.seed(league.slug);
     if (seed) this.active.set(this.league(seed));
   }
 
   /** The sample league with this slug, whether or not it is showing. */
   seed(slug: string): SampleLeagueSeed | undefined {
-    return SAMPLE_LEAGUES.find((s) => s.summary.slug === slug);
+    return this.seeds().find((s) => s.summary.slug === slug);
+  }
+
+  /** Every sample league's records, archived ones included, for the management centre. */
+  sampleLeagues(): readonly SampleLeague[] {
+    return this.seeds().map((seed) => this.league(seed));
+  }
+
+  /** Adds a league made in the management centre; it lives until reload. */
+  addLeague(seed: SampleLeagueSeed): SampleLeague {
+    this.seeds.update((seeds) => [...seeds, seed]);
+    return this.league(seed);
+  }
+
+  /**
+   * The sample account document, as `GET /v1/me` would answer now: active leagues only, by
+   * name; the admin also lists the leagues it holds no membership in.
+   */
+  account(): Account {
+    return {
+      ...SAMPLE_ACCOUNT,
+      isAdmin: this.isAdmin,
+      leagues: this.sampleLeagues()
+        .filter((league) => league.status() === 'active' && (this.isAdmin || !!league.memberId))
+        .map((league) => league.summary())
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    };
   }
 
   reload(): void {
@@ -167,8 +201,8 @@ export class SampleLeagueData extends LeagueData {
    * close in memory). Rejects like the API for an unknown or closed code.
    */
   preview(code: string): JoinPreview {
-    const league = SAMPLE_LEAGUES.map((seed) => this.league(seed)).find(
-      (l) => l.joinCode() === code,
+    const league = this.sampleLeagues().find(
+      (l) => l.status() === 'active' && l.joinCode() === code,
     );
     if (!league)
       throw new ApiError(
@@ -176,7 +210,7 @@ export class SampleLeagueData extends LeagueData {
         'unknown_join_code',
         'That join link is not valid. Ask the captain for a new one.',
       );
-    const { id, slug, name, timezone, competition, seasonName } = league.seed.summary;
+    const { id, slug, name, timezone, competition, seasonName } = league.summary();
     return {
       league: { id, slug, name, timezone, competition, seasonName, ...league.appearance() },
       alreadyMember: !!league.memberId,
@@ -203,10 +237,20 @@ export class SampleLeagueData extends LeagueData {
 }
 
 /** One sample league's in-memory records and the rules the API would apply to them. */
-class SampleLeague {
+export class SampleLeague {
   readonly seed: SampleLeagueSeed;
-  /** The sample member here, or null where the sample account is only the admin. */
-  readonly memberId: string | null;
+  private readonly me: WritableSignal<string | null>;
+  private readonly meInSeason = signal(true);
+  private readonly captainState: WritableSignal<string>;
+  /** The captain's membership. */
+  readonly captain: Signal<string>;
+  private readonly nameState: WritableSignal<string>;
+  private readonly zoneState: WritableSignal<string>;
+  private readonly statusState = signal<'active' | 'archived'>('active');
+  readonly name: Signal<string>;
+  readonly timezone: Signal<string>;
+  /** Archived leagues keep their records but leave every list but the management centre's. */
+  readonly status = this.statusState.asReadonly();
   private readonly competition: CompetitionService;
   private readonly memberRecords: WritableSignal<readonly LeagueMember[]>;
   /** Active members; withdrawn ones move to `withdrawn` and drop out of every list. */
@@ -281,7 +325,13 @@ class SampleLeague {
 
   constructor(seed: SampleLeagueSeed, competition: CompetitionService) {
     this.seed = seed;
-    this.memberId = seed.summary.memberId;
+    this.me = signal(seed.summary.memberId);
+    this.captainState = signal(seed.captainId);
+    this.captain = this.captainState.asReadonly();
+    this.nameState = signal(seed.summary.name);
+    this.name = this.nameState.asReadonly();
+    this.zoneState = signal(seed.summary.timezone);
+    this.timezone = this.zoneState.asReadonly();
     this.competition = competition;
     this.memberRecords = signal(seed.members);
     this.members = this.memberRecords.asReadonly();
@@ -301,8 +351,68 @@ class SampleLeague {
     this.read = this.readState.asReadonly();
   }
 
+  /** The sample member here, or null where the sample account is only the admin. */
+  get memberId(): string | null {
+    return this.me();
+  }
+
+  /** The league as the account document lists it now. */
+  readonly summary = computed<LeagueSummary>(() => {
+    const me = this.me();
+    return {
+      ...this.seed.summary,
+      name: this.name(),
+      timezone: this.timezone(),
+      ...this.look(),
+      memberId: me,
+      isCaptain: !!me && this.captain() === me,
+      inSeason: !me || this.meInSeason(),
+    };
+  });
+
   reload(): void {
     this.clock.set(Date.now());
+  }
+
+  /** Renames, moves or archives the league as `PATCH /v1/admin/leagues/{id}` does. */
+  update(change: { name?: string; timezone?: string; status?: 'active' | 'archived' }): void {
+    if (change.name) this.nameState.set(change.name);
+    if (change.timezone) this.zoneState.set(change.timezone);
+    if (change.status && change.status !== this.status()) {
+      this.statusState.set(change.status);
+      if (change.status === 'active') this.post('league_restored', null, `${this.name()} is open again.`, '', null);
+    }
+  }
+
+  /** Makes an active, claimed member the captain. */
+  appoint(memberId: string): void {
+    const member = this.memberRecords().find((m) => m.id === memberId);
+    this.captainState.set(memberId);
+    if (member) this.post('captain_appointed', null, `${member.name} is captain.`, '', member.name);
+  }
+
+  /**
+   * Adds the sample account as a member outside the season (the admin's "Add me"). Returns
+   * whether it was new; a withdrawn membership comes back, still outside the season.
+   */
+  addAdmin(name: string): boolean {
+    if (this.me() && this.memberRecords().some((m) => m.id === this.me())) return false;
+    const withdrawn = this.withdrawnRecords().find((m) => m.id === ME);
+    this.withdrawnRecords.update((members) => members.filter((m) => m.id !== ME));
+    const record = withdrawn
+      ? { ...withdrawn, leftAt: null, withdrawalReason: null, inSeason: false }
+      : { ...memberRecord(ME, name, name, ''), inSeason: false };
+    this.memberRecords.update((members) => [...members, record]);
+    this.me.set(ME);
+    this.meInSeason.set(false);
+    this.post(
+      withdrawn ? 'member_returned' : 'member_joined',
+      null,
+      withdrawn ? `${record.name} is back as admin.` : `${record.name} joined the clubhouse as admin.`,
+      '',
+      record.name,
+    );
+    return !withdrawn;
   }
 
   saveNotificationsRead(read: NotificationsRead): Promise<void> {
@@ -447,7 +557,7 @@ class SampleLeague {
   }
 
   releaseMember(memberId: string): Promise<void> {
-    if (memberId === this.seed.captainId)
+    if (memberId === this.captain())
       return Promise.reject(new Error('The captain’s own membership cannot be released.'));
     this.memberRecords.update((members) =>
       members.map((m) => (m.id === memberId ? { ...m, claimed: false } : m)),
@@ -482,7 +592,7 @@ class SampleLeague {
   withdrawMember(memberId: string, reason: string): Promise<void> {
     const text = reason.trim();
     if (!text || text.length > 500) return refuse(422, 'validation', 'Give a reason of up to 500 characters.');
-    if (memberId === this.seed.captainId)
+    if (memberId === this.captain())
       return refuse(409, 'captain_membership', 'The captain cannot be removed. Appoint another captain first.');
     if (memberId === this.memberId) return refuse(409, 'own_membership', 'You cannot remove yourself.');
     if (this.withdrawnRecords().some((m) => m.id === memberId))
@@ -547,7 +657,7 @@ class SampleLeague {
     const changed =
       next.emblemPreset !== this.look().emblemPreset || next.emblemUrl !== this.look().emblemUrl;
     this.look.set(next);
-    if (changed) this.post('emblem_updated', null, `The ${this.seed.summary.name} emblem was updated.`, '', null);
+    if (changed) this.post('emblem_updated', null, `The ${this.name()} emblem was updated.`, '', null);
     return Promise.resolve(next);
   }
 
@@ -573,6 +683,15 @@ class SampleLeague {
   }
 }
 
+
+/** `?sampleAdmin=0` on the first page makes the sample account a plain member. */
+function sampleAdmin(): boolean {
+  try {
+    return new URLSearchParams(globalThis.location?.search ?? '').get('sampleAdmin') !== '0';
+  } catch {
+    return true;
+  }
+}
 
 function refuse<T>(status: number, code: string, message: string): Promise<T> {
   return Promise.reject(new ApiError(status, code, message));

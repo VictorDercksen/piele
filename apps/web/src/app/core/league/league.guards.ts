@@ -51,3 +51,16 @@ export const legacyLeaguePath: CanActivateFn = async (_route, state) => {
   const home = (await context.ensureAccount()) ? context.home() : null;
   return home ? router.parseUrl(`/${home.slug}${state.url}`) : router.createUrlTree(['/no-league']);
 };
+
+/**
+ * `/manage`: only the admin's navigation opens the management centre; everyone else goes to
+ * `/`. The API refuses every admin route to anyone else (403 `admin_only`) regardless.
+ */
+export const adminOnly: CanActivateFn = async () => {
+  const context = inject(LeagueContext);
+  const auth = inject(AuthService);
+  const router = inject(Router);
+  if (!(await accountAvailable(auth))) return true;
+  await context.ensureAccount();
+  return context.isAdmin() || router.createUrlTree(['/']);
+};

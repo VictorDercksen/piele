@@ -1,15 +1,10 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { ToastService } from '../../../core/feedback/toast.service';
 import { LeagueContext } from '../../../core/league/league-context';
-import {
-  DEFAULT_ACCENT,
-  EMBLEM_LABELS,
-  EMBLEM_PRESETS,
-  emblemAsset,
-  isAccentColour,
-} from '../../../core/league/emblems';
+import { DEFAULT_ACCENT, isAccentColour } from '../../../core/league/emblems';
 import { AppearanceChange } from '../../../core/league/league.models';
 import { prepareEmblem } from '../../../core/profile/profile-photo';
+import { EmblemPicker } from '../../../shared/emblem-picker/emblem-picker';
 import { LeagueCrest } from '../../../shared/league-crest/league-crest';
 import { Loader } from '../../../shared/loader/loader';
 
@@ -23,16 +18,11 @@ import { Loader } from '../../../shared/loader/loader';
   templateUrl: './appearance-card.html',
   styleUrl: './appearance-card.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [LeagueCrest, Loader],
+  imports: [EmblemPicker, LeagueCrest, Loader],
 })
 export class AppearanceCard {
   private readonly context = inject(LeagueContext);
   private readonly toast = inject(ToastService);
-  readonly presets = EMBLEM_PRESETS.map((key) => ({
-    key,
-    label: EMBLEM_LABELS[key],
-    asset: `${emblemAsset(key)}#emblem`,
-  }));
   readonly league = this.context.current;
   /** The emblem the steward picked but has not saved; undefined keeps the saved one. */
   private readonly emblem = signal<AppearanceChange['emblem']>(undefined);

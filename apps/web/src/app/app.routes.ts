@@ -2,7 +2,7 @@ import { Route, Routes } from '@angular/router';
 import { Shell } from './core/layout/shell/shell';
 import { PageData } from './core/layout/shell/page-data';
 import { signedIn, signedOut } from './core/auth/auth.guards';
-import { leagueHome, leagueRequired, legacyLeaguePath } from './core/league/league.guards';
+import { adminOnly, leagueHome, leagueRequired, legacyLeaguePath } from './core/league/league.guards';
 import { profileMissing, profileRequired } from './core/profile/profile.guards';
 import { captainOnly } from './features/captain/captain.guard';
 
@@ -17,8 +17,8 @@ const legacy = (path: string): Route => ({
 
 /**
  * Account routes are bare; every league page sits under the league's slug (`/piele/duties`).
- * The words used here (`sign-in`, `join`, `no-league` and the legacy page names) cannot be
- * league slugs.
+ * The words used here (`sign-in`, `join`, `no-league`, `manage` and the legacy page names)
+ * cannot be league slugs (`core/league/league-slugs.ts`).
  */
 export const routes: Routes = [
   {
@@ -38,6 +38,12 @@ export const routes: Routes = [
     title: 'No league yet · The Pavilion',
     canActivate: [signedIn],
     loadComponent: () => import('./features/no-league/no-league.page').then((m) => m.NoLeaguePage),
+  },
+  {
+    path: 'manage',
+    title: 'Manage leagues · The Pavilion',
+    canActivate: [signedIn, adminOnly],
+    loadComponent: () => import('./features/manage/manage.page').then((m) => m.ManagePage),
   },
   { path: '', pathMatch: 'full', canActivate: [signedIn, leagueHome], children: [] },
   ...[

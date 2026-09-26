@@ -42,6 +42,8 @@ export interface SampleLeagueSeed {
   /** The code in the league's join link, `/join/{code}`. */
   readonly joinCode: string;
   readonly captainId: string;
+  /** When the league was made; the sample leagues predate the session. */
+  readonly createdAt?: string;
   readonly members: readonly LeagueMember[];
   readonly standings: readonly RoundStanding[];
   readonly duties: readonly SampleDutyRecord[];

@@ -6,7 +6,7 @@
   (close)="restoreFocus()"
 >
   <div class="dialog-top">
-    <span class="eyebrow">{{ leagueName().toUpperCase() }} / CAPTAIN'S DESK</span
+    <span class="eyebrow">{{ request()?.eyebrow ?? leagueName().toUpperCase() + " / CAPTAIN'S DESK" }}</span
     ><button type="button" class="icon-button" aria-label="Close dialog" (click)="close()">
       <app-icon name="close" />
     </button>

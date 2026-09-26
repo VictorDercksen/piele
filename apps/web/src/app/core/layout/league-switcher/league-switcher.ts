@@ -27,7 +27,8 @@ let nextId = 0;
 /**
  * The top-left block: the current league's crest, name, competition and season, and the
  * button that opens the league switcher. The switcher lists the account's leagues (grouped
- * for the admin), opens the same page in another league and takes a join link or code. Built
+ * for the admin), opens the same page in another league, takes a join link or code and, for
+ * the admin, ends with "Manage leagues" (`/manage`). Built
  * like the notifications flag: a local `open` signal, Escape and outside-pointer close, focus
  * back on the button. A popover on wide screens, a sheet under the top bar on phones.
  */
@@ -66,6 +67,8 @@ export class LeagueSwitcher {
     () => `${this.competition.shortName} ${shortSeason(this.competition.season, ' / ')}`,
   );
   readonly triggerLabel = computed(() => `${this.name()}. Switch league`);
+  /** The admin's last item: the management centre. */
+  readonly isAdmin = this.context.isAdmin;
 
   /** The account's leagues; the admin's split into its own and the rest. */
   readonly groups = computed<readonly LeagueGroup[]>(() => {

@@ -13,7 +13,8 @@ import { Loader } from '../../../shared/loader/loader';
 
 /**
  * A confirmation with a reason, used to void duties, decide evidence and remove members, and
- * without one (`noReason`) for plain confirmations such as rotating the join link.
+ * without one (`noReason`) for plain confirmations such as rotating the join link or, in the
+ * management centre, archiving a league.
  */
 @Component({
   selector: 'app-reason-dialog',
@@ -79,6 +80,8 @@ export class ReasonDialog {
 }
 
 export interface ReasonRequest {
+  /** The line above the title; the league's captain's desk by default. */
+  readonly eyebrow?: string;
   readonly title: string;
   readonly description: string;
   readonly submitLabel: string;

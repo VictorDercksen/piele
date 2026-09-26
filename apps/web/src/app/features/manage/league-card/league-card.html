@@ -1,0 +1,209 @@
+<article class="league-card" [class.archived]="!active()" [attr.aria-labelledby]="id() + '-name'">
+  <div class="card-head">
+    <app-league-crest
+      [name]="league().name"
+      [slug]="league().slug"
+      [emblemUrl]="league().emblemUrl"
+      [emblemPreset]="league().emblemPreset"
+      [accentColour]="league().accentColour"
+    />
+    <div class="card-title">
+      <h3 [id]="id() + '-name'" tabindex="-1">{{ league().name }}</h3>
+      <p class="slug">/{{ league().slug }}</p>
+    </div>
+    <span class="tag status-tag" [class.archived-tag]="!active()">{{
+      active() ? 'Active' : 'Archived'
+    }}</span>
+  </div>
+
+  <dl class="facts">
+    <div>
+      <dt>Competition</dt>
+      <dd>{{ league().competition.shortName }} · {{ seasonLine() }}</dd>
+    </div>
+    <div>
+      <dt>Captain</dt>
+      <dd>{{ captainLine() }}</dd>
+    </div>
+    <div>
+      <dt>Members</dt>
+      <dd>
+        {{ league().counts.members }} · {{ league().counts.claimed }} claimed ·
+        {{ league().counts.inSeason }} in season · {{ league().counts.withdrawn }} withdrawn
+      </dd>
+    </div>
+    <div>
+      <dt>Time zone</dt>
+      <dd>{{ league().timezone }}</dd>
+    </div>
+    <div>
+      <dt>Join code</dt>
+      <dd class="join-code">
+        @if (league().joinCode; as code) {
+          <code>{{ code }}</code>
+          @if (active()) {
+            <button
+              type="button"
+              class="text-button"
+              [attr.aria-label]="'Copy the join link of ' + league().name"
+              (click)="copyLink()"
+            >
+              Copy link<ng-icon class="link-icon" name="lucideCopy" />
+            </button>
+            <span class="copy-status" role="status">{{ copied() ? 'Copied' : '' }}</span>
+          }
+        } @else {
+          Joining is closed
+        }
+      </dd>
+    </div>
+    @if (league().myMemberId) {
+      <div>
+        <dt>You</dt>
+        <dd>A member</dd>
+      </div>
+    }
+  </dl>
+
+  <div class="card-actions">
+    @if (active()) {
+      <a
+        class="primary-button"
+        [routerLink]="['/', league().slug]"
+        [attr.aria-label]="'Open ' + league().name"
+        >Open<ng-icon class="link-icon" name="lucideArrowRight"
+      /></a>
+      @if (!league().myMemberId) {
+        <button
+          type="button"
+          class="text-button"
+          [disabled]="busy()"
+          [attr.aria-label]="'Add me to ' + league().name"
+          (click)="addMe()"
+        >
+          Add me
+        </button>
+      }
+    }
+    <button
+      #renameButton
+      type="button"
+      class="text-button"
+      [disabled]="busy() || renaming()"
+      [attr.aria-label]="'Rename ' + league().name"
+      [attr.aria-expanded]="renaming()"
+      (click)="startRename()"
+    >
+      Rename
+    </button>
+    @if (active()) {
+      <button
+        type="button"
+        class="text-button"
+        [disabled]="busy()"
+        [attr.aria-label]="'Archive ' + league().name"
+        (click)="archive()"
+      >
+        Archive
+      </button>
+    } @else {
+      <button
+        type="button"
+        class="text-button"
+        [disabled]="busy()"
+        [attr.aria-label]="'Restore ' + league().name"
+        (click)="restore()"
+      >
+        Restore
+      </button>
+    }
+    @if (busy()) {
+      <app-loader [size]="16" aria-hidden="true" />
+    }
+  </div>
+
+  @if (renaming()) {
+    <form class="rename-form" [formGroup]="renameForm" (ngSubmit)="saveRename()">
+      <div class="field">
+        <label [for]="id() + '-rename-name'">League name</label>
+        <input
+          #renameInput
+          [id]="id() + '-rename-name'"
+          formControlName="name"
+          maxlength="120"
+          autocomplete="off"
+          [attr.aria-invalid]="renameSubmitted() && renameForm.controls.name.invalid"
+        />
+        @if (renameSubmitted() && renameForm.controls.name.invalid) {
+          <p class="field-error" role="alert">Give the league a name.</p>
+        }
+      </div>
+      <div class="field">
+        <label [for]="id() + '-rename-zone'">Time zone</label>
+        <input
+          [id]="id() + '-rename-zone'"
+          formControlName="timezone"
+          maxlength="64"
+          autocomplete="off"
+          spellcheck="false"
+          [attr.aria-invalid]="renameSubmitted() && renameForm.controls.timezone.invalid"
+        />
+        @if (renameSubmitted() && renameForm.controls.timezone.invalid) {
+          <p class="field-error" role="alert">Use an IANA time zone such as Europe/London.</p>
+        }
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="primary-button" [disabled]="busy()" [attr.aria-busy]="busy()">
+          Save
+        </button>
+        <button type="button" class="text-button" [disabled]="busy()" (click)="cancelRename()">
+          Cancel
+        </button>
+      </div>
+    </form>
+  }
+
+  @if (error()) {
+    <p class="error-message" role="alert">{{ error() }}</p>
+  }
+
+  @if (active()) {
+    <details class="captain-panel" (toggle)="loadCandidates($event)">
+      <summary>Appoint a captain</summary>
+      <div class="panel-body">
+        @if (candidatesError()) {
+          <p class="error-message" role="alert">{{ candidatesError() }}</p>
+          <button type="button" class="text-button" (click)="reloadCandidates()">Try again</button>
+        } @else if (candidates() === null) {
+          <p class="hint"><app-loader [size]="16" aria-hidden="true" /> Loading the team sheet…</p>
+        } @else if (!choices().length) {
+          <p class="hint">
+            Nobody else has claimed a name yet. A captain must be a member who has signed in and
+            claimed their name.
+          </p>
+        } @else {
+          <div class="field captain-field">
+            <label [for]="id() + '-captain'">New captain</label>
+            <div class="inline-row">
+              <select
+                [id]="id() + '-captain'"
+                [formControl]="captainChoice"
+                [attr.aria-invalid]="captainSubmitted() && !captainChoice.value"
+              >
+                <option value="">Choose a claimed member</option>
+                @for (candidate of choices(); track candidate.id) {
+                  <option [value]="candidate.id">{{ candidate.displayName }}</option>
+                }
+              </select>
+              <button type="button" class="primary-button" (click)="appoint()">Appoint</button>
+            </div>
+            @if (captainSubmitted() && !captainChoice.value) {
+              <p class="field-error" role="alert">Choose who takes over.</p>
+            }
+          </div>
+          <p class="hint">Only members who have claimed their name are listed.</p>
+        }
+      </div>
+    </details>
+  }
+</article>

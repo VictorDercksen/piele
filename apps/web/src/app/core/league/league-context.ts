@@ -12,7 +12,6 @@ import { COMPETITIONS, DEFAULT_COMPETITION_ID, competition } from '../competitio
 import { HttpLeagueData, toApiError } from './http-league-data';
 import { LeagueData } from './league-data';
 import { Account, AppearanceChange, LeagueAppearance, LeagueSummary } from './league.models';
-import { SAMPLE_ACCOUNT } from './sample-leagues';
 import { SampleLeagueData } from './sample-league-data';
 
 /**
@@ -21,7 +20,8 @@ import { SampleLeagueData } from './sample-league-data';
  * (records, competition, display zone) follows `current`.
  *
  * Builds with the API read the account from `GET /v1/me`. The sample build uses the local
- * sample account (two leagues, the admin); builds with neither have one local league.
+ * sample account (`SampleLeagueData.account()`, the admin unless the first page carried
+ * `?sampleAdmin=0`); builds with neither have one local league.
  */
 @Injectable({ providedIn: 'root' })
 export class LeagueContext {
@@ -141,11 +141,17 @@ export class LeagueContext {
     return appearance;
   }
 
-  /** Reads the account again in place (no sign of loading), keeping the current league. */
+  /**
+   * Reads the account again in place (no sign of loading), keeping the current league, e.g.
+   * after the management centre made, renamed or archived a league.
+   */
   async refreshAccount(): Promise<void> {
-    if (!this.api) return;
+    const sample = this.data instanceof SampleLeagueData ? this.data : null;
+    if (!this.api && !sample) return;
     try {
-      const account = await firstValueFrom(this.http.get<Account>(`${environment.apiUrl}/v1/me`));
+      const account = sample
+        ? sample.account()
+        : await firstValueFrom(this.http.get<Account>(`${environment.apiUrl}/v1/me`));
       this.accountState.set(account);
       const current = this.current();
       const listed = current && account.leagues.find((league) => league.id === current.id);
@@ -197,7 +203,7 @@ export class LeagueContext {
       const account = this.api
         ? await firstValueFrom(this.http.get<Account>(`${environment.apiUrl}/v1/me`))
         : this.data instanceof SampleLeagueData
-          ? SAMPLE_ACCOUNT
+          ? this.data.account()
           : LOCAL_ACCOUNT;
       this.accountState.set(account);
       return account;
