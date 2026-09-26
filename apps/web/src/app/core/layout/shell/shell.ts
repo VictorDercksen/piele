@@ -28,6 +28,7 @@ import { FixtureRibbon } from '../fixture-ribbon/fixture-ribbon';
 import { LeagueSwitcher } from '../league-switcher/league-switcher';
 import { NotificationsFlag } from '../notifications-flag/notifications-flag';
 import { SeasonTimeline } from '../season-timeline/season-timeline';
+import { Breadcrumbs, FROM_NAV_BAR } from './breadcrumbs';
 import { PageData } from './page-data';
 
 /** Application frame: brand bar, navigation, season timeline and the selected round context. */
@@ -85,6 +86,9 @@ export class Shell {
     { path: '/more', label: 'More', icon: 'more' },
   ] as const;
   readonly mobileNav = this.nav.filter((item) => item.path !== '/standings');
+  readonly navState = FROM_NAV_BAR;
+  /** The pages before this one, linked in the breadcrumb. */
+  readonly trail = inject(Breadcrumbs).trail;
 
   private readonly navigated = toSignal(
     this.router.events.pipe(
