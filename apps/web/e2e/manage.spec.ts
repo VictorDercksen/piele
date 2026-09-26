@@ -28,8 +28,12 @@ async function openCreate(page: Page) {
 /** Fills row `row` (0-based) of the team sheet, adding rows as needed. */
 async function member(page: Page, row: number, name: string, surname: string, superbru: string) {
   const form = page.locator('app-create-league-form');
-  while (!(await form.locator(`#new-league-member-${row}-name`).count()))
+  const rows = form.locator('.member-row');
+  // One click at a time, each waiting for its row, so a slow render never adds two.
+  for (let count = await rows.count(); count <= row; count++) {
     await form.getByRole('button', { name: 'Add member' }).click();
+    await expect(rows).toHaveCount(count + 1);
+  }
   await form.locator(`#new-league-member-${row}-name`).fill(name);
   await form.locator(`#new-league-member-${row}-surname`).fill(surname);
   await form.locator(`#new-league-member-${row}-superbru`).fill(superbru);
