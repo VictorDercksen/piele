@@ -541,7 +541,7 @@ def list_standings(round: int | None = Query(default=None, ge=1), actor: Actor =
 
 class StandingEntry(BaseModel):
     memberId: UUID
-    points: Decimal = Field(ge=0, le=Decimal("99999.9"), decimal_places=1)
+    points: Decimal = Field(ge=0, le=Decimal("99999.99"), decimal_places=2)
 
 
 class RoundStandings(BaseModel):
