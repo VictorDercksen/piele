@@ -40,7 +40,8 @@ leagues = Table(
     Column("slug", String(40), nullable=False),
     Column("timezone", String(64), nullable=False),
     Column("captain_membership_id", UUID(as_uuid=True), nullable=False),
-    # A Storage object path or 'preset:<key>'; null shows the default crest or a monogram.
+    # 'preset:<key>' or an object in the private bucket under emblems/<league id>/ (checked
+    # by leagues_emblem_path_own); null shows the default crest or a monogram.
     Column("emblem_path", String(300)),
     Column("accent_colour", String(7)),
     # Null closes the league to joining by code.
@@ -65,7 +66,10 @@ league_memberships = Table(
     _ts("notifications_read_at"),
     Column("notifications_read_keys", JSONB, nullable=False),
     _ts("joined_at", nullable=False),
+    # Set together when the captain or admin withdraws the member (status 'withdrawn');
+    # cleared on reinstatement.
     _ts("left_at"),
+    Column("withdrawal_reason", Text),
     Column("version", Integer, nullable=False),
     _ts("updated_at", nullable=False),
 )
@@ -90,7 +94,12 @@ season_memberships = Table(
     Column("league_id", UUID(as_uuid=True), nullable=False),
     Column("season_id", UUID(as_uuid=True), nullable=False),
     Column("membership_id", UUID(as_uuid=True), nullable=False),
+    # A withdrawal ends the row (status 'withdrawn', effective_to); reinstatement adds a new
+    # one, so a member may hold several rows in a season but at most one active.
     Column("status", String(20), nullable=False),
+    _ts("effective_from", nullable=False),
+    _ts("effective_to"),
+    _ts("updated_at", nullable=False),
 )
 
 duties = Table(

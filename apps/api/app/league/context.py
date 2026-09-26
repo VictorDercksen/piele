@@ -40,6 +40,8 @@ class Actor:
     league_timezone: str
     league_emblem_path: str | None
     league_accent_colour: str | None
+    # Null when joining by code is closed. Shown only to the captain and the admin.
+    league_join_code: str | None
     # Null when the admin views a league they hold no membership in. Writes that the schema
     # attributes to a member call `require_membership` first.
     membership_id: UUID | None
@@ -187,6 +189,7 @@ def actor_for(account: Account, league_id: UUID) -> Actor:
         league_timezone=league.timezone,
         league_emblem_path=league.emblem_path,
         league_accent_colour=league.accent_colour,
+        league_join_code=league.join_code,
         membership_id=membership.id if membership is not None else None,
         display_name=membership.display_name if membership is not None else "Admin",
         is_captain=membership is not None and league.captain_membership_id == membership.id,

@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 from app.league import service
 from app.league.context import Account, account_dependency
-from app.routers.league import CompetitionRef, Me, competition_ref, emblem_url, me_document, settings_of, storage_of
+from app.routers.league import CompetitionRef, Me, competition_ref, emblem_fields, me_document, settings_of, storage_of
 
 router = APIRouter(tags=["account"])
 
@@ -21,6 +21,8 @@ class LeagueSummary(BaseModel):
     slug: str
     name: str
     timezone: str
+    # A preset key or a short-lived signed URL for an uploaded emblem; both null: no emblem.
+    emblemPreset: str | None
     emblemUrl: str | None
     accentColour: str | None
     competition: CompetitionRef
@@ -41,14 +43,14 @@ class AccountDocument(BaseModel):
     leagues: list[LeagueSummary]
 
 
-def _summary(summary: service.LeagueSummary) -> LeagueSummary:
+def _summary(request: Request, summary: service.LeagueSummary) -> LeagueSummary:
     league, membership = summary.league, summary.membership
     return LeagueSummary(
         id=league.id,
         slug=league.slug,
         name=league.name,
         timezone=league.timezone,
-        emblemUrl=emblem_url(league.emblem_path),
+        **emblem_fields(request, league.emblem_path),
         accentColour=league.accent_colour,
         competition=competition_ref(summary.competition),
         seasonName=summary.season.name,
@@ -71,7 +73,7 @@ def account(request: Request, account: Account = Depends(account_dependency)) ->
         ),
         isAdmin=account.is_admin,
         lastLeagueId=service.last_league_id(account),
-        leagues=[_summary(summary) for summary in leagues],
+        leagues=[_summary(request, summary) for summary in leagues],
     )
 
 
@@ -80,6 +82,8 @@ class JoinLeague(BaseModel):
     slug: str
     name: str
     timezone: str
+    # A preset key or a short-lived signed URL for an uploaded emblem; both null: no emblem.
+    emblemPreset: str | None
     emblemUrl: str | None
     accentColour: str | None
     competition: CompetitionRef
@@ -100,7 +104,7 @@ class JoinInvitation(BaseModel):
 
 
 @router.get("/join/{code}", response_model=JoinInvitation)
-def join_invitation(code: str, account: Account = Depends(account_dependency)) -> JoinInvitation:
+def join_invitation(code: str, request: Request, account: Account = Depends(account_dependency)) -> JoinInvitation:
     view = service.join_view(account, code)
     league = view.summary.league
     return JoinInvitation(
@@ -109,7 +113,7 @@ def join_invitation(code: str, account: Account = Depends(account_dependency)) -
             slug=league.slug,
             name=league.name,
             timezone=league.timezone,
-            emblemUrl=emblem_url(league.emblem_path),
+            **emblem_fields(request, league.emblem_path),
             accentColour=league.accent_colour,
             competition=competition_ref(view.summary.competition),
             seasonName=view.summary.season.name,

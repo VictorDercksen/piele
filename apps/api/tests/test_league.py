@@ -272,7 +272,8 @@ def test_captain_claims_membership_by_verified_email(client: TestClient) -> None
     assert body["isAdmin"] is False and body["memberId"] == league["memberId"]
     assert body["leagueId"] == client.league_id and body["slug"].startswith("test-") and body["timezone"] == "Africa/Johannesburg"
     assert body["competition"] == {"id": "urc-2026-27", "name": "United Rugby Championship 2026/27", "shortName": "URC"}
-    assert body["emblemUrl"] is None and body["accentColour"] is None and body["inSeason"] is True
+    assert body["emblemUrl"] is None and body["emblemPreset"] is None and body["accentColour"] is None and body["inSeason"] is True
+    assert body["joinCode"] == join_code(client)
     # Second sign-in finds the bound account even if the email changes.
     again = client.get(lp(client, "/me"), headers=auth(subject(client, "CAPTAIN"), "renamed@example.com"))
     assert again.json()["memberId"] == body["memberId"]
@@ -586,7 +587,7 @@ def test_leagues_are_isolated(client: TestClient) -> None:
 
 
 def join_code(client: TestClient, league_id: str | None = None) -> str:
-    """Join codes are not exposed by the API until the captain's desk shows them (phase 3)."""
+    """The league's join code straight from the database (the captain reads it from `me`)."""
     with get_engine(client.app.state.settings).begin() as connection:
         league_id = league_id or client.league_id  # type: ignore[attr-defined]
         connection.execute(text("select set_config('piele.league_id', :id, true)"), {"id": league_id})
@@ -964,3 +965,372 @@ def test_marks_rule_keeps_accruing_and_resets_from_the_reset_time() -> None:
     assert later.marks == 1
     done = calculate(deadline_at=deadline, completed_at=deadline + timedelta(hours=200), voided=False, now=now)
     assert done.marks == 1 and done.next_mark_at is None
+
+
+# Removing and reinstating members --------------------------------------------------------
+
+
+def audit_rows(client: TestClient, *actions: str) -> list:
+    with migration_engine().begin() as connection:
+        return connection.execute(
+            text(
+                "select action, entity_id, reason, before, after from piele.audit_events"
+                " where league_id = :id and action = any(:actions) order by occurred_at, id"
+            ),
+            {"id": client.league_id, "actions": list(actions)},  # type: ignore[attr-defined]
+        ).all()
+
+
+def season_rows(client: TestClient, member_id: str) -> list:
+    with migration_engine().begin() as connection:
+        return connection.execute(
+            text(
+                "select id, status, effective_to from piele.season_memberships"
+                " where membership_id = :m order by effective_from, created_at"
+            ),
+            {"m": member_id},
+        ).all()
+
+
+def withdraw(client: TestClient, member_id, reason: str = "Moved to Perth", headers: dict | None = None):
+    return client.post(
+        lp(client, f"/members/{member_id}/withdraw"), json={"reason": reason}, headers=headers or captain_headers(client)
+    )
+
+
+def test_withdrawing_a_member_voids_live_duties_and_takes_them_off_every_list(client: TestClient, storage: FakeStorage) -> None:
+    mo = mo_headers(client)
+    captain = captain_headers(client)
+    mo_id = client.get(lp(client, "/me"), headers=mo).json()["memberId"]
+    ola_id = league_member_id(client, "Ola")
+    weeks_ago = (now_utc() - timedelta(hours=168 + 3)).isoformat()
+    overdue = open_duty(client, UUID(mo_id), round_number=2, duty_type="pick_confirmation", deadlineAt=weeks_ago)
+    assert overdue["marks"]["marks"] == 1
+    pending = open_duty(client, UUID(mo_id), round_number=18)  # playoff kickoff unknown: pending_deadline
+    reviewed = open_duty(client, UUID(mo_id), round_number=3)
+    submission = upload_and_submit(client, storage, mo, [reviewed["id"]])
+    done = open_duty(client, UUID(mo_id), round_number=4)
+    upload_and_submit(client, storage, captain, [done["id"]], subjectMemberId=mo_id, claimedCompletedAt=weeks_ago)
+    link = next(d for d in client.get(lp(client, "/duties"), headers=captain).json() if d["id"] == done["id"])["evidence"][0]
+    assert client.post(lp(client, f"/evidence/links/{link['id']}/decision"), json={"decision": "accepted"}, headers=captain).status_code == 204
+    assert put_standings(client, 1, {UUID(mo_id): 7, UUID(ola_id): 3}).status_code == 200
+
+    # Only the captain or the admin removes members, and a reason is required.
+    assert withdraw(client, ola_id, headers=mo).json()["detail"]["code"] == "captain_only"
+    assert client.post(lp(client, f"/members/{mo_id}/withdraw"), json={"reason": "  "}, headers=captain).status_code == 422
+    assert client.post(lp(client, f"/members/{mo_id}/withdraw"), json={"reason": "x" * 501}, headers=captain).status_code == 422
+    response = withdraw(client, mo_id, "Moved to Perth")
+    assert response.status_code == 204, response.text
+
+    # The member's next league request is refused and the account no longer lists the league.
+    assert client.get(lp(client, "/me"), headers=mo).json()["detail"]["code"] == "not_a_member"
+    assert client.get(lp(client, "/standings"), headers=mo).status_code == 403
+    assert client.get("/v1/me", headers=mo).json()["leagues"] == []
+    code = client.get(lp(client, "/me"), headers=captain).json()["joinCode"]
+    rejoin = client.post(f"/v1/join/{code}", json={"membershipId": ola_id}, headers=mo)
+    assert rejoin.status_code == 409 and rejoin.json()["detail"]["code"] == "withdrawn_member"
+
+    # Off the team sheet, the standings, the duty register and the marks table.
+    assert {m["displayName"] for m in client.get(lp(client, "/members"), headers=captain).json()} == {"Captain", "Ola"}
+    assert [s["memberName"] for s in client.get(lp(client, "/standings"), headers=captain).json()] == ["Ola"]
+    assert client.get(lp(client, "/standings"), headers=captain).json()[0]["rank"] == 1
+    assert client.get(lp(client, "/duties"), headers=captain).json() == []
+    assert client.get(lp(client, "/marks"), headers=captain).json() == []
+    # The captain can ask for the withdrawn members; everyone else gets active members only.
+    listed = {m["displayName"]: m for m in client.get(lp(client, "/members"), params={"include": "withdrawn"}, headers=captain).json()}
+    assert set(listed) == {"Captain", "Mo", "Ola"}
+    gone = listed["Mo"]
+    assert gone["status"] == "withdrawn" and gone["withdrawalReason"] == "Moved to Perth" and gone["leftAt"] is not None
+    assert gone["inSeason"] is False and gone["claimed"] is True
+    assert listed["Ola"]["leftAt"] is None and listed["Ola"]["withdrawalReason"] is None
+    ola = signed_in(client, "OLA", "ola@example.com")
+    assert client.post(f"/v1/join/{code}", json={"membershipId": ola_id}, headers=ola).status_code == 200
+    assert {m["displayName"] for m in client.get(lp(client, "/members"), params={"include": "withdrawn"}, headers=ola).json()} == {"Captain", "Ola"}
+    # Recording a round without the withdrawn member keeps their row; including them is refused.
+    assert put_standings(client, 1, {UUID(ola_id): 5}).status_code == 200
+    assert put_standings(client, 1, {UUID(mo_id): 1}).json()["detail"]["code"] == "unknown_member"
+    assert client.post(lp(client, "/duties"), json={"memberId": mo_id, "type": "spoon", "roundNumber": 6}, headers=captain).json()["detail"]["code"] == "unknown_member"
+
+    # Live duties are voided; the completed one and the marks stay in the records.
+    with migration_engine().begin() as connection:
+        duties = {
+            str(row.id): row
+            for row in connection.execute(
+                text("select id, status, void_reason from piele.duties where id = any(:ids)"),
+                {"ids": [overdue["id"], pending["id"], reviewed["id"], done["id"]]},
+            ).all()
+        }
+        decision = connection.execute(
+            text("select decision from piele.duty_evidence_links where submission_id = :s"), {"s": submission["id"]}
+        ).scalar_one()
+        standings_rows = connection.execute(
+            text("select count(*) from piele.round_standings where season_membership_id = :sm"),
+            {"sm": season_rows(client, mo_id)[0].id},
+        ).scalar_one()
+    for duty in (overdue, pending, reviewed):
+        assert (duties[duty["id"]].status, duties[duty["id"]].void_reason) == ("voided", "Member withdrawn")
+    assert duties[done["id"]].status == "completed"
+    assert decision == "superseded" and standings_rows == 1
+    [enrolment] = season_rows(client, mo_id)
+    assert enrolment.status == "withdrawn" and enrolment.effective_to is not None
+
+    feed = client.get(lp(client, "/feed"), headers=captain).json()
+    left = next(f for f in feed if f["kind"] == "member_left")
+    assert left["title"] == "Mo left the clubhouse." and left["subjectName"] == "Mo"
+    assert not [f for f in feed if f["kind"] == "duty_voided"]
+    [event] = audit_rows(client, "membership.withdrawn")
+    assert str(event.entity_id) == mo_id and event.reason == "Moved to Perth"
+    assert sorted(event.after["voidedDutyIds"]) == sorted([overdue["id"], pending["id"], reviewed["id"]])
+    assert len(audit_rows(client, "duty.voided")) == 3
+
+
+def test_withdrawal_refusals(client: TestClient) -> None:
+    captain = captain_headers(client)
+    captain_id = client.get(lp(client, "/me"), headers=captain).json()["memberId"]
+    refused = withdraw(client, captain_id)
+    assert refused.status_code == 409 and refused.json()["detail"]["code"] == "captain_membership"
+    unknown = withdraw(client, uuid4())
+    assert unknown.status_code == 404 and unknown.json()["detail"]["code"] == "unknown_member"
+    mo_id = invite(client, "Mo", client.mo_email)
+    open_duty(client, mo_id, round_number=2)  # a record, so Mo is withdrawn rather than deleted
+    assert withdraw(client, mo_id).status_code == 204
+    again = withdraw(client, mo_id)
+    assert again.status_code == 409 and again.json()["detail"]["code"] == "already_withdrawn"
+    not_withdrawn = client.post(lp(client, f"/members/{captain_id}/reinstate"), headers=captain)
+    assert not_withdrawn.status_code == 409 and not_withdrawn.json()["detail"]["code"] == "not_withdrawn"
+    assert client.post(lp(client, f"/members/{uuid4()}/reinstate"), headers=captain).json()["detail"]["code"] == "unknown_member"
+
+    # The admin holding a membership cannot remove it; a plain member cannot reinstate.
+    ola_id = league_member_id(client, "Ola")
+    admin = signed_in(client, "ADMIN", f"admin-{uuid4().hex[:8]}@example.com")
+    assert client.post(f"/v1/join/{join_code(client)}", json={"membershipId": ola_id}, headers=admin).status_code == 200
+    assert client.post(lp(client, f"/members/{mo_id}/reinstate"), headers=admin).json()["detail"]["code"] == "captain_only"
+    make_admin(subject(client, "ADMIN"))
+    own = withdraw(client, ola_id, headers=admin)
+    assert own.status_code == 409 and own.json()["detail"]["code"] == "own_membership"
+    assert withdraw(client, captain_id, headers=admin).json()["detail"]["code"] == "captain_membership"
+    assert client.post(lp(client, f"/members/{mo_id}/reinstate"), headers=admin).status_code == 204
+
+
+def test_an_unclaimed_name_without_records_is_deleted(client: TestClient) -> None:
+    captain = captain_headers(client)
+    added = client.post(lp(client, "/members"), json={"displayName": "Oops", "fullName": "Typo, Oops"}, headers=captain)
+    oops_id = added.json()["id"]
+    feed_before = len(client.get(lp(client, "/feed"), headers=captain).json())
+    assert withdraw(client, oops_id, "Added by mistake").status_code == 204
+    listed = client.get(lp(client, "/members"), params={"include": "withdrawn"}, headers=captain).json()
+    assert oops_id not in {m["id"] for m in listed}
+    assert season_rows(client, oops_id) == []
+    assert len(client.get(lp(client, "/feed"), headers=captain).json()) == feed_before
+    [event] = audit_rows(client, "membership.deleted")
+    assert str(event.entity_id) == oops_id and event.before["displayName"] == "Oops"
+    assert audit_rows(client, "membership.withdrawn") == []
+    assert client.post(lp(client, f"/members/{oops_id}/reinstate"), headers=captain).json()["detail"]["code"] == "unknown_member"
+
+    # An unclaimed name with a record is withdrawn instead, and leaves the join list.
+    ola_id = league_member_id(client, "Ola")
+    assert put_standings(client, 1, {UUID(ola_id): 2}).status_code == 200
+    assert withdraw(client, ola_id).status_code == 204
+    ola = next(m for m in client.get(lp(client, "/members"), params={"include": "withdrawn"}, headers=captain).json() if m["id"] == ola_id)
+    assert ola["status"] == "withdrawn" and ola["claimed"] is False
+    stranger = signed_in(client, "STRANGER", "stranger@example.com")
+    assert ola_id not in {n["id"] for n in client.get(f"/v1/join/{join_code(client)}", headers=stranger).json()["unclaimed"]}
+
+    # So is a name that was claimed once and released: the claim's feed entry points at it.
+    mo_id = league_member_id(client, "Mo")
+    wrong = signed_in(client, "WRONG", "wrong@example.com")
+    assert client.post(f"/v1/join/{join_code(client)}", json={"membershipId": mo_id}, headers=wrong).status_code == 200
+    assert client.post(lp(client, f"/members/{mo_id}/release"), headers=captain).status_code == 204
+    assert withdraw(client, mo_id).status_code == 204
+    assert next(m for m in client.get(lp(client, "/members"), params={"include": "withdrawn"}, headers=captain).json() if m["id"] == mo_id)["status"] == "withdrawn"
+
+
+def test_a_reinstated_member_returns_with_a_new_season_membership(client: TestClient) -> None:
+    mo = mo_headers(client)
+    captain = captain_headers(client)
+    mo_id = client.get(lp(client, "/me"), headers=mo).json()["memberId"]
+    assert put_standings(client, 1, {UUID(mo_id): 7}).status_code == 200
+    assert withdraw(client, mo_id).status_code == 204
+    assert client.get(lp(client, "/standings"), headers=captain).json() == []
+
+    response = client.post(lp(client, f"/members/{mo_id}/reinstate"), headers=captain)
+    assert response.status_code == 204, response.text
+    me = client.get(lp(client, "/me"), headers=mo)
+    assert me.status_code == 200 and me.json()["inSeason"] is True
+    assert [league["id"] for league in client.get("/v1/me", headers=mo).json()["leagues"]] == [client.league_id]
+    old, new = season_rows(client, mo_id)
+    assert (old.status, new.status) == ("withdrawn", "active")
+    assert old.effective_to is not None and new.effective_to is None
+    member = next(m for m in client.get(lp(client, "/members"), params={"include": "withdrawn"}, headers=captain).json() if m["id"] == mo_id)
+    assert (member["status"], member["leftAt"], member["withdrawalReason"], member["inSeason"]) == ("active", None, None, True)
+
+    # The earlier standings come back, and correcting that round updates the same row.
+    assert [(s["memberName"], s["points"]) for s in client.get(lp(client, "/standings"), headers=captain).json()] == [("Mo", 7.0)]
+    assert put_standings(client, 1, {UUID(mo_id): 9}).status_code == 200
+    assert [(s["memberName"], s["points"]) for s in client.get(lp(client, "/standings"), params={"round": 1}, headers=captain).json()] == [("Mo", 9.0)]
+    # New duties land on the new season membership.
+    assert open_duty(client, UUID(mo_id), round_number=2)["memberName"] == "Mo"
+
+    feed = client.get(lp(client, "/feed"), headers=captain).json()
+    back = next(f for f in feed if f["kind"] == "member_returned")
+    assert back["title"] == "Mo is back." and back["subjectName"] == "Mo"
+    [event] = audit_rows(client, "membership.reinstated")
+    assert event.before["withdrawalReason"] == "Moved to Perth" and event.after == {"status": "active"}
+    # Withdrawn and reinstated again: still one active season membership.
+    assert withdraw(client, mo_id).status_code == 204
+    assert client.post(lp(client, f"/members/{mo_id}/reinstate"), headers=captain).status_code == 204
+    assert [row.status for row in season_rows(client, mo_id)] == ["withdrawn", "withdrawn", "active"]
+
+
+# Emblem, accent colour and join code ---------------------------------------------------------
+
+PNG = b"\x89PNG\r\n\x1a\n" + b"\0" * 40
+WEBP = b"RIFF\x10\0\0\0WEBPVP8 " + b"\0" * 40
+
+
+def upload_emblem(client: TestClient, storage: FakeStorage, content: bytes = PNG, content_type: str = "image/png", headers: dict | None = None) -> str:
+    grant = client.post(
+        lp(client, "/emblem/uploads"), json={"contentType": content_type, "sizeBytes": len(content)}, headers=headers or captain_headers(client)
+    )
+    assert grant.status_code == 201, grant.text
+    path = grant.json()["path"]
+    storage.objects[path] = StoredObject(size_bytes=len(content), content_type=content_type)
+    storage.contents[path] = content
+    return path
+
+
+def appearance(client: TestClient, body: dict, headers: dict | None = None):
+    return client.put(lp(client, "/appearance"), json=body, headers=headers or captain_headers(client))
+
+
+def test_the_captain_sets_a_preset_emblem_and_accent_colour(client: TestClient) -> None:
+    mo = mo_headers(client)
+    denied = appearance(client, {"emblemPreset": "oak"}, headers=mo)
+    assert denied.status_code == 403 and denied.json()["detail"]["code"] == "captain_only"
+    for bad in ({"emblemPreset": "dragon"}, {"emblemPreset": "OAK"}, {"emblemPreset": "oak", "emblemPath": None}):
+        response = appearance(client, bad)
+        assert response.status_code == 422 and response.json()["detail"]["code"] == "invalid_emblem", bad
+    assert appearance(client, {"accentColour": "orange"}).json()["detail"]["code"] == "invalid_accent_colour"
+
+    saved = appearance(client, {"emblemPreset": "anvil", "accentColour": "#C8742A"})
+    assert saved.status_code == 200, saved.text
+    body = saved.json()
+    assert (body["emblemPreset"], body["emblemUrl"], body["accentColour"]) == ("anvil", None, "#c8742a")
+    assert body["joinCode"] is not None and body["administers"] is True
+    # Every league description carries it: the member's me, the account list and the join page.
+    me = client.get(lp(client, "/me"), headers=mo).json()
+    assert (me["emblemPreset"], me["accentColour"], me["joinCode"]) == ("anvil", "#c8742a", None)
+    [entry] = client.get("/v1/me", headers=mo).json()["leagues"]
+    assert (entry["emblemPreset"], entry["emblemUrl"], entry["accentColour"]) == ("anvil", None, "#c8742a")
+    stranger = signed_in(client, "STRANGER", "stranger@example.com")
+    league = client.get(f"/v1/join/{join_code(client)}", headers=stranger).json()["league"]
+    assert (league["emblemPreset"], league["emblemUrl"]) == ("anvil", None)
+
+    # Fields left out are untouched; the accent alone writes no feed entry.
+    assert appearance(client, {"accentColour": None}).json()["emblemPreset"] == "anvil"
+    assert appearance(client, {"emblemPreset": None}).json()["accentColour"] is None
+    kinds = [f["kind"] for f in client.get(lp(client, "/feed"), headers=mo).json()]
+    assert kinds[:2] == ["emblem_updated", "emblem_updated"]
+    assert client.get(lp(client, "/feed"), headers=mo).json()[0]["title"] == "The Test league emblem was updated."
+    events = audit_rows(client, "league.appearance_updated")
+    assert [(e.before["emblem"], e.after["emblem"]) for e in events] == [(None, "preset:anvil"), ("preset:anvil", "preset:anvil"), ("preset:anvil", None)]
+    # Saving what is already there changes nothing.
+    assert appearance(client, {"emblemPreset": None}).status_code == 200
+    assert len(audit_rows(client, "league.appearance_updated")) == 3
+
+
+def test_an_uploaded_emblem_is_checked_signed_and_replaced(client: TestClient, storage: FakeStorage) -> None:
+    captain = captain_headers(client)
+    uploads = lp(client, "/emblem/uploads")
+    assert client.post(uploads, json={"contentType": "image/gif", "sizeBytes": 10}, headers=captain).json()["detail"]["code"] == "not_an_image"
+    assert client.post(uploads, json={"contentType": "image/png", "sizeBytes": 1024 * 1024 + 1}, headers=captain).json()["detail"]["code"] == "too_large"
+    mo = mo_headers(client)
+    assert client.post(uploads, json={"contentType": "image/png", "sizeBytes": 10}, headers=mo).status_code == 403
+
+    first = upload_emblem(client, storage)
+    assert first.startswith(f"emblems/{client.league_id}/") and first.endswith(".png")
+    saved = appearance(client, {"emblemPath": first})
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["emblemPreset"] is None
+    assert saved.json()["emblemUrl"] == f"https://storage.example/{first}?expires=86400"
+    [entry] = client.get("/v1/me", headers=mo).json()["leagues"]
+    assert entry["emblemUrl"] == f"https://storage.example/{first}?expires=86400"
+
+    # A second upload replaces the first, which is deleted; a preset replaces an upload.
+    second = upload_emblem(client, storage, WEBP, "image/webp")
+    assert appearance(client, {"emblemPath": second}).json()["emblemUrl"].startswith(f"https://storage.example/{second}")
+    assert storage.deleted == [first]
+    assert appearance(client, {"emblemPreset": "crown"}).json()["emblemUrl"] is None
+    assert storage.deleted == [first, second]
+    third = upload_emblem(client, storage)
+    assert appearance(client, {"emblemPath": third}).status_code == 200
+    assert appearance(client, {"emblemPath": None}).json()["emblemUrl"] is None
+    assert storage.deleted == [first, second, third]
+
+    # Only this league's finished uploads, of the type they claim.
+    other_league = second_league(client, f"zulu-{uuid4().hex[:8]}@example.com")
+    for path in (
+        f"emblems/{other_league}/{'a' * 32}.png",
+        f"emblems/{client.league_id}/../{other_league}/{'a' * 32}.png",
+        f"avatars/{uuid4()}/{uuid4()}-abc.jpg",
+        "https://elsewhere.test/crest.png",
+        "preset:oak",
+        f"emblems/{client.league_id}/{'b' * 32}.png",  # granted shape, never uploaded
+    ):
+        response = appearance(client, {"emblemPath": path})
+        assert response.status_code == 422 and response.json()["detail"]["code"] == "unknown_upload", path
+    fake = upload_emblem(client, storage, b"<svg xmlns='http://www.w3.org/2000/svg'/>")
+    rejected = appearance(client, {"emblemPath": fake})
+    assert rejected.json()["detail"]["code"] == "invalid_emblem" and fake in storage.deleted
+    mislabelled = upload_emblem(client, storage, PNG, "image/jpeg")
+    assert appearance(client, {"emblemPath": mislabelled}).json()["detail"]["code"] == "invalid_emblem"
+    assert client.get(lp(client, "/me"), headers=captain).json()["emblemUrl"] is None
+
+    # Storage trouble: the grant is refused, and the league still loads without the image.
+    good = upload_emblem(client, storage)
+    assert appearance(client, {"emblemPath": good}).status_code == 200
+    storage.down = True
+    assert client.post(uploads, json={"contentType": "image/png", "sizeBytes": 10}, headers=captain).status_code == 503
+    me = client.get(lp(client, "/me"), headers=captain).json()
+    assert me["emblemUrl"] is None and me["emblemPreset"] is None
+
+
+def test_the_captain_rotates_and_closes_the_join_code(client: TestClient) -> None:
+    captain = captain_headers(client)
+    mo = mo_headers(client)
+    first = client.get(lp(client, "/me"), headers=captain).json()["joinCode"]
+    assert first == join_code(client) and len(first) == 12
+    assert client.get(lp(client, "/me"), headers=mo).json()["joinCode"] is None
+    assert client.post(lp(client, "/join-code/rotate"), headers=mo).json()["detail"]["code"] == "captain_only"
+    assert client.delete(lp(client, "/join-code"), headers=mo).status_code == 403
+
+    rotated = client.post(lp(client, "/join-code/rotate"), headers=captain)
+    assert rotated.status_code == 200, rotated.text
+    second = rotated.json()["joinCode"]
+    assert second != first and len(second) == 12 and all(c in "0123456789abcdef" for c in second)
+    assert client.get(lp(client, "/me"), headers=captain).json()["joinCode"] == second
+    stranger = signed_in(client, "STRANGER", "stranger@example.com")
+    assert client.get(f"/v1/join/{first}", headers=stranger).json()["detail"]["code"] == "unknown_join_code"
+    assert client.get(f"/v1/join/{second}", headers=stranger).status_code == 200
+
+    assert client.delete(lp(client, "/join-code"), headers=captain).status_code == 204
+    assert client.get(lp(client, "/me"), headers=captain).json()["joinCode"] is None
+    assert client.get(f"/v1/join/{second}", headers=stranger).status_code == 404
+    # Rotating opens joining again.
+    third = client.post(lp(client, "/join-code/rotate"), headers=captain).json()["joinCode"]
+    assert client.get(f"/v1/join/{third}", headers=stranger).status_code == 200
+
+    events = audit_rows(client, "league.join_code_rotated", "league.join_code_closed")
+    assert [(e.action, e.before, e.after) for e in events] == [
+        ("league.join_code_rotated", {"open": True}, {"open": True}),
+        ("league.join_code_closed", {"open": True}, {"open": False}),
+        ("league.join_code_rotated", {"open": False}, {"open": True}),
+    ]
+    assert not {first, second, third} & {str(value) for e in events for value in (*e.before.values(), *e.after.values())}
+    kinds = [f["kind"] for f in client.get(lp(client, "/feed"), headers=captain).json()]
+    assert "join_code_rotated" not in kinds and kinds[0] == "member_joined"
+    # The admin without a membership sees and manages the code too.
+    admin = signed_in(client, "ADMIN", f"admin-{uuid4().hex[:8]}@example.com")
+    make_admin(subject(client, "ADMIN"))
+    assert client.get(lp(client, "/me"), headers=admin).json()["joinCode"] == third
+    assert client.post(lp(client, "/join-code/rotate"), headers=admin).status_code == 200

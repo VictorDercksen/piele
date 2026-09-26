@@ -46,9 +46,15 @@ def competition_ref(competition: Competition) -> CompetitionRef:
     return CompetitionRef(id=competition.id, name=competition.name, shortName=competition.short_name)
 
 
-def emblem_url(emblem_path: str | None) -> str | None:
-    """Phase 2 serves no emblems yet; the web falls back to the crest or a monogram."""
-    return None
+def emblem_fields(request: Request, emblem_path: str | None) -> dict[str, str | None]:
+    """`emblemPreset` (a preset key) and `emblemUrl` (a signed URL, uploads only) for a
+    league. Both null means no emblem: the web shows the default crest or a monogram."""
+    return {
+        "emblemPreset": service.emblem_preset(emblem_path),
+        "emblemUrl": service.emblem_url(
+            storage_of(request), emblem_path, settings_of(request).league_emblem_url_ttl_seconds
+        ),
+    }
 
 
 class Me(BaseModel):
@@ -59,6 +65,9 @@ class Me(BaseModel):
     slug: str
     leagueName: str
     timezone: str
+    # A preset key (assets/images/emblems/<key>.svg in the web) or a short-lived signed URL
+    # for an uploaded emblem; both null means no emblem.
+    emblemPreset: str | None
     emblemUrl: str | None
     accentColour: str | None
     competition: CompetitionRef
@@ -69,6 +78,9 @@ class Me(BaseModel):
     isCaptain: bool
     isAdmin: bool
     administers: bool
+    # Only for the captain and the admin (null for everyone else); null with administers
+    # true means joining by code is closed. The web links to /join/<code>.
+    joinCode: str | None
     # The caller's own profile: the team in this league, the account-wide photo.
     # photoUrl is short-lived; download it straight away.
     favouriteTeamId: str | None
@@ -87,7 +99,7 @@ def me_document(request: Request, actor: Actor) -> Me:
         slug=actor.league_slug,
         leagueName=actor.league_name,
         timezone=actor.league_timezone,
-        emblemUrl=emblem_url(actor.league_emblem_path),
+        **emblem_fields(request, actor.league_emblem_path),
         accentColour=actor.league_accent_colour,
         competition=competition_ref(actor.competition),
         seasonName=actor.season_name,
@@ -97,6 +109,7 @@ def me_document(request: Request, actor: Actor) -> Me:
         isCaptain=actor.is_captain,
         isAdmin=actor.is_admin,
         administers=actor.administers,
+        joinCode=actor.league_join_code if actor.administers else None,
         favouriteTeamId=profile.favourite_team_id,
         photoUrl=profile.photo_url,
         notificationsReadAt=read.read_at,
@@ -185,15 +198,25 @@ class Member(BaseModel):
     id: UUID
     displayName: str
     fullName: str
+    # "active", or "withdrawn" (only with ?include=withdrawn for the captain and the admin).
     status: str
     claimed: bool
     inSeason: bool
     # Only returned to the captain and the admin.
     email: str | None = None
+    # When and why the member was removed; null for active members.
+    leftAt: datetime | None = None
+    withdrawalReason: str | None = None
 
 
 @router.get("/members", response_model=list[Member])
-def list_members(actor: Actor = Depends(actor_dependency)) -> list[Member]:
+def list_members(
+    include: Literal["withdrawn"] | None = Query(default=None),
+    actor: Actor = Depends(actor_dependency),
+) -> list[Member]:
+    """The team sheet. `?include=withdrawn` adds removed members for the captain and the
+    admin; everyone else gets active members whatever they ask for."""
+    include_withdrawn = include == "withdrawn" and actor.administers
     return [
         Member(
             id=row.id,
@@ -203,9 +226,102 @@ def list_members(actor: Actor = Depends(actor_dependency)) -> list[Member]:
             claimed=row.user_id is not None,
             inSeason=row.season_membership_id is not None,
             email=row.invited_email if actor.administers else None,
+            leftAt=row.left_at,
+            withdrawalReason=row.withdrawal_reason,
         )
-        for row in service.members(actor)
+        for row in service.members(actor, include_withdrawn=include_withdrawn)
     ]
+
+
+class Withdrawal(BaseModel):
+    reason: str = Field(min_length=1, max_length=500)
+
+    @field_validator("reason")
+    @classmethod
+    def _strip(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("must not be blank")
+        return value.strip()
+
+
+@router.post("/members/{member_id}/withdraw", status_code=204)
+def withdraw_member(member_id: UUID, body: Withdrawal, actor: Actor = Depends(steward_dependency)) -> None:
+    """Removes a member: off the team sheet and standings, open duties voided, records kept.
+    An unclaimed name with no records is deleted instead."""
+    service.withdraw_member(actor, member_id, reason=body.reason)
+
+
+@router.post("/members/{member_id}/reinstate", status_code=204)
+def reinstate_member(member_id: UUID, actor: Actor = Depends(steward_dependency)) -> None:
+    """Brings a removed member back and enrols them in the active season again."""
+    service.reinstate_member(actor, member_id)
+
+
+# Emblem, accent colour and join code ----------------------------------------------------
+
+
+class EmblemUploadRequest(BaseModel):
+    contentType: str = Field(min_length=1, max_length=100)
+    sizeBytes: int = Field(gt=0)
+
+
+class EmblemUploadGrant(BaseModel):
+    bucket: str
+    path: str
+    token: str
+
+
+@router.post("/emblem/uploads", response_model=EmblemUploadGrant, status_code=201)
+def reserve_emblem_upload(body: EmblemUploadRequest, request: Request, actor: Actor = Depends(steward_dependency)) -> Any:
+    """A signed upload to emblems/<league id>/ in the private bucket; save it with
+    PUT /appearance once the upload finishes."""
+    return service.reserve_emblem_upload(
+        actor,
+        storage_of(request),
+        content_type=body.contentType,
+        size_bytes=body.sizeBytes,
+        max_bytes=settings_of(request).league_emblem_max_bytes,
+    )
+
+
+class Appearance(BaseModel):
+    """Every field is optional; a field left out is untouched and null clears it.
+    emblemPreset and emblemPath cannot both be sent."""
+
+    emblemPreset: str | None = Field(default=None, max_length=40)
+    # A path from /emblem/uploads after the upload finished.
+    emblemPath: str | None = Field(default=None, max_length=300)
+    # "#rrggbb".
+    accentColour: str | None = Field(default=None, max_length=7)
+
+
+@router.put("/appearance", response_model=Me)
+def update_appearance(body: Appearance, request: Request, actor: Actor = Depends(steward_dependency)) -> Me:
+    """Sets the league's emblem (a preset or an upload) and accent colour."""
+    sent = body.model_fields_set
+    changes = {
+        name: getattr(body, field)
+        for field, name in (("emblemPreset", "emblem_preset_key"), ("emblemPath", "emblem_path"), ("accentColour", "accent_colour"))
+        if field in sent
+    }
+    service.update_appearance(actor, storage_of(request), max_bytes=settings_of(request).league_emblem_max_bytes, **changes)
+    return me_document(request, actor)
+
+
+class JoinCode(BaseModel):
+    joinCode: str
+
+
+@router.post("/join-code/rotate", response_model=JoinCode)
+def rotate_join_code(actor: Actor = Depends(steward_dependency)) -> JoinCode:
+    """A new join code; the old one stops working. Also reopens joining after a close."""
+    return JoinCode(joinCode=service.rotate_join_code(actor))
+
+
+@router.delete("/join-code", status_code=204)
+def close_join_code(actor: Actor = Depends(steward_dependency)) -> None:
+    """Closes the league to joining by code."""
+    service.close_join_code(actor)
 
 
 class NewMember(BaseModel):

@@ -108,10 +108,13 @@ def default_deadline(competition: Competition, duty_type: str, round_number: int
 # Members ------------------------------------------------------------------------------
 
 
-def members(actor: Actor) -> Sequence[Any]:
-    """The team sheet: active memberships only. Members who left keep their history."""
+def members(actor: Actor, *, include_withdrawn: bool = False) -> Sequence[Any]:
+    """The team sheet: active memberships, and withdrawn ones too when asked (the captain's
+    desk). Members who left keep their history; a withdrawn row has no active season
+    membership, so it is never in the season."""
     sm = t.season_memberships
     m = t.league_memberships
+    statuses = ("active", "withdrawn") if include_withdrawn else ("active",)
     return actor.connection.execute(
         select(
             m.c.id,
@@ -120,6 +123,8 @@ def members(actor: Actor) -> Sequence[Any]:
             m.c.status,
             m.c.invited_email,
             m.c.user_id,
+            m.c.left_at,
+            m.c.withdrawal_reason,
             sm.c.id.label("season_membership_id"),
         )
         .select_from(
@@ -127,9 +132,167 @@ def members(actor: Actor) -> Sequence[Any]:
                 sm, and_(sm.c.membership_id == m.c.id, sm.c.season_id == actor.season_id, sm.c.status == "active")
             )
         )
-        .where(m.c.league_id == actor.league_id, m.c.status == "active")
+        .where(m.c.league_id == actor.league_id, m.c.status.in_(statuses))
         .order_by(m.c.full_name)
     ).all()
+
+
+WITHDRAWN_DUTY_REASON = "Member withdrawn"
+
+
+def withdraw_member(actor: Actor, membership_id: UUID, *, reason: str) -> bool:
+    """Captain or admin removes a member. Returns True when the membership was withdrawn and
+    False when it was deleted outright.
+
+    A withdrawal keeps every record: the league membership and its active season membership
+    end (`status = 'withdrawn'`, `left_at`, `effective_to`), the member's open and
+    pending-deadline duties are voided, standings, evidence and marks stay. An unclaimed name
+    with no records at all (a mistaken entry) is deleted instead and leaves no feed entry.
+    The captain and the caller's own membership cannot be removed."""
+    if membership_id == actor.captain_membership_id:
+        raise problem(409, "captain_membership", "The captain cannot be removed. Appoint another captain first.")
+    if actor.membership_id is not None and membership_id == actor.membership_id:
+        raise problem(409, "own_membership", "You cannot remove yourself.")
+    m, sm = t.league_memberships, t.season_memberships
+    row = actor.connection.execute(select(m).where(m.c.id == membership_id).with_for_update()).first()
+    if row is None:
+        raise problem(404, "unknown_member", "Unknown member.")
+    if row.status != "active":
+        raise problem(409, "already_withdrawn", "That member has already been removed.")
+    if row.user_id is None and _delete_if_record_free(actor, row):
+        return False
+
+    now = now_utc()
+    actor.connection.execute(
+        update(m)
+        .where(m.c.id == membership_id, m.c.version == row.version)
+        .values(status="withdrawn", left_at=now, withdrawal_reason=reason, updated_at=func.now(), version=m.c.version + 1)
+    )
+    actor.connection.execute(
+        update(sm)
+        .where(sm.c.membership_id == membership_id, sm.c.season_id == actor.season_id, sm.c.status == "active")
+        .values(status="withdrawn", effective_to=now, updated_at=func.now())
+    )
+    voided = _void_member_duties(actor, membership_id)
+    record(
+        actor,
+        action="membership.withdrawn",
+        entity_type="league_membership",
+        entity_id=membership_id,
+        reason=reason,
+        before={"status": "active"},
+        after={"status": "withdrawn", "leftAt": _iso(now), "voidedDutyIds": [str(duty_id) for duty_id in voided]},
+        feed=FeedEntry(kind="member_left", title=f"{row.display_name} left the clubhouse.", subject_membership_id=membership_id),
+    )
+    return True
+
+
+def _void_member_duties(actor: Actor, membership_id: UUID) -> list[UUID]:
+    """Voids the member's live duties in every season (open or waiting for a deadline) and
+    supersedes their pending evidence, with one audit event per duty and no feed entry: the
+    member_left entry says it once."""
+    d, sm, links = t.duties, t.season_memberships, t.duty_evidence_links
+    rows = actor.connection.execute(
+        select(d.c.id, d.c.status)
+        .select_from(d.join(sm, sm.c.id == d.c.season_membership_id))
+        .where(sm.c.membership_id == membership_id, d.c.status.in_(("open", "pending_deadline")))
+        .with_for_update(of=d)
+    ).all()
+    for duty in rows:
+        actor.connection.execute(
+            update(d)
+            .where(d.c.id == duty.id)
+            .values(
+                status="voided",
+                voided_at=func.now(),
+                void_reason=WITHDRAWN_DUTY_REASON,
+                updated_at=func.now(),
+                version=d.c.version + 1,
+            )
+        )
+        actor.connection.execute(
+            update(links)
+            .where(links.c.duty_id == duty.id, links.c.decision == "pending")
+            .values(decision="superseded", updated_at=func.now(), version=links.c.version + 1)
+        )
+        record(
+            actor,
+            action="duty.voided",
+            entity_type="duty",
+            entity_id=duty.id,
+            reason=WITHDRAWN_DUTY_REASON,
+            before={"status": duty.status},
+            after={"status": "voided"},
+        )
+    return [duty.id for duty in rows]
+
+
+def _delete_if_record_free(actor: Actor, row: Any) -> bool:
+    """Deletes an unclaimed name that nothing refers to: no duties, standings or evidence,
+    and no season membership beyond its one enrolment. Anything else that still points at
+    it (a feed entry from an earlier claim, say) makes the delete fail on its foreign key,
+    and the caller withdraws the name instead."""
+    connection = actor.connection
+    sm, d, rs, e = t.season_memberships, t.duties, t.round_standings, t.evidence_submissions
+    enrolments = connection.execute(select(sm.c.id).where(sm.c.membership_id == row.id)).scalars().all()
+    if len(enrolments) > 1:
+        return False
+    if enrolments:
+        enrolment = enrolments[0]
+        if connection.execute(select(d.c.id).where(d.c.season_membership_id == enrolment).limit(1)).first():
+            return False
+        if connection.execute(select(rs.c.id).where(rs.c.season_membership_id == enrolment).limit(1)).first():
+            return False
+    evidence = connection.execute(
+        select(e.c.id)
+        .where(or_(e.c.submitter_membership_id == row.id, e.c.subject_membership_id == row.id))
+        .limit(1)
+    ).first()
+    if evidence is not None:
+        return False
+    try:
+        with connection.begin_nested():
+            connection.execute(sm.delete().where(sm.c.membership_id == row.id))
+            connection.execute(t.league_memberships.delete().where(t.league_memberships.c.id == row.id))
+    except IntegrityError:
+        return False
+    record(
+        actor,
+        action="membership.deleted",
+        entity_type="league_membership",
+        entity_id=row.id,
+        before={"displayName": row.display_name, "fullName": row.full_name, "emailSet": row.invited_email is not None},
+    )
+    return True
+
+
+def reinstate_member(actor: Actor, membership_id: UUID) -> None:
+    """Captain or admin brings a withdrawn member back: the league membership is active again
+    and the member is enrolled in the active season with a new season membership (the
+    withdrawn one keeps its effective_to, which marks the gap)."""
+    m, sm = t.league_memberships, t.season_memberships
+    row = actor.connection.execute(select(m).where(m.c.id == membership_id).with_for_update()).first()
+    if row is None:
+        raise problem(404, "unknown_member", "Unknown member.")
+    if row.status != "withdrawn":
+        raise problem(409, "not_withdrawn", "That member has not been removed.")
+    actor.connection.execute(
+        update(m)
+        .where(m.c.id == membership_id, m.c.version == row.version)
+        .values(status="active", left_at=None, withdrawal_reason=None, updated_at=func.now(), version=m.c.version + 1)
+    )
+    actor.connection.execute(
+        insert(sm).values(league_id=actor.league_id, season_id=actor.season_id, membership_id=membership_id)
+    )
+    record(
+        actor,
+        action="membership.reinstated",
+        entity_type="league_membership",
+        entity_id=membership_id,
+        before={"status": "withdrawn", "leftAt": _iso(row.left_at), "withdrawalReason": row.withdrawal_reason},
+        after={"status": "active"},
+        feed=FeedEntry(kind="member_returned", title=f"{row.display_name} is back.", subject_membership_id=membership_id),
+    )
 
 
 # Leagues, accounts and joining -----------------------------------------------------------
@@ -178,6 +341,9 @@ def create_league(
         raise problem(422, "invalid_timezone", f"Unknown time zone {timezone!r}.")
     if accent_colour is not None and not ACCENT_PATTERN.fullmatch(accent_colour):
         raise problem(422, "invalid_accent_colour", "Use a colour like #1a2b3c.")
+    # A new league has no uploads yet, so its emblem can only be a preset.
+    if emblem_path is not None and emblem_preset(emblem_path) not in EMBLEM_PRESETS:
+        raise problem(422, "invalid_emblem", "Choose one of the preset emblems.")
     names = [member["displayName"] for member in members]
     if not names or len(set(names)) != len(names):
         raise problem(422, "duplicate_member", "Each member needs a different display name.")
@@ -573,6 +739,188 @@ def update_member(
     )
 
 
+# Emblem, accent colour and join code (captain or admin) ---------------------------------
+
+# The web ships each preset as assets/images/emblems/<key>.svg; stored as 'preset:<key>'.
+EMBLEM_PRESETS = ("oak", "anvil", "lantern", "compass", "chevron", "crown", "wave", "star")
+PRESET_PREFIX = "preset:"
+EMBLEM_TYPES = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
+_UNSET: Any = object()
+
+
+def emblem_preset(emblem_path: str | None) -> str | None:
+    """The preset key of a stored emblem, or None for an upload or no emblem."""
+    if emblem_path and emblem_path.startswith(PRESET_PREFIX):
+        return emblem_path[len(PRESET_PREFIX):]
+    return None
+
+
+def emblem_url(storage: Storage, emblem_path: str | None, url_ttl_seconds: int) -> str | None:
+    """A signed URL for an uploaded emblem, or None for a preset, no emblem, or Storage
+    trouble (the web then shows the default crest or monogram)."""
+    if not emblem_path or emblem_path.startswith(PRESET_PREFIX):
+        return None
+    try:
+        return storage.signed_url(emblem_path, url_ttl_seconds)
+    except StorageError:
+        return None
+
+
+def _emblem_prefix(league_id: UUID) -> str:
+    return f"emblems/{league_id}/"
+
+
+def _is_image(ext: str, head: bytes) -> bool:
+    """The object's first bytes, not the uploader's claim, decide its type."""
+    if ext == "jpg":
+        return head[:3] == b"\xff\xd8\xff"
+    if ext == "png":
+        return head[:8] == b"\x89PNG\r\n\x1a\n"
+    return head[:4] == b"RIFF" and head[8:12] == b"WEBP"
+
+
+def reserve_emblem_upload(actor: Actor, storage: Storage, *, content_type: str, size_bytes: int, max_bytes: int) -> dict[str, Any]:
+    """A signed upload for a new emblem at a fresh path under the league's emblem prefix."""
+    ext = EMBLEM_TYPES.get(content_type)
+    if ext is None:
+        raise problem(422, "not_an_image", "Choose a JPEG, PNG or WebP image.")
+    if size_bytes <= 0 or size_bytes > max_bytes:
+        raise problem(422, "too_large", f"Choose an image smaller than {max_bytes // 1024} KB.")
+    path = f"{_emblem_prefix(actor.league_id)}{secrets.token_hex(16)}.{ext}"
+    try:
+        grant = storage.create_signed_upload(path)
+    except StorageError as exc:
+        raise problem(503, "storage_unavailable", "Emblem storage is unavailable. Try again later.") from exc
+    return {"bucket": storage.bucket, "path": path, "token": grant.token}
+
+
+def update_appearance(
+    actor: Actor,
+    storage: Storage,
+    *,
+    emblem_preset_key: Any = _UNSET,
+    emblem_path: Any = _UNSET,
+    accent_colour: Any = _UNSET,
+    max_bytes: int,
+) -> None:
+    """Sets the league's emblem (a preset, an upload, or none) and accent colour. Arguments
+    left unset are untouched; a preset and an upload cannot both be given. Setting one clears
+    the other, and a replaced upload is deleted from Storage."""
+    if emblem_preset_key is not _UNSET and emblem_path is not _UNSET:
+        raise problem(422, "invalid_emblem", "Choose a preset or an uploaded emblem, not both.")
+    lg = t.leagues
+    league = actor.connection.execute(
+        select(lg.c.emblem_path, lg.c.accent_colour, lg.c.version).where(lg.c.id == actor.league_id).with_for_update()
+    ).one()
+    new_path = league.emblem_path
+    if emblem_preset_key is not _UNSET:
+        if emblem_preset_key is not None and emblem_preset_key not in EMBLEM_PRESETS:
+            raise problem(422, "invalid_emblem", "Choose one of the preset emblems.")
+        new_path = f"{PRESET_PREFIX}{emblem_preset_key}" if emblem_preset_key is not None else None
+    elif emblem_path is not _UNSET:
+        new_path = emblem_path
+        if emblem_path is not None and emblem_path != league.emblem_path:
+            _check_emblem_upload(actor, storage, emblem_path, max_bytes)
+    new_accent = league.accent_colour
+    if accent_colour is not _UNSET:
+        new_accent = accent_colour.lower() if accent_colour is not None else None
+        if new_accent is not None and not ACCENT_PATTERN.fullmatch(new_accent):
+            raise problem(422, "invalid_accent_colour", "Use a colour like #1a2b3c.")
+
+    emblem_changed = new_path != league.emblem_path
+    if not emblem_changed and new_accent == league.accent_colour:
+        return
+    actor.connection.execute(
+        update(lg)
+        .where(lg.c.id == actor.league_id, lg.c.version == league.version)
+        .values(emblem_path=new_path, accent_colour=new_accent, version=lg.c.version + 1)
+    )
+    record(
+        actor,
+        action="league.appearance_updated",
+        entity_type="league",
+        entity_id=actor.league_id,
+        before={"emblem": _emblem_label(league.emblem_path), "accentColour": league.accent_colour},
+        after={"emblem": _emblem_label(new_path), "accentColour": new_accent},
+        feed=FeedEntry(kind="emblem_updated", title=f"The {actor.league_name} emblem was updated.") if emblem_changed else None,
+    )
+    actor.league_emblem_path, actor.league_accent_colour = new_path, new_accent
+    if emblem_changed and league.emblem_path and not league.emblem_path.startswith(PRESET_PREFIX):
+        _discard(storage, league.emblem_path)
+
+
+def _check_emblem_upload(actor: Actor, storage: Storage, path: str, max_bytes: int) -> None:
+    """An emblem must be an image uploaded under this league's prefix with a grant from
+    `reserve_emblem_upload`, within the size limit and of the type its name says."""
+    pattern = rf"{re.escape(_emblem_prefix(actor.league_id))}[0-9a-f]{{32}}\.(jpg|png|webp)"
+    match = re.fullmatch(pattern, path)
+    if match is None:
+        raise problem(422, "unknown_upload", "Unknown emblem upload.")
+    try:
+        stored = storage.stored_object(path)
+        if stored is None:
+            raise problem(422, "unknown_upload", "The emblem upload did not finish. Try again.")
+        head = storage.read_prefix(path, 12)
+    except StorageError as exc:
+        raise problem(503, "storage_unavailable", "Emblem storage is unavailable. Try again later.") from exc
+    if not _is_image(match.group(1), head) or stored.size_bytes is None or stored.size_bytes > max_bytes:
+        _discard(storage, path)
+        raise problem(422, "invalid_emblem", "That image could not be used. Choose a different image.")
+
+
+def _emblem_label(emblem_path: str | None) -> str | None:
+    """How the audit trail names an emblem: the preset, 'upload', or None."""
+    if emblem_path is None:
+        return None
+    return emblem_path if emblem_path.startswith(PRESET_PREFIX) else "upload"
+
+
+def rotate_join_code(actor: Actor) -> str:
+    """Issues a new join code (twelve hex characters), which also opens a closed league to
+    joining. The old code stops working at once."""
+    lg = t.leagues
+    before = actor.connection.execute(select(lg.c.join_code).where(lg.c.id == actor.league_id).with_for_update()).scalar_one()
+    for _ in range(3):
+        code = secrets.token_hex(6)
+        try:
+            with actor.connection.begin_nested():
+                actor.connection.execute(
+                    update(lg).where(lg.c.id == actor.league_id).values(join_code=code, version=lg.c.version + 1)
+                )
+            break
+        except IntegrityError:
+            continue
+    else:
+        raise problem(503, "join_code_unavailable", "Could not issue a new join code. Try again.")
+    # The code opens the league's names, so the audit trail records only whether joining is open.
+    record(
+        actor,
+        action="league.join_code_rotated",
+        entity_type="league",
+        entity_id=actor.league_id,
+        before={"open": before is not None},
+        after={"open": True},
+    )
+    actor.league_join_code = code
+    return code
+
+
+def close_join_code(actor: Actor) -> None:
+    """Closes the league to joining by code. Reserved names still claim on sign-in."""
+    lg = t.leagues
+    before = actor.connection.execute(select(lg.c.join_code).where(lg.c.id == actor.league_id).with_for_update()).scalar_one()
+    actor.connection.execute(update(lg).where(lg.c.id == actor.league_id).values(join_code=None, version=lg.c.version + 1))
+    record(
+        actor,
+        action="league.join_code_closed",
+        entity_type="league",
+        entity_id=actor.league_id,
+        before={"open": before is not None},
+        after={"open": False},
+    )
+    actor.league_join_code = None
+
+
 # Own profile --------------------------------------------------------------------------
 
 PHOTO_TYPE = "image/jpeg"
@@ -774,7 +1122,12 @@ def _duty_query(actor: Actor):
 
 
 def duties(actor: Actor, round_number: int | None = None, duty_id: UUID | None = None) -> list[DutyView]:
+    """The duty register (and so the marks table) lists active members only; a withdrawn
+    member's duties and marks stay in the database and come back on reinstatement. One duty
+    asked for by id is returned whoever it belongs to."""
     query = _duty_query(actor)
+    if duty_id is None:
+        query = query.where(t.league_memberships.c.status == "active")
     if round_number is not None:
         query = query.where(t.duties.c.round_number == round_number)
     if duty_id is not None:
@@ -995,15 +1348,16 @@ def marks_totals(actor: Actor) -> list[dict[str, Any]]:
 
 
 def standings(actor: Actor, round_number: int | None = None) -> list[dict[str, Any]]:
-    """Round points per member in the active season. Ranks are derived here: tied points share
-    a rank and the next rank skips (1, 2, 2, 4). Ties list alphabetically."""
+    """Round points per active member in the active season. Ranks are derived here: tied
+    points share a rank and the next rank skips (1, 2, 2, 4). Ties list alphabetically. A
+    withdrawn member's rows stay stored but are left out, and return on reinstatement."""
     rs = t.round_standings
     sm = t.season_memberships
     m = t.league_memberships
     query = (
         select(rs.c.round_number, rs.c.points, m.c.id.label("member_id"), m.c.display_name)
         .select_from(rs.join(sm, sm.c.id == rs.c.season_membership_id).join(m, m.c.id == sm.c.membership_id))
-        .where(rs.c.league_id == actor.league_id, rs.c.season_id == actor.season_id)
+        .where(rs.c.league_id == actor.league_id, rs.c.season_id == actor.season_id, m.c.status == "active")
     )
     if round_number is not None:
         query = query.where(rs.c.round_number == round_number)
@@ -1033,8 +1387,10 @@ def standings(actor: Actor, round_number: int | None = None) -> list[dict[str, A
 
 
 def record_standings(actor: Actor, round_number: int, entries: Sequence[tuple[UUID, Decimal]]) -> None:
-    """Replaces a round's Superbru table with the captain's copy of the pool results. Members
-    left out lose their row for the round. Unchanged rows are left alone."""
+    """Replaces a round's Superbru table with the captain's copy of the pool results. Active
+    members left out lose their row for the round; a withdrawn member's rows are kept.
+    Unchanged rows are left alone. Rows are matched by member, because a reinstated member's
+    earlier rows point at the season membership that ended with the withdrawal."""
     recorded_by = require_membership(actor)
     member_ids = [member_id for member_id, _ in entries]
     if len(set(member_ids)) != len(member_ids):
@@ -1046,7 +1402,7 @@ def record_standings(actor: Actor, round_number: int, entries: Sequence[tuple[UU
         for row in actor.connection.execute(
             select(sm.c.id, sm.c.membership_id, m.c.display_name)
             .select_from(sm.join(m, m.c.id == sm.c.membership_id))
-            .where(sm.c.season_id == actor.season_id, sm.c.status == "active")
+            .where(sm.c.season_id == actor.season_id, sm.c.status == "active", m.c.status == "active")
         ).all()
     }
     unknown = [member_id for member_id in member_ids if member_id not in enrolled]
@@ -1054,30 +1410,30 @@ def record_standings(actor: Actor, round_number: int, entries: Sequence[tuple[UU
         raise problem(404, "unknown_member", "Every member in the standings must be enrolled in this season.")
     rs = t.round_standings
     existing = {
-        row.season_membership_id: row
+        row.membership_id: row
         for row in actor.connection.execute(
-            select(rs)
-            .where(rs.c.season_id == actor.season_id, rs.c.round_number == round_number)
-            .with_for_update()
+            select(rs.c.id, rs.c.points, sm.c.membership_id, m.c.display_name)
+            .select_from(rs.join(sm, sm.c.id == rs.c.season_membership_id).join(m, m.c.id == sm.c.membership_id))
+            .where(rs.c.season_id == actor.season_id, rs.c.round_number == round_number, m.c.status == "active")
+            .with_for_update(of=rs)
         ).all()
     }
-    wanted = {enrolled[member_id].id: points for member_id, points in entries}
-    name_of = {row.id: row.display_name for row in enrolled.values()}
-    before = {name_of.get(key, str(key)): float(row.points) for key, row in existing.items()}
-    after = {name_of[key]: float(points) for key, points in wanted.items()}
+    wanted = dict(entries)
+    before = {row.display_name: float(row.points) for row in existing.values()}
+    after = {enrolled[member_id].display_name: float(points) for member_id, points in wanted.items()}
     if before == after:
         return
-    removed = [row.id for key, row in existing.items() if key not in wanted]
+    removed = [row.id for member_id, row in existing.items() if member_id not in wanted]
     if removed:
         actor.connection.execute(rs.delete().where(rs.c.id.in_(removed)))
-    for season_membership_id, points in wanted.items():
-        current = existing.get(season_membership_id)
+    for member_id, points in wanted.items():
+        current = existing.get(member_id)
         if current is None:
             actor.connection.execute(
                 insert(rs).values(
                     league_id=actor.league_id,
                     season_id=actor.season_id,
-                    season_membership_id=season_membership_id,
+                    season_membership_id=enrolled[member_id].id,
                     round_number=round_number,
                     points=points,
                     recorded_by_membership_id=recorded_by,
