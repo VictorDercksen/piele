@@ -5,6 +5,7 @@ import {
   computed,
   effect,
   inject,
+  linkedSignal,
   untracked,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -12,7 +13,7 @@ import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
 import { filter, startWith } from 'rxjs';
 import { LiveScoresService, inPlayWindow } from '../../core/api/live-scores.service';
 import { MatchCentreService } from '../../core/api/match-centre.service';
-import { SectionStatus } from '../../core/api/match-centre.models';
+import { MatchCentre, SectionStatus } from '../../core/api/match-centre.models';
 import { CompetitionService } from '../../core/competition/competition.service';
 import { SelectedRoundService } from '../../core/competition/selected-round.service';
 import { RoundViewService } from '../../core/league/round-view.service';
@@ -36,6 +37,7 @@ import { Icon } from '../../shared/icon/icon';
 import { BallLoader } from '../../shared/ball-loader/ball-loader';
 import { MatchHero } from '../home/match-hero/match-hero';
 import { MatchPreview } from './match-preview/match-preview';
+import { ScoringPanel } from './scoring-panel/scoring-panel';
 import { scoringView } from './scoring';
 import { sheetView } from './teamsheet';
 import { weatherSky } from './weather-sky';
@@ -49,7 +51,7 @@ export const SAST = '+0200';
   templateUrl: './match.page.html',
   styleUrl: './match.page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, DecimalPipe, Icon, NgIcon, BallLoader, MatchHero, MatchPreview],
+  imports: [DatePipe, DecimalPipe, Icon, NgIcon, BallLoader, MatchHero, MatchPreview, ScoringPanel],
   viewProviders: [
     provideIcons({
       lucideCloud,
@@ -83,7 +85,15 @@ export class MatchPage {
   readonly configured = this.matchCentre.configured;
   readonly previewConfigured = this.matchCentre.previewConfigured;
   readonly centre = this.matchCentre.centre(() => this.fixture()?.id ?? null);
-  readonly data = computed(() => (this.centre.hasValue() ? this.centre.value() : undefined));
+  /**
+   * The latest match centre, kept through a refresh of the same fixture so the page is not
+   * rebuilt (and the scoring pitch closed) on every live poll.
+   */
+  readonly data = linkedSignal<MatchCentre | undefined, MatchCentre | undefined>({
+    source: () => (this.centre.hasValue() ? this.centre.value() : undefined),
+    computation: (next, previous) =>
+      next ?? (previous?.value?.fixtureId === this.fixture()?.id ? previous.value : undefined),
+  });
   readonly loading = computed(() => this.centre.isLoading());
   readonly failed = computed(() => this.centre.status() === 'error');
   /** Both teamsheets with ages, flags and club artwork, when they are published. */
@@ -100,10 +110,17 @@ export class MatchPage {
       sheetView(fixture.away, fixture.awayAsset, section.away, kickoff),
     ];
   });
-  /** Live score and scoring timeline, hidden until the fixture's kickoff window. */
+  /** Live score and scoring pitch, hidden until ten minutes before kickoff. */
   readonly scoring = computed(() => {
     const fixture = this.fixture();
-    return fixture ? scoringView(fixture, this.data()?.score, Date.now()) : null;
+    if (!fixture) return null;
+    const centre = this.data();
+    return scoringView(
+      fixture,
+      centre?.score,
+      this.live.clock(),
+      centre?.kickoffUtc ?? fixture.kickoffUtc,
+    );
   });
   /** Sky backdrop for the kickoff forecast, when there is one. */
   readonly sky = computed(() => {

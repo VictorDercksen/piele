@@ -55,6 +55,8 @@ export class LiveScoresService {
   readonly configured = !!environment.apiUrl;
   /** Advanced on every poll tick so kickoff windows open and close. */
   private readonly now = signal(Date.now());
+  /** The time of the latest poll, refreshed every 30 seconds whether or not a match is on. */
+  readonly clock = this.now.asReadonly();
   /** Increments whenever a live poll fires, so pages can refresh their own live data. */
   readonly tick = signal(0);
 

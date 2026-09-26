@@ -1,0 +1,746 @@
+:host {
+  --turf-a: #306a39;
+  --turf-b: #224d2b;
+  --chalk: #f4f2eaf0;
+  --chalk-soft: #f2efdf66;
+  --deep: #0f1d20;
+  --live: #ff6b52;
+  --live-ink: #ffb3a3;
+  /* Fine blade noise: dark and light specks. */
+  --grass-blades: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='d' x='0' y='0' width='100%25' height='100%25'><feTurbulence type='fractalNoise' baseFrequency='0.95 0.5' numOctaves='3' seed='7' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.02 0 0 0 0 0.09 0 0 0 0 0.03 1.7 0 0 0 -0.74'/></filter><filter id='l' x='0' y='0' width='100%25' height='100%25'><feTurbulence type='fractalNoise' baseFrequency='0.8 0.45' numOctaves='2' seed='21' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.66 0 0 0 0 0.8 0 0 0 0 0.45 0 1.2 0 0 -0.68'/></filter><rect width='220' height='220' filter='url(%23d)'/><rect width='220' height='220' filter='url(%23l)'/></svg>");
+  /* Broad patchiness: drier and lusher areas. */
+  --grass-patches: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='520' height='520'><filter id='p' x='0' y='0' width='100%25' height='100%25'><feTurbulence type='fractalNoise' baseFrequency='0.009' numOctaves='3' seed='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.42 0 0 0 0 0.42 0 0 0 0 0.2 1.1 0 0 0 -0.5'/></filter><filter id='q' x='0' y='0' width='100%25' height='100%25'><feTurbulence type='fractalNoise' baseFrequency='0.014' numOctaves='2' seed='11' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0.06 0 0 0 0 0.02 0 1 0 0 -0.45'/></filter><rect width='520' height='520' filter='url(%23p)'/><rect width='520' height='520' filter='url(%23q)'/></svg>");
+  display: block;
+  container-type: inline-size;
+}
+.defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* The whole section opens the pitch; once open, the heading and summary close it. */
+.panel {
+  padding: 22px 24px;
+  background: var(--surface-grain), var(--surface);
+  border: 1px solid var(--line);
+  border-top: 3px solid #d4d9c4;
+  box-shadow: 0 8px 24px #0003;
+  cursor: pointer;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+.panel.live {
+  border-top-color: var(--live);
+}
+:host(:not(.open)) .panel:hover {
+  border-top-color: var(--accent);
+  box-shadow: 0 10px 28px #0006;
+}
+:host(:not(.open)) .panel.live:hover {
+  border-top-color: var(--live-ink);
+}
+:host(.open) .panel {
+  cursor: default;
+}
+:host(.open) .head {
+  cursor: pointer;
+}
+.section-title {
+  margin-bottom: 14px;
+}
+.tag.live {
+  background: #5a211a;
+  color: var(--live-ink);
+}
+
+/* Summary: a points-tab row with the match as a timeline between the two scores. */
+.summary {
+  display: flex;
+  align-items: stretch;
+  height: 64px;
+  background: var(--deep);
+  box-shadow: 0 3px 10px #0005;
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s;
+}
+.summary:focus-visible {
+  outline-offset: 3px;
+}
+:host(:not(.open)) .panel:hover .summary,
+:host(.open) .head:hover .summary {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px #0007;
+}
+.side {
+  flex-shrink: 0;
+  width: 64px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  background: linear-gradient(180deg, #ffffff1f, #0000 60%), var(--club);
+  line-height: 1;
+}
+.side img {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+}
+.side b {
+  font-size: 22px;
+  font-weight: 900;
+  font-style: italic;
+  letter-spacing: -0.5px;
+  font-variant-numeric: tabular-nums;
+}
+.track {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  margin-inline: 14px;
+}
+.track::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  border-top: 1px solid var(--line);
+}
+.tick {
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  border-left: 1px solid var(--chalk-soft);
+}
+.tick.start {
+  left: 0;
+}
+.tick.ht {
+  left: 50%;
+  border-left-style: dashed;
+}
+.tick.end {
+  left: 100%;
+}
+.tick-label {
+  position: absolute;
+  left: 50%;
+  bottom: 1px;
+  transform: translateX(-50%);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  color: var(--muted);
+}
+.track .now {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  width: 2px;
+  transform: translateX(-1px);
+  background: var(--live);
+  box-shadow: 0 0 8px #ff6b52aa;
+}
+.track .unplayed {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  background: repeating-linear-gradient(135deg, #ffffff06 0 4px, #0000 4px 8px);
+}
+.dot {
+  position: absolute;
+  top: 28%;
+  width: 8px;
+  height: 8px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: var(--club-accent);
+  box-shadow: 0 0 0 2px var(--deep);
+}
+.dot.away {
+  top: 72%;
+}
+.dot.try {
+  width: 14px;
+  height: 14px;
+  background: var(--club);
+  border: 2px solid var(--club-accent);
+}
+.dot.card {
+  width: 7px;
+  height: 10px;
+  border-radius: 1px;
+  background: #f2c94c;
+}
+.dot.card.red {
+  background: #e5484d;
+}
+.track-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  text-align: center;
+  line-height: 1.3;
+}
+.summary-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 16px;
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.summary-line strong {
+  color: var(--ink);
+  font-weight: 700;
+}
+.hint {
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--accent);
+  transition: color 0.2s;
+}
+:host(:not(.open)) .panel:hover .hint,
+:host(.open) .head:hover .hint {
+  color: var(--ink);
+}
+
+/*
+ * Closed, the top of the pitch peeks out under a fade so there is visibly more below.
+ * The component animates the height between this peek and the full pitch.
+ */
+.drawer {
+  position: relative;
+  height: 30px;
+  margin-top: 14px;
+  overflow: hidden;
+}
+.drawer::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 36px;
+  background: linear-gradient(180deg, #0000, var(--surface));
+  pointer-events: none;
+  transition: opacity 0.35s;
+}
+:host(.open) .drawer {
+  height: auto;
+}
+:host(.open) .drawer::after {
+  opacity: 0;
+}
+
+/* The pitch */
+.pitch {
+  --run-off: 12px;
+  --inset: 14px;
+  --mid-gap: 8px;
+  padding: var(--run-off);
+  background:
+    radial-gradient(ellipse at 50% 50%, #0000 45%, #0007 100%), var(--grass-blades),
+    var(--grass-patches), #1c4225;
+  box-shadow: inset 0 0 0 1px #0005;
+}
+.frame {
+  position: relative;
+  background:
+    radial-gradient(ellipse 90% 55% at 50% 50%, #ffffff12, #0000 70%),
+    radial-gradient(ellipse at 50% 50%, #0000 50%, #0005 100%),
+    radial-gradient(ellipse 22% 70px at 50% 44px, #7a6a4466, #0000 100%),
+    radial-gradient(ellipse 22% 70px at 50% calc(100% - 44px), #7a6a4466, #0000 100%),
+    var(--grass-blades), var(--grass-patches),
+    repeating-linear-gradient(
+      180deg,
+      var(--turf-a) 0 50px,
+      var(--turf-b) 58px 108px,
+      var(--turf-a) 116px
+    );
+}
+.chalk-lines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+/* Chalk: a 3 px stripe inside an 11 px box, so the rough edge filter has room. */
+.ln,
+.mark::before,
+.ingoal::after {
+  position: absolute;
+  filter: url(#scoring-chalk);
+  pointer-events: none;
+}
+.ln.v {
+  top: 0;
+  bottom: 0;
+  width: 11px;
+  transform: translateX(-50%);
+  background: linear-gradient(90deg, #0000 4px, var(--chalk) 4px 7px, #0000 7px);
+}
+.ln.v.dash {
+  background: repeating-linear-gradient(180deg, var(--chalk) 0 18px, #0000 18px 36px) center / 3px
+    100% no-repeat;
+  opacity: 0.55;
+}
+.ln.v.l {
+  left: 0;
+}
+.ln.v.r {
+  left: 100%;
+}
+.ln.v.m5.l {
+  left: 7%;
+}
+.ln.v.m5.r {
+  left: 93%;
+}
+.ln.v.m15.l {
+  left: 21%;
+}
+.ln.v.m15.r {
+  left: 79%;
+}
+.ln.h,
+.mark::before,
+.ingoal::after {
+  content: '';
+  left: 0;
+  right: 0;
+  height: 11px;
+  transform: translateY(-50%);
+  background: linear-gradient(180deg, #0000 4px, var(--chalk) 4px 7px, #0000 7px);
+}
+.ln.h.top {
+  top: 0;
+}
+.ln.h.bottom {
+  top: 100%;
+}
+.ingoal {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 44px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: var(--chalk);
+  text-shadow: 0 1px 2px #0008;
+  z-index: 1;
+}
+.ingoal.top::after {
+  top: 100%;
+}
+.ingoal.bottom::after {
+  top: 0;
+}
+.ingoal.dim {
+  color: var(--chalk-soft);
+}
+/* Posts seen from above, on the try line, with floodlight shadows. */
+.posts {
+  position: absolute;
+  left: 50%;
+  width: 9%;
+  min-width: 34px;
+  height: 8px;
+  transform: translateX(-50%);
+  z-index: 1;
+}
+.posts::before {
+  content: '';
+  position: absolute;
+  inset: 3px 4px;
+  background: #fff;
+  box-shadow: 3px 4px 3px #0006;
+}
+.posts i {
+  position: absolute;
+  top: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: linear-gradient(135deg, #fff, #cfd6cf);
+  box-shadow: 3px 4px 4px #0007;
+}
+.posts i:first-child {
+  left: 0;
+}
+.posts i:last-child {
+  right: 0;
+}
+.ingoal.top .posts {
+  bottom: -4px;
+}
+.ingoal.bottom .posts {
+  top: -4px;
+}
+
+.field {
+  position: relative;
+  z-index: 1;
+}
+.mark {
+  position: absolute;
+  left: var(--inset);
+  right: var(--inset);
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: translateY(-50%);
+}
+.mark::before {
+  top: 50%;
+  left: calc(-1 * var(--inset));
+  right: calc(-1 * var(--inset));
+}
+.mark.l10::before {
+  background: repeating-linear-gradient(90deg, var(--chalk) 0 16px, #0000 16px 30px) center / 100%
+    3px no-repeat;
+}
+.mark.future::before {
+  opacity: 0.4;
+}
+/* Worn patch around the kick-off spot */
+.mark.half::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 42%;
+  height: 90px;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(closest-side, #7a6a4455, #0000);
+  pointer-events: none;
+  z-index: -1;
+}
+.mark.now {
+  z-index: 2;
+}
+.mark.now::before {
+  filter: none;
+  height: 2px;
+  background: var(--live);
+  box-shadow: 0 0 8px #ff6b5299;
+}
+.paint {
+  position: absolute;
+  top: calc(50% - 17px);
+  font-size: 11px;
+  font-weight: 900;
+  font-style: italic;
+  color: var(--chalk);
+  letter-spacing: 0.5px;
+  filter: url(#scoring-chalk-text);
+}
+.paint.l {
+  left: calc(7% - 6px);
+}
+.paint.r {
+  right: calc(7% - 6px);
+}
+.future .paint {
+  color: var(--chalk-soft);
+}
+.chip {
+  position: relative;
+  padding: 4px 12px;
+  background: var(--deep);
+  border: 1px solid var(--chalk-soft);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.chip.message {
+  max-width: 80%;
+  text-transform: none;
+  letter-spacing: 0.2px;
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--muted);
+  white-space: normal;
+  text-align: center;
+}
+.chip.now {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border-color: var(--live);
+  color: var(--live-ink);
+}
+.chip.now::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--live);
+  animation: pulse 1.6s ease-in-out infinite;
+}
+@keyframes pulse {
+  50% {
+    opacity: 0.25;
+  }
+}
+.unplayed {
+  position: absolute;
+  left: calc(-1 * var(--run-off) - 2px);
+  right: calc(-1 * var(--run-off) - 2px);
+  bottom: 0;
+  background: #0b151859;
+  pointer-events: none;
+}
+
+/*
+ * Rows run from the centre of the pitch outwards: minute and score, the event, then the
+ * points in club colour at the touchline side. Home rows are mirrored.
+ */
+.rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.row {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
+  background: var(--deep);
+  box-shadow: 0 3px 10px #0005;
+}
+.row.home {
+  flex-direction: row-reverse;
+  text-align: right;
+}
+.row.big {
+  height: 50px;
+  width: calc(50% - var(--inset) - var(--mid-gap));
+}
+.row.big.home {
+  left: var(--inset);
+}
+.row.big.away {
+  right: var(--inset);
+}
+.row.slim {
+  height: 30px;
+  max-width: calc(50% - var(--inset) - var(--mid-gap));
+  font-size: 12px;
+  white-space: nowrap;
+}
+.row.slim.home {
+  right: calc(50% + var(--mid-gap));
+}
+.row.slim.away {
+  left: calc(50% + var(--mid-gap));
+}
+.meta {
+  flex-shrink: 0;
+  align-self: stretch;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  min-width: 50px;
+  padding-inline: 8px;
+  background: #ffffff08;
+  border-inline: 1px solid var(--line);
+  line-height: 1.2;
+}
+.slim .meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.min {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.score {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.slim .score {
+  font-size: 12px;
+}
+.score b {
+  color: var(--ink);
+}
+.txt {
+  flex: 1;
+  min-width: 0;
+  padding-inline: 10px;
+}
+.txt strong,
+.txt .player {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.txt strong {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.txt .player {
+  font-size: 12px;
+  color: var(--muted);
+}
+.line {
+  min-width: 0;
+  padding-inline: 9px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.line b {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+.who {
+  color: var(--muted);
+}
+.short {
+  display: none;
+}
+.pts {
+  flex-shrink: 0;
+  align-self: stretch;
+  display: grid;
+  place-items: center;
+  width: 50px;
+  background: linear-gradient(180deg, #ffffff1f, #0000 60%), var(--club);
+  font-size: 21px;
+  font-weight: 900;
+  font-style: italic;
+  letter-spacing: -0.5px;
+}
+.slim .pts {
+  width: 32px;
+  font-size: 14px;
+}
+.card {
+  display: block;
+  width: 11px;
+  height: 15px;
+  border-radius: 1px;
+  background: #f2c94c;
+}
+.card.red {
+  background: #e5484d;
+}
+.slim .card {
+  width: 8px;
+  height: 11px;
+}
+
+@container (max-width: 480px) {
+  .panel {
+    padding: 18px 14px;
+  }
+  .summary {
+    height: 58px;
+  }
+  .side {
+    width: 48px;
+  }
+  .side img {
+    width: 18px;
+    height: 18px;
+  }
+  .side b {
+    font-size: 19px;
+  }
+  .track {
+    margin-inline: 10px;
+  }
+  .summary-line {
+    font-size: 11px;
+  }
+  .pitch {
+    --run-off: 6px;
+    --inset: 8px;
+    --mid-gap: 4px;
+  }
+  .paint {
+    font-size: 10px;
+  }
+  .meta {
+    min-width: 40px;
+    padding-inline: 5px;
+  }
+  .slim .meta {
+    gap: 4px;
+  }
+  .txt {
+    padding-inline: 7px;
+  }
+  .txt strong {
+    font-size: 11px;
+    letter-spacing: 0.4px;
+  }
+  .txt .player {
+    font-size: 11px;
+  }
+  .line {
+    padding-inline: 6px;
+  }
+  .who,
+  .full {
+    display: none;
+  }
+  .short {
+    display: inline;
+  }
+  .pts {
+    width: 38px;
+    font-size: 16px;
+  }
+  .slim .pts {
+    width: 26px;
+    font-size: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chip.now::before {
+    animation: none;
+  }
+}
