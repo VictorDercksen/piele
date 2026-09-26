@@ -47,7 +47,8 @@ describe('HttpLeagueData profile', () => {
   }
 
   /** Answers the league record requests that follow /me. */
-  function flushRecords(http: HttpTestingController) {
+  function flushRecords(http: HttpTestingController, standings: unknown[] = []) {
+    http.expectOne(`${API}/standings`).flush(standings);
     for (const path of ['/members', '/duties', '/marks', '/feed?limit=200'])
       http.expectOne(`${API}${path}`).flush([]);
   }
@@ -69,6 +70,24 @@ describe('HttpLeagueData profile', () => {
     expect(league.profile()?.displayName).toBe('Trokkie');
     expect(league.profile()?.photo).toMatch(/^data:image\/jpeg;base64,/);
     http.verify();
+  });
+
+  it('loads the Superbru round standings', async () => {
+    const { league, http } = setup();
+    const loaded = league.ensureLoaded();
+    http.expectOne(`${API}/me`).flush(me({ favouriteTeamId: null, photoUrl: null }));
+    await settle();
+    flushRecords(http, [
+      { roundNumber: 1, memberId: 'm-2', memberName: 'Wolf', rank: 1, points: 5 },
+      { roundNumber: 1, memberId: 'm-1', memberName: 'Trokkie', rank: 2, points: 0.5 },
+    ]);
+    await loaded;
+    expect(league.standings()).toEqual([
+      { roundId: 1, memberId: 'm-2', rank: 1, points: 5 },
+      { roundId: 1, memberId: 'm-1', rank: 2, points: 0.5 },
+    ]);
+    league.clear();
+    expect(league.standings()).toEqual([]);
   });
 
   it('has no profile until a team is chosen, and shows initials when the photo is not a JPEG', async () => {

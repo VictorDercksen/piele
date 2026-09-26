@@ -11,6 +11,7 @@ import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from fastapi.testclient import TestClient
+from sqlalchemy import text
 from app.config import Settings
 from app.db import get_engine
 from app.league import bootstrap
@@ -117,8 +118,9 @@ def client(storage: FakeStorage) -> TestClient:
     # Each test gets its own league; the captain's email is unique per run.
     email = f"captain-{uuid4().hex[:8]}@example.com"
     with engine.begin() as connection:
-        bootstrap.bootstrap(connection, email, SEED)
+        league_id = bootstrap.bootstrap(connection, email, SEED)
     client = TestClient(create_app(settings, storage=storage))
+    client.league_id = league_id  # type: ignore[attr-defined]
     client.captain_email = email  # type: ignore[attr-defined]
     client.subjects = {}  # type: ignore[attr-defined]
     # Test leagues share one database, so reservations must not collide between tests.
@@ -245,6 +247,24 @@ def test_only_the_captain_manages_members(client: TestClient) -> None:
     assert client.post("/v1/members", json={"displayName": "Bad", "fullName": "B", "email": "nope"}, headers=captain_headers(client)).status_code == 422
 
 
+def test_members_who_left_are_off_the_team_sheet(client: TestClient) -> None:
+    engine = get_engine(client.app.state.settings)
+    with engine.begin() as connection:
+        connection.execute(
+            text("select set_config('piele.league_id', :id, true)"),
+            {"id": str(client.league_id)},  # type: ignore[attr-defined]
+        )
+        connection.execute(
+            text(
+                "update piele.league_memberships set status = 'withdrawn', left_at = now()"
+                " where league_id = :id and display_name = 'Ola'"
+            ),
+            {"id": str(client.league_id)},  # type: ignore[attr-defined]
+        )
+    members = client.get("/v1/members", headers=captain_headers(client)).json()
+    assert {m["displayName"] for m in members} == {"Captain", "Mo"}
+
+
 # Duties and marks ---------------------------------------------------------------------
 
 
@@ -292,6 +312,63 @@ def test_marks_accrue_per_full_week_overdue(client: TestClient) -> None:
     assert duty["marks"]["nextMarkAt"] is not None
     totals = client.get("/v1/marks", headers=auth(subject(client, "MO"), client.mo_email)).json()
     assert totals == [{"memberId": str(mo_id), "memberName": "Mo", "marks": 2, "openDuties": 1}]
+
+
+# Superbru standings -------------------------------------------------------------------
+
+
+def put_standings(client: TestClient, round_number: int, points: dict[UUID, float], headers: dict | None = None):
+    body = {"standings": [{"memberId": str(member_id), "points": value} for member_id, value in points.items()]}
+    return client.put(f"/v1/rounds/{round_number}/standings", json=body, headers=headers or captain_headers(client))
+
+
+def test_captain_records_round_standings_and_members_read_them(client: TestClient) -> None:
+    mo_id = invite(client, "Mo", client.mo_email)
+    mo = auth(subject(client, "MO"), client.mo_email)
+    ids = {m["displayName"]: UUID(m["id"]) for m in client.get("/v1/members", headers=mo).json()}
+    assert put_standings(client, 1, {mo_id: 5}, headers=mo).status_code == 403
+
+    recorded = put_standings(client, 1, {ids["Ola"]: 0, ids["Captain"]: 1.5, mo_id: 5})
+    assert recorded.status_code == 200, recorded.text
+    assert [(s["memberName"], s["rank"], s["points"]) for s in recorded.json()] == [
+        ("Mo", 1, 5.0),
+        ("Captain", 2, 1.5),
+        ("Ola", 3, 0.0),
+    ]
+    feed = client.get("/v1/feed", params={"round": 1}, headers=mo).json()
+    assert feed[0]["kind"] == "standings_recorded"
+    assert feed[0]["title"] == "Round 01 Superbru standings updated."
+    assert feed[0]["detail"] == "Mo leads on 5 points."
+
+    # Tied points share a rank; the next rank skips. Ola is left out and loses her row.
+    put_standings(client, 1, {mo_id: 1.5, ids["Captain"]: 1.5})
+    table = client.get("/v1/standings", params={"round": 1}, headers=mo).json()
+    assert [(s["memberName"], s["rank"]) for s in table] == [("Captain", 1), ("Mo", 1)]
+    put_standings(client, 2, {ids["Ola"]: 3, mo_id: 1.5, ids["Captain"]: 1.5})
+    table = client.get("/v1/standings", params={"round": 2}, headers=mo).json()
+    assert [(s["memberName"], s["rank"]) for s in table] == [("Ola", 1), ("Captain", 2), ("Mo", 2)]
+    assert len(client.get("/v1/standings", headers=mo).json()) == 5
+
+    # Recording the same table again changes nothing and posts nothing.
+    before = len(client.get("/v1/feed", headers=mo).json())
+    assert put_standings(client, 2, {ids["Ola"]: 3, mo_id: 1.5, ids["Captain"]: 1.5}).status_code == 200
+    assert len(client.get("/v1/feed", headers=mo).json()) == before
+
+
+def test_round_standings_are_validated(client: TestClient) -> None:
+    ids = {m["displayName"]: UUID(m["id"]) for m in client.get("/v1/members", headers=captain_headers(client)).json()}
+    unknown = put_standings(client, 1, {uuid4(): 1})
+    assert unknown.status_code == 404 and unknown.json()["detail"]["code"] == "unknown_member"
+    duplicate = client.put(
+        "/v1/rounds/1/standings",
+        json={"standings": [{"memberId": str(ids["Mo"]), "points": 1}, {"memberId": str(ids["Mo"]), "points": 2}]},
+        headers=captain_headers(client),
+    )
+    assert duplicate.status_code == 422 and duplicate.json()["detail"]["code"] == "duplicate_member"
+    assert put_standings(client, 1, {ids["Mo"]: 1.25}).status_code == 422
+    assert put_standings(client, 1, {ids["Mo"]: -1}).status_code == 422
+    assert put_standings(client, 22, {ids["Mo"]: 1}).status_code == 422
+    assert client.get("/v1/standings", headers=captain_headers(client)).json() == []
 
 
 # Evidence -----------------------------------------------------------------------------

@@ -5,6 +5,7 @@ import re
 import secrets
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from decimal import Decimal
 from typing import Any, Sequence
 from uuid import UUID, uuid4
 
@@ -103,6 +104,7 @@ def default_deadline(duty_type: str, round_number: int | None) -> datetime | Non
 
 
 def members(actor: Actor) -> Sequence[Any]:
+    """The team sheet: active memberships only. Members who left keep their history."""
     sm = t.season_memberships
     m = t.league_memberships
     return actor.connection.execute(
@@ -115,8 +117,12 @@ def members(actor: Actor) -> Sequence[Any]:
             m.c.user_id,
             sm.c.id.label("season_membership_id"),
         )
-        .select_from(m.outerjoin(sm, and_(sm.c.membership_id == m.c.id, sm.c.season_id == actor.season_id)))
-        .where(m.c.league_id == actor.league_id)
+        .select_from(
+            m.outerjoin(
+                sm, and_(sm.c.membership_id == m.c.id, sm.c.season_id == actor.season_id, sm.c.status == "active")
+            )
+        )
+        .where(m.c.league_id == actor.league_id, m.c.status == "active")
         .order_by(m.c.full_name)
     ).all()
 
@@ -435,12 +441,16 @@ def _display(row: Any, links: list[Any], now: datetime) -> str:
     return "overdue" if row.deadline_at is not None and now > row.deadline_at else "open"
 
 
+def round_label(round_number: int) -> str:
+    code = str(round_number).zfill(2) if round_number <= REGULAR_ROUNDS else {19: "QF", 20: "SF", 21: "F"}[round_number]
+    return f"Round {code}"
+
+
 def duty_title(duty_type: str, round_number: int | None) -> str:
     label = "Spoon duty" if duty_type == "spoon" else "Pick confirmation"
     if round_number is None:
         return label
-    code = str(round_number).zfill(2) if round_number <= REGULAR_ROUNDS else {19: "QF", 20: "SF", 21: "F"}[round_number]
-    return f"Round {code} {label}"
+    return f"{round_label(round_number)} {label}"
 
 
 def create_duty(
@@ -594,6 +604,129 @@ def marks_totals(actor: Actor) -> list[dict[str, Any]]:
         if view.row.status in ("open", "pending_deadline"):
             entry["openDuties"] += 1
     return sorted(totals.values(), key=lambda e: (-e["marks"], e["memberName"]))
+
+
+# Superbru standings -------------------------------------------------------------------
+
+
+def standings(actor: Actor, round_number: int | None = None) -> list[dict[str, Any]]:
+    """Round points per member in the active season. Ranks are derived here: tied points share
+    a rank and the next rank skips (1, 2, 2, 4). Ties list alphabetically."""
+    rs = t.round_standings
+    sm = t.season_memberships
+    m = t.league_memberships
+    query = (
+        select(rs.c.round_number, rs.c.points, m.c.id.label("member_id"), m.c.display_name)
+        .select_from(rs.join(sm, sm.c.id == rs.c.season_membership_id).join(m, m.c.id == sm.c.membership_id))
+        .where(rs.c.league_id == actor.league_id, rs.c.season_id == actor.season_id)
+    )
+    if round_number is not None:
+        query = query.where(rs.c.round_number == round_number)
+    rows = sorted(
+        actor.connection.execute(query).all(),
+        key=lambda r: (r.round_number, -r.points, r.display_name.lower()),
+    )
+    result: list[dict[str, Any]] = []
+    for index, row in enumerate(rows):
+        previous = rows[index - 1] if index else None
+        if previous is None or previous.round_number != row.round_number:
+            rank, position = 1, 1
+        else:
+            position += 1
+            if row.points != previous.points:
+                rank = position
+        result.append(
+            {
+                "roundNumber": row.round_number,
+                "memberId": row.member_id,
+                "memberName": row.display_name,
+                "rank": rank,
+                "points": float(row.points),
+            }
+        )
+    return result
+
+
+def record_standings(actor: Actor, round_number: int, entries: Sequence[tuple[UUID, Decimal]]) -> None:
+    """Replaces a round's Superbru table with the captain's copy of the pool results. Members
+    left out lose their row for the round. Unchanged rows are left alone."""
+    member_ids = [member_id for member_id, _ in entries]
+    if len(set(member_ids)) != len(member_ids):
+        raise problem(422, "duplicate_member", "Each member can appear once in a round's standings.")
+    sm = t.season_memberships
+    m = t.league_memberships
+    enrolled = {
+        row.membership_id: row
+        for row in actor.connection.execute(
+            select(sm.c.id, sm.c.membership_id, m.c.display_name)
+            .select_from(sm.join(m, m.c.id == sm.c.membership_id))
+            .where(sm.c.season_id == actor.season_id, sm.c.status == "active")
+        ).all()
+    }
+    unknown = [member_id for member_id in member_ids if member_id not in enrolled]
+    if unknown:
+        raise problem(404, "unknown_member", "Every member in the standings must be enrolled in this season.")
+    rs = t.round_standings
+    existing = {
+        row.season_membership_id: row
+        for row in actor.connection.execute(
+            select(rs)
+            .where(rs.c.season_id == actor.season_id, rs.c.round_number == round_number)
+            .with_for_update()
+        ).all()
+    }
+    wanted = {enrolled[member_id].id: points for member_id, points in entries}
+    name_of = {row.id: row.display_name for row in enrolled.values()}
+    before = {name_of.get(key, str(key)): float(row.points) for key, row in existing.items()}
+    after = {name_of[key]: float(points) for key, points in wanted.items()}
+    if before == after:
+        return
+    removed = [row.id for key, row in existing.items() if key not in wanted]
+    if removed:
+        actor.connection.execute(rs.delete().where(rs.c.id.in_(removed)))
+    for season_membership_id, points in wanted.items():
+        current = existing.get(season_membership_id)
+        if current is None:
+            actor.connection.execute(
+                insert(rs).values(
+                    league_id=actor.league_id,
+                    season_id=actor.season_id,
+                    season_membership_id=season_membership_id,
+                    round_number=round_number,
+                    points=points,
+                    recorded_by_membership_id=actor.membership_id,
+                )
+            )
+        elif current.points != points:
+            actor.connection.execute(
+                update(rs)
+                .where(rs.c.id == current.id)
+                .values(
+                    points=points,
+                    recorded_by_membership_id=actor.membership_id,
+                    updated_at=func.now(),
+                    version=rs.c.version + 1,
+                )
+            )
+    table = standings(actor, round_number)
+    leaders = [row["memberName"] for row in table if row["rank"] == 1]
+    detail = ""
+    if leaders:
+        detail = f"{' and '.join(leaders)} {'leads' if len(leaders) == 1 else 'lead'} on {table[0]['points']:g} points."
+    record(
+        actor,
+        action="standings.recorded",
+        entity_type="round_standings",
+        entity_id=None,
+        before={"roundNumber": round_number, "points": before},
+        after={"roundNumber": round_number, "points": after},
+        feed=FeedEntry(
+            kind="standings_recorded",
+            title=f"{round_label(round_number)} Superbru standings updated.",
+            detail=detail,
+            round_number=round_number,
+        ),
+    )
 
 
 # Evidence -----------------------------------------------------------------------------

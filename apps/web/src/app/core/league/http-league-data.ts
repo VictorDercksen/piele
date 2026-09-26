@@ -56,6 +56,11 @@ interface ApiFeedItem extends Omit<FeedItem, 'roundId'> {
   readonly roundNumber: number | null;
 }
 
+interface ApiStanding extends Omit<RoundStanding, 'roundId'> {
+  readonly roundNumber: number;
+  readonly memberName: string;
+}
+
 interface UploadGrant {
   readonly assetId: string;
   readonly bucket: string;
@@ -91,8 +96,9 @@ export class HttpLeagueData extends LeagueData {
   });
   private readonly memberRecords = signal<readonly LeagueMember[]>([]);
   readonly members = this.memberRecords.asReadonly();
-  /** Superbru standings arrive with the sync; nothing is published before then. */
-  readonly standings = signal<readonly RoundStanding[]>([]).asReadonly();
+  /** Superbru round points the captain records from the pool results. */
+  private readonly standingRecords = signal<readonly RoundStanding[]>([]);
+  readonly standings = this.standingRecords.asReadonly();
   private readonly markRecords = signal<readonly MemberMarks[]>([]);
   readonly marks = this.markRecords.asReadonly();
   private readonly dutyRecords = signal<readonly Duty[]>([]);
@@ -127,6 +133,7 @@ export class HttpLeagueData extends LeagueData {
     this.me.set(null);
     this.photo.set(null);
     this.memberRecords.set([]);
+    this.standingRecords.set([]);
     this.markRecords.set([]);
     this.dutyRecords.set([]);
     this.feedRecords.set([]);
@@ -287,8 +294,9 @@ export class HttpLeagueData extends LeagueData {
   }
 
   private async refresh(): Promise<void> {
-    const [members, duties, marks, feed] = await Promise.all([
+    const [members, standings, duties, marks, feed] = await Promise.all([
       this.request<ApiMember[]>('GET', '/members'),
+      this.request<ApiStanding[]>('GET', '/standings'),
       this.request<ApiDuty[]>('GET', '/duties'),
       this.request<MemberMarks[]>('GET', '/marks'),
       this.request<ApiFeedItem[]>('GET', '/feed?limit=200'),
@@ -303,6 +311,14 @@ export class HttpLeagueData extends LeagueData {
         claimed: m.claimed,
         inSeason: m.inSeason,
         email: m.email,
+      })),
+    );
+    this.standingRecords.set(
+      standings.map(({ roundNumber, memberId, rank, points }) => ({
+        roundId: roundNumber,
+        memberId,
+        rank,
+        points,
       })),
     );
     this.dutyRecords.set(duties.map(({ roundNumber, ...duty }) => ({ ...duty, roundId: roundNumber })));
