@@ -3,13 +3,17 @@
 The agent's schedule claims the fixtures that need their preview (dispatches) and starts
 one writing session per claim; each session reads its fixture's state and submits the
 written preview. Every submission is validated here; the agent never touches the
-database. League members read previews through /v1/matches/{fixtureId}/preview.
+database. League members read previews through
+/v1/competitions/{competitionId}/matches/{fixtureId}/preview.
+
+Every request that names a fixture takes an optional `competitionId` (body field or query
+parameter) defaulting to the URC 2026/27, and every dispatch and fixture state echoes it.
 """
 
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel
 from sqlalchemy import Engine
 
@@ -17,9 +21,11 @@ from app.agent import previews
 from app.agent.auth import agent_dependency
 from app.agent.models import DispatchRequest, PreviewSubmission
 from app.agent.state import build_state
+from app.competitions import DEFAULT_COMPETITION_ID
 from app.db import get_engine
+from app.dependencies import match_centre_for
 from app.matchcentre.cache import now_utc
-from app.matchcentre.schedule import Fixture, load_schedule
+from app.matchcentre.schedule import Fixture
 from app.matchcentre.service import MatchCentreService
 
 router = APIRouter(prefix="/agent", tags=["agent"], dependencies=[Depends(agent_dependency)])
@@ -27,12 +33,14 @@ router = APIRouter(prefix="/agent", tags=["agent"], dependencies=[Depends(agent_
 
 class StoredPreview(BaseModel):
     id: str
+    competitionId: str
     fixtureId: str
     revision: int
     generatedAt: datetime
 
 
 class DueFixture(BaseModel):
+    competitionId: str
     fixtureId: str
     round: int
     kickoffUtc: datetime
@@ -57,8 +65,11 @@ class Dispatches(BaseModel):
     dispatches: list[Dispatch]
 
 
-def match_centre(request: Request) -> MatchCentreService:
-    return request.app.state.match_centre
+def competition_query(
+    request: Request, competition_id: str = Query(default=DEFAULT_COMPETITION_ID, alias="competitionId")
+) -> MatchCentreService:
+    """The match centre of the `competitionId` query parameter (default URC 2026/27)."""
+    return match_centre_for(request, competition_id)
 
 
 def engine_of(request: Request) -> Engine:
@@ -68,8 +79,8 @@ def engine_of(request: Request) -> Engine:
     return engine
 
 
-def open_fixture(fixture_id: str, now: datetime) -> Fixture:
-    fixture = load_schedule().fixture(fixture_id)
+def open_fixture(centre: MatchCentreService, fixture_id: str, now: datetime) -> Fixture:
+    fixture = centre.competition.schedule().fixture(fixture_id)
     if fixture is None:
         raise HTTPException(status_code=404, detail={"code": "unknown_fixture", "message": "Unknown fixture."})
     if fixture.home_id is None or fixture.away_id is None or fixture.kickoff_utc is None:
@@ -82,44 +93,48 @@ def open_fixture(fixture_id: str, now: datetime) -> Fixture:
 
 
 @router.get("/fixtures/due", response_model=DueFixtures)
-def due(request: Request) -> Any:
+def due(request: Request, centre: MatchCentreService = Depends(competition_query)) -> Any:
     now = now_utc()
     # Provider calls first, so no database connection is held while the feeds answer.
     engine = engine_of(request)
-    hashes = previews.teamsheet_hashes(load_schedule(), match_centre(request), now)
+    hashes = previews.teamsheet_hashes(centre, now)
     with engine.begin() as conn:
-        return {"generatedAt": now, "fixtures": previews.due_fixtures(conn, hashes, now)}
+        return {"generatedAt": now, "fixtures": previews.due_fixtures(conn, centre.competition.id, hashes, now)}
 
 
 @router.post("/dispatches", response_model=Dispatches)
 def dispatch(request: Request, body: DispatchRequest | None = None) -> Any:
-    """Claim up to DISPATCH_LIMIT due fixtures, soonest kickoff first, for writing sessions.
+    """Claim up to DISPATCH_LIMIT due fixtures of the competition, soonest kickoff first, for
+    writing sessions.
 
     With a fixtureId, only that fixture is considered; with force as well, it is claimed even
     when it has a preview, is inside a lease or has used its attempts.
     """
     body = body or DispatchRequest()
     now = now_utc()
+    centre = match_centre_for(request, body.competitionId)
     engine = engine_of(request)
     if body.fixtureId is not None:
-        open_fixture(body.fixtureId, now)
-    hashes = previews.teamsheet_hashes(load_schedule(), match_centre(request), now, body.fixtureId)
+        open_fixture(centre, body.fixtureId, now)
+    hashes = previews.teamsheet_hashes(centre, now, body.fixtureId)
     with engine.begin() as conn:
-        due = previews.due_fixtures(conn, hashes, now, body.force)[: previews.DISPATCH_LIMIT]
+        due = previews.due_fixtures(conn, centre.competition.id, hashes, now, body.force)[: previews.DISPATCH_LIMIT]
         claimed = [c for c in (previews.claim(conn, d, now) for d in due) if c is not None]
     return {"generatedAt": now, "dispatches": claimed}
 
 
 @router.get("/fixtures/{fixture_id}/state")
-def fixture_state(fixture_id: str, request: Request) -> dict[str, Any]:
+def fixture_state(fixture_id: str, centre: MatchCentreService = Depends(competition_query)) -> dict[str, Any]:
     now = now_utc()
-    return build_state(open_fixture(fixture_id, now), load_schedule(), match_centre(request), now)
+    return build_state(open_fixture(centre, fixture_id, now), centre, now)
 
 
 @router.post("/previews", response_model=StoredPreview, status_code=201)
 def save_preview(body: PreviewSubmission, request: Request, response: Response) -> Any:
-    open_fixture(body.fixtureId, now_utc())
+    centre = match_centre_for(request, body.competitionId)
+    open_fixture(centre, body.fixtureId, now_utc())
     values = {
+        "competition_id": centre.competition.id,
         "fixture_id": body.fixtureId,
         "inputs_hash": body.inputsHash,
         "teamsheet_hash": body.teamsheetHash,
@@ -138,4 +153,10 @@ def save_preview(body: PreviewSubmission, request: Request, response: Response) 
         raise HTTPException(status_code=409, detail={"code": "preview_conflict", "message": str(exc)}) from exc
     if not created:
         response.status_code = 200
-    return {"id": str(row.id), "fixtureId": row.fixture_id, "revision": row.revision, "generatedAt": row.generated_at}
+    return {
+        "id": str(row.id),
+        "competitionId": row.competition_id,
+        "fixtureId": row.fixture_id,
+        "revision": row.revision,
+        "generatedAt": row.generated_at,
+    }

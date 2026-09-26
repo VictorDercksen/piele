@@ -10,19 +10,26 @@ from typing import Any, Sequence
 from uuid import UUID, uuid4
 
 from fastapi import HTTPException
-from sqlalchemy import and_, func, insert, or_, select, update
+from sqlalchemy import and_, func, insert, or_, select, text, update
 from sqlalchemy.engine import Connection
 from sqlalchemy.exc import IntegrityError
 
+from app import competitions
+from app.competitions import Competition
 from app.league import tables as t
-from app.league.context import Actor, now_utc
+from app.league.context import (
+    ADMIN_LABEL,
+    Account,
+    Actor,
+    active_season,
+    actor_for,
+    now_utc,
+    require_membership,
+    set_context,
+)
 from app.league.marks import MarkCalculation, calculate
 from app.league.storage import Storage, StorageError
-from app.matchcentre.catalogue import club
-from app.matchcentre.schedule import load_schedule
 
-REGULAR_ROUNDS = 18
-LAST_ROUND = 21
 DUTY_TYPES = ("spoon", "pick_confirmation")
 VIDEO_TYPES = ("video/",)
 
@@ -53,12 +60,14 @@ def record(
     after: dict[str, Any] | None = None,
     feed: FeedEntry | None = None,
 ) -> None:
-    """Append the audit event and, when the change is league-visible, the feed entry."""
+    """Append the audit event and, when the change is league-visible, the feed entry. The
+    admin acting without a membership is recorded with no actor membership and the label
+    `admin`."""
     actor.connection.execute(
         insert(t.audit_events).values(
             league_id=actor.league_id,
             actor_membership_id=actor.membership_id,
-            actor_label=actor.display_name,
+            actor_label=actor.display_name if actor.membership_id is not None else ADMIN_LABEL,
             action=action,
             entity_type=entity_type,
             entity_id=entity_id,
@@ -88,15 +97,11 @@ def record(
 # Rounds -------------------------------------------------------------------------------
 
 
-def first_kickoff(round_number: int) -> datetime | None:
-    kickoffs = [f.kickoff_utc for f in load_schedule().fixtures if f.round == round_number and f.kickoff_utc]
-    return min(kickoffs) if kickoffs else None
-
-
-def default_deadline(duty_type: str, round_number: int | None) -> datetime | None:
-    """Spoon duties are due when the next round kicks off. Other types need an explicit deadline."""
-    if duty_type == "spoon" and round_number is not None and round_number < LAST_ROUND:
-        return first_kickoff(round_number + 1)
+def default_deadline(competition: Competition, duty_type: str, round_number: int | None) -> datetime | None:
+    """Spoon duties are due when the competition's next round kicks off. Other types need an
+    explicit deadline."""
+    if duty_type == "spoon" and round_number is not None and round_number < competition.last_round:
+        return competition.first_kickoff(round_number + 1)
     return None
 
 
@@ -127,41 +132,354 @@ def members(actor: Actor) -> Sequence[Any]:
     ).all()
 
 
-def unclaimed_memberships(connection: Connection) -> Sequence[Any]:
-    """Names a signed-in account may claim: active, unclaimed and not reserved for an email."""
+# Leagues, accounts and joining -----------------------------------------------------------
+
+SLUG_PATTERN = re.compile(r"^[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])?$")
+ACCENT_PATTERN = re.compile(r"^#[0-9a-f]{6}$")
+JOIN_CODE_PATTERN = re.compile(r"^[a-z0-9]{4,16}$")
+
+
+def create_league(
+    connection: Connection,
+    *,
+    name: str,
+    slug: str,
+    timezone: str,
+    competition_id: str,
+    season_name: str,
+    members: Sequence[dict[str, str]],
+    captain_display_name: str,
+    captain_email: str,
+    actor_label: str,
+    emblem_path: str | None = None,
+    accent_colour: str | None = None,
+) -> UUID:
+    """Creates a league, its memberships (`members` are `{fullName, displayName}`), the
+    captain's membership reserved for `captain_email`, the first season on the competition
+    and its season memberships, in the caller's transaction. Used by the operator bootstrap
+    and, later, the admin's management centre. New leagues get a join code."""
+    if not SLUG_PATTERN.fullmatch(slug):
+        raise problem(422, "invalid_slug", "Use 3 to 40 lower-case letters, digits and hyphens for the slug.")
+    if competition_id not in competitions.ALL:
+        raise problem(
+            422, "unknown_competition", f"Unknown competition {competition_id!r}; known: {', '.join(competitions.ALL)}."
+        )
+    competition = competitions.get(competition_id)
+    known_zone = connection.execute(
+        text("select exists (select 1 from pg_timezone_names where name = :tz)"), {"tz": timezone}
+    ).scalar_one()
+    if not known_zone:
+        raise problem(422, "invalid_timezone", f"Unknown time zone {timezone!r}.")
+    if accent_colour is not None and not ACCENT_PATTERN.fullmatch(accent_colour):
+        raise problem(422, "invalid_accent_colour", "Use a colour like #1a2b3c.")
+    names = [member["displayName"] for member in members]
+    if not names or len(set(names)) != len(names):
+        raise problem(422, "duplicate_member", "Each member needs a different display name.")
+    if captain_display_name not in names:
+        raise problem(422, "unknown_captain", "The captain must be one of the members.")
+
+    league_id = uuid4()
+    # Leagues are writable only inside their own context, so set it before inserting.
+    set_context(connection, "league_id", str(league_id))
+    memberships = {member["displayName"]: uuid4() for member in members}
+    captain_id = memberships[captain_display_name]
+    try:
+        with connection.begin_nested():
+            connection.execute(
+                insert(t.leagues).values(
+                    id=league_id,
+                    name=name,
+                    slug=slug,
+                    timezone=timezone,
+                    captain_membership_id=captain_id,
+                    emblem_path=emblem_path,
+                    accent_colour=accent_colour,
+                    join_code=secrets.token_hex(6),
+                )
+            )
+    except IntegrityError as exc:
+        raise problem(409, "slug_taken", f"A league with the slug {slug!r} already exists.") from exc
+    for member in members:
+        is_captain = member["displayName"] == captain_display_name
+        connection.execute(
+            insert(t.league_memberships).values(
+                id=memberships[member["displayName"]],
+                league_id=league_id,
+                display_name=member["displayName"],
+                full_name=member["fullName"],
+                invited_email=captain_email.lower() if is_captain else None,
+            )
+        )
+    season_id = connection.execute(
+        insert(t.seasons)
+        .values(
+            league_id=league_id,
+            name=season_name,
+            competition=competition.name[:80],
+            competition_id=competition.id,
+            status="active",
+        )
+        .returning(t.seasons.c.id)
+    ).scalar_one()
+    for membership_id in memberships.values():
+        connection.execute(
+            insert(t.season_memberships).values(league_id=league_id, season_id=season_id, membership_id=membership_id)
+        )
+    connection.execute(
+        insert(t.audit_events).values(
+            league_id=league_id,
+            actor_label=actor_label,
+            action="league.created",
+            entity_type="league",
+            entity_id=league_id,
+            after={"name": name, "slug": slug, "members": len(memberships), "season": season_name, "competitionId": competition.id},
+        )
+    )
+    connection.execute(
+        insert(t.feed_entries).values(
+            league_id=league_id,
+            season_id=season_id,
+            kind="season_opened",
+            title=f"{season_name} is open.",
+            detail=f"{len(memberships)} members enrolled. {captain_display_name} is captain.",
+        )
+    )
+    return league_id
+
+
+@dataclass(frozen=True)
+class LeagueSummary:
+    """A league as the account sees it: the league row, its active season and competition,
+    and the caller's membership there (None for the admin's view of another league)."""
+
+    league: Any
+    season: Any
+    competition: Competition
+    membership: Any | None
+    in_season: bool
+
+
+def league_summary(connection: Connection, league: Any, membership: Any | None) -> LeagueSummary | None:
+    """Sets the league context to read the league's active season. None without one."""
+    set_context(connection, "league_id", str(league.id))
+    season = active_season(connection, league.id)
+    if season is None or season.competition_id not in competitions.ALL:
+        return None
+    in_season = False
+    if membership is not None:
+        sm = t.season_memberships
+        in_season = (
+            connection.execute(
+                select(sm.c.id).where(
+                    sm.c.season_id == season.id, sm.c.membership_id == membership.id, sm.c.status == "active"
+                )
+            ).first()
+            is not None
+        )
+    return LeagueSummary(league, season, competitions.get(season.competition_id), membership, in_season)
+
+
+def account_leagues(account: Account) -> list[LeagueSummary]:
+    """Claims every name reserved for the account's verified email, then lists the active
+    leagues it belongs to by name, followed for the admin by every other active league."""
+    claim_reserved(account)
+    connection = account.connection
+    set_context(connection, "league_id", None)
+    m, lg = t.league_memberships, t.leagues
+    memberships = {
+        row.league_id: row
+        for row in connection.execute(select(m).where(m.c.user_id == account.user_id, m.c.status == "active")).all()
+    }
+    # Row level security shows the leagues the account belongs to, or every league to the admin.
+    leagues = connection.execute(select(lg).where(lg.c.status == "active").order_by(lg.c.name, lg.c.slug)).all()
+    own = [league for league in leagues if league.id in memberships]
+    others = [league for league in leagues if league.id not in memberships] if account.is_admin else []
+    summaries = []
+    try:
+        for league in own + others:
+            summary = league_summary(connection, league, memberships.get(league.id))
+            if summary is not None:
+                summaries.append(summary)
+    finally:
+        set_context(connection, "league_id", None)
+    return summaries
+
+
+def claim_reserved(account: Account) -> None:
+    """A verified sign-in claims each name reserved for its address, once per league, unless
+    the account already holds a membership in that league."""
+    email = account.verified_email
+    if email is None:
+        return
     m = t.league_memberships
-    return connection.execute(
+    reserved = account.connection.execute(
+        select(m.c.id, m.c.league_id)
+        .where(m.c.user_id.is_(None), m.c.status == "active", func.lower(m.c.invited_email) == email)
+        .order_by(m.c.joined_at)
+    ).all()
+    for row in reserved:
+        _claim(account, row.league_id, row.id, reserved_ok=True)
+    set_context(account.connection, "league_id", None)
+
+
+def league_by_join_code(connection: Connection, code: str) -> Any:
+    """The active league with this join code, or 404 `unknown_join_code`. The code opens only
+    that league (the `leagues_join_code` policy); the caller sets the league context next."""
+    code = code.strip().lower()
+    league = None
+    if JOIN_CODE_PATTERN.fullmatch(code):
+        set_context(connection, "join_code", code)
+        league = connection.execute(
+            select(t.leagues).where(t.leagues.c.join_code == code, t.leagues.c.status == "active")
+        ).first()
+        set_context(connection, "join_code", None)
+    if league is None:
+        raise problem(404, "unknown_join_code", "That join code does not open a league. Check it with your captain.")
+    return league
+
+
+@dataclass(frozen=True)
+class JoinView:
+    summary: LeagueSummary
+    already_member: bool
+    unclaimed: Sequence[Any]
+
+
+def join_view(account: Account, code: str) -> JoinView:
+    """What a join code shows: the league, whether the caller already belongs to it, and the
+    names the caller may claim there (unclaimed and unreserved, or reserved for their
+    verified email)."""
+    connection = account.connection
+    league = league_by_join_code(connection, code)
+    m = t.league_memberships
+    set_context(connection, "league_id", str(league.id))
+    own = connection.execute(
+        select(m).where(m.c.league_id == league.id, m.c.user_id == account.user_id, m.c.status == "active")
+    ).first()
+    summary = league_summary(connection, league, own)
+    if summary is None:
+        raise problem(409, "no_active_season", "No active season.")
+    email = account.verified_email
+    claimable = m.c.invited_email.is_(None)
+    if email is not None:
+        claimable = or_(claimable, func.lower(m.c.invited_email) == email)
+    unclaimed = connection.execute(
         select(m.c.id, m.c.display_name, m.c.full_name)
-        .where(m.c.user_id.is_(None), m.c.status == "active", m.c.invited_email.is_(None))
+        .where(m.c.league_id == league.id, m.c.user_id.is_(None), m.c.status == "active", claimable)
         .order_by(m.c.full_name)
     ).all()
+    return JoinView(summary, own is not None, unclaimed)
 
 
-def claim_membership(connection: Connection, user_id: UUID, membership_id: UUID) -> bool:
-    """Binds the account to the chosen name. False when it was taken, reserved or unknown."""
+def join(account: Account, code: str, membership_id: UUID) -> Actor:
+    """Claims one name in the league the code opens and returns the caller as its member."""
+    connection = account.connection
+    league = league_by_join_code(connection, code)
     m = t.league_memberships
+    set_context(connection, "league_id", str(league.id))
     existing = connection.execute(
-        select(m.c.id).where(m.c.user_id == user_id, m.c.status == "active")
+        select(m.c.status).where(m.c.league_id == league.id, m.c.user_id == account.user_id)
     ).first()
+    if existing is not None and existing.status == "active":
+        raise problem(409, "already_member", "You are already a member of this league.")
     if existing is not None:
-        raise problem(409, "already_member", "This account already has a Superbru name.")
+        raise problem(409, "withdrawn_member", "You left this league. Ask its captain to reinstate you.")
+    target = connection.execute(select(m).where(m.c.id == membership_id, m.c.league_id == league.id)).first()
+    if target is None or target.status != "active" or target.user_id is not None:
+        raise problem(409, "name_taken", "That name is no longer available. Choose another.")
+    if target.invited_email is not None and target.invited_email.lower() != account.verified_email:
+        raise problem(403, "reserved", "That name is reserved for another email address.")
+    actor = _claim(account, league.id, membership_id, reserved_ok=target.invited_email is not None)
+    if actor is None:
+        raise problem(409, "name_taken", "That name is no longer available. Choose another.")
+    return actor
+
+
+def _claim(account: Account, league_id: UUID, membership_id: UUID, *, reserved_ok: bool) -> Actor | None:
+    """Binds the account to an unclaimed name in an active league, copying the favourite team
+    from the account's membership in another league on the same competition, and records
+    `membership.claimed` with the `member_joined` feed entry. None when the name was taken
+    meanwhile, the league is not active, or the account already has a membership there."""
+    connection = account.connection
+    m = t.league_memberships
+    set_context(connection, "league_id", str(league_id))
+    league = connection.execute(
+        select(t.leagues.c.id).where(t.leagues.c.id == league_id, t.leagues.c.status == "active")
+    ).first()
+    season = active_season(connection, league_id)
+    if league is None or season is None:
+        return None
+    if connection.execute(select(m.c.id).where(m.c.league_id == league_id, m.c.user_id == account.user_id)).first():
+        return None
+    team = _team_on_competition(account, season.competition_id, exclude_league_id=league_id)
+    set_context(connection, "league_id", str(league_id))
+    condition = m.c.invited_email.is_(None)
+    if reserved_ok and account.verified_email is not None:
+        condition = or_(condition, func.lower(m.c.invited_email) == account.verified_email)
+    values: dict[str, Any] = {"user_id": account.user_id, "updated_at": func.now(), "version": m.c.version + 1}
+    if team is not None:
+        values["favourite_team_id"] = func.coalesce(m.c.favourite_team_id, team)
     claimed = connection.execute(
         update(m)
-        .where(
-            m.c.id == membership_id,
-            m.c.user_id.is_(None),
-            m.c.status == "active",
-            m.c.invited_email.is_(None),
-        )
-        .values(user_id=user_id, updated_at=func.now(), version=m.c.version + 1)
-        .returning(m.c.id)
+        .where(m.c.id == membership_id, m.c.league_id == league_id, m.c.user_id.is_(None), m.c.status == "active", condition)
+        .values(**values)
+        .returning(m.c.display_name)
     ).first()
-    return claimed is not None
+    if claimed is None:
+        return None
+    actor = actor_for(account, league_id)
+    record(
+        actor,
+        action="membership.claimed",
+        entity_type="league_membership",
+        entity_id=membership_id,
+        feed=FeedEntry(kind="member_joined", title=f"{claimed.display_name} joined the clubhouse."),
+    )
+    return actor
+
+
+def _team_on_competition(account: Account, competition_id: str, *, exclude_league_id: UUID) -> str | None:
+    """The favourite team of the account's most recently updated membership in another
+    league on the same competition, if any. Changes the league context."""
+    m = t.league_memberships
+    connection = account.connection
+    set_context(connection, "league_id", None)
+    candidates = connection.execute(
+        select(m.c.league_id, m.c.favourite_team_id)
+        .where(
+            m.c.user_id == account.user_id,
+            m.c.status == "active",
+            m.c.favourite_team_id.is_not(None),
+            m.c.league_id != exclude_league_id,
+        )
+        .order_by(m.c.updated_at.desc())
+    ).all()
+    competition = competitions.ALL.get(competition_id)
+    for row in candidates:
+        set_context(connection, "league_id", str(row.league_id))
+        season = active_season(connection, row.league_id)
+        if season is not None and season.competition_id == competition_id and competition and competition.club(row.favourite_team_id):
+            return row.favourite_team_id
+    return None
+
+
+def last_league_id(account: Account) -> UUID | None:
+    return account.connection.execute(
+        select(t.users.c.last_league_id).where(t.users.c.id == account.user_id)
+    ).scalar_one()
+
+
+def record_last_league(actor: Actor) -> None:
+    """Remembers the league the account opened last, so a fresh device lands there."""
+    actor.connection.execute(
+        update(t.users).where(t.users.c.id == actor.user_id).values(last_league_id=actor.league_id, updated_at=func.now())
+    )
 
 
 def release_membership(actor: Actor, membership_id: UUID) -> None:
-    """Captain undoes a claim so the right account can take the name. Not for the captain's own."""
-    if membership_id == actor.membership_id:
+    """Captain or admin undoes a claim so the right account can take the name. Not for the
+    captain's own membership."""
+    if membership_id == actor.captain_membership_id:
         raise problem(409, "captain_membership", "The captain's own membership cannot be released.")
     m = t.league_memberships
     row = actor.connection.execute(select(m).where(m.c.id == membership_id).with_for_update()).first()
@@ -276,23 +594,27 @@ class NotificationsRead:
 
 
 def notifications_read(actor: Actor) -> NotificationsRead:
-    u = t.users
+    """The membership's read state; nothing is read in the admin's view of another league."""
+    if actor.membership_id is None:
+        return NotificationsRead(None, [])
+    m = t.league_memberships
     row = actor.connection.execute(
-        select(u.c.notifications_read_at, u.c.notifications_read_keys).where(u.c.id == actor.user_id)
+        select(m.c.notifications_read_at, m.c.notifications_read_keys).where(m.c.id == actor.membership_id)
     ).one()
     return NotificationsRead(row.notifications_read_at, _read_keys(row.notifications_read_keys))
 
 
 def update_notifications_read(actor: Actor, *, read_at: datetime | None, read_keys: Sequence[str]) -> NotificationsRead:
-    """Merges the caller's read state. The mark never moves back and never runs ahead of the
+    """Merges the caller's read state in this league. The mark never moves back and never runs ahead of the
     server clock, so a stale device cannot undo what another device has read, and keys from
     both are kept, newest first, within the bound."""
+    membership_id = require_membership(actor)
     incoming = list(dict.fromkeys(key.strip() for key in read_keys if key.strip()))
     if len(incoming) > MAX_READ_KEYS or any(len(key) > MAX_READ_KEY_LENGTH for key in incoming):
         raise problem(422, "invalid_read_keys", "Too many or too long notification keys.")
-    u = t.users
+    m = t.league_memberships
     current = actor.connection.execute(
-        select(u.c.notifications_read_at, u.c.notifications_read_keys).where(u.c.id == actor.user_id).with_for_update()
+        select(m.c.notifications_read_at, m.c.notifications_read_keys).where(m.c.id == membership_id).with_for_update()
     ).one()
     now = now_utc()
     if read_at is not None and read_at.tzinfo is None:
@@ -301,8 +623,8 @@ def update_notifications_read(actor: Actor, *, read_at: datetime | None, read_ke
     merged_at = min(max(marks), now) if marks else None
     merged_keys = list(dict.fromkeys([*incoming, *_read_keys(current.notifications_read_keys)]))[:MAX_READ_KEYS]
     actor.connection.execute(
-        update(u)
-        .where(u.c.id == actor.user_id)
+        update(m)
+        .where(m.c.id == membership_id)
         .values(notifications_read_at=merged_at, notifications_read_keys=merged_keys, updated_at=func.now())
     )
     return NotificationsRead(merged_at, merged_keys)
@@ -316,19 +638,21 @@ def _photo_prefix(user_id: UUID) -> str:
     return f"avatars/{user_id}/"
 
 
+def photo_url(connection: Connection, user_id: UUID, storage: Storage, url_ttl_seconds: int) -> str | None:
+    """A short-lived URL for the account's photo, or None."""
+    path = connection.execute(select(t.users.c.photo_path).where(t.users.c.id == user_id)).scalar_one()
+    if not path:
+        return None
+    try:
+        return storage.signed_url(path, url_ttl_seconds)
+    except StorageError:
+        # The team still loads; the member sees their initials until Storage recovers.
+        return None
+
+
 def profile(actor: Actor, storage: Storage, url_ttl_seconds: int) -> Profile:
-    """The caller's own favourite team and a short-lived URL for their photo."""
-    user = actor.connection.execute(
-        select(t.users.c.favourite_team_id, t.users.c.photo_path).where(t.users.c.id == actor.user_id)
-    ).one()
-    photo_url = None
-    if user.photo_path:
-        try:
-            photo_url = storage.signed_url(user.photo_path, url_ttl_seconds)
-        except StorageError:
-            # The team still loads; the member sees their initials until Storage recovers.
-            photo_url = None
-    return Profile(user.favourite_team_id, photo_url)
+    """The caller's favourite team in this league and a short-lived URL for their photo."""
+    return Profile(actor.favourite_team_id, photo_url(actor.connection, actor.user_id, storage, url_ttl_seconds))
 
 
 def reserve_photo_upload(actor: Actor, storage: Storage, *, content_type: str, size_bytes: int, max_bytes: int) -> dict[str, Any]:
@@ -354,13 +678,17 @@ def update_profile(
     remove_photo: bool,
     max_bytes: int,
 ) -> None:
-    """Changes only the caller's own profile. A new photo must be an upload the caller made."""
-    if club(favourite_team_id) is None:
-        raise problem(422, "unknown_team", "Choose a URC team.")
-    u = t.users
-    user = actor.connection.execute(
-        select(u.c.favourite_team_id, u.c.photo_path).where(u.c.id == actor.user_id).with_for_update()
-    ).one()
+    """Changes only the caller's own profile: the team on their membership in this league
+    (one of the league's competition's clubs) and the account-wide photo. A new photo must be
+    an upload the caller made."""
+    membership_id = require_membership(actor)
+    if actor.competition.club(favourite_team_id) is None:
+        raise problem(422, "unknown_team", "Choose a team from this competition.")
+    u, m = t.users, t.league_memberships
+    user = actor.connection.execute(select(u.c.photo_path).where(u.c.id == actor.user_id).with_for_update()).one()
+    previous_team = actor.connection.execute(
+        select(m.c.favourite_team_id).where(m.c.id == membership_id).with_for_update()
+    ).scalar_one()
     new_path = user.photo_path
     if photo_path is not None:
         pattern = rf"{re.escape(_photo_prefix(actor.user_id))}[0-9a-f-]{{36}}-[A-Za-z0-9_-]+\.jpg"
@@ -384,22 +712,25 @@ def update_profile(
     elif remove_photo:
         new_path = None
 
-    actor.connection.execute(
-        update(u)
-        .where(u.c.id == actor.user_id)
-        .values(
-            favourite_team_id=favourite_team_id,
-            photo_path=new_path,
-            photo_updated_at=func.now() if new_path != user.photo_path else u.c.photo_updated_at,
-            updated_at=func.now(),
+    if new_path != user.photo_path:
+        actor.connection.execute(
+            update(u)
+            .where(u.c.id == actor.user_id)
+            .values(photo_path=new_path, photo_updated_at=func.now(), updated_at=func.now())
         )
-    )
+    if favourite_team_id != previous_team:
+        actor.connection.execute(
+            update(m)
+            .where(m.c.id == membership_id)
+            .values(favourite_team_id=favourite_team_id, updated_at=func.now(), version=m.c.version + 1)
+        )
+        actor.favourite_team_id = favourite_team_id
     record(
         actor,
         action="profile.updated",
         entity_type="user",
         entity_id=actor.user_id,
-        before={"favouriteTeamId": user.favourite_team_id, "photo": user.photo_path is not None},
+        before={"favouriteTeamId": previous_team, "photo": user.photo_path is not None},
         after={"favouriteTeamId": favourite_team_id, "photo": new_path is not None},
     )
     if user.photo_path and user.photo_path != new_path:
@@ -493,16 +824,11 @@ def _display(row: Any, links: list[Any], now: datetime) -> str:
     return "overdue" if row.deadline_at is not None and now > row.deadline_at else "open"
 
 
-def round_label(round_number: int) -> str:
-    code = str(round_number).zfill(2) if round_number <= REGULAR_ROUNDS else {19: "QF", 20: "SF", 21: "F"}[round_number]
-    return f"Round {code}"
-
-
-def duty_title(duty_type: str, round_number: int | None) -> str:
+def duty_title(competition: Competition, duty_type: str, round_number: int | None) -> str:
     label = "Spoon duty" if duty_type == "spoon" else "Pick confirmation"
     if round_number is None:
         return label
-    return f"{round_label(round_number)} {label}"
+    return f"{competition.round_label(round_number)} {label}"
 
 
 def create_duty(
@@ -514,6 +840,7 @@ def create_duty(
     deadline_at: datetime | None,
     reason: str,
 ) -> UUID:
+    created_by = require_membership(actor)
     if duty_type not in DUTY_TYPES:
         raise problem(422, "unknown_duty_type", "Unknown duty type.")
     sm = t.season_memberships
@@ -525,7 +852,7 @@ def create_duty(
     if season_membership_id is None:
         raise problem(404, "unknown_member", "That member is not enrolled in this season.")
     if deadline_at is None:
-        deadline_at = default_deadline(duty_type, round_number)
+        deadline_at = default_deadline(actor.competition, duty_type, round_number)
     status = "open" if deadline_at is not None else "pending_deadline"
     try:
         with actor.connection.begin_nested():
@@ -540,7 +867,7 @@ def create_duty(
                     reason=reason,
                     deadline_at=deadline_at,
                     status=status,
-                    created_by_membership_id=actor.membership_id,
+                    created_by_membership_id=created_by,
                 )
                 .returning(t.duties.c.id)
             ).scalar_one()
@@ -549,7 +876,7 @@ def create_duty(
     member_name = actor.connection.execute(
         select(t.league_memberships.c.display_name).where(t.league_memberships.c.id == member_id)
     ).scalar_one()
-    title = duty_title(duty_type, round_number)
+    title = duty_title(actor.competition, duty_type, round_number)
     record(
         actor,
         action="duty.created",
@@ -597,7 +924,7 @@ def void_duty(actor: Actor, duty_id: UUID, *, reason: str) -> None:
         after={"status": "voided"},
         feed=FeedEntry(
             kind="duty_voided",
-            title=f"{view.member_name}: {duty_title(row.type, row.round_number)} voided.",
+            title=f"{view.member_name}: {duty_title(actor.competition, row.type, row.round_number)} voided.",
             detail=reason,
             round_number=row.round_number,
             subject_membership_id=view.member_id,
@@ -637,7 +964,7 @@ def reset_clock(actor: Actor, duty_id: UUID, *, reason: str) -> None:
         after={"clockResetAt": _iso(now), "marks": 0},
         feed=FeedEntry(
             kind="duty_clock_reset",
-            title=f"{view.member_name}: {duty_title(row.type, row.round_number)} clock reset.",
+            title=f"{view.member_name}: {duty_title(actor.competition, row.type, row.round_number)} clock reset.",
             detail=reason,
             round_number=row.round_number,
             subject_membership_id=view.member_id,
@@ -702,6 +1029,7 @@ def standings(actor: Actor, round_number: int | None = None) -> list[dict[str, A
 def record_standings(actor: Actor, round_number: int, entries: Sequence[tuple[UUID, Decimal]]) -> None:
     """Replaces a round's Superbru table with the captain's copy of the pool results. Members
     left out lose their row for the round. Unchanged rows are left alone."""
+    recorded_by = require_membership(actor)
     member_ids = [member_id for member_id, _ in entries]
     if len(set(member_ids)) != len(member_ids):
         raise problem(422, "duplicate_member", "Each member can appear once in a round's standings.")
@@ -746,7 +1074,7 @@ def record_standings(actor: Actor, round_number: int, entries: Sequence[tuple[UU
                     season_membership_id=season_membership_id,
                     round_number=round_number,
                     points=points,
-                    recorded_by_membership_id=actor.membership_id,
+                    recorded_by_membership_id=recorded_by,
                 )
             )
         elif current.points != points:
@@ -755,7 +1083,7 @@ def record_standings(actor: Actor, round_number: int, entries: Sequence[tuple[UU
                 .where(rs.c.id == current.id)
                 .values(
                     points=points,
-                    recorded_by_membership_id=actor.membership_id,
+                    recorded_by_membership_id=recorded_by,
                     updated_at=func.now(),
                     version=rs.c.version + 1,
                 )
@@ -774,7 +1102,7 @@ def record_standings(actor: Actor, round_number: int, entries: Sequence[tuple[UU
         after={"roundNumber": round_number, "points": after},
         feed=FeedEntry(
             kind="standings_recorded",
-            title=f"{round_label(round_number)} Superbru standings updated.",
+            title=f"{actor.competition.round_label(round_number)} Superbru standings updated.",
             detail=detail,
             round_number=round_number,
         ),
@@ -794,6 +1122,7 @@ def reserve_upload(
     max_bytes: int,
     ttl_seconds: int,
 ) -> dict[str, Any]:
+    require_membership(actor)
     if actor.season_membership_id is None:
         raise problem(403, "not_in_season", "You are not enrolled in this season.")
     if not content_type.startswith(VIDEO_TYPES):
@@ -836,12 +1165,13 @@ def submit_evidence(
     claimed_completed_at: datetime | None,
     max_bytes: int,
 ) -> UUID:
+    submitter_id = require_membership(actor)
     if not duty_ids:
         raise problem(422, "no_duties", "Choose at least one duty.")
-    subject_id = subject_member_id or actor.membership_id
-    on_behalf = subject_id != actor.membership_id
+    subject_id = subject_member_id or submitter_id
+    on_behalf = subject_id != submitter_id
     if on_behalf:
-        if not actor.is_captain:
+        if not actor.administers:
             raise problem(403, "captain_only", "Only the captain can submit evidence for another member.")
         if claimed_completed_at is None:
             raise problem(422, "completion_time_required", "Record when the duty was completed.")
@@ -852,7 +1182,7 @@ def submit_evidence(
 
     a = t.media_assets
     asset = actor.connection.execute(select(a).where(a.c.id == asset_id).with_for_update()).first()
-    if asset is None or asset.uploader_membership_id != actor.membership_id:
+    if asset is None or asset.uploader_membership_id != submitter_id:
         raise problem(404, "unknown_asset", "Unknown upload.")
     if asset.status != "reserved":
         raise problem(409, "asset_used", "This upload was already submitted.")
@@ -899,7 +1229,7 @@ def submit_evidence(
         .values(
             league_id=actor.league_id,
             season_id=actor.season_id,
-            submitter_membership_id=actor.membership_id,
+            submitter_membership_id=submitter_id,
             subject_membership_id=subject_id,
             asset_id=asset_id,
             claimed_completed_at=claimed_completed_at,
@@ -914,7 +1244,7 @@ def submit_evidence(
     subject_name = actor.connection.execute(
         select(t.league_memberships.c.display_name).where(t.league_memberships.c.id == subject_id)
     ).scalar_one()
-    titles = ", ".join(duty_title(r.type, r.round_number) for r in rows)
+    titles = ", ".join(duty_title(actor.competition, r.type, r.round_number) for r in rows)
     record(
         actor,
         action="evidence.submitted",
@@ -937,8 +1267,9 @@ def submit_evidence(
 def decide_link(actor: Actor, link_id: UUID, *, decision: str, reason: str) -> None:
     if decision not in ("accepted", "rejected"):
         raise problem(422, "unknown_decision", "Decision must be accepted or rejected.")
-    if not actor.is_captain:
+    if not actor.administers:
         raise problem(403, "captain_only", "Only an uninvolved captain can decide evidence.")
+    decided_by = require_membership(actor)
     l, s, d, sm = t.duty_evidence_links, t.evidence_submissions, t.duties, t.season_memberships
     row = actor.connection.execute(
         select(
@@ -972,7 +1303,7 @@ def decide_link(actor: Actor, link_id: UUID, *, decision: str, reason: str) -> N
     effective = row.claimed_completed_at if row.submitter_membership_id != row.subject_membership_id else row.submitted_at
     values: dict[str, Any] = {
         "decision": decision,
-        "decided_by_membership_id": actor.membership_id,
+        "decided_by_membership_id": decided_by,
         "decided_at": func.now(),
         "reason": reason,
         "updated_at": func.now(),
@@ -995,7 +1326,7 @@ def decide_link(actor: Actor, link_id: UUID, *, decision: str, reason: str) -> N
     subject_name = actor.connection.execute(
         select(t.league_memberships.c.display_name).where(t.league_memberships.c.id == row.subject_membership_id)
     ).scalar_one()
-    title = duty_title(row.type, row.round_number)
+    title = duty_title(actor.competition, row.type, row.round_number)
     record(
         actor,
         action=f"evidence.{decision}",

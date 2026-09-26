@@ -1,4 +1,8 @@
-"""Assembles the match centre (teamsheets, kickoff forecast, live score) from cached snapshots."""
+"""Assembles the match centre (teamsheets, kickoff forecast, live score) from cached snapshots.
+
+One service per competition (app.state.match_centres, keyed by competition id). Snapshot
+keys start with the competition id, so competitions never share a cached provider answer.
+"""
 
 import logging
 from concurrent.futures import ThreadPoolExecutor
@@ -7,31 +11,34 @@ from typing import Any, Callable
 
 import httpx
 
+from app.competitions.base import Club, Competition, Stadium
 from app.config import Settings
 from app.matchcentre.cache import Fetched, Snapshot, SnapshotCache, cached, now_utc
-from app.matchcentre.catalogue import Club, Stadium, club, stadium
-from app.matchcentre.providers import espn, scores, teamsheets, weather
-from app.matchcentre.schedule import Fixture, load_schedule
+from app.matchcentre.providers import scores, teamsheets, weather
+from app.matchcentre.schedule import Fixture
 
 logger = logging.getLogger(__name__)
 
 HttpFactory = Callable[[], httpx.Client]
 
-TEAMSHEETS_SOURCE = "URC match centre"
 WEATHER_SOURCE = "Open-Meteo"
-SCORES_SOURCE = "URC match centre"
 
 
 class MatchCentreService:
-    def __init__(self, settings: Settings, cache: SnapshotCache, http: HttpFactory) -> None:
+    def __init__(self, competition: Competition, settings: Settings, cache: SnapshotCache, http: HttpFactory) -> None:
+        self.competition = competition
         self._settings = settings
         self._cache = cache
         self._http = http
 
+    def key(self, *parts: object) -> str:
+        """The snapshot key: `{competition_id}:` then the parts joined by colons."""
+        return ":".join((self.competition.id, *(str(part) for part in parts)))
+
     def build(self, fixture: Fixture, now: datetime | None = None) -> dict[str, Any]:
         moment = now or now_utc()
-        home = club(fixture.home_id)
-        away = club(fixture.away_id)
+        home = self.competition.club(fixture.home_id)
+        away = self.competition.club(fixture.away_id)
         with ThreadPoolExecutor(max_workers=3) as pool:
             sections = {
                 "teamsheets": pool.submit(self.teamsheets, fixture, moment),
@@ -53,7 +60,7 @@ class MatchCentreService:
     def round_scores(self, round_number: int, now: datetime | None = None) -> dict[str, Any]:
         """Every fixture of a round with its state and score, without the event timelines."""
         moment = now or now_utc()
-        fixtures = load_schedule().round(round_number)
+        fixtures = self.competition.schedule().round(round_number)
         section = self._round_section(round_number, fixtures, moment)
         found = section.pop("matches", {})
         return {
@@ -68,8 +75,8 @@ class MatchCentreService:
 
     def _score(self, fixture: Fixture, now: datetime) -> dict[str, Any]:
         if not scores.started(fixture, now):
-            return _section("too_early", SCORES_SOURCE, **_scheduled())
-        fixtures = load_schedule().round(fixture.round)
+            return _section("too_early", self.competition.scores.source, **_scheduled())
+        fixtures = self.competition.schedule().round(fixture.round)
         section = self._round_section(fixture.round, fixtures, now)
         match = section.pop("matches", {}).get(fixture.id)
         if section["status"] == "ok" and match is None:
@@ -78,32 +85,34 @@ class MatchCentreService:
 
     def _round_section(self, round_number: int, fixtures: list[Fixture], now: datetime) -> dict[str, Any]:
         """The round's score snapshot. No feed call until a kickoff is near."""
+        source = self.competition.scores.source
         live = [f for f in fixtures if scores.started(f, now)]
         if not live:
-            return _section("too_early", SCORES_SOURCE)
-        key = f"scores:round:{round_number}"
+            return _section("too_early", source)
+        key = self.key("scores", "round", round_number)
         snapshot = cached(self._cache, key, lambda: self._fetch_round(key, fixtures, now), now=now)
-        section = _from_snapshot(snapshot, SCORES_SOURCE)
+        section = _from_snapshot(snapshot, source)
         section.pop("urcRetryAt", None)
         return section
 
     def _fetch_round(self, key: str, fixtures: list[Fixture], now: datetime) -> Fetched:
-        """The URC feed first; ESPN when it fails or is backing off after a failure."""
-        retry_at = self._urc_retry_at(key)
+        """The competition's scores provider first; its fallback when that fails or is backing
+        off after a failure. The retry time is stored as `urcRetryAt` in the snapshot."""
+        primary, fallback = self.competition.scores, self.competition.fallback_scores
+        retry_at = self._urc_retry_at(key) if fallback is not None else None
         urc_error: Exception | None = None
         if retry_at is None or now >= retry_at:
             try:
-                return self._with_client(
-                    lambda c: scores.fetch_scores(c, self._settings.urc_graphql_url, fixtures, now)
-                )
+                return self._with_client(lambda c: primary.fetch_scores(c, self._settings, fixtures, now))
             except Exception as exc:  # noqa: BLE001 - the fallback decides what is reported
-                logger.warning("URC scores failed for %s: %s", key, type(exc).__name__)
+                if fallback is None:
+                    raise
+                logger.warning("Scores failed for %s: %s", key, type(exc).__name__)
                 urc_error = exc
                 retry_at = now + scores.URC_BACKOFF
+        assert fallback is not None
         try:
-            fetched = self._with_client(
-                lambda c: espn.fetch_scores(c, self._settings.espn_scoreboard_url, fixtures, now)
-            )
+            fetched = self._with_client(lambda c: fallback.fetch_scores(c, self._settings, fixtures, now))
         except Exception:
             if urc_error is not None:
                 raise urc_error from None
@@ -112,7 +121,7 @@ class MatchCentreService:
         return Fetched(fetched.status, payload, fetched.ttl)
 
     def _urc_retry_at(self, key: str) -> datetime | None:
-        """When the URC feed may be tried again, from the round's last snapshot."""
+        """When the primary scores feed may be tried again, from the round's last snapshot."""
         try:
             previous = self._cache.get(key)
         except Exception:  # noqa: BLE001 - no back-off without a readable cache
@@ -125,26 +134,23 @@ class MatchCentreService:
 
     def teamsheets(self, fixture: Fixture, now: datetime) -> dict[str, Any]:
         """The teamsheets section, fetched through the snapshot cache."""
+        provider = self.competition.teamsheets
         if fixture.kickoff_utc is None or fixture.home_id is None or fixture.away_id is None:
-            return _section("not_published", TEAMSHEETS_SOURCE)
+            return _section("not_published", provider.source)
         timing = teamsheets.timing_status(fixture.kickoff_utc, now)
         if timing:
-            return _section(timing, TEAMSHEETS_SOURCE)
+            return _section(timing, provider.source)
         snapshot = cached(
             self._cache,
-            f"teamsheets:{fixture.id}",
-            lambda: self._with_client(
-                lambda c: teamsheets.fetch_teamsheets(
-                    c, self._settings.urc_graphql_url, fixture.id
-                )
-            ),
+            self.key("teamsheets", fixture.id),
+            lambda: self._with_client(lambda c: provider.fetch_teamsheets(c, self._settings, fixture)),
             now=now,
         )
-        return _from_snapshot(snapshot, TEAMSHEETS_SOURCE)
+        return _from_snapshot(snapshot, provider.source)
 
     def weather(self, fixture: Fixture, now: datetime) -> dict[str, Any]:
         """The kickoff forecast section, fetched through the snapshot cache."""
-        place: Stadium | None = stadium(fixture.venue)
+        place: Stadium | None = self.competition.stadium(fixture.venue)
         if fixture.kickoff_utc is None or place is None:
             return _section("unavailable", WEATHER_SOURCE, reason="venue or kickoff unknown")
         timing = weather.timing_status(fixture.kickoff_utc, now)
@@ -153,7 +159,7 @@ class MatchCentreService:
         kickoff = fixture.kickoff_utc
         snapshot = cached(
             self._cache,
-            f"weather:{fixture.id}",
+            self.key("weather", fixture.id),
             lambda: self._with_client(
                 lambda c: weather.fetch_forecast(c, self._settings.weather_api_url, place, kickoff)
             ),

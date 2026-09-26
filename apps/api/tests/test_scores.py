@@ -2,13 +2,13 @@ import json
 from datetime import timedelta
 from pathlib import Path
 
+from app.competitions.urc_2026_27 import COMPETITION as URC
 from app.matchcentre import service as service_module
 from app.matchcentre.providers import espn, scores
-from app.matchcentre.schedule import load_schedule
 from tests.test_matches import FIXTURE, KICKOFF, Upstream, make_client
 
 HOME, AWAY = 2019, 3533  # Benetton, Dragons
-ROUND_ONE = [int(f.id) for f in load_schedule().round(1)]
+ROUND_ONE = [int(f.id) for f in URC.schedule().round(1)]
 
 
 def event(event_id, minute, kind, display, team=None, player=None, period="first half", time=None):
@@ -66,12 +66,12 @@ def round_feed(*matches):
 def test_round_before_kickoff_makes_no_feed_call(monkeypatch) -> None:
     upstream = Upstream()
     client = make_client(upstream, KICKOFF - timedelta(hours=1), monkeypatch)
-    body = client.get("/v1/rounds/1/scores").json()
+    body = client.get("/v1/competitions/urc-2026-27/rounds/1/scores").json()
     assert body["status"] == "too_early"
     assert [m["fixtureId"] for m in body["matches"]] == [str(i) for i in ROUND_ONE]
     assert {m["state"] for m in body["matches"]} == {"scheduled"}
     assert upstream.calls == {}
-    assert client.get("/v1/rounds/99/scores").status_code == 404
+    assert client.get("/v1/competitions/urc-2026-27/rounds/99/scores").status_code == 404
 
 
 def test_live_round_is_cached_briefly(monkeypatch) -> None:
@@ -79,7 +79,7 @@ def test_live_round_is_cached_briefly(monkeypatch) -> None:
     upstream = Upstream(scores=round_feed(live))
     now = KICKOFF + timedelta(minutes=35)
     client = make_client(upstream, now, monkeypatch)
-    body = client.get("/v1/rounds/1/scores").json()
+    body = client.get("/v1/competitions/urc-2026-27/rounds/1/scores").json()
     assert body["status"] == "ok"
     match = next(m for m in body["matches"] if m["fixtureId"] == FIXTURE)
     assert match == {
@@ -95,14 +95,14 @@ def test_live_round_is_cached_briefly(monkeypatch) -> None:
     assert other["state"] == "scheduled" and other["home"]["score"] is None
     # One query covers the whole round, and the match centre reuses the snapshot.
     assert upstream.score_requests == [{"ids": ROUND_ONE}]
-    client.get(f"/v1/matches/{FIXTURE}")
+    client.get(f"/v1/competitions/urc-2026-27/matches/{FIXTURE}")
     assert len(upstream.score_requests) == 1
 
     monkeypatch.setattr(service_module, "now_utc", lambda: now + timedelta(seconds=45))
-    client.get("/v1/rounds/1/scores")
+    client.get("/v1/competitions/urc-2026-27/rounds/1/scores")
     assert len(upstream.score_requests) == 1
     monkeypatch.setattr(service_module, "now_utc", lambda: now + timedelta(seconds=65))
-    client.get("/v1/rounds/1/scores")
+    client.get("/v1/competitions/urc-2026-27/rounds/1/scores")
     assert len(upstream.score_requests) == 2
     assert upstream.espn_requests == []
 
@@ -112,14 +112,14 @@ def test_second_half_reports_live_with_the_minute(monkeypatch) -> None:
     events = FIRST_HALF[:-1] + [first_half_end, event(10, 40, "period", "second half start", period="second half")]
     playing = feed_match(int(FIXTURE), status="live", period="second half", minute=53, score=(19, 14), ht=(19, 7), events=events)
     client = make_client(Upstream(scores=round_feed(playing)), KICKOFF + timedelta(minutes=75), monkeypatch)
-    match = next(m for m in client.get("/v1/rounds/1/scores").json()["matches"] if m["fixtureId"] == FIXTURE)
+    match = next(m for m in client.get("/v1/competitions/urc-2026-27/rounds/1/scores").json()["matches"] if m["fixtureId"] == FIXTURE)
     assert (match["state"], match["minute"], match["period"]) == ("live", 53, "second half")
 
 
 def test_match_centre_timeline_and_half_time(monkeypatch) -> None:
     half_time = feed_match(int(FIXTURE), status="live", period="first half", minute=40, score=(10, 7), ht=(10, 7), events=FIRST_HALF)
     client = make_client(Upstream(scores=round_feed(half_time)), KICKOFF + timedelta(minutes=50), monkeypatch)
-    section = client.get(f"/v1/matches/{FIXTURE}").json()["score"]
+    section = client.get(f"/v1/competitions/urc-2026-27/matches/{FIXTURE}").json()["score"]
     assert section["status"] == "ok"
     assert section["state"] == "half_time"
     assert section["home"] == {"score": 10, "halfTime": 10}
@@ -146,23 +146,23 @@ def test_match_centre_timeline_and_half_time(monkeypatch) -> None:
 def test_full_time_and_feed_failure(monkeypatch) -> None:
     final = feed_match(int(FIXTURE), status="result", period="post match", minute=81, finalised=1, score=(10, 7), ht=(10, 7), events=FIRST_HALF)
     client = make_client(Upstream(scores=round_feed(final)), KICKOFF + timedelta(hours=3), monkeypatch)
-    section = client.get(f"/v1/matches/{FIXTURE}").json()["score"]
+    section = client.get(f"/v1/competitions/urc-2026-27/matches/{FIXTURE}").json()["score"]
     assert section["state"] == "full_time"
     assert section["minute"] is None
 
     both = {"www.unitedrugby.com", "site.api.espn.com"}
     down = make_client(Upstream(fail=both), KICKOFF + timedelta(minutes=10), monkeypatch)
-    body = down.get("/v1/rounds/1/scores").json()
+    body = down.get("/v1/competitions/urc-2026-27/rounds/1/scores").json()
     assert body["status"] == "unavailable"
     assert body["reason"] == "HTTP 503"
     assert {m["state"] for m in body["matches"]} == {"scheduled"}
-    assert down.get(f"/v1/matches/{FIXTURE}").json()["score"]["status"] == "unavailable"
+    assert down.get(f"/v1/competitions/urc-2026-27/matches/{FIXTURE}").json()["score"]["status"] == "unavailable"
 
 
 def test_rejected_scores_query_is_unavailable(monkeypatch) -> None:
     upstream = Upstream(scores={"errors": [{"message": "Cannot query field minute"}]}, fail={"site.api.espn.com"})
     client = make_client(upstream, KICKOFF + timedelta(minutes=10), monkeypatch)
-    body = client.get("/v1/rounds/1/scores").json()
+    body = client.get("/v1/competitions/urc-2026-27/rounds/1/scores").json()
     assert body["status"] == "unavailable"
     assert body["reason"] == "provider error: Cannot query field minute"
 
@@ -186,7 +186,7 @@ def test_match_state_rules() -> None:
 
 
 def test_snapshot_lifetime_follows_the_round() -> None:
-    fixtures = load_schedule().round(1)
+    fixtures = URC.schedule().round(1)
     friday = [f for f in fixtures if f.kickoff_utc == KICKOFF]
     saturday = min(f.kickoff_utc for f in fixtures if f.kickoff_utc > KICKOFF)
     live = {f.id: {"state": "live"} for f in friday}
@@ -230,7 +230,7 @@ def test_espn_serves_when_the_urc_feed_fails(monkeypatch) -> None:
     upstream = Upstream(fail={"www.unitedrugby.com"}, espn=ESPN_FRIDAY)
     now = KICKOFF + timedelta(minutes=35)
     client = make_client(upstream, now, monkeypatch)
-    body = client.get("/v1/rounds/1/scores").json()
+    body = client.get("/v1/competitions/urc-2026-27/rounds/1/scores").json()
     assert body["status"] == "ok"
     assert body["source"] == "ESPN"
     by_id = {m["fixtureId"]: m for m in body["matches"]}
@@ -243,7 +243,7 @@ def test_espn_serves_when_the_urc_feed_fails(monkeypatch) -> None:
     # Only Friday has kicked off, so one ESPN request.
     assert upstream.espn_requests == ["20260925"]
 
-    section = client.get(f"/v1/matches/{FIXTURE}").json()["score"]
+    section = client.get(f"/v1/competitions/urc-2026-27/matches/{FIXTURE}").json()["score"]
     assert section["source"] == "ESPN"
     assert section["timeline"] is False
     assert section["events"] == []
@@ -252,13 +252,13 @@ def test_espn_serves_when_the_urc_feed_fails(monkeypatch) -> None:
     # While backing off, refreshes go straight to ESPN; after five minutes URC is tried again.
     urc_calls = upstream.calls["www.unitedrugby.com"]
     monkeypatch.setattr(service_module, "now_utc", lambda: now + timedelta(minutes=2))
-    client.get("/v1/rounds/1/scores")
+    client.get("/v1/competitions/urc-2026-27/rounds/1/scores")
     assert upstream.calls["www.unitedrugby.com"] == urc_calls
     assert len(upstream.espn_requests) == 2
     upstream.fail.clear()
     upstream.scores = round_feed(feed_match(int(FIXTURE), status="live", period="first half", minute=41, score=(14, 7)))
     monkeypatch.setattr(service_module, "now_utc", lambda: now + timedelta(minutes=6))
-    body = client.get("/v1/rounds/1/scores").json()
+    body = client.get("/v1/competitions/urc-2026-27/rounds/1/scores").json()
     assert body["source"] == "URC match centre"
     assert next(m for m in body["matches"] if m["fixtureId"] == FIXTURE)["minute"] == 41
 

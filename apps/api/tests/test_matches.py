@@ -4,12 +4,11 @@ from datetime import datetime, timedelta, timezone
 import httpx
 from fastapi.testclient import TestClient
 
+from app.competitions.urc_2026_27 import COMPETITION as URC
 from app.config import Settings
 from app.matchcentre import service as service_module
 from app.matchcentre.cache import Fetched, MemorySnapshotCache, ProviderError, cached
-from app.matchcentre.catalogue import club, stadium
 from app.matchcentre.providers import teamsheets, weather
-from app.matchcentre.schedule import load_schedule
 
 ALLOWED = "http://localhost:4200"
 FIXTURE = "292584"  # Benetton v Dragons, 2026-09-25 18:45 UTC at Stadio Monigo
@@ -127,7 +126,7 @@ class Upstream:
             return httpx.Response(200, json=self.espn)
         if host == "api.open-meteo.com":
             params = dict(request.url.params)
-            assert params["latitude"] == str(stadium("Stadio Monigo").latitude)
+            assert params["latitude"] == str(URC.stadium("Stadio Monigo").latitude)
             hours = self.weather_hours or ["2026-09-25T17:00", "2026-09-25T18:00", "2026-09-25T19:00"]
             n = len(hours)
             return httpx.Response(
@@ -167,13 +166,13 @@ def make_client(upstream: Upstream, now: datetime, monkeypatch, **overrides) -> 
 
 def test_unknown_fixture_is_404(monkeypatch) -> None:
     client = make_client(Upstream(), KICKOFF, monkeypatch)
-    assert client.get("/v1/matches/nope").status_code == 404
+    assert client.get("/v1/competitions/urc-2026-27/matches/nope").status_code == 404
 
 
 def test_far_out_fixture_makes_no_provider_calls(monkeypatch) -> None:
     upstream = Upstream()
     client = make_client(upstream, KICKOFF - timedelta(days=30), monkeypatch)
-    body = client.get(f"/v1/matches/{FIXTURE}").json()
+    body = client.get(f"/v1/competitions/urc-2026-27/matches/{FIXTURE}").json()
     assert body["home"] == {"id": "benetton-rugby", "name": "Benetton Rugby", "shortName": "Benetton"}
     assert body["kickoffUtc"] == "2026-09-25T18:45:00Z"
     assert body["teamsheets"]["status"] == "not_published"
@@ -185,7 +184,7 @@ def test_far_out_fixture_makes_no_provider_calls(monkeypatch) -> None:
 def test_match_week_returns_all_sections(monkeypatch) -> None:
     upstream = Upstream()
     client = make_client(upstream, KICKOFF - timedelta(days=2), monkeypatch)
-    response = client.get(f"/v1/matches/{FIXTURE}")
+    response = client.get(f"/v1/competitions/urc-2026-27/matches/{FIXTURE}")
     assert response.status_code == 200
     body = response.json()
 
@@ -222,14 +221,14 @@ def test_match_week_returns_all_sections(monkeypatch) -> None:
     assert forecast["city"] == "Treviso"
     assert forecast["isDay"] is False
 
-    client.get(f"/v1/matches/{FIXTURE}")
+    client.get(f"/v1/competitions/urc-2026-27/matches/{FIXTURE}")
     assert upstream.calls == {"www.unitedrugby.com": 2, "api.open-meteo.com": 1}
 
 
 def test_failed_bio_lookup_keeps_the_teamsheet(monkeypatch) -> None:
     upstream = Upstream(bios_fail=True)
     client = make_client(upstream, KICKOFF - timedelta(days=2), monkeypatch)
-    sheets = client.get(f"/v1/matches/{FIXTURE}").json()["teamsheets"]
+    sheets = client.get(f"/v1/competitions/urc-2026-27/matches/{FIXTURE}").json()["teamsheets"]
     assert sheets["status"] == "ok"
     assert len(sheets["away"]["replacements"]) == 8
     player = sheets["home"]["starters"][0]
@@ -241,7 +240,7 @@ def test_failed_bio_lookup_keeps_the_teamsheet(monkeypatch) -> None:
 def test_provider_failures_become_unavailable_without_leaking(monkeypatch) -> None:
     upstream = Upstream(fail={"www.unitedrugby.com", "api.open-meteo.com"})
     client = make_client(upstream, KICKOFF - timedelta(days=1), monkeypatch)
-    response = client.get(f"/v1/matches/{FIXTURE}")
+    response = client.get(f"/v1/competitions/urc-2026-27/matches/{FIXTURE}")
     assert response.status_code == 200
     body = response.json()
     assert {body[k]["status"] for k in ("teamsheets", "weather")} == {"unavailable"}
@@ -252,7 +251,7 @@ def test_provider_failures_become_unavailable_without_leaking(monkeypatch) -> No
 def test_rejected_teamsheet_query_and_unpublished_sheets(monkeypatch) -> None:
     rejected = Upstream(graphql={"errors": [{"message": "Cannot query field players"}]})
     client = make_client(rejected, KICKOFF - timedelta(days=1), monkeypatch)
-    section = client.get(f"/v1/matches/{FIXTURE}").json()["teamsheets"]
+    section = client.get(f"/v1/competitions/urc-2026-27/matches/{FIXTURE}").json()["teamsheets"]
     assert section["status"] == "unavailable"
     assert section["feedErrors"] == ["Cannot query field players"]
     assert section["feedFields"] == {
@@ -266,13 +265,13 @@ def test_rejected_teamsheet_query_and_unpublished_sheets(monkeypatch) -> None:
     for side in ("homeTeam", "awayTeam"):
         empty["data"]["matchstats"][0]["stats_data"][side]["players"] = []
     client = make_client(Upstream(graphql=empty), KICKOFF - timedelta(days=1), monkeypatch)
-    assert client.get(f"/v1/matches/{FIXTURE}").json()["teamsheets"]["status"] == "not_published"
+    assert client.get(f"/v1/competitions/urc-2026-27/matches/{FIXTURE}").json()["teamsheets"]["status"] == "not_published"
 
 
 def test_past_match_statuses(monkeypatch) -> None:
     upstream = Upstream()
     client = make_client(upstream, KICKOFF + timedelta(days=1), monkeypatch)
-    body = client.get(f"/v1/matches/{FIXTURE}").json()
+    body = client.get(f"/v1/competitions/urc-2026-27/matches/{FIXTURE}").json()
     assert body["weather"]["status"] == "past"
     assert body["teamsheets"]["status"] == "ok"
 
@@ -303,13 +302,13 @@ def test_cached_falls_back_to_stale_snapshot_on_failure() -> None:
 
 
 def test_schedule_and_catalogues_cover_every_fixture() -> None:
-    schedule = load_schedule()
+    schedule = URC.schedule()
     assert len(schedule.fixtures) == 151
     for fixture in schedule.fixtures:
         if fixture.home_id:
-            assert club(fixture.home_id) and club(fixture.away_id)
+            assert URC.club(fixture.home_id) and URC.club(fixture.away_id)
         if fixture.venue:
-            assert stadium(fixture.venue), fixture.venue
+            assert URC.stadium(fixture.venue), fixture.venue
 
 
 def test_weather_helpers() -> None:

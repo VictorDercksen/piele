@@ -1,5 +1,7 @@
 {
   "league": "Piele",
+  "slug": "piele",
+  "competitionId": "urc-2026-27",
   "season": { "name": "URC 2026/27", "competition": "United Rugby Championship 2026/27" },
   "captain": "Victor Dercksen",
   "members": [

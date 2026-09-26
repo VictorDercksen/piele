@@ -1,18 +1,19 @@
 from datetime import datetime
 from typing import Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict
 
 from app.agent import previews
 from app.agent.models import MatchPreview
-from app.league.context import Actor, actor_dependency
+from app.dependencies import competition_centre
+from app.league.context import Account, competition_member_dependency
 from app.matchcentre import service as service_module
 from app.matchcentre import updates
-from app.matchcentre.schedule import load_schedule
 from app.matchcentre.service import MatchCentreService
 
-router = APIRouter(tags=["matches"])
+# Competition data under /v1/competitions/{competitionId}: the same for every league.
+router = APIRouter(tags=["competitions"])
 
 SectionStatus = Literal["ok", "not_published", "too_early", "past", "unavailable"]
 
@@ -93,24 +94,25 @@ class RoundUpdates(BaseModel):
     events: list[RoundEvent]
 
 
-def match_centre_service(request: Request) -> MatchCentreService:
-    return request.app.state.match_centre
-
-
-@router.get("/matches/{fixture_id}", response_model=MatchCentre)
-def match_centre(fixture_id: str, request: Request) -> Any:
-    fixture = load_schedule().fixture(fixture_id)
+@router.get("/competitions/{competitionId}/matches/{fixture_id}", response_model=MatchCentre)
+def match_centre(fixture_id: str, centre: MatchCentreService = Depends(competition_centre)) -> Any:
+    fixture = centre.competition.schedule().fixture(fixture_id)
     if fixture is None:
         raise HTTPException(status_code=404, detail="Unknown fixture.")
-    return match_centre_service(request).build(fixture)
+    return centre.build(fixture)
 
 
-@router.get("/matches/{fixture_id}/preview", response_model=MatchPreview)
-def match_preview(fixture_id: str, actor: Actor = Depends(actor_dependency)) -> Any:
+@router.get("/competitions/{competitionId}/matches/{fixture_id}/preview", response_model=MatchPreview)
+def match_preview(
+    fixture_id: str,
+    centre: MatchCentreService = Depends(competition_centre),
+    account: Account = Depends(competition_member_dependency),
+) -> Any:
     """The latest Pavilion preview for members. Written by the preview agent before kickoff."""
-    if load_schedule().fixture(fixture_id) is None:
+    competition = centre.competition
+    if competition.schedule().fixture(fixture_id) is None:
         raise HTTPException(status_code=404, detail="Unknown fixture.")
-    row = previews.latest(actor.connection, fixture_id)
+    row = previews.latest(account.connection, competition.id, fixture_id)
     if row is None:
         return {"fixtureId": fixture_id, "preview": None}
     return {
@@ -126,19 +128,22 @@ def match_preview(fixture_id: str, actor: Actor = Depends(actor_dependency)) -> 
     }
 
 
-@router.get("/rounds/{round_number}/scores", response_model=RoundScores)
-def round_scores(round_number: int, request: Request) -> Any:
-    if not load_schedule().round(round_number):
+@router.get("/competitions/{competitionId}/rounds/{round_number}/scores", response_model=RoundScores)
+def round_scores(round_number: int, centre: MatchCentreService = Depends(competition_centre)) -> Any:
+    if not centre.competition.schedule().round(round_number):
         raise HTTPException(status_code=404, detail="Unknown round.")
-    return match_centre_service(request).round_scores(round_number)
+    return centre.round_scores(round_number)
 
 
-@router.get("/rounds/{round_number}/updates", response_model=RoundUpdates)
-def round_updates(round_number: int, request: Request, actor: Actor = Depends(actor_dependency)) -> Any:
+@router.get("/competitions/{competitionId}/rounds/{round_number}/updates", response_model=RoundUpdates)
+def round_updates(
+    round_number: int,
+    centre: MatchCentreService = Depends(competition_centre),
+    account: Account = Depends(competition_member_dependency),
+) -> Any:
     """The round's teamsheets, previews, kick-offs and full-time results for the notifications
-    panel. Members only, because it reports the Pavilion previews."""
-    if not load_schedule().round(round_number):
+    panel. Members of a league on this competition (or the admin) only, because it reports
+    the Pavilion previews."""
+    if not centre.competition.schedule().round(round_number):
         raise HTTPException(status_code=404, detail="Unknown round.")
-    return updates.round_updates(
-        actor.connection, match_centre_service(request), round_number, service_module.now_utc()
-    )
+    return updates.round_updates(account.connection, centre, round_number, service_module.now_utc())

@@ -16,12 +16,11 @@ from sqlalchemy import text
 from app.agent import state as state_module
 from app.agent import previews
 from app.agent.previews import DISPATCH_LEASE, MAX_DISPATCHES, due_reason, open_for_preview
+from app.competitions.urc_2026_27 import COMPETITION as URC
 from app.config import Settings
 from app.db import get_engine
 from app.main import create_app
 from app.matchcentre.cache import MemorySnapshotCache
-from app.matchcentre.catalogue import club
-from app.matchcentre.schedule import load_schedule
 from app.routers import agent as agent_router
 from tests.test_league import SECRET, SUPABASE_URL, auth, captain_headers, client, storage  # noqa: F401
 
@@ -46,7 +45,7 @@ class Feed:
         self.variant = ""
 
     def lineup(self, fixture_id: str, team_id: str) -> list[dict]:
-        short = club(team_id).short_name
+        short = URC.club(team_id).short_name
         names = {n: f"{short} {n}" for n in range(1, 24)}
         benches = ["Prop", "Hooker", "Prop", "Lock", "Flanker", "Scrum-half", "Fly-half", "Wing"]
         if team_id == "benetton-rugby":
@@ -76,7 +75,7 @@ class Feed:
         if "query Bios" in body["query"]:
             players = [{"id": i, "player_data": {"dob": "1996-10-10T00:00:00Z"}} for i in body["variables"]["ids"]]
             return httpx.Response(200, json={"data": {"players": players}})
-        fixture = load_schedule().fixture(str(body["variables"]["ids"][0]))
+        fixture = URC.schedule().fixture(str(body["variables"]["ids"][0]))
         stats = {
             "homeTeam": {"players": self.lineup(fixture.id, fixture.home_id)},
             "awayTeam": {"players": self.lineup(fixture.id, fixture.away_id)},
@@ -255,7 +254,7 @@ def test_due_reasons() -> None:
 
 
 def test_only_fixtures_inside_the_teamsheet_window_are_open() -> None:
-    fixture = load_schedule().fixture(FIXTURE)
+    fixture = URC.schedule().fixture(FIXTURE)
     assert open_for_preview(fixture, KICKOFF - timedelta(days=3))
     assert not open_for_preview(fixture, KICKOFF - timedelta(days=3, minutes=1))
     assert not open_for_preview(fixture, KICKOFF)
@@ -375,7 +374,7 @@ def rolled_back(test):
 
 def fresh_fixture():
     """A copy of FIXTURE under an id no stored preview or dispatch uses."""
-    return replace(load_schedule().fixture(FIXTURE), id=f"t{uuid4().hex[:12]}")
+    return replace(URC.schedule().fixture(FIXTURE), id=f"t{uuid4().hex[:12]}")
 
 
 @needs_database
@@ -384,14 +383,14 @@ def test_claims_hold_for_the_lease_and_stop_after_the_last_attempt() -> None:
         fixture, now = fresh_fixture(), DAY_BEFORE
         hashes = {fixture: "a" * 64}
         for attempt in range(1, MAX_DISPATCHES + 1):
-            (due,) = previews.due_fixtures(connection, hashes, now)
+            (due,) = previews.due_fixtures(connection, URC.id, hashes, now)
             assert (due["attempt"], due["reason"]) == (attempt, "first_preview" if attempt == 1 else "retry")
             assert previews.claim(connection, due, now)["dispatchedAt"] == now
             # Claimed: not due, and a second claim of the same attempt is refused.
-            assert previews.due_fixtures(connection, hashes, now + DISPATCH_LEASE - timedelta(seconds=1)) == []
+            assert previews.due_fixtures(connection, URC.id, hashes, now + DISPATCH_LEASE - timedelta(seconds=1)) == []
             assert previews.claim(connection, due, now) is None
             now += DISPATCH_LEASE
-        assert previews.due_fixtures(connection, hashes, now + timedelta(days=1)) == []
+        assert previews.due_fixtures(connection, URC.id, hashes, now + timedelta(days=1)) == []
 
     rolled_back(test)
 
@@ -401,12 +400,13 @@ def test_a_saved_preview_ends_the_claims() -> None:
     def test(connection) -> None:
         fixture = fresh_fixture()
         hashes = {fixture: "a" * 64}
-        (due,) = previews.due_fixtures(connection, hashes, DAY_BEFORE)
+        (due,) = previews.due_fixtures(connection, URC.id, hashes, DAY_BEFORE)
         previews.claim(connection, due, DAY_BEFORE)
         values = submission(FAKE_STATE)
         previews.save(
             connection,
             {
+                "competition_id": URC.id,
                 "fixture_id": fixture.id,
                 "inputs_hash": values["inputsHash"],
                 "teamsheet_hash": values["teamsheetHash"],
@@ -418,7 +418,7 @@ def test_a_saved_preview_ends_the_claims() -> None:
                 "run_id": values["runId"],
             },
         )
-        assert previews.due_fixtures(connection, hashes, DAY_BEFORE + DISPATCH_LEASE * 2) == []
+        assert previews.due_fixtures(connection, URC.id, hashes, DAY_BEFORE + DISPATCH_LEASE * 2) == []
 
     rolled_back(test)
 
@@ -429,10 +429,10 @@ def test_a_forced_claim_ignores_the_lease_the_attempt_limit_and_a_saved_preview(
         fixture, now = fresh_fixture(), DAY_BEFORE
         hashes = {fixture: "a" * 64}
         for attempt in range(1, MAX_DISPATCHES + 2):
-            (due,) = previews.due_fixtures(connection, hashes, now, force=True)
+            (due,) = previews.due_fixtures(connection, URC.id, hashes, now, force=True)
             assert (due["attempt"], due["reason"]) == (attempt, "forced")
             assert previews.claim(connection, due, now) is not None
-        assert previews.due_fixtures(connection, hashes, now) == []
+        assert previews.due_fixtures(connection, URC.id, hashes, now) == []
 
     rolled_back(test)
 
@@ -478,14 +478,14 @@ def test_dispatches_claim_each_due_fixture_once(monkeypatch) -> None:
 
 @needs_database
 def test_members_read_the_latest_preview(monkeypatch, client: TestClient) -> None:  # noqa: F811
-    assert client.get(f"/v1/matches/{FIXTURE}/preview").status_code == 401
-    assert client.get("/v1/matches/nope/preview", headers=captain_headers(client)).status_code == 404
+    assert client.get(f"/v1/competitions/urc-2026-27/matches/{FIXTURE}/preview").status_code == 401
+    assert client.get("/v1/competitions/urc-2026-27/matches/nope/preview", headers=captain_headers(client)).status_code == 404
 
     agent = agent_client(monkeypatch, DAY_BEFORE, database_url=DATABASE_URL)
     state = agent.get(f"/v1/agent/fixtures/{FIXTURE}/state", headers=AGENT).json()
     stored = agent.post("/v1/agent/previews", json=submission(state), headers=AGENT).json()
 
-    body = client.get(f"/v1/matches/{FIXTURE}/preview", headers=captain_headers(client)).json()
+    body = client.get(f"/v1/competitions/urc-2026-27/matches/{FIXTURE}/preview", headers=captain_headers(client)).json()
     preview = body["preview"]
     assert body["fixtureId"] == FIXTURE
     assert preview["revision"] == stored["revision"]
@@ -498,7 +498,7 @@ def test_members_read_the_latest_preview(monkeypatch, client: TestClient) -> Non
 
 @needs_database
 def test_a_fixture_without_a_preview_reads_as_none(client: TestClient) -> None:  # noqa: F811
-    body = client.get("/v1/matches/292700/preview", headers=captain_headers(client)).json()
+    body = client.get("/v1/competitions/urc-2026-27/matches/292700/preview", headers=captain_headers(client)).json()
     assert body == {"fixtureId": "292700", "preview": None}
 
 

@@ -1,8 +1,9 @@
 """Stored match previews and the rule for when a fixture needs one.
 
 Mirrors supabase/migrations/20260925120000_match_previews.sql and
-20260925180000_preview_dispatches.sql. Previews are global competition data: append-only
-revisions per fixture, written only through the API. A fixture gets one preview, written
+20260925180000_preview_dispatches.sql, keyed by competition since
+20260926150000_competitions.sql. Previews are competition data shared by every league:
+append-only revisions per competition and fixture, written only through the API. A fixture gets one preview, written
 once both teamsheets are published; the agent's schedule claims it first (a dispatch), so
 overlapping ticks never start two sessions for the same fixture.
 """
@@ -30,7 +31,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.agent.state import teamsheet_hash
 from app.matchcentre.providers.teamsheets import PUBLISH_WINDOW
-from app.matchcentre.schedule import Fixture, Schedule
+from app.matchcentre.schedule import Fixture
 from app.matchcentre.service import MatchCentreService
 
 metadata = MetaData()
@@ -39,6 +40,7 @@ match_previews = Table(
     "match_previews",
     metadata,
     Column("id", UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()),
+    Column("competition_id", String(40), nullable=False),
     Column("fixture_id", String(40), nullable=False),
     Column("revision", Integer, nullable=False),
     Column("generated_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
@@ -57,6 +59,7 @@ match_previews = Table(
 preview_dispatches = Table(
     "preview_dispatches",
     metadata,
+    Column("competition_id", String(40), primary_key=True),
     Column("fixture_id", String(40), primary_key=True),
     Column("attempt", Integer, primary_key=True),
     Column("dispatched_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
@@ -116,12 +119,14 @@ def due_reason(
 
 
 def teamsheet_hashes(
-    schedule: Schedule, centre: MatchCentreService, now: datetime, fixture_id: str | None = None
+    centre: MatchCentreService, now: datetime, fixture_id: str | None = None
 ) -> dict[Fixture, str | None]:
-    """Current teamsheet hashes of the fixtures open for a preview (or of one of them).
-    Calls providers; no database."""
+    """Current teamsheet hashes of the competition's fixtures open for a preview (or of one
+    of them). Calls providers; no database."""
     candidates = [
-        f for f in schedule.fixtures if open_for_preview(f, now) and fixture_id in (None, f.id)
+        f
+        for f in centre.competition.schedule().fixtures
+        if open_for_preview(f, now) and fixture_id in (None, f.id)
     ]
     with ThreadPoolExecutor(max_workers=4) as pool:
         sections = list(pool.map(lambda f: centre.teamsheets(f, now), candidates))
@@ -129,10 +134,15 @@ def teamsheet_hashes(
 
 
 def due_fixtures(
-    connection: Connection, hashes: dict[Fixture, str | None], now: datetime, force: bool = False
+    connection: Connection,
+    competition_id: str,
+    hashes: dict[Fixture, str | None],
+    now: datetime,
+    force: bool = False,
 ) -> list[dict[str, Any]]:
     ids = [f.id for f in hashes]
-    previews, dispatches = latest_by_fixture(connection, ids), latest_dispatches(connection, ids)
+    previews = latest_by_fixture(connection, competition_id, ids)
+    dispatches = latest_dispatches(connection, competition_id, ids)
     due = []
     for fixture, current in sorted(hashes.items(), key=lambda item: (item[0].kickoff_utc, item[0].id)):
         assert fixture.kickoff_utc is not None
@@ -141,6 +151,7 @@ def due_fixtures(
         if reason:
             due.append(
                 {
+                    "competitionId": competition_id,
                     "fixtureId": fixture.id,
                     "round": fixture.round,
                     "kickoffUtc": fixture.kickoff_utc,
@@ -161,6 +172,7 @@ def claim(connection: Connection, due: dict[str, Any], now: datetime) -> dict[st
             row = connection.execute(
                 insert(preview_dispatches)
                 .values(
+                    competition_id=due["competitionId"],
                     fixture_id=due["fixtureId"],
                     attempt=due["attempt"],
                     dispatched_at=now,
@@ -173,33 +185,36 @@ def claim(connection: Connection, due: dict[str, Any], now: datetime) -> dict[st
     return {**due, "dispatchedAt": row.dispatched_at}
 
 
-def latest_dispatches(connection: Connection, fixture_ids: list[str]) -> dict[str, Row]:
+def latest_dispatches(connection: Connection, competition_id: str, fixture_ids: list[str]) -> dict[str, Row]:
     if not fixture_ids:
         return {}
     rows = connection.execute(
         select(preview_dispatches)
-        .where(preview_dispatches.c.fixture_id.in_(fixture_ids))
+        .where(
+            preview_dispatches.c.competition_id == competition_id,
+            preview_dispatches.c.fixture_id.in_(fixture_ids),
+        )
         .distinct(preview_dispatches.c.fixture_id)
         .order_by(preview_dispatches.c.fixture_id, preview_dispatches.c.attempt.desc())
     ).all()
     return {row.fixture_id: row for row in rows}
 
 
-def latest(connection: Connection, fixture_id: str) -> Row | None:
+def latest(connection: Connection, competition_id: str, fixture_id: str) -> Row | None:
     return connection.execute(
         select(match_previews)
-        .where(match_previews.c.fixture_id == fixture_id)
+        .where(match_previews.c.competition_id == competition_id, match_previews.c.fixture_id == fixture_id)
         .order_by(match_previews.c.revision.desc())
         .limit(1)
     ).first()
 
 
-def latest_by_fixture(connection: Connection, fixture_ids: list[str]) -> dict[str, Row]:
+def latest_by_fixture(connection: Connection, competition_id: str, fixture_ids: list[str]) -> dict[str, Row]:
     if not fixture_ids:
         return {}
     rows = connection.execute(
         select(match_previews)
-        .where(match_previews.c.fixture_id.in_(fixture_ids))
+        .where(match_previews.c.competition_id == competition_id, match_previews.c.fixture_id.in_(fixture_ids))
         .distinct(match_previews.c.fixture_id)
         .order_by(match_previews.c.fixture_id, match_previews.c.revision.desc())
     ).all()
@@ -209,18 +224,18 @@ def latest_by_fixture(connection: Connection, fixture_ids: list[str]) -> dict[st
 def save(connection: Connection, values: dict[str, Any]) -> tuple[Row, bool]:
     """Insert the next revision. Returns the row and whether it was created.
 
-    A run that was already stored (same fixture and run id) returns its preview unchanged,
-    so the agent can retry a submission safely.
+    A run that was already stored (same competition, fixture and run id) returns its preview
+    unchanged, so the agent can retry a submission safely.
     """
-    fixture_id, run_id = values["fixture_id"], values.get("run_id")
+    competition_id, fixture_id, run_id = values["competition_id"], values["fixture_id"], values.get("run_id")
     for _ in range(SAVE_ATTEMPTS):
         if run_id:
-            existing = _by_run(connection, fixture_id, run_id)
+            existing = _by_run(connection, competition_id, fixture_id, run_id)
             if existing is not None:
                 return existing, False
         revision = connection.execute(
             select(func.coalesce(func.max(match_previews.c.revision), 0) + 1).where(
-                match_previews.c.fixture_id == fixture_id
+                match_previews.c.competition_id == competition_id, match_previews.c.fixture_id == fixture_id
             )
         ).scalar_one()
         try:
@@ -234,7 +249,11 @@ def save(connection: Connection, values: dict[str, Any]) -> tuple[Row, bool]:
     raise PreviewConflict(f"Could not store a preview for fixture {fixture_id}.")
 
 
-def _by_run(connection: Connection, fixture_id: str, run_id: str) -> Row | None:
+def _by_run(connection: Connection, competition_id: str, fixture_id: str, run_id: str) -> Row | None:
     return connection.execute(
-        select(match_previews).where(match_previews.c.fixture_id == fixture_id, match_previews.c.run_id == run_id)
+        select(match_previews).where(
+            match_previews.c.competition_id == competition_id,
+            match_previews.c.fixture_id == fixture_id,
+            match_previews.c.run_id == run_id,
+        )
     ).first()

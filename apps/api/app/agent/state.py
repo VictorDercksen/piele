@@ -13,7 +13,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime
 from typing import Any, Literal
 
-from app.matchcentre.catalogue import club, stadium
+from app.competitions.base import Competition
 from app.matchcentre.schedule import Fixture, Schedule
 from app.matchcentre.service import MatchCentreService
 
@@ -30,9 +30,11 @@ FORWARD_WORDS = ("prop", "hooker", "lock", "second row", "flanker", "back row", 
 BACK_WORDS = ("half", "centre", "center", "wing", "full", "back")
 
 
-def build_state(fixture: Fixture, schedule: Schedule, centre: MatchCentreService, now: datetime) -> dict[str, Any]:
-    """The state for one fixture with known teams and kickoff."""
+def build_state(fixture: Fixture, centre: MatchCentreService, now: datetime) -> dict[str, Any]:
+    """The state for one fixture of the centre's competition with known teams and kickoff."""
     assert fixture.kickoff_utc and fixture.home_id and fixture.away_id
+    competition = centre.competition
+    schedule = competition.schedule()
     recent = {
         side: previous_fixtures(schedule, team, fixture.kickoff_utc)
         for side, team in (("home", fixture.home_id), ("away", fixture.away_id))
@@ -46,13 +48,15 @@ def build_state(fixture: Fixture, schedule: Schedule, centre: MatchCentreService
         weather = forecast.result()
         past_sections = {fid: future.result() for fid, future in past.items()}
 
-    venue = stadium(fixture.venue)
+    venue = competition.stadium(fixture.venue)
     sides = {}
     for side in ("home", "away"):
         team_id = fixture.home_id if side == "home" else fixture.away_id
         sheet = sheets.get(side) if sheets.get("status") == "ok" else None
         previous = [(f, side_sheet(past_sections[f.id], f, team_id)) for f in recent[side]]
-        sides[side] = side_state(fixture, side, team_id, sheet, previous, venue.country if venue else None)
+        sides[side] = side_state(
+            competition, fixture, side, team_id, sheet, previous, venue.country if venue else None
+        )
 
     state = {
         "fixtureId": fixture.id,
@@ -68,7 +72,9 @@ def build_state(fixture: Fixture, schedule: Schedule, centre: MatchCentreService
         "form": {"status": "unavailable", "reason": "Match results are not recorded yet."},
         "teamsheetHash": teamsheet_hash(sheets),
     }
-    return {**state, "stateHash": digest(state), "generatedAt": now}
+    # The competition id is outside the hash, so a state's hash reads the same as before
+    # competitions were named.
+    return {"competitionId": competition.id, **state, "stateHash": digest(state), "generatedAt": now}
 
 
 def previous_fixtures(schedule: Schedule, team_id: str, before: datetime, limit: int = RECENT_FIXTURES) -> list[Fixture]:
@@ -89,6 +95,7 @@ def side_sheet(section: dict[str, Any], fixture: Fixture, team_id: str) -> dict[
 
 
 def side_state(
+    competition: Competition,
     fixture: Fixture,
     side: Side,
     team_id: str,
@@ -96,7 +103,7 @@ def side_state(
     previous: list[tuple[Fixture, dict[str, Any] | None]],
     venue_country: str | None,
 ) -> dict[str, Any]:
-    team = club(team_id)
+    team = competition.club(team_id)
     last = previous[0][0] if previous else None
     rest = (fixture.kickoff_utc - last.kickoff_utc).days if last and fixture.kickoff_utc and last.kickoff_utc else None
     earlier_sheets = [s for _, s in previous if s is not None]

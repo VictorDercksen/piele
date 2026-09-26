@@ -7,13 +7,14 @@ import httpx
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
+from app import competitions
 from app.config import Settings, get_settings
 from app.db import get_engine
 from app.league.auth import JwksVerifier, SecretVerifier, TokenVerifier, UnconfiguredVerifier
 from app.league.storage import Storage, SupabaseStorage, UnconfiguredStorage
 from app.matchcentre.cache import MemorySnapshotCache, PostgresSnapshotCache, SnapshotCache
 from app.matchcentre.service import MatchCentreService, default_http_factory
-from app.routers import agent, health, league, matches
+from app.routers import account, agent, health, league, matches
 
 REQUEST_ID_HEADER = "X-Request-ID"
 _SAFE_REQUEST_ID = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
@@ -32,17 +33,19 @@ def create_app(
     docs_off = {"docs_url": None, "redoc_url": None, "openapi_url": None}
     app = FastAPI(title="The Pavilion API", version="0.1.0", **(docs_off if settings.is_production else {}))
     app.state.settings = settings
-    app.state.match_centre = MatchCentreService(
-        settings,
-        snapshot_cache or _snapshot_cache(settings),
-        _http_factory(settings, http_transport),
-    )
+    cache = snapshot_cache or _snapshot_cache(settings)
+    http = _http_factory(settings, http_transport)
+    # One match centre per competition, keyed by competition id; they share the cache.
+    app.state.match_centres = {
+        competition.id: MatchCentreService(competition, settings, cache, http) for competition in competitions.ALL.values()
+    }
 
     app.state.token_verifier = token_verifier or _token_verifier(settings)
     app.state.storage = storage or _storage(settings)
 
     app.include_router(health.router, prefix="/v1")
     app.include_router(matches.router, prefix="/v1")
+    app.include_router(account.router, prefix="/v1")
     app.include_router(league.router, prefix="/v1")
     app.include_router(agent.router, prefix="/v1")
 

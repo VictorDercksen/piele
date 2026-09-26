@@ -15,7 +15,7 @@ from app.matchcentre import milestones
 from app.matchcentre.milestones import FULL_TIME, TEAMSHEETS_PUBLISHED, Milestone, MilestoneKey
 from app.matchcentre.providers import scores
 from app.matchcentre.providers.teamsheets import PUBLISH_WINDOW
-from app.matchcentre.schedule import Fixture, load_schedule
+from app.matchcentre.schedule import Fixture
 from app.matchcentre.service import MatchCentreService
 
 # Teamsheets are looked for from the publication window until this long after kickoff.
@@ -78,9 +78,10 @@ def build_events(
 def round_updates(
     connection: Connection, centre: MatchCentreService, round_number: int, now: datetime
 ) -> dict[str, Any]:
-    fixtures = load_schedule().round(round_number)
+    competition_id = centre.competition.id
+    fixtures = centre.competition.schedule().round(round_number)
     ids = [fixture.id for fixture in fixtures]
-    known = dict(milestones.by_fixture(connection, ids))
+    known = dict(milestones.by_fixture(connection, competition_id, ids))
 
     pending = [f for f in fixtures if (f.id, TEAMSHEETS_PUBLISHED) not in known and teamsheets_due(f, now)]
     if pending:
@@ -90,7 +91,7 @@ def round_updates(
             if section.get("status") == "ok":
                 observed = section.get("fetchedAt") or now
                 known[(fixture.id, TEAMSHEETS_PUBLISHED)] = milestones.record(
-                    connection, fixture.id, TEAMSHEETS_PUBLISHED, observed, {}
+                    connection, competition_id, fixture.id, TEAMSHEETS_PUBLISHED, observed, {}
                 )
 
     matches: dict[str, Mapping[str, Any]] = {}
@@ -102,9 +103,11 @@ def round_updates(
         match = matches.get(fixture.id)
         if match and match.get("state") == "full_time" and (fixture.id, FULL_TIME) not in known:
             detail = {"home": match["home"]["score"], "away": match["away"]["score"]}
-            known[(fixture.id, FULL_TIME)] = milestones.record(connection, fixture.id, FULL_TIME, now, detail)
+            known[(fixture.id, FULL_TIME)] = milestones.record(
+                connection, competition_id, fixture.id, FULL_TIME, now, detail
+            )
 
-    stored = previews.latest_by_fixture(connection, ids)
+    stored = previews.latest_by_fixture(connection, competition_id, ids)
     return {
         "round": round_number,
         "generatedAt": now,

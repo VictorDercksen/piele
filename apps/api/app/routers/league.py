@@ -1,4 +1,6 @@
-"""League endpoints under /v1. Handlers validate input and delegate to app.league.service."""
+"""League endpoints under /v1/leagues/{leagueId}. Handlers validate input and delegate to
+app.league.service. Every route resolves the caller in the path league (`actor_dependency`)
+or requires its captain or the admin (`steward_dependency`)."""
 
 from datetime import datetime
 from decimal import Decimal
@@ -8,12 +10,13 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Path, Query, Request
 from pydantic import BaseModel, Field, field_validator
 
+from app.competitions import Competition
 from app.config import Settings
 from app.league import service
-from app.league.context import Account, Actor, account_dependency, actor_dependency, actor_for, captain_dependency
+from app.league.context import Actor, actor_dependency, steward_dependency
 from app.league.storage import Storage
 
-router = APIRouter(tags=["league"])
+router = APIRouter(prefix="/leagues/{leagueId}", tags=["league"])
 
 DutyType = Literal["spoon", "pick_confirmation"]
 # Enough to catch typos; the address is only ever compared with a verified sign-in email.
@@ -33,38 +36,83 @@ def storage_of(request: Request) -> Storage:
 # Me and members -----------------------------------------------------------------------
 
 
+class CompetitionRef(BaseModel):
+    id: str
+    name: str
+    shortName: str
+
+
+def competition_ref(competition: Competition) -> CompetitionRef:
+    return CompetitionRef(id=competition.id, name=competition.name, shortName=competition.short_name)
+
+
+def emblem_url(emblem_path: str | None) -> str | None:
+    """Phase 2 serves no emblems yet; the web falls back to the crest or a monogram."""
+    return None
+
+
 class Me(BaseModel):
-    memberId: UUID
-    displayName: str
-    isCaptain: bool
+    """The caller in one league. The admin viewing a league they do not belong to gets
+    memberId null, displayName "Admin" and isCaptain false."""
+
+    leagueId: UUID
+    slug: str
     leagueName: str
+    timezone: str
+    emblemUrl: str | None
+    accentColour: str | None
+    competition: CompetitionRef
     seasonName: str
     inSeason: bool
-    # The caller's own profile. photoUrl is short-lived; download it straight away.
+    memberId: UUID | None
+    displayName: str
+    isCaptain: bool
+    isAdmin: bool
+    administers: bool
+    # The caller's own profile: the team in this league, the account-wide photo.
+    # photoUrl is short-lived; download it straight away.
     favouriteTeamId: str | None
     photoUrl: str | None
-    # What the member has read in the notifications panel: a high-water mark and the keys
-    # of items read individually above it. Account-wide, like the profile.
+    # What the member has read in this league's notifications panel: a high-water mark and
+    # the keys of items read individually above it.
     notificationsReadAt: datetime | None
     notificationsReadKeys: list[str]
 
 
-@router.get("/me", response_model=Me)
-def me(request: Request, actor: Actor = Depends(actor_dependency)) -> Me:
+def me_document(request: Request, actor: Actor) -> Me:
     profile = service.profile(actor, storage_of(request), settings_of(request).profile_photo_url_ttl_seconds)
     read = service.notifications_read(actor)
     return Me(
+        leagueId=actor.league_id,
+        slug=actor.league_slug,
+        leagueName=actor.league_name,
+        timezone=actor.league_timezone,
+        emblemUrl=emblem_url(actor.league_emblem_path),
+        accentColour=actor.league_accent_colour,
+        competition=competition_ref(actor.competition),
+        seasonName=actor.season_name,
+        inSeason=actor.season_membership_id is not None,
         memberId=actor.membership_id,
         displayName=actor.display_name,
         isCaptain=actor.is_captain,
-        leagueName=actor.league_name,
-        seasonName=actor.season_name,
-        inSeason=actor.season_membership_id is not None,
+        isAdmin=actor.is_admin,
+        administers=actor.administers,
         favouriteTeamId=profile.favourite_team_id,
         photoUrl=profile.photo_url,
         notificationsReadAt=read.read_at,
         notificationsReadKeys=read.read_keys,
     )
+
+
+@router.get("/me", response_model=Me)
+def me(request: Request, actor: Actor = Depends(actor_dependency)) -> Me:
+    return me_document(request, actor)
+
+
+@router.put("/me/last", status_code=204)
+def record_last_league(actor: Actor = Depends(actor_dependency)) -> None:
+    """Remembers this league as the one the account opened last."""
+    service.record_last_league(actor)
 
 
 class NotificationsRead(BaseModel):
@@ -76,7 +124,8 @@ class NotificationsRead(BaseModel):
 
 @router.put("/me/notifications", response_model=NotificationsRead)
 def update_notifications(body: NotificationsRead, actor: Actor = Depends(actor_dependency)) -> NotificationsRead:
-    """Saves what the caller has read in the notifications panel and returns the merged state."""
+    """Saves what the caller has read in this league's notifications panel and returns the
+    merged state."""
     read = service.update_notifications_read(actor, read_at=body.readAt, read_keys=body.readKeys)
     return NotificationsRead(readAt=read.read_at, readKeys=read.read_keys)
 
@@ -94,6 +143,8 @@ class PhotoUploadGrant(BaseModel):
 
 @router.post("/me/photo/uploads", response_model=PhotoUploadGrant, status_code=201)
 def reserve_photo_upload(body: PhotoUploadRequest, request: Request, actor: Actor = Depends(actor_dependency)) -> Any:
+    """The photo is account-wide (avatars/<user id>/); the route sits under the league so
+    the client has one base URL."""
     return service.reserve_photo_upload(
         actor,
         storage_of(request),
@@ -112,7 +163,8 @@ class ProfileUpdate(BaseModel):
 
 @router.put("/me/profile", response_model=Me)
 def update_profile(body: ProfileUpdate, request: Request, actor: Actor = Depends(actor_dependency)) -> Me:
-    """Saves the caller's favourite team and photo. Nobody can change another member's profile."""
+    """Saves the caller's favourite team in this league and their photo. Nobody can change
+    another member's profile."""
     service.update_profile(
         actor,
         storage_of(request),
@@ -121,38 +173,11 @@ def update_profile(body: ProfileUpdate, request: Request, actor: Actor = Depends
         remove_photo=body.removePhoto,
         max_bytes=settings_of(request).profile_photo_max_bytes,
     )
-    return me(request, actor)
-
-
-class UnclaimedName(BaseModel):
-    id: UUID
-    displayName: str
-    fullName: str
-
-
-@router.get("/memberships/unclaimed", response_model=list[UnclaimedName])
-def unclaimed(account: Account = Depends(account_dependency)) -> list[UnclaimedName]:
-    return [
-        UnclaimedName(id=row.id, displayName=row.display_name, fullName=row.full_name)
-        for row in service.unclaimed_memberships(account.connection)
-    ]
-
-
-class Claim(BaseModel):
-    memberId: UUID
-
-
-@router.post("/memberships/claim", response_model=Me)
-def claim(body: Claim, request: Request, account: Account = Depends(account_dependency)) -> Me:
-    """A signed-in account without a membership takes one of the unclaimed Superbru names."""
-    if not service.claim_membership(account.connection, account.user_id, body.memberId):
-        raise service.problem(409, "name_taken", "That name is no longer available. Choose another.")
-    actor = actor_for(account, just_claimed=True)
-    return me(request, actor)
+    return me_document(request, actor)
 
 
 @router.post("/members/{member_id}/release", status_code=204)
-def release_member(member_id: UUID, actor: Actor = Depends(captain_dependency)) -> None:
+def release_member(member_id: UUID, actor: Actor = Depends(steward_dependency)) -> None:
     service.release_membership(actor, member_id)
 
 
@@ -163,7 +188,7 @@ class Member(BaseModel):
     status: str
     claimed: bool
     inSeason: bool
-    # Only returned to the captain.
+    # Only returned to the captain and the admin.
     email: str | None = None
 
 
@@ -177,7 +202,7 @@ def list_members(actor: Actor = Depends(actor_dependency)) -> list[Member]:
             status=row.status,
             claimed=row.user_id is not None,
             inSeason=row.season_membership_id is not None,
-            email=row.invited_email if actor.is_captain else None,
+            email=row.invited_email if actor.administers else None,
         )
         for row in service.members(actor)
     ]
@@ -207,12 +232,12 @@ class Created(BaseModel):
 
 
 @router.post("/members", response_model=Created, status_code=201)
-def add_member(body: NewMember, actor: Actor = Depends(captain_dependency)) -> Created:
+def add_member(body: NewMember, actor: Actor = Depends(steward_dependency)) -> Created:
     return Created(id=service.add_member(actor, display_name=body.displayName, full_name=body.fullName, email=body.email))
 
 
 @router.patch("/members/{member_id}", status_code=204)
-def update_member(member_id: UUID, body: MemberUpdate, actor: Actor = Depends(captain_dependency)) -> None:
+def update_member(member_id: UUID, body: MemberUpdate, actor: Actor = Depends(steward_dependency)) -> None:
     service.update_member(
         actor, member_id, display_name=body.displayName, email=body.email, clear_email=body.clearEmail
     )
@@ -263,7 +288,7 @@ class Duty(BaseModel):
     evidence: list[EvidenceLink]
 
 
-def _duty(view: service.DutyView) -> Duty:
+def _duty(competition: Competition, view: service.DutyView) -> Duty:
     row = view.row
     return Duty(
         id=row.id,
@@ -271,7 +296,7 @@ def _duty(view: service.DutyView) -> Duty:
         memberName=view.member_name,
         roundNumber=row.round_number,
         type=row.type,
-        title=service.duty_title(row.type, row.round_number),
+        title=service.duty_title(competition, row.type, row.round_number),
         reason=row.reason,
         deadlineAt=row.deadline_at,
         status=row.status,
@@ -308,22 +333,25 @@ def _duty(view: service.DutyView) -> Duty:
 
 
 @router.get("/duties", response_model=list[Duty])
-def list_duties(
-    round: int | None = Query(default=None, ge=1, le=service.LAST_ROUND), actor: Actor = Depends(actor_dependency)
-) -> list[Duty]:
-    return [_duty(view) for view in service.duties(actor, round_number=round)]
+def list_duties(round: int | None = Query(default=None, ge=1), actor: Actor = Depends(actor_dependency)) -> list[Duty]:
+    if round is not None:
+        actor.competition.validate_round(round)
+    return [_duty(actor.competition, view) for view in service.duties(actor, round_number=round)]
 
 
 class NewDuty(BaseModel):
     memberId: UUID
     type: DutyType
-    roundNumber: int | None = Field(default=None, ge=1, le=service.LAST_ROUND)
+    # The upper bound is the competition's last round, checked in the route.
+    roundNumber: int | None = Field(default=None, ge=1)
     deadlineAt: datetime | None = None
     reason: str = Field(default="", max_length=500)
 
 
 @router.post("/duties", response_model=Duty, status_code=201)
-def create_duty(body: NewDuty, actor: Actor = Depends(captain_dependency)) -> Duty:
+def create_duty(body: NewDuty, actor: Actor = Depends(steward_dependency)) -> Duty:
+    if body.roundNumber is not None:
+        actor.competition.validate_round(body.roundNumber)
     duty_id = service.create_duty(
         actor,
         member_id=body.memberId,
@@ -332,7 +360,7 @@ def create_duty(body: NewDuty, actor: Actor = Depends(captain_dependency)) -> Du
         deadline_at=body.deadlineAt,
         reason=body.reason.strip(),
     )
-    return _duty(service.duties(actor, duty_id=duty_id)[0])
+    return _duty(actor.competition, service.duties(actor, duty_id=duty_id)[0])
 
 
 class DefaultDeadline(BaseModel):
@@ -341,9 +369,10 @@ class DefaultDeadline(BaseModel):
 
 @router.get("/duties/default-deadline", response_model=DefaultDeadline)
 def duty_default_deadline(
-    type: DutyType, round: int = Query(ge=1, le=service.LAST_ROUND), actor: Actor = Depends(actor_dependency)
+    type: DutyType, round: int = Query(ge=1), actor: Actor = Depends(actor_dependency)
 ) -> DefaultDeadline:
-    return DefaultDeadline(deadlineAt=service.default_deadline(type, round))
+    actor.competition.validate_round(round)
+    return DefaultDeadline(deadlineAt=service.default_deadline(actor.competition, type, round))
 
 
 class Reason(BaseModel):
@@ -351,16 +380,16 @@ class Reason(BaseModel):
 
 
 @router.post("/duties/{duty_id}/void", response_model=Duty)
-def void_duty(duty_id: UUID, body: Reason, actor: Actor = Depends(captain_dependency)) -> Duty:
+def void_duty(duty_id: UUID, body: Reason, actor: Actor = Depends(steward_dependency)) -> Duty:
     service.void_duty(actor, duty_id, reason=body.reason.strip())
-    return _duty(service.duties(actor, duty_id=duty_id)[0])
+    return _duty(actor.competition, service.duties(actor, duty_id=duty_id)[0])
 
 
 @router.post("/duties/{duty_id}/reset-clock", response_model=Duty)
-def reset_duty_clock(duty_id: UUID, body: Reason, actor: Actor = Depends(captain_dependency)) -> Duty:
+def reset_duty_clock(duty_id: UUID, body: Reason, actor: Actor = Depends(steward_dependency)) -> Duty:
     """Records a challenge resolved in the member's favour: the overdue clock restarts now."""
     service.reset_clock(actor, duty_id, reason=body.reason.strip())
-    return _duty(service.duties(actor, duty_id=duty_id)[0])
+    return _duty(actor.competition, service.duties(actor, duty_id=duty_id)[0])
 
 
 class MemberMarks(BaseModel):
@@ -387,10 +416,10 @@ class Standing(BaseModel):
 
 
 @router.get("/standings", response_model=list[Standing])
-def list_standings(
-    round: int | None = Query(default=None, ge=1, le=service.LAST_ROUND), actor: Actor = Depends(actor_dependency)
-) -> list[Any]:
+def list_standings(round: int | None = Query(default=None, ge=1), actor: Actor = Depends(actor_dependency)) -> list[Any]:
     """Superbru round points per member for the active season, ranked within each round."""
+    if round is not None:
+        actor.competition.validate_round(round)
     return service.standings(actor, round)
 
 
@@ -406,11 +435,12 @@ class RoundStandings(BaseModel):
 @router.put("/rounds/{round_number}/standings", response_model=list[Standing])
 def record_standings(
     body: RoundStandings,
-    round_number: int = Path(ge=1, le=service.LAST_ROUND),
-    actor: Actor = Depends(captain_dependency),
+    round_number: int = Path(ge=1),
+    actor: Actor = Depends(steward_dependency),
 ) -> list[Any]:
     """Captain replaces a round's Superbru table from the pool results. Members left out lose
     their row for the round."""
+    actor.competition.validate_round(round_number)
     service.record_standings(actor, round_number, [(entry.memberId, entry.points) for entry in body.standings])
     return service.standings(actor, round_number)
 
@@ -450,7 +480,7 @@ class Submission(BaseModel):
     assetId: UUID
     dutyIds: list[UUID] = Field(min_length=1, max_length=10)
     note: str = Field(default="", max_length=500)
-    # Captain only: the member the evidence is for and when they completed the duty.
+    # Captain or admin only: the member the evidence is for and when they completed the duty.
     subjectMemberId: UUID | None = None
     claimedCompletedAt: datetime | None = None
 
@@ -509,10 +539,12 @@ class FeedItem(BaseModel):
 
 @router.get("/feed", response_model=list[FeedItem])
 def feed(
-    round: int | None = Query(default=None, ge=1, le=service.LAST_ROUND),
+    round: int | None = Query(default=None, ge=1),
     limit: int = Query(default=50, ge=1, le=200),
     actor: Actor = Depends(actor_dependency),
 ) -> list[FeedItem]:
+    if round is not None:
+        actor.competition.validate_round(round)
     return [
         FeedItem(
             id=row.id,
