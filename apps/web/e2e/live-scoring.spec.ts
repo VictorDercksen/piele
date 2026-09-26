@@ -120,7 +120,7 @@ async function mockLiveApi(page: Page, stage: { current: Stage }) {
         away: { id: 'dragons-rfc', name: 'Dragons RFC', shortName: 'Dragons' },
         generatedAt: now,
         teamsheets: { status: 'not_published', source: 'URC match centre', fetchedAt: null },
-        weather: { status: 'past', source: 'Open-Meteo', fetchedAt: null },
+        weather: { status: 'unavailable', source: 'Open-Meteo', fetchedAt: null },
         score: score(stage.current, now),
       },
     });
@@ -138,6 +138,8 @@ test.beforeEach(async ({ page }) => {
 
 test('a live match updates the ribbon, hero and scoring timeline', async ({ page }, testInfo) => {
   await page.clock.install({ time: KICKOFF + 31 * 60_000 });
+  // The installed clock holds the pitch's open animation still, so skip it.
+  await page.emulateMedia({ reducedMotion: 'reduce' });
   const stage = { current: LIVE };
   await mockLiveApi(page, stage);
   await page.goto(`/match/${BENETTON}?round=1`);
@@ -152,21 +154,39 @@ test('a live match updates the ribbon, hero and scoring timeline', async ({ page
   await expect(hero.locator('.match-time strong')).toHaveText('3–7');
   await expect(hero.locator('.match-time small')).toHaveText("31'");
 
-  const panel = page.locator('.panel.scoring');
+  // The scoring pitch starts closed under its summary row; a tap anywhere opens it.
+  // The kickoff forecast stays up while the match is on.
+  await expect(page.locator('.panel.weather')).toBeVisible();
+
+  const panel = page.locator('app-scoring-panel');
+  const summary = panel.getByRole('button', { name: /scoring pitch/ });
   await expect(panel.locator('.tag')).toHaveText('live');
-  await expect(panel.locator('.timeline li')).toHaveCount(4);
-  await expect(panel.locator('.timeline li.away').first()).toContainText('Try');
-  await expect(panel.locator('.timeline li.away').first()).toContainText('3–5');
-  await expect(panel.getByRole('img', { name: 'Dragons' }).first()).toBeVisible();
-  await expect(panel.locator('.card.yellow')).toHaveCount(1);
+  await expect(summary).toHaveAttribute('aria-expanded', 'false');
+  await expect(panel.locator('.side.away b')).toHaveText('7');
+  await expect(panel.locator('.track .dot')).toHaveCount(4);
+  await expect(panel.locator('.summary-line')).toContainText("Latest: 30' Yellow card");
+  await panel.locator('.summary-line').click();
+  await expect(summary).toHaveAttribute('aria-expanded', 'true');
+  const rows = panel.locator('.row');
+  await expect(rows).toHaveCount(4);
+  await expect(rows.nth(1)).toHaveClass(/away big/);
+  await expect(rows.nth(1)).toContainText('Try');
+  await expect(rows.nth(1)).toContainText('3–5');
+  await expect(rows.nth(1).locator('.pts')).toContainText('+5');
+  await expect(panel.locator('.row .card.yellow')).toHaveCount(1);
+  await expect(panel.locator('.mark.now')).toHaveText("31' live");
 
   // The next poll brings the second half.
   stage.current = SECOND_HALF;
   await page.clock.runFor(30_000);
   await expect(ribbon).toContainText("LIVE 55'");
   await expect(hero.locator('.match-time strong')).toHaveText('10–7');
-  await expect(panel.locator('.timeline li.divider')).toHaveText('Half time 3–7');
-  await expect(panel.locator('.timeline li.home').last()).toContainText('Penalty try');
+  await expect(panel.locator('.mark.half .chip')).toHaveText('Half time 3–7');
+  await expect(panel.locator('.row.home').last()).toContainText('Penalty try');
+  await expect(panel.locator('.row.home').last().locator('.pts')).toContainText('+7');
+  // Taps on the pitch leave it open.
+  await rows.first().click();
+  await expect(summary).toHaveAttribute('aria-expanded', 'true');
   await page.evaluate(() => document.fonts.ready);
   await page.screenshot({ path: testInfo.outputPath('live-desktop.png'), fullPage: true });
 
@@ -187,6 +207,8 @@ test('a live match updates the ribbon, hero and scoring timeline', async ({ page
   await expect(ribbon).toContainText('FULL TIME');
   await expect(ribbon).not.toHaveClass(/live/);
   await expect(panel.locator('.tag')).toHaveText('full time');
+  await expect(panel.locator('.ingoal.bottom')).toHaveText('Full time · 10–12');
+  await expect(page.locator('.panel.weather')).toHaveCount(0);
   const result = hero.locator('.match-time strong');
   await expect(result).toHaveText('10–12');
   for (const width of [390, 320]) {
@@ -199,6 +221,24 @@ test('a live match updates the ribbon, hero and scoring timeline', async ({ page
       true,
     );
   }
+  await panel.locator('h2').click();
+  await expect(summary).toHaveAttribute('aria-expanded', 'false');
+});
+
+test('the scoring panel appears ten minutes before kickoff', async ({ page }) => {
+  await page.clock.install({ time: KICKOFF - 12 * 60_000 });
+  await mockLiveApi(page, {
+    current: { state: 'scheduled', minute: null, home: 0, away: 0, events: [] },
+  });
+  await page.goto(`/match/${BENETTON}?round=1`);
+  await expect(page.locator('app-match-hero')).toBeVisible();
+  const panel = page.locator('app-scoring-panel');
+  await expect(panel).toHaveCount(0);
+
+  await page.clock.runFor(3 * 60_000);
+  await expect(panel.locator('.tag')).toHaveText('awaiting kickoff');
+  await expect(panel.locator('.track-empty')).toHaveText('Scores appear here from kickoff.');
+  await expect(panel.locator('.side b')).toHaveText(['–', '–']);
 });
 
 test('rounds that have not started make no score request', async ({ page }) => {

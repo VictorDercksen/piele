@@ -1,0 +1,208 @@
+<svg class="defs" width="0" height="0" aria-hidden="true" focusable="false">
+  <!-- Chalk: a slightly rough edge and a grainy break-up, as if painted on grass. -->
+  <filter id="scoring-chalk" x="-2%" y="-60%" width="104%" height="220%">
+    <feTurbulence type="fractalNoise" baseFrequency="1.1" numOctaves="2" seed="5" result="edge" />
+    <feDisplacementMap
+      in="SourceGraphic"
+      in2="edge"
+      scale="1.6"
+      xChannelSelector="R"
+      yChannelSelector="G"
+      result="rough"
+    />
+    <feTurbulence type="fractalNoise" baseFrequency="0.45" numOctaves="3" seed="9" result="grain" />
+    <feColorMatrix
+      in="grain"
+      type="matrix"
+      values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  1.6 0 0 0 0.1"
+      result="speckle"
+    />
+    <feComposite in="rough" in2="speckle" operator="in" result="chalked" />
+    <feGaussianBlur in="chalked" stdDeviation="0.35" />
+  </filter>
+  <filter id="scoring-chalk-text" x="-10%" y="-10%" width="120%" height="120%">
+    <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="2" result="grain" />
+    <feColorMatrix
+      in="grain"
+      type="matrix"
+      values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  1.8 0 0 0 0"
+      result="speckle"
+    />
+    <feComposite in="SourceGraphic" in2="speckle" operator="in" />
+  </filter>
+</svg>
+
+@let v = view();
+<section class="panel" [class.live]="v.live" aria-labelledby="scoring-title">
+  <div class="head">
+    <div class="section-title">
+      <h2 id="scoring-title">Scoring.</h2>
+      <span class="tag" [class.live]="v.live && !v.stale">{{ v.tag }}</span>
+    </div>
+
+    <div
+      class="summary"
+      role="button"
+      tabindex="0"
+      aria-controls="scoring-pitch"
+      [attr.aria-expanded]="open()"
+      [attr.aria-label]="summaryLabel()"
+      (keydown.enter)="onKey($event)"
+      (keydown.space)="onKey($event)"
+    >
+      <span class="side" [style.--club]="v.home.colour">
+        @if (v.home.crest) {
+          <img [src]="v.home.crest" alt="" />
+        }
+        <b>{{ v.home.score }}</b>
+      </span>
+      <div class="track" aria-hidden="true">
+        <i class="tick start"></i>
+        <i class="tick ht"></i>
+        <span class="tick-label">HT</span>
+        <i class="tick end"></i>
+        @if (v.marker; as marker) {
+          <div class="unplayed" [style.left.%]="marker.x"></div>
+          <i class="now" [style.left.%]="marker.x"></i>
+        }
+        @for (row of v.rows; track row.key) {
+          <i
+            class="dot"
+            [class]="row.side"
+            [class.try]="row.try"
+            [class.card]="!!row.card"
+            [class.red]="row.card === 'red'"
+            [style.left.%]="row.x"
+            [style.--club]="row.colour"
+            [style.--club-accent]="row.accent"
+          ></i>
+        }
+        @if (v.empty) {
+          <span class="track-empty">{{ v.empty }}</span>
+        }
+      </div>
+      <span class="side away" [style.--club]="v.away.colour">
+        @if (v.away.crest) {
+          <img [src]="v.away.crest" alt="" />
+        }
+        <b>{{ v.away.score }}</b>
+      </span>
+    </div>
+
+    <div class="summary-line">
+      @if (v.latest; as latest) {
+        <span
+          >Latest: <strong>{{ latest.time }}' {{ latest.label }}</strong
+          >{{ latest.player ? ', ' + latest.player : '' }} ({{ latest.team }})</span
+        >
+      } @else {
+        <span></span>
+      }
+      <span class="hint" aria-hidden="true">{{
+        open() ? 'Tap to close' : 'Tap to open the pitch'
+      }}</span>
+    </div>
+  </div>
+
+  <div class="drawer" id="scoring-pitch" #body [attr.inert]="open() ? null : ''">
+    <div class="pitch">
+      <div class="frame">
+        <div class="chalk-lines" aria-hidden="true">
+          <i class="ln v l"></i><i class="ln v r"></i> <i class="ln v dash m5 l"></i
+          ><i class="ln v dash m5 r"></i> <i class="ln v dash m15 l"></i
+          ><i class="ln v dash m15 r"></i> <i class="ln h top"></i><i class="ln h bottom"></i>
+        </div>
+        <div class="ingoal top">
+          Kick-off<span class="posts" aria-hidden="true"><i></i><i></i></span>
+        </div>
+        <div class="field" [style.height.px]="v.fieldHeight">
+          @for (line of v.lines; track line.key) {
+            <div
+              class="mark"
+              [class]="line.kind"
+              [class.future]="line.future"
+              [style.top.px]="line.top"
+              [attr.aria-hidden]="line.label ? null : true"
+            >
+              @if (line.paint) {
+                <span class="paint l" aria-hidden="true">{{ line.paint }}</span>
+                <span class="paint r" aria-hidden="true">{{ line.paint }}</span>
+              }
+              @if (line.label) {
+                <span class="chip" [class.message]="line.message">{{ line.label }}</span>
+              }
+            </div>
+          }
+          @if (v.marker; as marker) {
+            <div class="unplayed" [style.top.px]="marker.top" aria-hidden="true"></div>
+            <div class="mark now" [style.top.px]="marker.top">
+              <span class="chip now">{{ marker.label }}</span>
+            </div>
+          }
+          <ol class="rows">
+            @for (row of v.rows; track row.key) {
+              <li
+                class="row"
+                [class]="row.side"
+                [class.big]="row.try"
+                [class.slim]="!row.try"
+                [style.top.px]="row.top"
+                [style.--club]="row.colour"
+                [style.--club-accent]="row.accent"
+              >
+                <span class="meta">
+                  <span class="min">{{ row.time }}'</span>
+                  @if (row.score; as score) {
+                    <span class="score" [attr.aria-label]="'score ' + score[0] + '–' + score[1]">
+                      @if (row.side === 'home') {
+                        <b>{{ score[0] }}</b
+                        >–{{ score[1] }}
+                      } @else {
+                        {{ score[0] }}–<b>{{ score[1] }}</b>
+                      }
+                    </span>
+                  }
+                </span>
+                @if (row.try) {
+                  <div class="txt">
+                    <strong
+                      ><span class="full">{{ row.label }}</span
+                      ><span class="short">{{ row.short }}</span></strong
+                    >
+                    @if (row.player) {
+                      <span class="player">{{ row.player }}</span>
+                    }
+                  </div>
+                } @else {
+                  <span class="line">
+                    <b
+                      ><span class="full">{{ row.label }}</span
+                      ><span class="short">{{ row.short }}</span></b
+                    >
+                    @if (row.surname) {
+                      <span class="who"> {{ row.surname }}</span>
+                    }
+                  </span>
+                }
+                <span class="visually-hidden">{{ row.team }}</span>
+                <span class="pts">
+                  @if (row.card) {
+                    <i class="card" [class]="row.card" aria-hidden="true"></i>
+                  } @else {
+                    <span aria-hidden="true">+{{ row.points }}</span>
+                    <span class="visually-hidden">{{ row.points }} points</span>
+                  }
+                </span>
+              </li>
+            }
+          </ol>
+        </div>
+        <div class="ingoal bottom" [class.dim]="!v.finished">
+          <span class="posts" aria-hidden="true"><i></i><i></i></span>{{ v.result }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <ng-content />
+</section>
