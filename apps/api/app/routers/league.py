@@ -1,10 +1,11 @@
 """League endpoints under /v1. Handlers validate input and delegate to app.league.service."""
 
 from datetime import datetime
+from decimal import Decimal
 from typing import Annotated, Any, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Path, Query, Request
 from pydantic import BaseModel, Field, field_validator
 
 from app.config import Settings
@@ -351,6 +352,46 @@ class MemberMarks(BaseModel):
 @router.get("/marks", response_model=list[MemberMarks])
 def marks(actor: Actor = Depends(actor_dependency)) -> list[Any]:
     return service.marks_totals(actor)
+
+
+# Superbru standings -------------------------------------------------------------------
+
+
+class Standing(BaseModel):
+    roundNumber: int
+    memberId: UUID
+    memberName: str
+    rank: int
+    points: float
+
+
+@router.get("/standings", response_model=list[Standing])
+def list_standings(
+    round: int | None = Query(default=None, ge=1, le=service.LAST_ROUND), actor: Actor = Depends(actor_dependency)
+) -> list[Any]:
+    """Superbru round points per member for the active season, ranked within each round."""
+    return service.standings(actor, round)
+
+
+class StandingEntry(BaseModel):
+    memberId: UUID
+    points: Decimal = Field(ge=0, le=Decimal("99999.9"), decimal_places=1)
+
+
+class RoundStandings(BaseModel):
+    standings: list[StandingEntry] = Field(max_length=200)
+
+
+@router.put("/rounds/{round_number}/standings", response_model=list[Standing])
+def record_standings(
+    body: RoundStandings,
+    round_number: int = Path(ge=1, le=service.LAST_ROUND),
+    actor: Actor = Depends(captain_dependency),
+) -> list[Any]:
+    """Captain replaces a round's Superbru table from the pool results. Members left out lose
+    their row for the round."""
+    service.record_standings(actor, round_number, [(entry.memberId, entry.points) for entry in body.standings])
+    return service.standings(actor, round_number)
 
 
 # Evidence -----------------------------------------------------------------------------

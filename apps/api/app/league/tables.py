@@ -5,7 +5,7 @@ Only the columns the API reads or writes are declared. Constraints and policies 
 the migrations, which are the single schema history.
 """
 
-from sqlalchemy import BigInteger, Column, DateTime, Integer, MetaData, SmallInteger, String, Table, Text, text
+from sqlalchemy import BigInteger, Column, DateTime, Integer, MetaData, Numeric, SmallInteger, String, Table, Text, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 
 metadata = MetaData(schema="piele")
@@ -141,6 +141,20 @@ duty_evidence_links = Table(
     _ts("decided_at"),
     Column("reason", Text),
     _ts("effective_completed_at"),
+    Column("version", Integer, nullable=False),
+    _ts("updated_at", nullable=False),
+)
+
+round_standings = Table(
+    "round_standings",
+    metadata,
+    Column("id", UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")),
+    Column("league_id", UUID(as_uuid=True), nullable=False),
+    Column("season_id", UUID(as_uuid=True), nullable=False),
+    Column("season_membership_id", UUID(as_uuid=True), nullable=False),
+    Column("round_number", SmallInteger, nullable=False),
+    Column("points", Numeric(6, 1), nullable=False),
+    Column("recorded_by_membership_id", UUID(as_uuid=True), nullable=False),
     Column("version", Integer, nullable=False),
     _ts("updated_at", nullable=False),
 )
