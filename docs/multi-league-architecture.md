@@ -1,7 +1,7 @@
 # Multi-league architecture
 
-Status: proposal with decisions recorded, 26 September 2026. Nothing here is
-implemented. It extends `piele-application-plan.md` (which said "keep a single league
+Status: implemented on 26 September 2026 (phases 1 to 4; see "Implementation status"
+below for what was built and where it departs from the sections that follow). It extends `piele-application-plan.md` (which said "keep a single league
 experience in the initial UI, retain league IDs in the model") to several leagues per
 account, several rugby competitions per product, a league switcher, league emblems, join
 codes, a global admin and an admin-only league management centre.
@@ -19,6 +19,27 @@ Working product name: **The Pavilion**. Piele stays the name of the first league
 | Joining | Join-code links, one rotatable code per league, plus the existing reservation by email. |
 | Competitions | Rugby only for now. The registry still exists so a second rugby competition (Currie Cup, Rugby Championship, Six Nations, World Cup) is one new folder. |
 | Admin | One global admin account (the operator) with access to every league and captain-level rights in all of them. Each league still has its own captain, who may be someone else. |
+
+## Implementation status (26 September 2026)
+
+Built on branch `claude/multi-league-architecture`, one commit per phase and app:
+
+| Phase | Done | Where it departs from the text below |
+| --- | --- | --- |
+| 1. Rename | Yes | Code, titles, package and project names only. The GitHub, Vercel and Supabase renames are operator steps listed in `docs/production.md`. |
+| 2. Foundation | Yes | Migrations `20260926150000_competitions.sql` and `20260926160000_multi_league.sql`. The registry is `app/competitions/__init__.py` (not `registry.py`). Join codes are 12 hex characters from `gen_random_uuid` (no pgcrypto). A `leagues_join_code` select policy lets a non-member look a league up by its code. Web routes are `/:league/...` with legacy bare paths redirecting; the join page is `/join/:code`. Two sample leagues plus a third for the admin view. The API rejects slugs that shadow a web route. |
+| 3. Switcher, emblem, join, removal | Yes | Migration `20260926170000_emblems_withdrawals.sql`. Emblems live in the existing private bucket under `emblems/<league id>/` with a signed URL (24 h TTL), not a public bucket; the web downloads them once because the CSP allows only same-origin, data and blob images. `season_memberships` keeps at most one active row per member and season (partial unique index) so reinstatement inserts a new row. Feed kinds `member_left`, `member_returned`, `emblem_updated`. The join code is returned in the league-scoped `me` for stewards; rotate and close are `POST .../join-code/rotate` and `DELETE .../join-code`. |
+| 4. Management centre | Yes | Routes under `/v1/admin` plus `GET /v1/competitions`; feed kinds `captain_appointed`, `league_restored`. `users.is_admin` is set by SQL (`docs/production.md`). |
+| 5. Second competition | No | The registry is ready; nothing else. |
+
+Still open after implementation: custom domains at the rename; whether the admin's
+out-of-season membership should be hidden from other members' team sheet; the second
+competition; member-initiated leave.
+
+Release note: the migrations apply on the push that also deploys the new API. In the
+minutes between, the previously deployed API fails on `GET /v1/rounds/{n}/updates`
+(milestone upsert key changed) and cannot bootstrap; everything else keeps working. Existing
+provider snapshots are re-fetched once because their cache keys gained a competition prefix.
 
 ## 1. Where the code stands
 
