@@ -112,6 +112,7 @@ export interface RoundNote {
 
 export type FeedKind =
   | 'season_opened'
+  | 'standings_recorded'
   | 'member_joined'
   | 'member_added'
   | 'duty_created'
@@ -157,4 +158,13 @@ export interface NewMember {
   readonly name: string;
   readonly fullName: string;
   readonly email: string | null;
+}
+
+/**
+ * What the member has read in the notifications panel: a high-water mark (everything at or
+ * before it is read) plus the keys of items read individually above it.
+ */
+export interface NotificationsRead {
+  readonly readAt: string | null;
+  readonly readKeys: readonly string[];
 }

@@ -14,6 +14,7 @@ import {
   MemberMarks,
   NewDuty,
   NewMember,
+  NotificationsRead,
   Poll,
   UnclaimedName,
   RoundNote,
@@ -30,6 +31,8 @@ interface Me {
   readonly favouriteTeamId: string | null;
   /** Short-lived signed Storage URL, downloaded straight away. */
   readonly photoUrl: string | null;
+  readonly notificationsReadAt?: string | null;
+  readonly notificationsReadKeys?: readonly string[];
 }
 
 interface PhotoUploadGrant {
@@ -107,6 +110,9 @@ export class HttpLeagueData extends LeagueData {
   readonly notes = signal<readonly RoundNote[]>([]).asReadonly();
   private readonly feedRecords = signal<readonly FeedItem[]>([]);
   readonly feed = this.feedRecords.asReadonly();
+  private readonly read = signal<NotificationsRead>({ readAt: null, readKeys: [] });
+  /** Read state from the member's account, so it follows them between devices. */
+  readonly notificationsRead = this.read.asReadonly();
   private readonly loadingState = signal(false);
   readonly loading = this.loadingState.asReadonly();
   private readonly errorState = signal<string | null>(null);
@@ -137,7 +143,25 @@ export class HttpLeagueData extends LeagueData {
     this.markRecords.set([]);
     this.dutyRecords.set([]);
     this.feedRecords.set([]);
+    this.read.set({ readAt: null, readKeys: [] });
     this.errorState.set(null);
+  }
+
+  /** The feed alone, for the notifications panel's periodic refresh. */
+  async refreshFeed(): Promise<void> {
+    if (this.membership() !== 'member') return;
+    const feed = await this.request<ApiFeedItem[]>('GET', '/feed?limit=200');
+    this.feedRecords.set(feed.map(({ roundNumber, ...item }) => ({ ...item, roundId: roundNumber })));
+  }
+
+  /** Saves the read state and adopts what the API merged with other devices' reads. */
+  async saveNotificationsRead(read: NotificationsRead): Promise<void> {
+    this.read.set(read);
+    const merged = await this.request<NotificationsRead>('PUT', '/me/notifications', {
+      readAt: read.readAt,
+      readKeys: read.readKeys,
+    });
+    this.read.set({ readAt: merged.readAt ?? null, readKeys: merged.readKeys ?? [] });
   }
 
   async submitEvidence(submission: EvidenceSubmission): Promise<void> {
@@ -221,7 +245,7 @@ export class HttpLeagueData extends LeagueData {
   /** Claims a name for this account, then loads the league as that member. */
   async claim(memberId: string): Promise<void> {
     const me = await this.request<Me>('POST', '/memberships/claim', { memberId });
-    this.me.set(me);
+    this.adopt(me);
     await Promise.all([this.refresh(), this.loadPhoto(me.photoUrl)]);
     this.membership.set('member');
   }
@@ -243,7 +267,7 @@ export class HttpLeagueData extends LeagueData {
           ? { removePhoto: true }
           : {};
     const me = await this.request<Me>('PUT', '/me/profile', { favouriteTeamId: teamId, ...change });
-    this.me.set(me);
+    this.adopt(me);
     this.photo.set(photo ?? null);
   }
 
@@ -280,7 +304,7 @@ export class HttpLeagueData extends LeagueData {
     this.loadingState.set(true);
     try {
       const me = await this.request<Me>('GET', '/me');
-      this.me.set(me);
+      this.adopt(me);
       await Promise.all([this.refresh(), this.loadPhoto(me.photoUrl)]);
       this.membership.set('member');
     } catch (error) {
@@ -291,6 +315,11 @@ export class HttpLeagueData extends LeagueData {
       this.loadingState.set(false);
     }
     return this.membership();
+  }
+
+  private adopt(me: Me): void {
+    this.me.set(me);
+    this.read.set({ readAt: me.notificationsReadAt ?? null, readKeys: me.notificationsReadKeys ?? [] });
   }
 
   private async refresh(): Promise<void> {

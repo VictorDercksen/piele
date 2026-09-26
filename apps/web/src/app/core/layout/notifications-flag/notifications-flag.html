@@ -41,30 +41,77 @@
           </button>
         </header>
         <div class="heading">
-          <h2>Round {{ view.round().code }} updates.</h2>
-          @if (unread()) {
-            <button type="button" class="read" (click)="markAllRead()">Mark all read</button>
-          }
+          <h2>Round {{ round().code }} updates.</h2>
+          <button type="button" class="read" [disabled]="!unread()" (click)="markAllRead()">
+            Mark all read
+          </button>
         </div>
         <div class="list">
-          @for (item of items(); track item.key) {
-            <div
-              class="notification-item"
-              [class.spoon-duty]="item.spoon"
-              [class.unread]="item.unread"
-            >
+          @for (item of pinned(); track item.key) {
+            <div class="notification-item pinned" [class.spoon-duty]="item.spoon">
               <app-icon [name]="item.icon" />
               <div>
+                <span class="tag">PINNED</span>
                 <h3>{{ item.title }}</h3>
                 <p>{{ item.detail }}</p>
-                <button type="button" class="text-button" (click)="go(item.path)">
+                <button type="button" class="text-button" (click)="followPinned(item)">
                   {{ item.action }}<ng-icon class="link-icon" name="lucideArrowRight" />
                 </button>
               </div>
             </div>
           }
+          @if (stale()) {
+            <p class="stale">Match updates could not be refreshed. Showing the last known.</p>
+          }
+          @for (item of items(); track item.key; let i = $index) {
+            @if (i === 0 && item.unread) {
+              <div class="divider" aria-hidden="true">New</div>
+            }
+            @if (i === earlierAt()) {
+              <div class="divider" aria-hidden="true">Earlier</div>
+            }
+            <div class="notification-item" [class.unread]="item.unread">
+              <app-icon [name]="item.icon" />
+              <div>
+                <span class="tag"
+                  >{{ item.label }}
+                  @if (item.roundLabel) {
+                    <em>/ {{ item.roundLabel }}</em>
+                  }
+                  <em>/ {{ item.when }}</em></span
+                >
+                <h3>{{ item.title }}</h3>
+                @if (item.detail) {
+                  <p>{{ item.detail }}</p>
+                }
+                @if (item.path) {
+                  <button type="button" class="text-button" (click)="follow(item)">
+                    {{ item.action }}<ng-icon class="link-icon" name="lucideArrowRight" />
+                  </button>
+                } @else if (item.unread) {
+                  <button type="button" class="text-button" (click)="markRead(item)">
+                    Mark read
+                  </button>
+                }
+              </div>
+            </div>
+          } @empty {
+            <div class="empty">
+              <h3>Nothing new in Round {{ round().code }} yet.</h3>
+              @if (nextKickoff(); as next) {
+                <p>Next kick-off: {{ next }}.</p>
+              } @else {
+                <p>Kick-offs are to be confirmed.</p>
+              }
+            </div>
+          }
         </div>
-        <div class="caption">Piele / the rugby clubhouse</div>
+        <footer class="foot">
+          <span class="caption">Piele / the rugby clubhouse</span>
+          <button type="button" class="text-button" (click)="openFeed()">
+            Full feed<ng-icon class="link-icon" name="lucideArrowRight" />
+          </button>
+        </footer>
       </div>
     </section>
     <div class="roll" aria-hidden="true"></div>

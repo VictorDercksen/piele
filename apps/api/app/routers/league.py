@@ -43,11 +43,16 @@ class Me(BaseModel):
     # The caller's own profile. photoUrl is short-lived; download it straight away.
     favouriteTeamId: str | None
     photoUrl: str | None
+    # What the member has read in the notifications panel: a high-water mark and the keys
+    # of items read individually above it. Account-wide, like the profile.
+    notificationsReadAt: datetime | None
+    notificationsReadKeys: list[str]
 
 
 @router.get("/me", response_model=Me)
 def me(request: Request, actor: Actor = Depends(actor_dependency)) -> Me:
     profile = service.profile(actor, storage_of(request), settings_of(request).profile_photo_url_ttl_seconds)
+    read = service.notifications_read(actor)
     return Me(
         memberId=actor.membership_id,
         displayName=actor.display_name,
@@ -57,7 +62,23 @@ def me(request: Request, actor: Actor = Depends(actor_dependency)) -> Me:
         inSeason=actor.season_membership_id is not None,
         favouriteTeamId=profile.favourite_team_id,
         photoUrl=profile.photo_url,
+        notificationsReadAt=read.read_at,
+        notificationsReadKeys=read.read_keys,
     )
+
+
+class NotificationsRead(BaseModel):
+    readAt: datetime | None
+    readKeys: list[Annotated[str, Field(max_length=service.MAX_READ_KEY_LENGTH)]] = Field(
+        max_length=service.MAX_READ_KEYS
+    )
+
+
+@router.put("/me/notifications", response_model=NotificationsRead)
+def update_notifications(body: NotificationsRead, actor: Actor = Depends(actor_dependency)) -> NotificationsRead:
+    """Saves what the caller has read in the notifications panel and returns the merged state."""
+    read = service.update_notifications_read(actor, read_at=body.readAt, read_keys=body.readKeys)
+    return NotificationsRead(readAt=read.read_at, readKeys=read.read_keys)
 
 
 class PhotoUploadRequest(BaseModel):

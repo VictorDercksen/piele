@@ -4,7 +4,7 @@ its audit event and feed entry there, so the three commit or roll back together 
 import re
 import secrets
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any, Sequence
 from uuid import UUID, uuid4
@@ -258,6 +258,58 @@ PHOTO_TYPE = "image/jpeg"
 class Profile:
     favourite_team_id: str | None
     photo_url: str | None
+
+
+# Notifications read state ------------------------------------------------------------
+
+# The web app keeps one key per item it has shown; the whole round fits well inside this.
+MAX_READ_KEYS = 200
+MAX_READ_KEY_LENGTH = 120
+
+
+@dataclass(frozen=True)
+class NotificationsRead:
+    """A high-water mark plus the keys of items read individually above it."""
+
+    read_at: datetime | None
+    read_keys: list[str]
+
+
+def notifications_read(actor: Actor) -> NotificationsRead:
+    u = t.users
+    row = actor.connection.execute(
+        select(u.c.notifications_read_at, u.c.notifications_read_keys).where(u.c.id == actor.user_id)
+    ).one()
+    return NotificationsRead(row.notifications_read_at, _read_keys(row.notifications_read_keys))
+
+
+def update_notifications_read(actor: Actor, *, read_at: datetime | None, read_keys: Sequence[str]) -> NotificationsRead:
+    """Merges the caller's read state. The mark never moves back and never runs ahead of the
+    server clock, so a stale device cannot undo what another device has read, and keys from
+    both are kept, newest first, within the bound."""
+    incoming = list(dict.fromkeys(key.strip() for key in read_keys if key.strip()))
+    if len(incoming) > MAX_READ_KEYS or any(len(key) > MAX_READ_KEY_LENGTH for key in incoming):
+        raise problem(422, "invalid_read_keys", "Too many or too long notification keys.")
+    u = t.users
+    current = actor.connection.execute(
+        select(u.c.notifications_read_at, u.c.notifications_read_keys).where(u.c.id == actor.user_id).with_for_update()
+    ).one()
+    now = now_utc()
+    if read_at is not None and read_at.tzinfo is None:
+        read_at = read_at.replace(tzinfo=timezone.utc)
+    marks = [mark for mark in (current.notifications_read_at, read_at) if mark is not None]
+    merged_at = min(max(marks), now) if marks else None
+    merged_keys = list(dict.fromkeys([*incoming, *_read_keys(current.notifications_read_keys)]))[:MAX_READ_KEYS]
+    actor.connection.execute(
+        update(u)
+        .where(u.c.id == actor.user_id)
+        .values(notifications_read_at=merged_at, notifications_read_keys=merged_keys, updated_at=func.now())
+    )
+    return NotificationsRead(merged_at, merged_keys)
+
+
+def _read_keys(value: Any) -> list[str]:
+    return [key for key in value if isinstance(key, str)] if isinstance(value, list) else []
 
 
 def _photo_prefix(user_id: UUID) -> str:

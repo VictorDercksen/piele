@@ -7,10 +7,12 @@ import {
   MemberMarks,
   NewDuty,
   NewMember,
+  NotificationsRead,
   Poll,
   RoundNote,
   RoundStanding,
 } from './league.models';
+import { loadStoredRead, storeRead } from './notifications-read';
 
 /**
  * League records: members, standings, duties, marks, polls and the feed.
@@ -34,7 +36,12 @@ export abstract class LeagueData {
   abstract readonly loading: Signal<boolean>;
   /** A safe message when the last fetch failed. */
   abstract readonly error: Signal<string | null>;
+  /** What the member has read in the notifications panel. */
+  abstract readonly notificationsRead: Signal<NotificationsRead>;
   abstract reload(): void;
+  /** Fetches only the feed, for the notifications panel's periodic refresh. */
+  abstract refreshFeed(): Promise<void>;
+  abstract saveNotificationsRead(read: NotificationsRead): Promise<void>;
   abstract submitEvidence(submission: EvidenceSubmission): Promise<void>;
   abstract createDuty(duty: NewDuty): Promise<void>;
   abstract voidDuty(dutyId: string, reason: string): Promise<void>;
@@ -70,8 +77,20 @@ export class EmptyLeagueData extends LeagueData {
   readonly feed = signal<readonly FeedItem[]>([]).asReadonly();
   readonly loading = signal(false).asReadonly();
   readonly error = signal<string | null>(null).asReadonly();
+  private readonly read = signal<NotificationsRead>(loadStoredRead());
+  readonly notificationsRead = this.read.asReadonly();
 
   reload(): void {}
+
+  refreshFeed(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  saveNotificationsRead(read: NotificationsRead): Promise<void> {
+    this.read.set(read);
+    storeRead(read);
+    return Promise.resolve();
+  }
 
   submitEvidence(): Promise<void> {
     return unavailable('Evidence uploads');
