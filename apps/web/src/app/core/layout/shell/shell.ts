@@ -14,7 +14,6 @@ import {
 } from '@angular/router';
 import { debounce, filter, map, of, timer } from 'rxjs';
 import { CompetitionService, shortSeason } from '../../competition/competition.service';
-import { LeagueTime } from '../../competition/league-time';
 import { SelectedRoundService } from '../../competition/selected-round.service';
 import { ToastService } from '../../feedback/toast.service';
 import { LeagueContext } from '../../league/league-context';
@@ -63,19 +62,15 @@ export class Shell {
   readonly profile = this.profileStore.profile;
   readonly favouriteTeam = this.profileStore.team;
   readonly initials = this.profileStore.initials;
-  readonly zoneName = inject(LeagueTime).abbreviation;
   readonly rounds = computed(() => this.competition.rounds);
   readonly currentRound = computed(() => this.competition.currentRoundId);
   readonly round = this.selectedRound.round;
   /** `26 / 27`. */
   readonly season = computed(() => shortSeason(this.competition.season, ' / '));
   readonly competitionShortName = computed(() => this.competition.shortName);
+  readonly emblem = computed(() => this.competition.current().emblem);
+  readonly competitionName = computed(() => this.competition.current().name);
   readonly regularRounds = computed(() => this.competition.regularRounds);
-  readonly retrievedAt = computed(() =>
-    SNAPSHOT_DATE.format(new Date(this.competition.retrievedAt)),
-  );
-  /** The league being shown, for the eyebrows and footer. */
-  readonly leagueName = this.context.name;
   /** The admin in a league it holds no membership in. */
   readonly adminView = computed(() => !!this.context.current() && !this.context.isMemberOfCurrent());
   readonly nav = [
@@ -145,11 +140,3 @@ export class Shell {
     return url.split(/[?#]/)[0];
   }
 }
-
-/** The schedule snapshot's check date, a calendar date with no zone. */
-const SNAPSHOT_DATE = new Intl.DateTimeFormat('en-GB', {
-  day: '2-digit',
-  month: 'short',
-  year: 'numeric',
-  timeZone: 'UTC',
-});

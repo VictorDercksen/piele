@@ -41,7 +41,6 @@ describe('App routes', () => {
     expect(root.querySelector('.round-context')?.textContent).toContain('Round 03');
     expect(root.querySelector('.standings-panel .round-empty')).toBeTruthy();
     expect(root.querySelector('.rail-brand strong')?.textContent).toBe('PIELE');
-    expect(root.querySelector('.club-footer')?.textContent).toContain('PIELE / ROUND 03');
   });
 
   it('sends bookmarks from before league slugs to the same page in the league', async () => {

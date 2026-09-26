@@ -10,6 +10,8 @@
       [rounds]="rounds()"
       [current]="currentRound()"
       [season]="season()"
+      [emblem]="emblem()"
+      [competitionName]="competitionName()"
       [regularRounds]="regularRounds()"
       [selected]="round().id"
       (choose)="selectRound($event)"
@@ -160,19 +162,6 @@
     <div class="page-body" [hidden]="pageLoading()">
       <router-outlet />
     </div>
-    <footer class="club-footer">
-      <span>THE PAVILION / {{ leagueName().toUpperCase() }} / ROUND {{ round().code }}</span
-      ><span>{{
-        view.sample
-          ? 'Sample league records for development. Names, points, duties and votes are illustrative.'
-          : view.source === 'api'
-            ? 'Official fixtures checked ' + retrievedAt() + '. Times in ' + zoneName() + '.'
-            : 'Official fixtures checked ' +
-              retrievedAt() +
-              '. League records appear once the league API is connected.'
-      }}</span
-      ><span>{{ season() }}</span>
-    </footer>
   </main>
   <nav class="mobile-nav" aria-label="Mobile league navigation">
     @for (item of mobileNav; track item.path) {
