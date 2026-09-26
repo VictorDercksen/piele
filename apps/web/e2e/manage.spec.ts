@@ -9,6 +9,32 @@ function card(page: Page, name: string) {
   return page.locator('app-league-card').filter({ has: page.getByRole('heading', { name, exact: true }) });
 }
 
+/** Opens a league's card to its details and actions. */
+async function expand(page: Page, name: string) {
+  const toggle = card(page, name).getByRole('button', { name: `Details of ${name}` });
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  return card(page, name);
+}
+
+/** Opens the new-league form. */
+async function openCreate(page: Page) {
+  const toggle = page.getByRole('button', { name: /Start a league/ });
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  return page.locator('app-create-league-form');
+}
+
+/** Fills row `row` (0-based) of the team sheet, adding rows as needed. */
+async function member(page: Page, row: number, name: string, surname: string, superbru: string) {
+  const form = page.locator('app-create-league-form');
+  while (!(await form.locator(`#new-league-member-${row}-name`).count()))
+    await form.getByRole('button', { name: 'Add member' }).click();
+  await form.locator(`#new-league-member-${row}-name`).fill(name);
+  await form.locator(`#new-league-member-${row}-surname`).fill(surname);
+  await form.locator(`#new-league-member-${row}-superbru`).fill(superbru);
+}
+
 async function openSwitcher(page: Page) {
   const trigger = page.locator('.rail-brand .switcher-trigger');
   await trigger.click();
@@ -34,8 +60,11 @@ test('the switcher ends with "Manage leagues", which lists the sample leagues', 
     'Pofadder Bowl',
     'Sample Third XV',
   ]);
+  // Cards start closed: crest, name, slug and status.
   const pofadder = card(page, 'Pofadder Bowl');
-  await expect(pofadder).toContainText('/pofadder-bowl');
+  await expect(pofadder.locator('.card-body')).toBeHidden();
+  await expect(pofadder).toContainText('/pofadder-bowl · URC · 6 members');
+  await expand(page, 'Pofadder Bowl');
   await expect(pofadder).toContainText('URC · URC 2026/27');
   await expect(pofadder).toContainText('Doempie');
   await expect(pofadder).toContainText('6 · 5 claimed · 6 in season · 0 withdrawn');
@@ -43,6 +72,7 @@ test('the switcher ends with "Manage leagues", which lists the sample leagues', 
   await expect(pofadder.getByText('Active', { exact: true })).toBeVisible();
   // The admin is already a member of Piele and the Pofadder Bowl, not of the Sample Third XV.
   await expect(pofadder.getByRole('button', { name: 'Add me to Pofadder Bowl' })).toHaveCount(0);
+  await expand(page, 'Sample Third XV');
   await expect(card(page, 'Sample Third XV').getByRole('button', { name: 'Add me to Sample Third XV' })).toBeVisible();
 
   await card(page, 'Sample Third XV').getByRole('link', { name: 'Open Sample Third XV' }).click();
@@ -52,35 +82,44 @@ test('the switcher ends with "Manage leagues", which lists the sample leagues', 
 test('creating a league adds it to the switcher and opens it', async ({ page }) => {
   await seedProfile(page, { leagues: ['piele', 'die-ou-manne'] });
   await page.goto('/manage');
-  const form = page.locator('app-create-league-form');
+  const form = await openCreate(page);
+  await expect(form.getByLabel('League name')).toHaveAttribute('placeholder', 'Sample Name');
   await form.getByLabel('League name').fill('Die Ou Manne');
   await expect(form.getByLabel('Slug')).toHaveValue('die-ou-manne');
   await expect(form.getByLabel('Competition')).toHaveValue('urc-2026-27');
   await expect(form.getByLabel('Time zone')).toHaveValue('Africa/Johannesburg');
   await expect(form.getByLabel('Season name')).toHaveValue('URC 2026/27');
 
-  // A line without a comma is shown with its number and stops the form.
-  const members = form.getByRole('textbox', { name: 'Members (one per line)' });
-  await members.fill('Steyn, Doempie, Doempie\nKallie\nThabo Nkosi, Thabo');
-  await expect(form.locator('.line-errors')).toContainText('Line 2');
-  await expect(form.locator('.preview-count')).toHaveText('2 members ready, 1 line to fix.');
-  await members.fill('Steyn, Doempie, Doempie\nKallie Kruger, Kallie\nThabo Nkosi, Thabo\nVictor Dercksen, Vic');
+  // The time zone is chosen from the browser's IANA zones.
+  await expect(form.getByLabel('Time zone').locator('option[value="Europe/London"]')).toHaveCount(1);
+
+  // A row without a Superbru name is pointed out on submit and stops the form.
+  await expect(form.locator('.member-row')).toHaveCount(3);
+  await member(page, 0, 'Doempie', 'Steyn', 'Doempie');
+  await member(page, 1, 'Kallie', 'Kruger', '');
+  await form.getByRole('button', { name: 'Create league' }).click();
+  await expect(form.locator('#new-league-member-1-error')).toHaveText('Add the Superbru name.');
+  await expect(form.locator('#new-league-member-1-superbru')).toBeFocused();
+  await expect(form.locator('.preview-count')).toHaveText('1 member ready, 1 row to fix.');
+  await member(page, 1, 'Kallie', 'Kruger', 'Kallie');
+  await member(page, 2, 'Thabo', 'Nkosi', 'Thabo');
+  await member(page, 3, 'Victor', 'Dercksen', 'Vic');
+  await expect(form.locator('.member-row')).toHaveCount(4);
   await expect(form.locator('.preview-count')).toHaveText('4 members ready.');
-  await expect(form.locator('.member-preview li')).toHaveCount(4);
   await form.getByLabel('Captain', { exact: true }).selectOption('Vic');
   await expect(form.getByLabel('The captain is me')).toBeChecked();
-  await form.getByRole('radio', { name: 'Lantern' }).check();
+  await form.getByRole('radio', { name: 'Jersey' }).check();
   await form.getByLabel('Accent colour').fill('#3f8f6b');
   await expect(form.locator('.look-preview use')).toHaveAttribute(
     'href',
-    'assets/images/emblems/lantern.svg#emblem',
+    'assets/images/emblems/jersey.svg#emblem',
   );
 
   await form.getByRole('button', { name: 'Create league' }).click();
   await expect(page).toHaveURL(/\/die-ou-manne$/);
   const rail = page.locator('.rail-brand .switcher-trigger');
   await expect(rail.locator('strong')).toHaveText('DIE OU MANNE');
-  await expect(rail.locator('use')).toHaveAttribute('href', 'assets/images/emblems/lantern.svg#emblem');
+  await expect(rail.locator('use')).toHaveAttribute('href', 'assets/images/emblems/jersey.svg#emblem');
   const feed = page.locator('app-feed');
   await feed.getByRole('button', { name: 'Season' }).click();
   await expect(feed).toContainText('4 members enrolled. Vic is captain.');
@@ -93,9 +132,9 @@ test('creating a league adds it to the switcher and opens it', async ({ page }) 
 test('the form explains a taken slug beside the slug field', async ({ page }) => {
   await seedProfile(page);
   await page.goto('/manage');
-  const form = page.locator('app-create-league-form');
+  const form = await openCreate(page);
   await form.getByLabel('League name').fill('Piele');
-  await form.getByRole('textbox', { name: 'Members (one per line)' }).fill('Victor Dercksen, Vic');
+  await member(page, 0, 'Victor', 'Dercksen', 'Vic');
   await form.getByLabel('Captain', { exact: true }).selectOption('Vic');
   await form.getByRole('button', { name: 'Create league' }).click();
   const slug = form.getByLabel('Slug');
@@ -110,7 +149,7 @@ test('the form explains a taken slug beside the slug field', async ({ page }) =>
 test('archiving a league takes it out of the switcher; restoring brings it back', async ({ page }) => {
   await seedProfile(page, { leagues: ['piele', 'pofadder-bowl'] });
   await page.goto('/manage');
-  const pofadder = card(page, 'Pofadder Bowl');
+  const pofadder = await expand(page, 'Pofadder Bowl');
   const archive = pofadder.getByRole('button', { name: 'Archive Pofadder Bowl' });
   await archive.click();
   const dialog = page.getByRole('dialog', { name: 'Archive Pofadder Bowl?' });
@@ -137,6 +176,7 @@ test('archiving a league takes it out of the switcher; restoring brings it back'
   await sheet.getByRole('link', { name: 'Manage leagues' }).click();
 
   await page.locator('details.archived-group summary').click();
+  await expand(page, 'Pofadder Bowl');
   await card(page, 'Pofadder Bowl').getByRole('button', { name: 'Restore Pofadder Bowl' }).click();
   await page.getByRole('dialog', { name: 'Restore Pofadder Bowl?' }).getByRole('button', { name: 'Restore' }).click();
   await expect(page.locator('details.archived-group')).toHaveCount(0);
@@ -149,25 +189,30 @@ test('archiving a league takes it out of the switcher; restoring brings it back'
 test('rename, add me and appoint a captain from a league’s card', async ({ page }) => {
   await seedProfile(page, { leagues: ['piele', 'pofadder-bowl'] });
   await page.goto('/manage');
-  const third = card(page, 'Sample Third XV');
+  const third = await expand(page, 'Sample Third XV');
   await third.getByRole('button', { name: 'Add me to Sample Third XV' }).click();
   await expect(page.getByRole('status').first()).toContainText('You are a member of Sample Third XV');
   await expect(third.getByRole('button', { name: /Add me/ })).toHaveCount(0);
 
-  const pofadder = card(page, 'Pofadder Bowl');
+  const pofadder = await expand(page, 'Pofadder Bowl');
   const rename = pofadder.getByRole('button', { name: 'Rename Pofadder Bowl' });
   await rename.click();
   const name = pofadder.getByLabel('League name');
   await expect(name).toBeFocused();
-  await pofadder.getByLabel('Time zone').fill('Nowhere/Special');
-  await pofadder.getByRole('button', { name: 'Save' }).click();
-  await expect(pofadder.getByRole('alert')).toContainText('IANA time zone');
-  await pofadder.getByLabel('Time zone').fill('Europe/London');
+  await expect(pofadder.getByLabel('Time zone')).toHaveValue('Africa/Johannesburg');
+  await pofadder.getByLabel('Time zone').selectOption('Europe/London');
   await name.fill('Pofadder Cup');
   await pofadder.getByRole('button', { name: 'Save' }).click();
   const cup = card(page, 'Pofadder Cup');
   await expect(cup).toContainText('Europe/London');
   await expect(cup.getByRole('button', { name: 'Rename Pofadder Cup' })).toBeFocused();
+
+  // The join link copies from an icon button.
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+  const copy = cup.getByRole('button', { name: 'Copy the join link of Pofadder Cup' });
+  await expect(copy).toHaveText('');
+  await copy.click();
+  await expect(cup.locator('.copy-status')).toHaveText('Copied');
 
   await cup.locator('summary', { hasText: 'Appoint a captain' }).click();
   const captain = cup.getByLabel('New captain');
@@ -203,12 +248,13 @@ test('the management centre fits a 320 px phone', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 800 });
   await page.goto('/manage');
   await expect(page.getByRole('heading', { name: 'Manage leagues.', level: 1 })).toBeVisible();
+  await expand(page, 'Piele');
   await card(page, 'Piele').getByRole('button', { name: 'Rename Piele' }).click();
   await card(page, 'Piele').locator('summary', { hasText: 'Appoint a captain' }).click();
-  await page
-    .locator('app-create-league-form')
-    .getByRole('textbox', { name: 'Members (one per line)' })
-    .fill('Kallie Kruger, Kallie\nno comma');
-  await expect(page.locator('.line-errors')).toContainText('Line 2');
+  const form = await openCreate(page);
+  await member(page, 0, 'Kallie', 'Kruger', 'Kallie');
+  await member(page, 3, 'No', 'Superbru', '');
+  await form.getByRole('button', { name: 'Create league' }).click();
+  await expect(form.locator('#new-league-member-3-error')).toHaveText('Add the Superbru name.');
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
 });

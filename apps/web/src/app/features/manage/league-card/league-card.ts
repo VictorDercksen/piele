@@ -16,20 +16,28 @@ import {
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideArrowRight, lucideCopy } from '@ng-icons/lucide';
+import {
+  lucideArrowRight,
+  lucideCheck,
+  lucideChevronDown,
+  lucideCopy,
+  lucideCrown,
+} from '@ng-icons/lucide';
 import { AdminLeague, CaptainCandidate } from '../../../core/league/admin.models';
 import { AdminService } from '../../../core/league/admin.service';
 import { LeagueCrest } from '../../../shared/league-crest/league-crest';
 import { Loader } from '../../../shared/loader/loader';
 import { ReasonDialog } from '../../duties/reason-dialog/reason-dialog';
 import { notBlank, zoneValidator } from '../manage-validators';
+import { timeZoneGroups } from '../time-zones';
 
 /** The eyebrow of the management centre's confirmation dialogs. */
 const EYEBROW = 'THE PAVILION / MANAGEMENT CENTRE';
 
 /**
- * One league in the management centre: what it is (crest, slug, competition and season,
- * captain, counts, status, join code) and what the admin can do with it: open it, add
+ * One league in the management centre, collapsed to its crest, name and status until opened:
+ * what it is (slug, competition and season, captain, counts, time zone, join code) and what
+ * the admin can do with it: open it, add
  * themselves, rename it or change its time zone, archive or restore it (confirmed), and
  * appoint a captain from its claimed members (confirmed).
  */
@@ -39,7 +47,9 @@ const EYEBROW = 'THE PAVILION / MANAGEMENT CENTRE';
   styleUrls: ['../manage-fields.scss', './league-card.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [ReactiveFormsModule, RouterLink, NgIcon, LeagueCrest, Loader],
-  viewProviders: [provideIcons({ lucideArrowRight, lucideCopy })],
+  viewProviders: [
+    provideIcons({ lucideArrowRight, lucideCheck, lucideChevronDown, lucideCopy, lucideCrown }),
+  ],
 })
 export class LeagueCard {
   private readonly admin = inject(AdminService);
@@ -72,6 +82,9 @@ export class LeagueCard {
     return code ? `${this.origin}/join/${code}` : null;
   });
 
+  readonly zoneGroups = computed(() => timeZoneGroups(this.league().timezone));
+
+  readonly expanded = signal(false);
   readonly busy = signal(false);
   readonly error = signal('');
   readonly copied = signal(false);
@@ -101,6 +114,10 @@ export class LeagueCard {
 
   constructor() {
     inject(DestroyRef).onDestroy(() => clearTimeout(this.copiedTimer));
+  }
+
+  toggle(): void {
+    this.expanded.update((open) => !open);
   }
 
   async copyLink(): Promise<void> {

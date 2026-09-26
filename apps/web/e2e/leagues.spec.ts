@@ -37,7 +37,7 @@ test('the Pofadder Bowl shows its own name, captain, standings and feed', async 
   const rail = page.locator('.rail-brand .switcher-trigger');
   await expect(rail.locator('strong')).toHaveText('POFADDER BOWL');
   await expect(rail.locator('small')).toContainText('URC');
-  await expect(rail.locator('use')).toHaveAttribute('href', 'assets/images/emblems/anvil.svg#emblem');
+  await expect(rail.locator('use')).toHaveAttribute('href', 'assets/images/emblems/posts.svg#emblem');
   await expect(page.locator('.club-footer')).toContainText('POFADDER BOWL / ROUND 02');
   const feed = page.locator('app-feed');
   await expect(feed).toContainText('Thabo: Round 02 Spoon duty.');
@@ -87,7 +87,7 @@ test('a join link shows the sample league and its unclaimed names', async ({ pag
   await expect(page.locator('.eyebrow')).toContainText('POFADDER BOWL');
   await expect(page.locator('.league-heading use')).toHaveAttribute(
     'href',
-    'assets/images/emblems/anvil.svg#emblem',
+    'assets/images/emblems/posts.svg#emblem',
   );
   // The sample account is already in both sample leagues.
   await expect(page.getByRole('heading', { name: "You're in." })).toBeVisible();
@@ -232,10 +232,10 @@ test('the appearance card changes the league crest', async ({ page }) => {
   const card = page.locator('app-appearance-card');
   const crest = page.locator('.rail-brand .switcher-trigger app-league-crest');
   await expect(crest.locator('img')).toHaveAttribute('src', /piele-crest\.png/);
-  await card.getByRole('radio', { name: 'Crown' }).check();
+  await card.getByRole('radio', { name: 'Trophy' }).check();
   await card.getByLabel('Accent colour').fill('#3f8f6b');
   await card.getByRole('button', { name: 'Save appearance' }).click();
-  await expect(crest.locator('use')).toHaveAttribute('href', 'assets/images/emblems/crown.svg#emblem');
+  await expect(crest.locator('use')).toHaveAttribute('href', 'assets/images/emblems/trophy.svg#emblem');
   await expect(crest).toHaveCSS('color', 'rgb(63, 143, 107)');
   await expect(page.getByRole('status')).toContainText('new look');
 

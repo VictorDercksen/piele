@@ -1,6 +1,6 @@
 import { AbstractControl, ValidationErrors } from '@angular/forms';
 import { slugProblem } from '../../core/league/league-slugs';
-import { parseMembers } from './members-parser';
+import { MemberRow, checkMembers } from './member-rows';
 
 /** Whether this browser knows the IANA time zone (the API checks it against Postgres). */
 export function knownZone(zone: string): boolean {
@@ -26,9 +26,9 @@ export function slugValidator(control: AbstractControl<string>): ValidationError
   return problem ? { slug: problem } : null;
 }
 
-/** At least one member and no line to fix. */
-export function membersValidator(control: AbstractControl<string>): ValidationErrors | null {
-  const parsed = parseMembers(control.value);
-  if (parsed.errors.length) return { lines: parsed.errors.length };
-  return parsed.members.length ? null : { required: true };
+/** At least one member and no row to fix. */
+export function membersValidator(control: AbstractControl<MemberRow[]>): ValidationErrors | null {
+  const checked = checkMembers(control.value);
+  if (checked.errors.length) return { rows: checked.errors.length };
+  return checked.members.length ? null : { required: true };
 }

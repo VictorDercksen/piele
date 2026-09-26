@@ -12,8 +12,9 @@
     <span class="eyebrow">THE PAVILION / MANAGEMENT CENTRE</span>
     <h1>Manage leagues.</h1>
     <p class="page-description">
-      Every league in The Pavilion, archived ones included. Open a league, add yourself to it,
-      rename it, archive or restore it, appoint its captain, or start a new one below.
+      Every league in The Pavilion, archived ones included. Expand a league to open it, add
+      yourself to it, rename it, archive or restore it, or appoint its captain. Start a new one
+      below.
     </p>
     <p class="status" role="status">{{ status() }}</p>
 
@@ -63,11 +64,24 @@
     </section>
 
     <section class="create" aria-labelledby="create-heading">
-      <div class="section-title">
-        <h2 id="create-heading">Start a league.</h2>
-        <span>NEW LEAGUE</span>
+      <h2 id="create-heading" class="create-heading">
+        <button
+          type="button"
+          class="create-toggle"
+          [class.open]="creating()"
+          [attr.aria-expanded]="creating()"
+          aria-controls="create-body"
+          (click)="toggleCreate()"
+        >
+          <ng-icon class="create-plus" name="lucidePlus" aria-hidden="true" />
+          <span class="create-label">Start a league.</span>
+          <span class="create-note">NEW LEAGUE</span>
+          <ng-icon class="chevron" name="lucideChevronDown" aria-hidden="true" />
+        </button>
+      </h2>
+      <div id="create-body" class="create-body" [hidden]="!creating()">
+        <app-create-league-form />
       </div>
-      <app-create-league-form />
     </section>
   </div>
   <app-reason-dialog />

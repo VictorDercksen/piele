@@ -11,7 +11,7 @@ import {
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideArrowRight } from '@ng-icons/lucide';
+import { lucideArrowRight, lucideChevronDown, lucidePlus } from '@ng-icons/lucide';
 import { AdminService } from '../../core/league/admin.service';
 import { BallLoader } from '../../shared/ball-loader/ball-loader';
 import { ReasonDialog } from '../duties/reason-dialog/reason-dialog';
@@ -19,8 +19,9 @@ import { CreateLeagueForm } from './create-league-form/create-league-form';
 import { LeagueCard, LeagueChange } from './league-card/league-card';
 
 /**
- * `/manage`, the management centre (the admin only; the API decides): every league with its
- * actions, archived ones in a collapsed group, and the form that starts a new league. A full
+ * `/manage`, the management centre (the admin only; the API decides): every league as a card
+ * that opens to its details and actions, archived ones in a collapsed group, and the form that
+ * starts a new league behind "Start a league" (kept while closed, so a draft survives). A full
  * page outside the shell, like the profile page.
  */
 @Component({
@@ -29,7 +30,7 @@ import { LeagueCard, LeagueChange } from './league-card/league-card';
   styleUrl: './manage.page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [RouterLink, NgIcon, BallLoader, ReasonDialog, CreateLeagueForm, LeagueCard],
-  viewProviders: [provideIcons({ lucideArrowRight })],
+  viewProviders: [provideIcons({ lucideArrowRight, lucideChevronDown, lucidePlus })],
 })
 export class ManagePage {
   private readonly admin = inject(AdminService);
@@ -45,9 +46,15 @@ export class ManagePage {
   readonly archived = computed(() => this.leagues().filter((l) => l.status === 'archived'));
   /** The last change, announced politely. */
   readonly status = signal('');
+  /** Whether the new-league form is open. */
+  readonly creating = signal(false);
 
   constructor() {
     void this.admin.load();
+  }
+
+  toggleCreate(): void {
+    this.creating.update((open) => !open);
   }
 
   retry(): void {

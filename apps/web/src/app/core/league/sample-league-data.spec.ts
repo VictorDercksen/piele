@@ -189,8 +189,8 @@ describe('sample league data', () => {
   it('saves a preset or an image and the accent colour, and names the change in the feed', async () => {
     const data = sample();
     expect(data.appearance()).toEqual({ emblemPreset: null, emblemUrl: null, accentColour: null });
-    const look = await data.saveAppearance({ emblem: { preset: 'oak' }, accentColour: '#3f8f6b' });
-    expect(look).toEqual({ emblemPreset: 'oak', emblemUrl: null, accentColour: '#3f8f6b' });
+    const look = await data.saveAppearance({ emblem: { preset: 'ball' }, accentColour: '#3f8f6b' });
+    expect(look).toEqual({ emblemPreset: 'ball', emblemUrl: null, accentColour: '#3f8f6b' });
     expect(data.feed()[0]).toEqual(
       expect.objectContaining({ kind: 'emblem_updated', title: 'The Piele emblem was updated.' }),
     );
@@ -209,10 +209,10 @@ describe('sample league data', () => {
       code: 'invalid_emblem',
     });
     await expect(data.saveAppearance({ accentColour: 'red' })).rejects.toThrow();
-    // The Pofadder Bowl starts with its anvil.
+    // The Pofadder Bowl starts with its posts.
     data.selectLeague(SAMPLE_ACCOUNT.leagues[1]);
     expect(data.appearance()).toEqual({
-      emblemPreset: 'anvil',
+      emblemPreset: 'posts',
       emblemUrl: null,
       accentColour: '#c8742a',
     });

@@ -41,7 +41,7 @@ describe('Shell', () => {
     // The Pofadder Bowl's preset crest, tinted with its accent colour.
     const crest = brand.querySelector<HTMLElement>('.switcher-trigger app-league-crest')!;
     expect(crest.querySelector('use')?.getAttribute('href')).toBe(
-      'assets/images/emblems/anvil.svg#emblem',
+      'assets/images/emblems/posts.svg#emblem',
     );
     expect(crest.style.getPropertyValue('--crest-accent')).toBe('#c8742a');
     expect(root.querySelector('.club-footer')?.textContent).toContain(

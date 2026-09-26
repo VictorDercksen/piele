@@ -6,28 +6,26 @@
  * key against the same list.
  */
 export const EMBLEM_PRESETS = [
-  'oak',
-  'anvil',
-  'lantern',
-  'compass',
-  'chevron',
-  'crown',
-  'wave',
-  'star',
+  'ball',
+  'posts',
+  'jersey',
+  'boot',
+  'scrum',
+  'wings',
+  'trophy',
 ] as const;
 
 export type EmblemPreset = (typeof EMBLEM_PRESETS)[number];
 
 /** The names members see beside the preset crests. */
 export const EMBLEM_LABELS: Readonly<Record<EmblemPreset, string>> = {
-  oak: 'Oak',
-  anvil: 'Anvil',
-  lantern: 'Lantern',
-  compass: 'Compass',
-  chevron: 'Chevron',
-  crown: 'Crown',
-  wave: 'Wave',
-  star: 'Star',
+  ball: 'Ball',
+  posts: 'Posts',
+  jersey: 'Jersey',
+  boot: 'Boot',
+  scrum: 'Scrum',
+  wings: 'Wings',
+  trophy: 'Trophy',
 };
 
 /** The tint of a preset crest or monogram ring when the league has no accent colour. */
