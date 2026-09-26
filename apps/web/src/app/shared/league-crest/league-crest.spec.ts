@@ -20,10 +20,10 @@ describe('LeagueCrest', () => {
   }
 
   it('draws a preset crest in the accent colour', () => {
-    const fixture = crest({ emblemPreset: 'anvil', accentColour: '#c8742a' });
+    const fixture = crest({ emblemPreset: 'posts', accentColour: '#c8742a' });
     const host: HTMLElement = fixture.nativeElement;
     expect(host.querySelector('use')?.getAttribute('href')).toBe(
-      'assets/images/emblems/anvil.svg#emblem',
+      'assets/images/emblems/posts.svg#emblem',
     );
     expect(host.style.getPropertyValue('--crest-accent')).toBe('#c8742a');
     expect(host.classList.contains('accented')).toBe(true);
@@ -50,7 +50,7 @@ describe('LeagueCrest', () => {
 
   it('prefers an uploaded emblem over the preset and the Piele crest', () => {
     const image = 'data:image/jpeg;base64,/9j/4AAQ';
-    const fixture = crest({ slug: 'piele', emblemPreset: 'oak', emblemUrl: image });
+    const fixture = crest({ slug: 'piele', emblemPreset: 'ball', emblemUrl: image });
     expect(fixture.nativeElement.querySelector('img.upload')?.getAttribute('src')).toBe(image);
   });
 

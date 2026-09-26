@@ -145,6 +145,55 @@ section + section {
 .archived-group .league-list {
   padding: 0 12px 12px;
 }
+.create-heading {
+  margin-bottom: 16px;
+}
+/* "Start a league." opens the new-league form below it. */
+.create-toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 12px 18px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  background: var(--surface-grain), var(--surface);
+  color: var(--ink);
+  font-size: 22px;
+  font-weight: 800;
+  text-align: left;
+}
+.create-toggle:hover {
+  filter: brightness(1.12);
+}
+.create-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.create-plus {
+  --ng-icon__size: 22px;
+  color: var(--accent);
+}
+.create-label {
+  flex: 1;
+}
+.create-note {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  color: var(--muted);
+}
+.create-toggle .chevron {
+  --ng-icon__size: 20px;
+  transition: transform 0.18s ease;
+}
+.create-toggle.open .chevron {
+  transform: rotate(180deg);
+}
+.create-body[hidden] {
+  display: none;
+}
 @container (max-width: 600px) {
   .manage-top {
     padding: 14px 16px;
@@ -158,6 +207,13 @@ section + section {
   }
   h1 {
     font-size: 32px;
+  }
+  .create-toggle {
+    padding: 10px 14px;
+    font-size: 18px;
+  }
+  .create-note {
+    display: none;
   }
   .section-title {
     flex-wrap: wrap;

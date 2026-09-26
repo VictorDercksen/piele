@@ -51,11 +51,22 @@ describe('CreateLeagueForm', () => {
       select.value = value;
       select.dispatchEvent(new Event('change'));
     };
+    /** Types a member into a row of the team sheet, adding rows as needed. */
+    const member = async (row: number, name: string, surname: string, superbru: string) => {
+      while (!root.querySelector(`#new-league-member-${row}-name`)) {
+        root.querySelector<HTMLButtonElement>('.add-row')!.click();
+        await settle();
+      }
+      type(`member-${row}-name`, name);
+      type(`member-${row}-surname`, surname);
+      type(`member-${row}-superbru`, superbru);
+      await settle();
+    };
     const submit = async () => {
       root.querySelector('form')!.dispatchEvent(new Event('submit'));
       await settle();
     };
-    return { fixture, root, field, type, choose, submit, navigate };
+    return { fixture, root, field, type, choose, member, submit, navigate };
   }
 
   it('fills the slug from the name until it is edited, and the season from the competition', async () => {
@@ -74,23 +85,45 @@ describe('CreateLeagueForm', () => {
     expect(fixture.componentInstance.form.controls.slug.value).toBe('ou-manne');
   });
 
-  it('previews the pasted members with each line to fix and offers them as captain', async () => {
-    const { root, type, field } = setup();
+  it('starts with three rows, adds one with "Add member" and offers the members as captain', async () => {
+    const { root, member, field, submit } = setup();
     await settle();
-    type('members', 'Steyn, Doempie, Doempie\nKallie\nKallie Kruger, Kallie');
-    await settle();
-    expect(root.querySelector('.preview-count')?.textContent).toBe('2 members ready, 1 line to fix.');
-    expect(root.querySelector('.line-errors')?.textContent).toContain('Line 2');
+    expect(root.querySelectorAll('.member-row').length).toBe(3);
+    await member(0, 'Doempie', 'Steyn', 'Doempie');
+    await member(1, 'Kallie', '', '');
+    await member(3, 'Thabo', 'Nkosi', 'Thabo');
+    expect(root.querySelectorAll('.member-row').length).toBe(4);
+    expect(document.activeElement).toBe(field('member-3-name'));
+    expect(root.querySelector('.preview-count')?.textContent).toBe('2 members ready.');
     const options = Array.from(field<HTMLSelectElement>('captain').options).map((o) => o.value);
-    expect(options).toEqual(['', 'Doempie', 'Kallie']);
+    expect(options).toEqual(['', 'Doempie', 'Thabo']);
+
+    // An unfinished row is pointed out once the admin tries to submit.
+    await submit();
+    expect(sent).toEqual([]);
+    expect(root.querySelector('.preview-count')?.textContent).toBe('2 members ready, 1 row to fix.');
+    expect(root.querySelector('#new-league-member-1-error')?.textContent).toBe('Add the Superbru name.');
+    expect(field('member-1-superbru').getAttribute('aria-invalid')).toBe('true');
+  });
+
+  it('removes a row and drops a captain whose row went', async () => {
+    const { root, member, choose, fixture } = setup();
+    await settle();
+    await member(0, 'Doempie', 'Steyn', 'Doempie');
+    await member(1, 'Thabo', 'Nkosi', 'Thabo');
+    choose('captain', 'Thabo');
+    root.querySelector<HTMLButtonElement>('[aria-label="Remove member 2"]')!.click();
+    await settle();
+    expect(root.querySelectorAll('.member-row').length).toBe(2);
+    expect(fixture.componentInstance.controls.captain.value).toBe('');
   });
 
   it('sends null as the captain’s email for "me" and opens the new league', async () => {
-    const { type, choose, submit, navigate, root } = setup();
+    const { type, choose, member, submit, navigate, root } = setup();
     await settle();
     type('name', 'Die Ou Manne');
-    type('members', 'Steyn, Doempie, Doempie\nKallie Kruger, Kallie');
-    await settle();
+    await member(0, 'Doempie', 'Steyn', 'Doempie');
+    await member(1, 'Kallie', 'Kruger', 'Kallie');
     choose('captain', 'Doempie');
     await submit();
     expect(sent).toEqual([
@@ -101,7 +134,7 @@ describe('CreateLeagueForm', () => {
         competitionId: 'urc-2026-27',
         seasonName: 'URC 2026/27',
         members: [
-          { fullName: 'Steyn, Doempie', displayName: 'Doempie' },
+          { fullName: 'Doempie Steyn', displayName: 'Doempie' },
           { fullName: 'Kallie Kruger', displayName: 'Kallie' },
         ],
         captainDisplayName: 'Doempie',
@@ -116,11 +149,10 @@ describe('CreateLeagueForm', () => {
   });
 
   it('needs the captain’s email when the captain is someone else, and can add the admin', async () => {
-    const { type, choose, submit, root, field } = setup();
+    const { type, choose, member, submit, root, field } = setup();
     await settle();
     type('name', 'Die Ou Manne');
-    type('members', 'Steyn, Doempie, Doempie');
-    await settle();
+    await member(0, 'Doempie', 'Steyn', 'Doempie');
     choose('captain', 'Doempie');
     const me = root.querySelector<HTMLInputElement>('input[formcontrolname="captainIsMe"]')!;
     me.click();
@@ -137,11 +169,10 @@ describe('CreateLeagueForm', () => {
   });
 
   it('shows slug and member refusals beside their fields and others at the top', async () => {
-    const { type, choose, submit, root, field, navigate } = setup();
+    const { type, choose, member, submit, root, field, navigate } = setup();
     await settle();
     type('name', 'Die Ou Manne');
-    type('members', 'Steyn, Doempie, Doempie');
-    await settle();
+    await member(0, 'Doempie', 'Steyn', 'Doempie');
     choose('captain', 'Doempie');
 
     refusal = new ApiError(409, 'slug_taken', 'Another league already uses die-ou-manne.');
@@ -153,8 +184,8 @@ describe('CreateLeagueForm', () => {
     refusal = new ApiError(422, 'unknown_captain', 'The captain must be one of the members.');
     await submit();
     expect(field('slug').getAttribute('aria-invalid')).toBe('false');
-    expect(field('members').getAttribute('aria-invalid')).toBe('true');
-    expect(root.querySelector('.members-grid [role="alert"]')?.textContent).toContain('captain must be');
+    expect(root.querySelector('#new-league-members-error')?.textContent).toContain('captain must be');
+    expect(document.activeElement).toBe(root.querySelector('#new-league-members-error'));
 
     refusal = new ApiError(422, 'invalid_timezone', 'Unknown time zone.');
     await submit();

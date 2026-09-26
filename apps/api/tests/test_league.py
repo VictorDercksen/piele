@@ -1210,35 +1210,35 @@ def appearance(client: TestClient, body: dict, headers: dict | None = None):
 
 def test_the_captain_sets_a_preset_emblem_and_accent_colour(client: TestClient) -> None:
     mo = mo_headers(client)
-    denied = appearance(client, {"emblemPreset": "oak"}, headers=mo)
+    denied = appearance(client, {"emblemPreset": "ball"}, headers=mo)
     assert denied.status_code == 403 and denied.json()["detail"]["code"] == "captain_only"
-    for bad in ({"emblemPreset": "dragon"}, {"emblemPreset": "OAK"}, {"emblemPreset": "oak", "emblemPath": None}):
+    for bad in ({"emblemPreset": "dragon"}, {"emblemPreset": "BALL"}, {"emblemPreset": "ball", "emblemPath": None}):
         response = appearance(client, bad)
         assert response.status_code == 422 and response.json()["detail"]["code"] == "invalid_emblem", bad
     assert appearance(client, {"accentColour": "orange"}).json()["detail"]["code"] == "invalid_accent_colour"
 
-    saved = appearance(client, {"emblemPreset": "anvil", "accentColour": "#C8742A"})
+    saved = appearance(client, {"emblemPreset": "posts", "accentColour": "#C8742A"})
     assert saved.status_code == 200, saved.text
     body = saved.json()
-    assert (body["emblemPreset"], body["emblemUrl"], body["accentColour"]) == ("anvil", None, "#c8742a")
+    assert (body["emblemPreset"], body["emblemUrl"], body["accentColour"]) == ("posts", None, "#c8742a")
     assert body["joinCode"] is not None and body["administers"] is True
     # Every league description carries it: the member's me, the account list and the join page.
     me = client.get(lp(client, "/me"), headers=mo).json()
-    assert (me["emblemPreset"], me["accentColour"], me["joinCode"]) == ("anvil", "#c8742a", None)
+    assert (me["emblemPreset"], me["accentColour"], me["joinCode"]) == ("posts", "#c8742a", None)
     [entry] = client.get("/v1/me", headers=mo).json()["leagues"]
-    assert (entry["emblemPreset"], entry["emblemUrl"], entry["accentColour"]) == ("anvil", None, "#c8742a")
+    assert (entry["emblemPreset"], entry["emblemUrl"], entry["accentColour"]) == ("posts", None, "#c8742a")
     stranger = signed_in(client, "STRANGER", "stranger@example.com")
     league = client.get(f"/v1/join/{join_code(client)}", headers=stranger).json()["league"]
-    assert (league["emblemPreset"], league["emblemUrl"]) == ("anvil", None)
+    assert (league["emblemPreset"], league["emblemUrl"]) == ("posts", None)
 
     # Fields left out are untouched; the accent alone writes no feed entry.
-    assert appearance(client, {"accentColour": None}).json()["emblemPreset"] == "anvil"
+    assert appearance(client, {"accentColour": None}).json()["emblemPreset"] == "posts"
     assert appearance(client, {"emblemPreset": None}).json()["accentColour"] is None
     kinds = [f["kind"] for f in client.get(lp(client, "/feed"), headers=mo).json()]
     assert kinds[:2] == ["emblem_updated", "emblem_updated"]
     assert client.get(lp(client, "/feed"), headers=mo).json()[0]["title"] == "The Test league emblem was updated."
     events = audit_rows(client, "league.appearance_updated")
-    assert [(e.before["emblem"], e.after["emblem"]) for e in events] == [(None, "preset:anvil"), ("preset:anvil", "preset:anvil"), ("preset:anvil", None)]
+    assert [(e.before["emblem"], e.after["emblem"]) for e in events] == [(None, "preset:posts"), ("preset:posts", "preset:posts"), ("preset:posts", None)]
     # Saving what is already there changes nothing.
     assert appearance(client, {"emblemPreset": None}).status_code == 200
     assert len(audit_rows(client, "league.appearance_updated")) == 3
@@ -1279,7 +1279,7 @@ def test_an_uploaded_emblem_is_checked_signed_and_replaced(client: TestClient, s
         f"emblems/{client.league_id}/../{other_league}/{'a' * 32}.png",
         f"avatars/{uuid4()}/{uuid4()}-abc.jpg",
         "https://elsewhere.test/crest.png",
-        "preset:oak",
+        "preset:ball",
         f"emblems/{client.league_id}/{'b' * 32}.png",  # granted shape, never uploaded
     ):
         response = appearance(client, {"emblemPath": path})
@@ -1476,7 +1476,7 @@ def test_the_admin_creates_a_league_and_captains_it(client: TestClient) -> None:
         captainDisplayName="Vic",
         captainEmail=None,
         members=[{"fullName": "Dercksen, Victor", "displayName": "Vic"}, {"fullName": "Speler, Sanet", "displayName": "Sanet"}],
-        emblemPreset="anvil",
+        emblemPreset="posts",
         accentColour="#C8742A",
         addMe=True,  # ignored: the admin is the captain
     )
@@ -1485,7 +1485,7 @@ def test_the_admin_creates_a_league_and_captains_it(client: TestClient) -> None:
     league = created.json()
     league_id = league["id"]
     assert (league["name"], league["slug"], league["status"], league["timezone"]) == ("Pofadder Bowl", body["slug"], "active", "Africa/Johannesburg")
-    assert (league["emblemPreset"], league["emblemUrl"], league["accentColour"]) == ("anvil", None, "#c8742a")
+    assert (league["emblemPreset"], league["emblemUrl"], league["accentColour"]) == ("posts", None, "#c8742a")
     assert len(league["joinCode"]) == 12 and league["season"]["name"] == "URC 2026/27"
     assert league["captain"]["displayName"] == "Vic" and league["captain"]["claimed"] is True
     assert league["myMemberId"] == league["captain"]["memberId"]

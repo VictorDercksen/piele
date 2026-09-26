@@ -397,7 +397,7 @@ const POFADDER_MEMBERS: readonly LeagueMember[] = [
 
 const POFADDER: SampleLeagueSeed = {
   summary: summary('sample-league-pofadder-bowl', 'pofadder-bowl', 'Pofadder Bowl', false, {
-    emblemPreset: 'anvil',
+    emblemPreset: 'posts',
     accentColour: '#c8742a',
   }),
   joinCode: 'b0e1d2c3a4f5',

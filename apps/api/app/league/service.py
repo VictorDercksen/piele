@@ -833,7 +833,7 @@ def update_member(
 # Emblem, accent colour and join code (captain or admin) ---------------------------------
 
 # The web ships each preset as assets/images/emblems/<key>.svg; stored as 'preset:<key>'.
-EMBLEM_PRESETS = ("oak", "anvil", "lantern", "compass", "chevron", "crown", "wave", "star")
+EMBLEM_PRESETS = ("ball", "posts", "jersey", "boot", "scrum", "wings", "trophy")
 PRESET_PREFIX = "preset:"
 EMBLEM_TYPES = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
 _UNSET: Any = object()

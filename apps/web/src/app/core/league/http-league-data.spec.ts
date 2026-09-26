@@ -395,12 +395,12 @@ describe('HttpLeagueData', () => {
       ...extra,
     });
 
-    const preset = league.saveAppearance({ emblem: { preset: 'anvil' }, accentColour: '#c8742a' });
+    const preset = league.saveAppearance({ emblem: { preset: 'posts' }, accentColour: '#c8742a' });
     const put = http.expectOne(`${API}/appearance`);
     expect(put.request.method).toBe('PUT');
-    expect(put.request.body).toEqual({ emblemPreset: 'anvil', accentColour: '#c8742a' });
-    put.flush(steward({ emblemPreset: 'anvil', accentColour: '#c8742a' }));
-    expect(await preset).toEqual({ emblemPreset: 'anvil', emblemUrl: null, accentColour: '#c8742a' });
+    expect(put.request.body).toEqual({ emblemPreset: 'posts', accentColour: '#c8742a' });
+    put.flush(steward({ emblemPreset: 'posts', accentColour: '#c8742a' }));
+    expect(await preset).toEqual({ emblemPreset: 'posts', emblemUrl: null, accentColour: '#c8742a' });
 
     // Removing a preset clears only the preset field.
     const clearing = league.saveAppearance({ emblem: null });
