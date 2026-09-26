@@ -62,13 +62,20 @@ def record(
 ) -> None:
     """Append the audit event and, when the change is league-visible, the feed entry. The
     admin acting without a membership is recorded with no actor membership and the label
-    `admin`."""
+    `admin`; the admin holding a membership is labelled `<name> (admin)`, so the audit trail
+    shows the admin's powers were in play."""
+    if actor.membership_id is None:
+        actor_label = ADMIN_LABEL
+    elif actor.is_admin:
+        actor_label = f"{actor.display_name} ({ADMIN_LABEL})"
+    else:
+        actor_label = actor.display_name
     write_record(
         actor.connection,
         league_id=actor.league_id,
         season_id=actor.season_id,
         actor_membership_id=actor.membership_id,
-        actor_label=actor.display_name if actor.membership_id is not None else ADMIN_LABEL,
+        actor_label=actor_label,
         request_id=actor.request_id,
         action=action,
         entity_type=entity_type,
@@ -189,9 +196,7 @@ def withdraw_member(actor: Actor, membership_id: UUID, *, reason: str) -> bool:
     if actor.membership_id is not None and membership_id == actor.membership_id:
         raise problem(409, "own_membership", "You cannot remove yourself.")
     m, sm = t.league_memberships, t.season_memberships
-    row = actor.connection.execute(select(m).where(m.c.id == membership_id).with_for_update()).first()
-    if row is None:
-        raise problem(404, "unknown_member", "Unknown member.")
+    row = _league_membership(actor, membership_id)
     if row.status != "active":
         raise problem(409, "already_withdrawn", "That member has already been removed.")
     if row.user_id is None and _delete_if_record_free(actor, row):
@@ -200,7 +205,7 @@ def withdraw_member(actor: Actor, membership_id: UUID, *, reason: str) -> bool:
     now = now_utc()
     actor.connection.execute(
         update(m)
-        .where(m.c.id == membership_id, m.c.version == row.version)
+        .where(m.c.id == membership_id, m.c.league_id == actor.league_id, m.c.version == row.version)
         .values(status="withdrawn", left_at=now, withdrawal_reason=reason, updated_at=func.now(), version=m.c.version + 1)
     )
     actor.connection.execute(
@@ -222,6 +227,19 @@ def withdraw_member(actor: Actor, membership_id: UUID, *, reason: str) -> bool:
     return True
 
 
+def _league_membership(actor: Actor, membership_id: UUID) -> Any:
+    """The membership in the actor's league, locked, or 404 `unknown_member`. A membership id
+    comes from the client, and the caller's own memberships in other leagues stay readable
+    (the league list needs them), so the league is always part of the lookup."""
+    m = t.league_memberships
+    row = actor.connection.execute(
+        select(m).where(m.c.id == membership_id, m.c.league_id == actor.league_id).with_for_update()
+    ).first()
+    if row is None:
+        raise problem(404, "unknown_member", "Unknown member.")
+    return row
+
+
 def _void_member_duties(actor: Actor, membership_id: UUID) -> list[UUID]:
     """Voids the member's live duties in every season (open or waiting for a deadline) and
     supersedes their pending evidence, with one audit event per duty and no feed entry: the
@@ -230,7 +248,11 @@ def _void_member_duties(actor: Actor, membership_id: UUID) -> list[UUID]:
     rows = actor.connection.execute(
         select(d.c.id, d.c.status)
         .select_from(d.join(sm, sm.c.id == d.c.season_membership_id))
-        .where(sm.c.membership_id == membership_id, d.c.status.in_(("open", "pending_deadline")))
+        .where(
+            d.c.league_id == actor.league_id,
+            sm.c.membership_id == membership_id,
+            d.c.status.in_(("open", "pending_deadline")),
+        )
         .with_for_update(of=d)
     ).all()
     for duty in rows:
@@ -287,8 +309,12 @@ def _delete_if_record_free(actor: Actor, row: Any) -> bool:
         return False
     try:
         with connection.begin_nested():
-            connection.execute(sm.delete().where(sm.c.membership_id == row.id))
-            connection.execute(t.league_memberships.delete().where(t.league_memberships.c.id == row.id))
+            connection.execute(sm.delete().where(sm.c.membership_id == row.id, sm.c.league_id == actor.league_id))
+            connection.execute(
+                t.league_memberships.delete().where(
+                    t.league_memberships.c.id == row.id, t.league_memberships.c.league_id == actor.league_id
+                )
+            )
     except IntegrityError:
         return False
     record(
@@ -306,14 +332,12 @@ def reinstate_member(actor: Actor, membership_id: UUID) -> None:
     and the member is enrolled in the active season with a new season membership (the
     withdrawn one keeps its effective_to, which marks the gap)."""
     m, sm = t.league_memberships, t.season_memberships
-    row = actor.connection.execute(select(m).where(m.c.id == membership_id).with_for_update()).first()
-    if row is None:
-        raise problem(404, "unknown_member", "Unknown member.")
+    row = _league_membership(actor, membership_id)
     if row.status != "withdrawn":
         raise problem(409, "not_withdrawn", "That member has not been removed.")
     actor.connection.execute(
         update(m)
-        .where(m.c.id == membership_id, m.c.version == row.version)
+        .where(m.c.id == membership_id, m.c.league_id == actor.league_id, m.c.version == row.version)
         .values(status="active", left_at=None, withdrawal_reason=None, updated_at=func.now(), version=m.c.version + 1)
     )
     actor.connection.execute(
@@ -332,7 +356,8 @@ def reinstate_member(actor: Actor, membership_id: UUID) -> None:
 
 # Leagues, accounts and joining -----------------------------------------------------------
 
-SLUG_PATTERN = re.compile(r"^[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])?$")
+# 3 to 40 characters, as the message says. The database constraint also allows one character.
+SLUG_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$")
 # Top-level web routes that a league slug must never shadow (apps/web/src/app/app.routes.ts).
 RESERVED_SLUGS = frozenset(
     {"sign-in", "join", "no-league", "manage", "standings", "duties", "decisions", "constitution", "captain", "more", "profile", "welcome", "match", "api", "v1"}
@@ -528,7 +553,12 @@ def claim_reserved(account: Account) -> None:
         .order_by(m.c.joined_at)
     ).all()
     for row in reserved:
-        _claim(account, row.league_id, row.id, reserved_ok=True)
+        try:
+            _claim(account, row.league_id, row.id, reserved_ok=True)
+        except HTTPException as exc:
+            # A concurrent request from the same account took a name in that league first.
+            if not (isinstance(exc.detail, dict) and exc.detail.get("code") == "already_member"):
+                raise
     set_context(account.connection, "league_id", None)
 
 
@@ -609,7 +639,9 @@ def _claim(account: Account, league_id: UUID, membership_id: UUID, *, reserved_o
     """Binds the account to an unclaimed name in an active league, copying the favourite team
     from the account's membership in another league on the same competition, and records
     `membership.claimed` with the `member_joined` feed entry. None when the name was taken
-    meanwhile, the league is not active, or the account already has a membership there."""
+    meanwhile, the league is not active, or the account already has a membership there;
+    409 `already_member` when a concurrent request claimed another name in the league for
+    the same account after the check here."""
     connection = account.connection
     m = t.league_memberships
     set_context(connection, "league_id", str(league_id))
@@ -629,12 +661,20 @@ def _claim(account: Account, league_id: UUID, membership_id: UUID, *, reserved_o
     values: dict[str, Any] = {"user_id": account.user_id, "updated_at": func.now(), "version": m.c.version + 1}
     if team is not None:
         values["favourite_team_id"] = func.coalesce(m.c.favourite_team_id, team)
-    claimed = connection.execute(
-        update(m)
-        .where(m.c.id == membership_id, m.c.league_id == league_id, m.c.user_id.is_(None), m.c.status == "active", condition)
-        .values(**values)
-        .returning(m.c.display_name)
-    ).first()
+    try:
+        with connection.begin_nested():
+            claimed = connection.execute(
+                update(m)
+                .where(
+                    m.c.id == membership_id, m.c.league_id == league_id, m.c.user_id.is_(None), m.c.status == "active", condition
+                )
+                .values(**values)
+                .returning(m.c.display_name)
+            ).first()
+    except IntegrityError as exc:
+        if _constraint(exc) != ONE_MEMBERSHIP_PER_LEAGUE:
+            raise
+        raise problem(409, "already_member", "You are already a member of this league.") from exc
     if claimed is None:
         return None
     actor = actor_for(account, league_id)
@@ -646,6 +686,15 @@ def _claim(account: Account, league_id: UUID, membership_id: UUID, *, reserved_o
         feed=FeedEntry(kind="member_joined", title=f"{claimed.display_name} joined the clubhouse."),
     )
     return actor
+
+
+ONE_MEMBERSHIP_PER_LEAGUE = "league_memberships_league_id_user_id_key"
+
+
+def _constraint(exc: IntegrityError) -> str | None:
+    """The name of the constraint an IntegrityError broke, when the driver reports it."""
+    diag = getattr(exc.orig, "diag", None)
+    return getattr(diag, "constraint_name", None)
 
 
 def _team_on_competition(account: Account, competition_id: str, *, exclude_league_id: UUID) -> str | None:
@@ -688,19 +737,25 @@ def record_last_league(actor: Actor) -> None:
 
 def release_membership(actor: Actor, membership_id: UUID) -> None:
     """Captain or admin undoes a claim so the right account can take the name. Not for the
-    captain's own membership."""
+    captain's own membership. The claimant's team and notification read state go with them,
+    so the next claimant starts clean."""
     if membership_id == actor.captain_membership_id:
         raise problem(409, "captain_membership", "The captain's own membership cannot be released.")
     m = t.league_memberships
-    row = actor.connection.execute(select(m).where(m.c.id == membership_id).with_for_update()).first()
-    if row is None:
-        raise problem(404, "unknown_member", "Unknown member.")
+    row = _league_membership(actor, membership_id)
     if row.user_id is None:
         raise problem(409, "not_claimed", "That name has not been claimed.")
     actor.connection.execute(
         update(m)
-        .where(m.c.id == membership_id, m.c.version == row.version)
-        .values(user_id=None, updated_at=func.now(), version=m.c.version + 1)
+        .where(m.c.id == membership_id, m.c.league_id == actor.league_id, m.c.version == row.version)
+        .values(
+            user_id=None,
+            favourite_team_id=None,
+            notifications_read_at=None,
+            notifications_read_keys=[],
+            updated_at=func.now(),
+            version=m.c.version + 1,
+        )
     )
     record(
         actor,
@@ -747,9 +802,7 @@ def update_member(
     actor: Actor, membership_id: UUID, *, display_name: str | None, email: str | None, clear_email: bool
 ) -> None:
     m = t.league_memberships
-    current = actor.connection.execute(select(m).where(m.c.id == membership_id)).first()
-    if current is None:
-        raise problem(404, "unknown_member", "Unknown member.")
+    current = _league_membership(actor, membership_id)
     values: dict[str, Any] = {}
     if display_name is not None:
         values["display_name"] = display_name
@@ -762,7 +815,7 @@ def update_member(
     try:
         actor.connection.execute(
             update(m)
-            .where(m.c.id == membership_id)
+            .where(m.c.id == membership_id, m.c.league_id == actor.league_id)
             .values(**values, updated_at=func.now(), version=m.c.version + 1)
         )
     except IntegrityError as exc:
@@ -889,7 +942,9 @@ def update_appearance(
 
 def _check_emblem_upload(actor: Actor, storage: Storage, path: str, max_bytes: int) -> None:
     """An emblem must be an image uploaded under this league's prefix with a grant from
-    `reserve_emblem_upload`, within the size limit and of the type its name says."""
+    `reserve_emblem_upload`, within the size limit and of the type its name says, both by its
+    first bytes and by the content type Storage serves it with (a PNG stored as text/html
+    would be served as a page)."""
     pattern = rf"{re.escape(_emblem_prefix(actor.league_id))}[0-9a-f]{{32}}\.(jpg|png|webp)"
     match = re.fullmatch(pattern, path)
     if match is None:
@@ -901,7 +956,14 @@ def _check_emblem_upload(actor: Actor, storage: Storage, path: str, max_bytes: i
         head = storage.read_prefix(path, 12)
     except StorageError as exc:
         raise problem(503, "storage_unavailable", "Emblem storage is unavailable. Try again later.") from exc
-    if not _is_image(match.group(1), head) or stored.size_bytes is None or stored.size_bytes > max_bytes:
+    ext = match.group(1)
+    served_as = (stored.content_type or "").split(";")[0].strip().lower()
+    if (
+        not _is_image(ext, head)
+        or EMBLEM_TYPES.get(served_as) != ext
+        or stored.size_bytes is None
+        or stored.size_bytes > max_bytes
+    ):
         _discard(storage, path)
         raise problem(422, "invalid_emblem", "That image could not be used. Choose a different image.")
 
@@ -1164,7 +1226,7 @@ def _claim_as_admin(account: Account, league_id: UUID) -> None:
     captain_id = connection.execute(select(t.leagues.c.captain_membership_id).where(t.leagues.c.id == league_id)).scalar_one()
     claimed = connection.execute(
         update(m)
-        .where(m.c.id == captain_id, m.c.user_id.is_(None))
+        .where(m.c.id == captain_id, m.c.league_id == league_id, m.c.user_id.is_(None))
         .values(user_id=account.user_id, favourite_team_id=team, updated_at=func.now(), version=m.c.version + 1)
         .returning(m.c.display_name)
     ).one()
@@ -1568,16 +1630,24 @@ def duties(actor: Actor, round_number: int | None = None, duty_id: UUID | None =
     views = []
     for row in rows:
         duty_links = by_duty.get(row.id, [])
-        marks = calculate(
-            deadline_at=row.deadline_at,
-            completed_at=row.completed_at,
-            voided=row.status == "voided",
-            now=now,
-            closure_at=actor.season_closed_at,
-            clock_reset_at=row.clock_reset_at,
-        )
-        views.append(DutyView(row, row.member_id, row.member_name, marks, _display(row, duty_links, now), duty_links))
+        views.append(DutyView(row, row.member_id, row.member_name, duty_marks(actor, row, now), _display(row, duty_links, now), duty_links))
     return views
+
+
+def duty_marks(actor: Actor, row: Any, now: datetime) -> MarkCalculation:
+    """The duty's marks. A duty voided because its member was withdrawn is not voided for
+    the calculation: it stopped accruing at the withdrawal and keeps what it had, so removing
+    and reinstating a member does not wipe their marks. It still displays as voided."""
+    withdrawn = row.status == "voided" and row.void_reason == WITHDRAWN_DUTY_REASON and row.voided_at is not None
+    return calculate(
+        deadline_at=row.deadline_at,
+        completed_at=row.completed_at,
+        voided=row.status == "voided" and not withdrawn,
+        now=now,
+        closure_at=actor.season_closed_at,
+        clock_reset_at=row.clock_reset_at,
+        withdrawn_at=row.voided_at if withdrawn else None,
+    )
 
 
 def _display(row: Any, links: list[Any], now: datetime) -> str:
@@ -1608,10 +1678,17 @@ def create_duty(
     if duty_type not in DUTY_TYPES:
         raise problem(422, "unknown_duty_type", "Unknown duty type.")
     sm = t.season_memberships
+    # A shared lock, so a concurrent withdrawal (which updates this row) waits for the duty
+    # and then voids it, or this waits for the withdrawal and finds no active enrolment.
     season_membership_id = actor.connection.execute(
-        select(sm.c.id).where(
-            sm.c.season_id == actor.season_id, sm.c.membership_id == member_id, sm.c.status == "active"
+        select(sm.c.id)
+        .where(
+            sm.c.league_id == actor.league_id,
+            sm.c.season_id == actor.season_id,
+            sm.c.membership_id == member_id,
+            sm.c.status == "active",
         )
+        .with_for_update(read=True)
     ).scalar_one_or_none()
     if season_membership_id is None:
         raise problem(404, "unknown_member", "That member is not enrolled in this season.")
@@ -1638,7 +1715,9 @@ def create_duty(
     except IntegrityError as exc:
         raise problem(409, "duplicate_duty", "That member already has a live duty of this type in this round.") from exc
     member_name = actor.connection.execute(
-        select(t.league_memberships.c.display_name).where(t.league_memberships.c.id == member_id)
+        select(t.league_memberships.c.display_name).where(
+            t.league_memberships.c.id == member_id, t.league_memberships.c.league_id == actor.league_id
+        )
     ).scalar_one()
     title = duty_title(actor.competition, duty_type, round_number)
     record(
@@ -1667,6 +1746,9 @@ def void_duty(actor: Actor, duty_id: UUID, *, reason: str) -> None:
         raise problem(404, "unknown_duty", "Unknown duty.")
     if row.status in ("voided", "completed"):
         raise problem(409, "duty_closed", "A completed or voided duty cannot be voided.")
+    if reason.strip().lower() == WITHDRAWN_DUTY_REASON.lower():
+        # That reason marks duties voided by a withdrawal, whose marks keep counting.
+        raise problem(422, "reserved_reason", "Give a different reason; that one is reserved for withdrawals.")
     actor.connection.execute(
         update(d)
         .where(d.c.id == duty_id, d.c.version == row.version)
@@ -1807,7 +1889,13 @@ def record_standings(actor: Actor, round_number: int, entries: Sequence[tuple[UU
         for row in actor.connection.execute(
             select(sm.c.id, sm.c.membership_id, m.c.display_name)
             .select_from(sm.join(m, m.c.id == sm.c.membership_id))
-            .where(sm.c.season_id == actor.season_id, sm.c.status == "active", m.c.status == "active")
+            .where(
+                sm.c.league_id == actor.league_id,
+                m.c.league_id == actor.league_id,
+                sm.c.season_id == actor.season_id,
+                sm.c.status == "active",
+                m.c.status == "active",
+            )
         ).all()
     }
     unknown = [member_id for member_id in member_ids if member_id not in enrolled]
@@ -2009,7 +2097,9 @@ def submit_evidence(
             insert(t.duty_evidence_links).values(league_id=actor.league_id, duty_id=row.id, submission_id=submission_id)
         )
     subject_name = actor.connection.execute(
-        select(t.league_memberships.c.display_name).where(t.league_memberships.c.id == subject_id)
+        select(t.league_memberships.c.display_name).where(
+            t.league_memberships.c.id == subject_id, t.league_memberships.c.league_id == actor.league_id
+        )
     ).scalar_one()
     titles = ", ".join(duty_title(actor.competition, r.type, r.round_number) for r in rows)
     record(
@@ -2091,7 +2181,9 @@ def decide_link(actor: Actor, link_id: UUID, *, decision: str, reason: str) -> N
             .values(decision="superseded", updated_at=func.now(), version=l.c.version + 1)
         )
     subject_name = actor.connection.execute(
-        select(t.league_memberships.c.display_name).where(t.league_memberships.c.id == row.subject_membership_id)
+        select(t.league_memberships.c.display_name).where(
+            t.league_memberships.c.id == row.subject_membership_id, t.league_memberships.c.league_id == actor.league_id
+        )
     ).scalar_one()
     title = duty_title(actor.competition, row.type, row.round_number)
     record(

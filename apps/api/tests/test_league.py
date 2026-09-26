@@ -4,7 +4,10 @@ evidence, own profiles and the feed. They need PIELE_TEST_DATABASE_URL like
 tests/test_database.py and run each test in a freshly bootstrapped league."""
 
 import os
+import threading
+import time
 from datetime import datetime, timedelta, timezone
+from typing import Any, Callable
 from uuid import UUID, uuid4
 
 import jwt
@@ -388,6 +391,8 @@ def test_duty_rules_and_captain_authority(client: TestClient) -> None:
     assert explicit["deadlineAt"].startswith("2026-10-20T10:00") and explicit["reason"] == "Missing picks"
     unknown = client.post(lp(client, "/duties"), json={**body, "memberId": str(uuid4())}, headers=captain_headers(client))
     assert unknown.status_code == 404
+    reserved = client.post(lp(client, f"/duties/{explicit['id']}/void"), json={"reason": "member withdrawn"}, headers=captain_headers(client))
+    assert reserved.status_code == 422 and reserved.json()["detail"]["code"] == "reserved_reason"
     voided = client.post(lp(client, f"/duties/{explicit['id']}/void"), json={"reason": "Picks were found"}, headers=captain_headers(client))
     assert voided.status_code == 200 and voided.json()["status"] == "voided" and voided.json()["voidReason"] == "Picks were found"
     assert client.post(lp(client, f"/duties/{explicit['id']}/void"), json={"reason": "again"}, headers=captain_headers(client)).status_code == 409
@@ -1542,6 +1547,7 @@ def test_create_league_errors_surface(client: TestClient) -> None:
     taken = client.get(lp(client, "/me"), headers=captain_headers(client)).json()["slug"]
     cases = [
         ({"slug": "Not A Slug"}, 422, "invalid_slug"),
+        ({"slug": "x"}, 422, "invalid_slug"),  # 3 to 40 characters, as the message says
         ({"slug": "manage"}, 422, "invalid_slug"),
         ({"slug": taken}, 409, "slug_taken"),
         ({"competitionId": "six-nations-2027"}, 422, "unknown_competition"),
@@ -1705,3 +1711,258 @@ def test_the_admin_adds_themselves_to_a_league(client: TestClient) -> None:
     there = client.post(f"/v1/admin/leagues/{other}/members/me", json={}, headers=admin)
     assert there.status_code == 201
     assert client.get(lp(client, "/me", other), headers=admin).json()["displayName"] == "Admin"
+
+
+# Review hardening ---------------------------------------------------------------------------
+
+
+def test_steward_routes_refuse_the_stewards_own_membership_in_another_league(client: TestClient) -> None:
+    """The captain here also captains Zulu. Their Zulu membership id is not a member of this
+    league, so every steward route here answers 404 `unknown_member` and Zulu is untouched."""
+    captain = captain_headers(client)
+    zulu = second_league(client, _captain_email(client))
+    assert client.get("/v1/me", headers=captain).status_code == 200  # claims the Zulu captain name
+    zulu_id = client.get(lp(client, "/me", zulu), headers=captain).json()["memberId"]
+    calls = {
+        "update": lambda: client.patch(lp(client, f"/members/{zulu_id}"), json={"displayName": "Hijacked"}, headers=captain),
+        "withdraw": lambda: withdraw(client, zulu_id),
+        "reinstate": lambda: client.post(lp(client, f"/members/{zulu_id}/reinstate"), headers=captain),
+        "release": lambda: client.post(lp(client, f"/members/{zulu_id}/release"), headers=captain),
+        "standings": lambda: put_standings(client, 1, {UUID(zulu_id): 3}),
+        "duty": lambda: client.post(
+            lp(client, "/duties"), json={"memberId": zulu_id, "type": "spoon", "roundNumber": 3}, headers=captain
+        ),
+    }
+    for name, call in calls.items():
+        response = call()
+        assert response.status_code == 404, (name, response.text)
+        assert response.json()["detail"]["code"] == "unknown_member", name
+    there = client.get(lp(client, "/me", zulu), headers=captain).json()
+    assert (there["memberId"], there["displayName"], there["isCaptain"]) == (zulu_id, "Captain", True)
+
+
+def rls_connection(client: TestClient, subject_id: UUID, league_id: str | None = None):
+    """A runtime-role transaction with only the auth subject (and optionally a league) set."""
+    connection = get_engine(client.app.state.settings).connect()
+    connection.begin()
+    connection.execute(text("select set_config('piele.auth_subject', :s, true)"), {"s": str(subject_id)})
+    if league_id is not None:
+        connection.execute(text("select set_config('piele.league_id', :l, true)"), {"l": league_id})
+    return connection
+
+
+def test_row_level_security_keeps_writes_in_the_league_context(client: TestClient) -> None:
+    captain = captain_headers(client)
+    zulu = second_league(client, _captain_email(client))
+    assert client.get("/v1/me", headers=captain).status_code == 200
+    zulu_id = client.get(lp(client, "/me", zulu), headers=captain).json()["memberId"]
+    captain_subject = subject(client, "CAPTAIN")
+
+    # The account row: only the columns the API writes.
+    connection = rls_connection(client, captain_subject)
+    try:
+        with pytest.raises(Exception, match="permission denied"):
+            connection.execute(text("update piele.users set is_admin = true where auth_subject = :s"), {"s": str(captain_subject)})
+    finally:
+        connection.close()
+    connection = rls_connection(client, captain_subject)
+    try:
+        updated = connection.execute(
+            text("update piele.users set last_league_id = null, updated_at = now() where auth_subject = :s"),
+            {"s": str(captain_subject)},
+        ).rowcount
+        assert updated == 1
+    finally:
+        connection.close()
+
+    # In this league's context the account's own Zulu membership is readable but not writable.
+    connection = rls_connection(client, captain_subject, client.league_id)  # type: ignore[attr-defined]
+    try:
+        assert connection.execute(
+            text("select display_name from piele.league_memberships where id = :id"), {"id": zulu_id}
+        ).scalar_one() == "Captain"
+        updated = connection.execute(
+            text("update piele.league_memberships set display_name = 'Hijacked' where id = :id"), {"id": zulu_id}
+        ).rowcount
+        assert updated == 0
+        with pytest.raises(Exception, match="row-level security"):
+            connection.execute(
+                text("insert into piele.league_memberships (league_id, display_name, full_name) values (:l, 'Sneak', 'Sneak, S')"),
+                {"l": zulu},
+            )
+    finally:
+        connection.close()
+    assert client.get(lp(client, "/me", zulu), headers=captain).json()["displayName"] == "Captain"
+
+    # A withdrawn member no longer reads the league outside its context.
+    mo = mo_headers(client)
+    mo_id = client.get(lp(client, "/me"), headers=mo).json()["memberId"]
+    open_duty(client, UUID(mo_id))  # a record, so Mo is withdrawn rather than deleted
+    assert withdraw(client, mo_id).status_code == 204
+    connection = rls_connection(client, subject(client, "MO"))
+    try:
+        assert connection.execute(text("select count(*) from piele.leagues")).scalar_one() == 0
+    finally:
+        connection.close()
+
+
+def test_withdrawing_and_reinstating_a_member_keeps_their_marks(client: TestClient) -> None:
+    mo = mo_headers(client)
+    captain = captain_headers(client)
+    mo_id = client.get(lp(client, "/me"), headers=mo).json()["memberId"]
+    three_weeks_ago = (now_utc() - timedelta(hours=168 * 3 + 3)).isoformat()
+    duty = open_duty(client, UUID(mo_id), round_number=5, duty_type="pick_confirmation", deadlineAt=three_weeks_ago)
+    assert duty["marks"]["marks"] == 3
+    # A duty the captain voids earns nothing, as before.
+    voided = open_duty(client, UUID(mo_id), round_number=6, duty_type="pick_confirmation", deadlineAt=three_weeks_ago)
+    assert client.post(lp(client, f"/duties/{voided['id']}/void"), json={"reason": "Wrong round"}, headers=captain).status_code == 200
+
+    assert withdraw(client, mo_id).status_code == 204
+    assert client.post(lp(client, f"/members/{mo_id}/reinstate"), headers=captain).status_code == 204
+    totals = client.get(lp(client, "/marks"), headers=captain).json()
+    assert totals == [{"memberId": mo_id, "memberName": "Mo", "marks": 3, "openDuties": 0}]
+    listed = {d["id"]: d for d in client.get(lp(client, "/duties"), headers=captain).json()}
+    kept = listed[duty["id"]]
+    assert (kept["status"], kept["display"], kept["voidReason"]) == ("voided", "voided", "Member withdrawn")
+    assert kept["marks"]["marks"] == 3 and kept["marks"]["nextMarkAt"] is None
+    assert "withdrawn" in kept["marks"]["explanation"]
+    assert listed[voided["id"]]["marks"]["marks"] == 0
+
+
+def test_marks_stop_at_the_withdrawal() -> None:
+    from app.league.marks import calculate
+
+    deadline = datetime(2026, 10, 2, 18, 45, tzinfo=timezone.utc)
+    now = deadline + timedelta(hours=800)
+    stopped = calculate(deadline_at=deadline, completed_at=None, voided=False, now=now, withdrawn_at=deadline + timedelta(hours=400))
+    assert stopped.marks == 2 and stopped.next_mark_at is None
+    early = calculate(deadline_at=deadline, completed_at=None, voided=False, now=now, withdrawn_at=deadline - timedelta(hours=1))
+    assert early.marks == 0 and early.next_mark_at is None
+
+
+def user_id_of(subject_id: UUID) -> str:
+    with migration_engine().begin() as connection:
+        return str(connection.execute(text("select id from piele.users where auth_subject = :s"), {"s": str(subject_id)}).scalar_one())
+
+
+def while_held(hold: Callable[[Any], None], call: Callable[[], Any]) -> Any:
+    """Runs `call` in a thread while a migration-role transaction holds the writes `hold`
+    makes, commits them once `call` waits on a lock (or has finished), and returns what
+    `call` returned, raising what it raised."""
+    outcome: dict[str, Any] = {}
+
+    def run() -> None:
+        try:
+            outcome["value"] = call()
+        except BaseException as exc:  # noqa: BLE001 - re-raised in the test's thread
+            outcome["error"] = exc
+
+    engine = migration_engine()
+    with engine.connect() as holder, engine.connect().execution_options(isolation_level="AUTOCOMMIT") as poller:
+        transaction = holder.begin()
+        hold(holder)
+        thread = threading.Thread(target=run)
+        thread.start()
+        deadline = time.monotonic() + 10
+        while thread.is_alive() and time.monotonic() < deadline:
+            waiting = poller.execute(
+                text("select count(*) from pg_stat_activity where usename = 'piele_api' and wait_event_type = 'Lock'")
+            ).scalar_one()
+            if waiting:
+                break
+            time.sleep(0.02)
+        transaction.commit()
+        thread.join(10)
+    if "error" in outcome:
+        raise outcome["error"]
+    return outcome["value"]
+
+
+def test_a_claim_racing_another_claim_by_the_same_account_is_already_member(client: TestClient) -> None:
+    code = join_code(client)
+    ola_id, mo_id = league_member_id(client, "Ola"), league_member_id(client, "Mo")
+    ola = signed_in(client, "OLA", "ola@example.com")
+    user_id = user_id_of(subject(client, "OLA"))
+
+    def claim_mo(connection) -> None:
+        connection.execute(text("update piele.league_memberships set user_id = :u where id = :m"), {"u": user_id, "m": mo_id})
+
+    response = while_held(claim_mo, lambda: client.post(f"/v1/join/{code}", json={"membershipId": ola_id}, headers=ola))
+    assert response.status_code == 409 and response.json()["detail"]["code"] == "already_member"
+    assert client.get(lp(client, "/me"), headers=ola).json()["memberId"] == mo_id
+
+
+def test_an_accounts_first_requests_arriving_together_share_one_user_row(client: TestClient) -> None:
+    new_subject = uuid4()
+
+    def first_request(connection) -> None:
+        connection.execute(text("insert into piele.users (auth_subject, email) values (:s, 'twin@example.com')"), {"s": str(new_subject)})
+
+    response = while_held(first_request, lambda: client.get("/v1/me", headers=auth(new_subject, "twin@example.com")))
+    assert response.status_code == 200, response.text
+    assert response.json()["userId"] == user_id_of(new_subject)
+
+
+def test_a_duty_created_during_a_withdrawal_waits_for_it(client: TestClient) -> None:
+    mo_id = invite(client, "Mo", client.mo_email)  # type: ignore[attr-defined]
+    captain_headers(client)
+
+    def withdraw_mo(connection) -> None:
+        connection.execute(
+            text("update piele.league_memberships set status = 'withdrawn', left_at = now() where id = :m"), {"m": str(mo_id)}
+        )
+        connection.execute(
+            text(
+                "update piele.season_memberships set status = 'withdrawn', effective_to = now()"
+                " where membership_id = :m and status = 'active'"
+            ),
+            {"m": str(mo_id)},
+        )
+
+    response = while_held(
+        withdraw_mo,
+        lambda: client.post(
+            lp(client, "/duties"), json={"memberId": str(mo_id), "type": "spoon", "roundNumber": 3}, headers=captain_headers(client)
+        ),
+    )
+    assert response.status_code == 404 and response.json()["detail"]["code"] == "unknown_member"
+
+
+def test_an_emblem_stored_with_another_content_type_is_refused(client: TestClient, storage: FakeStorage) -> None:
+    path = upload_emblem(client, storage)
+    storage.objects[path] = StoredObject(size_bytes=len(PNG), content_type="text/html")
+    rejected = appearance(client, {"emblemPath": path})
+    assert rejected.status_code == 422 and rejected.json()["detail"]["code"] == "invalid_emblem"
+    assert path in storage.deleted
+    assert client.get(lp(client, "/me"), headers=captain_headers(client)).json()["emblemUrl"] is None
+
+
+def test_a_released_name_leaves_its_team_and_read_state_behind(client: TestClient) -> None:
+    ola_id = league_member_id(client, "Ola")
+    code = join_code(client)
+    wrong = signed_in(client, "WRONG", "wrong@example.com")
+    assert client.post(f"/v1/join/{code}", json={"membershipId": ola_id}, headers=wrong).status_code == 200
+    assert client.put(lp(client, "/me/profile"), json={"favouriteTeamId": "dhl-stormers"}, headers=wrong).status_code == 200
+    read = client.put(lp(client, "/me/notifications"), json={"readAt": "2026-09-20T08:00:00Z", "readKeys": ["a"]}, headers=wrong)
+    assert read.status_code == 200, read.text
+    assert client.post(lp(client, f"/members/{ola_id}/release"), headers=captain_headers(client)).status_code == 204
+
+    right = signed_in(client, "RIGHT", "right@example.com")
+    claimed = client.post(f"/v1/join/{code}", json={"membershipId": ola_id}, headers=right)
+    assert claimed.status_code == 200, claimed.text
+    me = client.get(lp(client, "/me"), headers=right).json()
+    assert (me["favouriteTeamId"], me["notificationsReadAt"], me["notificationsReadKeys"]) == (None, None, [])
+
+
+def test_the_admin_acting_as_a_member_is_labelled_admin_in_the_audit(client: TestClient) -> None:
+    admin = admin_headers(client)
+    joined = client.post(f"/v1/admin/leagues/{client.league_id}/members/me", json={"displayName": "Vic"}, headers=admin)
+    assert joined.status_code == 201, joined.text
+    admin_member = joined.json()["memberId"]
+    assert client.post(lp(client, "/members"), json={"displayName": "Vee", "fullName": "Visser, Vee"}, headers=admin).status_code == 201
+    assert client.post(lp(client, "/members"), json={"displayName": "Zee", "fullName": "Zulu, Zee"}, headers=captain_headers(client)).status_code == 201
+    events = admin_audit(client.league_id, "membership.created")  # type: ignore[attr-defined]
+    assert [(e.after["displayName"], e.actor_label, str(e.actor_membership_id)) for e in events] == [
+        ("Vee", "Vic (admin)", admin_member),
+        ("Zee", "Captain", client.get(lp(client, "/me"), headers=captain_headers(client)).json()["memberId"]),
+    ]

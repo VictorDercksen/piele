@@ -119,6 +119,15 @@ These stay as they are, on purpose:
 3. Run `npm run smoke -- --web <production web origin> --api <production API origin>`. All checks must pass.
 4. Bring `staging` level with `master` if the release was merged from another branch.
 
+### Release notes: several leagues (migrations 20260926150000 to 20260926180000)
+
+Push the four migrations with the API code that needs them, in one merge. The Supabase integration applies them while Vercel builds, and the previously deployed API keeps serving until the new deployment is live. In that short window, between the migrations applying and the new API deploying:
+
+- The old API cannot record fixture milestones or claim names. `20260926150000_competitions.sql` moves the milestone key to the competition, which leaves the old API's milestone upsert without a matching index until `20260926180000_hardening.sql` adds `ux_fixture_milestones_legacy` back in the same push. Claims fail because unclaimed names are visible only inside a league context (`20260926160000_multi_league.sql`) and membership rows are writable only inside one (`20260926180000_hardening.sql`), which the old API never sets for a claim. A name reserved for a member's email is claimed at their next sign-in once the new API is live; anyone else claims again from the join link.
+- Favourite team and notification read changes made on the old API are lost. The old API writes them to the account (`users.favourite_team_id`, `users.notifications_read_*`), which the new code no longer reads (they now live on each league membership), and after `20260926180000_hardening.sql` the runtime role may no longer update those columns, so those saves fail.
+
+Keep the window short: promote the API deployment as soon as the migrations have applied, then run the smoke check. A later cleanup migration drops `ux_fixture_milestones_legacy` and the old `users` columns once the new API is live.
+
 ## Rollback
 
 - Code: Vercel > project > Deployments > previous production deployment > Instant Rollback, for each project affected.

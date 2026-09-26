@@ -17,6 +17,7 @@ from fastapi import Depends, HTTPException, Path, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import func, insert, select, text, update
 from sqlalchemy.engine import Connection
+from sqlalchemy.exc import IntegrityError
 
 from app import competitions
 from app.competitions import Competition
@@ -107,11 +108,17 @@ class Account:
 def resolve_account(connection: Connection, claims: Claims, request_id: str) -> Account:
     set_context(connection, "auth_subject", str(claims.subject))
     set_context(connection, "auth_email", claims.email if claims.email_verified else None)
-    user = connection.execute(select(t.users).where(t.users.c.auth_subject == claims.subject)).first()
+    by_subject = select(t.users).where(t.users.c.auth_subject == claims.subject)
+    user = connection.execute(by_subject).first()
     if user is None:
-        user = connection.execute(
-            insert(t.users).values(auth_subject=claims.subject, email=claims.email).returning(t.users)
-        ).one()
+        try:
+            with connection.begin_nested():
+                user = connection.execute(
+                    insert(t.users).values(auth_subject=claims.subject, email=claims.email).returning(t.users)
+                ).one()
+        except IntegrityError:
+            # The account's first requests arrived together and another one inserted the row.
+            user = connection.execute(by_subject).one()
     elif claims.email and user.email != claims.email:
         connection.execute(
             update(t.users).where(t.users.c.id == user.id).values(email=claims.email, updated_at=func.now())
