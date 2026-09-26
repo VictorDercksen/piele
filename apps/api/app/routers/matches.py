@@ -7,6 +7,8 @@ from pydantic import BaseModel, ConfigDict
 from app.agent import previews
 from app.agent.models import MatchPreview
 from app.league.context import Actor, actor_dependency
+from app.matchcentre import service as service_module
+from app.matchcentre import updates
 from app.matchcentre.schedule import load_schedule
 from app.matchcentre.service import MatchCentreService
 
@@ -74,6 +76,23 @@ class RoundScores(BaseModel):
     matches: list[MatchScore]
 
 
+class RoundEvent(BaseModel):
+    """One competition milestone of a fixture. `occurredAt` stays put once reported."""
+
+    kind: Literal["teamsheets_published", "preview_published", "kicked_off", "full_time"]
+    fixtureId: str
+    occurredAt: datetime
+    revision: int | None = None
+    homeScore: int | None = None
+    awayScore: int | None = None
+
+
+class RoundUpdates(BaseModel):
+    round: int
+    generatedAt: datetime
+    events: list[RoundEvent]
+
+
 def match_centre_service(request: Request) -> MatchCentreService:
     return request.app.state.match_centre
 
@@ -112,3 +131,14 @@ def round_scores(round_number: int, request: Request) -> Any:
     if not load_schedule().round(round_number):
         raise HTTPException(status_code=404, detail="Unknown round.")
     return match_centre_service(request).round_scores(round_number)
+
+
+@router.get("/rounds/{round_number}/updates", response_model=RoundUpdates)
+def round_updates(round_number: int, request: Request, actor: Actor = Depends(actor_dependency)) -> Any:
+    """The round's teamsheets, previews, kick-offs and full-time results for the notifications
+    panel. Members only, because it reports the Piele previews."""
+    if not load_schedule().round(round_number):
+        raise HTTPException(status_code=404, detail="Unknown round.")
+    return updates.round_updates(
+        actor.connection, match_centre_service(request), round_number, service_module.now_utc()
+    )

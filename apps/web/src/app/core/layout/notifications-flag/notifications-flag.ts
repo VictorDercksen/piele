@@ -11,18 +11,18 @@ import {
 } from '@angular/core';
 import { Router } from '@angular/router';
 import { formatLeagueTime } from '../../competition/league-time';
-import { RoundViewService } from '../../league/round-view.service';
+import { Notice, NotificationsService, PinnedNotice } from '../../league/notifications.service';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideArrowRight } from '@ng-icons/lucide';
 import { Icon } from '../../../shared/icon/icon';
 
-const READ_KEY = 'piele-notifications-read-v1';
 /** Rod extension plus the fabric drop, ripple and settle. Matches the stylesheet timings. */
 const UNFURL_MS = 1800;
 
 /**
- * Round-scoped updates on a flag that unrolls from the notification button.
- * In-app only, per the plan's notification default. Read status stays in the browser.
+ * The current round's log on a flag that unrolls from the notification button: league
+ * events, teamsheets, previews, kick-offs and results, with the member's duty and poll
+ * pinned above. In-app only, per the plan's notification default.
  */
 @Component({
   selector: 'app-notifications-flag',
@@ -41,7 +41,7 @@ const UNFURL_MS = 1800;
 export class NotificationsFlag {
   private readonly router = inject(Router);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
-  readonly view = inject(RoundViewService);
+  readonly notifications = inject(NotificationsService);
   private readonly trigger = viewChild.required<ElementRef<HTMLButtonElement>>('trigger');
   private readonly ripple = viewChild.required<ElementRef<SVGElement>>('ripple');
 
@@ -49,56 +49,35 @@ export class NotificationsFlag {
   /** True once the fabric has come to rest, so the flag renders without animation filters. */
   readonly settled = signal(false);
   private settleTimer: ReturnType<typeof setTimeout> | undefined;
-  private readonly read = signal<ReadonlySet<string>>(readStoredKeys());
 
-  readonly items = computed<FlagNotification[]>(() => {
-    const round = this.view.round();
-    const duty = this.view.myDuty();
-    const poll = this.view.poll();
-    const featured = this.view.featured();
-    const items: FlagNotification[] = [
-      {
-        key: `round:${round.id}:${round.status}`,
-        icon: 'rounds',
-        title: round.status,
-        detail: this.view.activity(),
-        action: featured ? 'Open the match centre' : 'Back to the clubhouse',
-        path: featured ? `/match/${featured.id}` : '/',
-        spoon: false,
-      },
-    ];
-    if (duty) {
-      items.push({
-        key: `duty:${duty.id}:${duty.display}:${duty.deadlineAt}`,
-        icon: 'duties',
-        title: duty.title,
-        detail:
-          duty.display === 'overdue'
-            ? `Overdue since ${formatLeagueTime(duty.deadlineAt)} · ${duty.marks.marks} ${duty.marks.marks === 1 ? 'mark' : 'marks'}`
-            : `${duty.statusLabel} · due ${formatLeagueTime(duty.deadlineAt)}`,
-        action: 'View duty',
-        path: '/duties',
-        spoon: duty.spoon,
-      });
-    }
-    if (poll) {
-      items.push({
-        key: `poll:${poll.id}:${poll.status}`,
-        icon: 'decisions',
-        title: poll.question,
-        detail: `${poll.status} · ${poll.closes}`,
-        action: 'View decision',
-        path: '/decisions',
-        spoon: false,
-      });
-    }
-    return items.map((item) => ({ ...item, unread: !this.read().has(item.key) }));
-  });
-  readonly unread = computed(() => this.items().filter((item) => item.unread).length);
+  readonly round = this.notifications.currentRound;
+  readonly pinned = this.notifications.pinned;
+  readonly items = this.notifications.stream;
+  readonly unread = this.notifications.unread;
+  readonly stale = this.notifications.stale;
   readonly badge = computed(() => (this.unread() > 99 ? '99+' : String(this.unread())));
   readonly triggerLabel = computed(() => {
     const count = this.unread();
     return `${this.open() ? 'Close' : 'Open'} notifications${count ? `, ${count} unread` : ''}`;
+  });
+  /**
+   * Where the read items start after the unread ones, so the list can say "Earlier". Only
+   * when the read items are the whole tail: an item read on its own above newer ones gets
+   * no divider, just no dot.
+   */
+  readonly earlierAt = computed(() => {
+    const items = this.items();
+    const first = items.findIndex((item) => !item.unread);
+    if (first <= 0) return -1;
+    return items.slice(first).every((item) => !item.unread) ? first : -1;
+  });
+  /** The next kick-off of the current round, for the empty state. */
+  readonly nextKickoff = computed(() => {
+    const now = Date.now();
+    const next = this.round()
+      .fixtures.filter((f) => !!f.kickoffUtc && Date.parse(f.kickoffUtc) > now)
+      .sort((a, b) => a.kickoffUtc!.localeCompare(b.kickoffUtc!))[0];
+    return next ? `${next.home} v ${next.away}, ${formatLeagueTime(next.kickoffUtc)}` : null;
   });
 
   constructor() {
@@ -120,19 +99,26 @@ export class NotificationsFlag {
   }
 
   markAllRead(): void {
-    const keys = new Set(this.read());
-    for (const item of this.items()) keys.add(item.key);
-    this.read.set(keys);
-    try {
-      localStorage.setItem(READ_KEY, JSON.stringify([...keys]));
-    } catch {
-      // Read status is a convenience; the flag still works without storage.
-    }
+    void this.notifications.markAllRead();
   }
 
-  go(path: string): void {
-    this.close();
-    void this.router.navigate([path], { queryParamsHandling: 'preserve' });
+  markRead(item: Notice): void {
+    void this.notifications.markRead(item.key);
+  }
+
+  /** Following a notice reads it and goes to its page in the notice's round. */
+  follow(item: Notice): void {
+    void this.notifications.markRead(item.key);
+    if (item.path) this.go(item.path, item.round);
+  }
+
+  followPinned(item: PinnedNotice): void {
+    this.go(item.path, item.round);
+  }
+
+  /** The whole log lives on the clubhouse page. */
+  openFeed(): void {
+    this.go('/', this.round().id);
   }
 
   onEscape(): void {
@@ -142,6 +128,14 @@ export class NotificationsFlag {
   onPointerDown(event: Event): void {
     if (this.open() && !event.composedPath().includes(this.host.nativeElement))
       this.open.set(false);
+  }
+
+  private go(path: string, round: number | null): void {
+    this.close();
+    void this.router.navigate([path], {
+      queryParams: round !== null ? { round } : {},
+      queryParamsHandling: 'merge',
+    });
   }
 
   /** Closing rolls the cloth back up, so the roll shows again. */
@@ -163,25 +157,5 @@ export class NotificationsFlag {
       .nativeElement.querySelectorAll<SVGAnimateElement>('animate')
       .forEach((animation) => animation.beginElement?.());
     this.settleTimer = setTimeout(() => this.settled.set(true), UNFURL_MS);
-  }
-}
-
-export interface FlagNotification {
-  readonly key: string;
-  readonly icon: string;
-  readonly title: string;
-  readonly detail: string;
-  readonly action: string;
-  readonly path: string;
-  readonly spoon: boolean;
-  readonly unread?: boolean;
-}
-
-function readStoredKeys(): ReadonlySet<string> {
-  try {
-    const value: unknown = JSON.parse(localStorage.getItem(READ_KEY) ?? '[]');
-    return new Set(Array.isArray(value) ? value.filter((k) => typeof k === 'string') : []);
-  } catch {
-    return new Set();
   }
 }

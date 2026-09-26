@@ -160,3 +160,23 @@ export interface MatchPreviewResponse {
   readonly fixtureId: string;
   readonly preview: MatchPreview | null;
 }
+
+/** Contract of `GET /v1/rounds/{round}/updates`: the round's competition milestones. */
+export type RoundEventKind =
+  'teamsheets_published' | 'preview_published' | 'kicked_off' | 'full_time';
+
+export interface RoundEvent {
+  readonly kind: RoundEventKind;
+  readonly fixtureId: string;
+  /** Stays put once reported, so read state can compare against it. */
+  readonly occurredAt: string;
+  readonly revision?: number | null;
+  readonly homeScore?: number | null;
+  readonly awayScore?: number | null;
+}
+
+export interface RoundUpdates {
+  readonly round: number;
+  readonly generatedAt: string;
+  readonly events: readonly RoundEvent[];
+}

@@ -24,6 +24,8 @@ users = Table(
     Column("favourite_team_id", String(40)),
     Column("photo_path", String(300)),
     _ts("photo_updated_at"),
+    _ts("notifications_read_at"),
+    Column("notifications_read_keys", JSONB, nullable=False),
     _ts("updated_at", nullable=False),
 )
 

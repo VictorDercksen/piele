@@ -10,10 +10,12 @@ import {
   MemberMarks,
   NewDuty,
   NewMember,
+  NotificationsRead,
   Poll,
   RoundNote,
   RoundStanding,
 } from './league.models';
+import { loadStoredRead, storeRead } from './notifications-read';
 import { sampleMarks } from './marks';
 
 const ME = 'member-me';
@@ -290,9 +292,21 @@ export class SampleLeagueData extends LeagueData {
     feedItem('feed-1', 'season_opened', null, 'URC 2026/27 is open.', '6 members enrolled. You are captain.', '2026-09-20T08:00:00Z', null),
   ]);
   readonly feed = this.feedRecords.asReadonly();
+  private readonly read = signal<NotificationsRead>(loadStoredRead());
+  readonly notificationsRead = this.read.asReadonly();
 
   reload(): void {
     this.clock.set(Date.now());
+  }
+
+  refreshFeed(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  saveNotificationsRead(read: NotificationsRead): Promise<void> {
+    this.read.set(read);
+    storeRead(read);
+    return Promise.resolve();
   }
 
   submitEvidence({ dutyIds, note, subjectMemberId, claimedCompletedAt }: EvidenceSubmission): Promise<void> {
