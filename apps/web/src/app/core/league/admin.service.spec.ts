@@ -45,7 +45,7 @@ const NEW_LEAGUE: NewLeague = {
   ],
   captainDisplayName: 'Doempie',
   captainEmail: null,
-  emblemPreset: 'oak',
+  emblemPreset: 'ball',
   accentColour: '#3f8f6b',
   addMe: false,
 };
@@ -245,14 +245,14 @@ describe('SampleAdminService', () => {
     expect(league).toMatchObject({
       slug: 'die-ou-manne',
       status: 'active',
-      emblemPreset: 'oak',
+      emblemPreset: 'ball',
       accentColour: '#3f8f6b',
       captain: { displayName: 'Doempie', claimed: true },
       counts: { members: 2, claimed: 1, inSeason: 2, withdrawn: 0 },
     });
     expect(league.myMemberId).not.toBeNull();
     const listed = context.find('die-ou-manne');
-    expect(listed).toMatchObject({ name: 'Die Ou Manne', isCaptain: true, emblemPreset: 'oak' });
+    expect(listed).toMatchObject({ name: 'Die Ou Manne', isCaptain: true, emblemPreset: 'ball' });
     expect(await context.select('die-ou-manne')).toBe(true);
     expect(data.captainMemberId()).toBe(data.currentMemberId());
     expect(data.members().map((m) => m.name)).toEqual(['Doempie', 'Kallie']);

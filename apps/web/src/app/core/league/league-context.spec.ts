@@ -213,19 +213,19 @@ describe('LeagueContext', () => {
     await flushLeague(PIELE);
     expect(await selecting).toBe(true);
 
-    const saving = context.saveAppearance({ emblem: { preset: 'oak' }, accentColour: '#3f8f6b' });
+    const saving = context.saveAppearance({ emblem: { preset: 'ball' }, accentColour: '#3f8f6b' });
     const put = http.expectOne(`${API}/leagues/${PIELE.id}/appearance`);
-    expect(put.request.body).toEqual({ emblemPreset: 'oak', accentColour: '#3f8f6b' });
-    put.flush({ ...me(PIELE), emblemPreset: 'oak', accentColour: '#3f8f6b' });
+    expect(put.request.body).toEqual({ emblemPreset: 'ball', accentColour: '#3f8f6b' });
+    put.flush({ ...me(PIELE), emblemPreset: 'ball', accentColour: '#3f8f6b' });
     await saving;
     expect(context.current()).toEqual(
-      expect.objectContaining({ emblemPreset: 'oak', emblemUrl: null, accentColour: '#3f8f6b' }),
+      expect.objectContaining({ emblemPreset: 'ball', emblemUrl: null, accentColour: '#3f8f6b' }),
     );
-    expect(context.find('piele')?.emblemPreset).toBe('oak');
+    expect(context.find('piele')?.emblemPreset).toBe('ball');
     // The account list is read again so every league shows its latest look.
     http
       .expectOne(`${API}/me`)
-      .flush(account([{ ...PIELE, emblemPreset: 'oak', accentColour: '#3f8f6b' }, POFADDER]));
+      .flush(account([{ ...PIELE, emblemPreset: 'ball', accentColour: '#3f8f6b' }, POFADDER]));
     await settle();
     expect(context.current()?.accentColour).toBe('#3f8f6b');
     http.verify();

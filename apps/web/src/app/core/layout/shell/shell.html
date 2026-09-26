@@ -22,6 +22,7 @@
         <a
           [routerLink]="item.path | leaguePath"
           queryParamsHandling="preserve"
+          [state]="navState"
           routerLinkActive="selected"
           [routerLinkActiveOptions]="{ exact: item.path === '/' }"
           ariaCurrentWhenActive="page"
@@ -110,21 +111,21 @@
         <app-fixture-ribbon />
       }
     </div>
-    <div
-      class="page-heading"
-      [class.without-divider]="isHome() || isMatch()"
-    >
+    <div class="page-heading" [class.without-divider]="isHome() || isMatch()">
       <div>
-        @if (page().parent; as parent) {
+        @if (trail().length) {
           <nav class="breadcrumbs" aria-label="Breadcrumb">
             <ol class="eyebrow">
-              <li>
-                <a [routerLink]="parent.path | leaguePath" queryParamsHandling="preserve"
-                  ><img class="crumb-arrow" src="assets/images/arrows/arrow-left.webp" alt="" />{{
-                    parent.label.toUpperCase()
-                  }}</a
-                >
-              </li>
+              @for (crumb of trail(); track crumb.path; let first = $first) {
+                <li>
+                  <a [routerLink]="crumb.path | leaguePath" queryParamsHandling="preserve">
+                    @if (first) {
+                      <img class="crumb-arrow" src="assets/images/arrows/arrow-left.webp" alt="" />
+                    }
+                    {{ crumb.label.toUpperCase() }}</a
+                  >
+                </li>
+              }
               <li aria-current="page">ROUND {{ round().code }} / {{ page().eyebrow }}</li>
             </ol>
           </nav>
@@ -178,6 +179,7 @@
       <a
         [routerLink]="item.path | leaguePath"
         queryParamsHandling="preserve"
+        [state]="navState"
         routerLinkActive="selected"
         [routerLinkActiveOptions]="{ exact: item.path === '/' }"
         ariaCurrentWhenActive="page"

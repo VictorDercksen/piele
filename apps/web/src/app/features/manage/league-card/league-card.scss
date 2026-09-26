@@ -3,8 +3,7 @@
 }
 .league-card {
   display: grid;
-  gap: 16px;
-  padding: 20px 22px;
+  padding: 16px 22px;
   border: 1px solid var(--line);
   border-left: 3px solid var(--orange);
   background: var(--surface-grain), var(--surface);
@@ -13,10 +12,48 @@
   border-left-color: var(--line);
 }
 .card-head {
+  position: relative;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 14px;
+}
+/* The whole head opens and closes the card. */
+/* A bare chevron, like "Start a league.", not the shared pill icon button. */
+.card-head .expand-button {
+  background: none;
+  box-shadow: none;
+  color: var(--ink);
+}
+.card-head .expand-button:enabled:hover {
+  filter: none;
+  color: var(--accent);
+}
+.expand-button::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+}
+.expand-button ng-icon {
+  --ng-icon__size: 20px;
+  transition: transform 0.18s ease;
+}
+.card-head.open .expand-button ng-icon {
+  transform: rotate(180deg);
+}
+.expand-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.card-body {
+  display: grid;
+  gap: 16px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+.card-body[hidden] {
+  display: none;
 }
 .card-head app-league-crest {
   --avatar-size: 52px;
@@ -78,9 +115,14 @@
   font-family: ui-monospace, monospace;
   font-size: 13px;
 }
-.join-code .text-button {
+.copy-button {
+  --ng-icon__size: 16px;
+  min-width: 36px;
   min-height: 36px;
-  padding: 4px 0;
+}
+.copy-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 .copy-status {
   font-size: 12px;
@@ -108,16 +150,42 @@
   overflow-wrap: anywhere;
 }
 .captain-panel {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+  padding-top: 14px;
   border-top: 1px solid var(--line);
 }
+/* A button that opens a panel: bordered, with a chevron that turns when open. */
 .captain-panel summary {
-  display: flex;
+  display: inline-flex;
   align-items: center;
+  gap: 9px;
   min-height: 44px;
-  padding-top: 8px;
-  font-size: 13px;
+  padding: 8px 14px 8px 16px;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  color: var(--accent);
+  font-size: 12px;
   font-weight: 700;
+  list-style: none;
   cursor: pointer;
+  --ng-icon__size: 16px;
+}
+.captain-panel summary::-webkit-details-marker {
+  display: none;
+}
+.captain-panel summary:hover {
+  background: #ffa17c14;
+}
+.captain-panel .chevron {
+  transition: transform 0.18s ease;
+}
+.captain-panel[open] summary {
+  background: var(--tint);
+}
+.captain-panel[open] .chevron {
+  transform: rotate(180deg);
 }
 .captain-panel summary:focus-visible {
   outline: 2px solid var(--accent);
@@ -126,14 +194,21 @@
 .panel-body {
   display: grid;
   gap: 10px;
-  padding: 6px 0 4px;
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  background: #0f1b1e;
 }
 @container (max-width: 600px) {
   .league-card {
-    padding: 16px 14px;
+    padding: 14px;
   }
   .card-head {
-    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+  .expand-button {
+    grid-column: 3;
+    grid-row: 1 / span 2;
   }
   .card-head app-league-crest {
     --avatar-size: 44px;

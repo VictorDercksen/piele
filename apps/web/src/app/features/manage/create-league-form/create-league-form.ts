@@ -9,10 +9,10 @@ import {
   signal,
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
-import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormArray, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideArrowRight } from '@ng-icons/lucide';
+import { lucideArrowRight, lucidePlus, lucideX } from '@ng-icons/lucide';
 import { map } from 'rxjs';
 import { COMPETITIONS } from '../../../core/competition/registry';
 import { CompetitionOption, NewLeague } from '../../../core/league/admin.models';
@@ -29,7 +29,8 @@ import {
   slugValidator,
   zoneValidator,
 } from '../manage-validators';
-import { parseMembers } from '../members-parser';
+import { MAX_MEMBERS, MemberRow, MemberRowError, checkMembers } from '../member-rows';
+import { timeZoneGroups } from '../time-zones';
 
 /** API refusals shown beside the field they concern; every other code shows at the top. */
 const FIELD_OF_CODE: Readonly<Partial<Record<string, 'slug' | 'members'>>> = {
@@ -51,10 +52,14 @@ const FIELD_ORDER = [
   'captainEmail',
 ] as const;
 
+/** Blank rows the team sheet starts with. */
+const STARTING_ROWS = 3;
+
 /**
  * The management centre's new-league form: name and slug (derived from the name until
- * edited), competition, time zone and season name (defaulted from the competition until
- * edited), the team sheet pasted one member per line, the captain (the admin, or another
+ * edited), competition, time zone (chosen from the browser's IANA zones) and season name
+ * (defaulted from the competition until edited), the team sheet as rows of name, surname and
+ * Superbru name with "Add member" for another row, the captain (the admin, or another
  * member with the email their name is reserved for), the admin's own membership, an emblem
  * preset and the accent colour. One request makes the league; success opens it.
  */
@@ -64,7 +69,7 @@ const FIELD_ORDER = [
   styleUrls: ['../manage-fields.scss', './create-league-form.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [ReactiveFormsModule, NgIcon, EmblemPicker, LeagueCrest, Loader],
-  viewProviders: [provideIcons({ lucideArrowRight })],
+  viewProviders: [provideIcons({ lucideArrowRight, lucidePlus, lucideX })],
 })
 export class CreateLeagueForm {
   private readonly admin = inject(AdminService);
@@ -87,7 +92,10 @@ export class CreateLeagueForm {
       nonNullable: true,
       validators: [Validators.required, notBlank, Validators.maxLength(80)],
     }),
-    members: new FormControl('', { nonNullable: true, validators: [membersValidator] }),
+    members: new FormArray(
+      Array.from({ length: STARTING_ROWS }, () => memberRow()),
+      { validators: [membersValidator] },
+    ),
     captain: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
     captainIsMe: new FormControl(true, { nonNullable: true }),
     captainEmail: new FormControl('', {
@@ -106,15 +114,25 @@ export class CreateLeagueForm {
   /** Re-reads validity after each change (`statusChanges` covers validator swaps too). */
   private readonly status = toSignal(this.form.statusChanges, { initialValue: this.form.status });
 
-  readonly parsed = computed(() => parseMembers(this.value().members));
-  readonly captainOptions = computed(() => this.parsed().members.map((m) => m.displayName));
-  /** `6 members ready, 1 line to fix.` */
-  readonly summaryLine = computed(() => {
-    const { members, errors } = this.parsed();
-    const ready = `${members.length} ${members.length === 1 ? 'member' : 'members'} ready`;
-    if (!errors.length) return `${ready}.`;
-    return `${ready}, ${errors.length} ${errors.length === 1 ? 'line' : 'lines'} to fix.`;
+  readonly checked = computed(() => checkMembers(this.value().members));
+  readonly captainOptions = computed(() => this.checked().members.map((m) => m.displayName));
+  /** Each row's problem, shown once the admin has tried to submit (a repeat shows at once). */
+  readonly rowErrors = computed(() => {
+    const shown = new Map<number, MemberRowError>();
+    for (const error of this.checked().errors)
+      if (this.submitted() || error.duplicate) shown.set(error.row, error);
+    return shown;
   });
+  /** `6 members ready, 1 row to fix.` */
+  readonly summaryLine = computed(() => {
+    const { members } = this.checked();
+    const ready = `${members.length} ${members.length === 1 ? 'member' : 'members'} ready`;
+    const toFix = this.rowErrors().size;
+    if (!toFix) return `${ready}.`;
+    return `${ready}, ${toFix} ${toFix === 1 ? 'row' : 'rows'} to fix.`;
+  });
+  readonly canAddRow = computed(() => this.value().members.length < MAX_MEMBERS);
+  readonly zoneGroups = computed(() => timeZoneGroups(this.value().timezone));
   readonly accentValue = computed(() => this.value().accentColour ?? DEFAULT_ACCENT);
   readonly presetLabel = computed(() => {
     const preset = this.value().emblemPreset;
@@ -130,7 +148,7 @@ export class CreateLeagueForm {
     null,
   );
 
-  /** The user typed a slug, a time zone or a season name: stop filling it in. */
+  /** The user typed a slug, chose a time zone or typed a season name: stop filling it in. */
   private slugEdited = false;
   private zoneEdited = false;
   private seasonEdited = false;
@@ -148,8 +166,10 @@ export class CreateLeagueForm {
     c.members.valueChanges.pipe(takeUntilDestroyed()).subscribe({
       next: () => {
         this.clearApiError('members');
-        // A captain whose line was removed or renamed is no longer a choice.
-        if (c.captain.value && !this.captainOptions().includes(c.captain.value)) c.captain.setValue('');
+        // A captain whose row was removed or renamed is no longer a choice. Read the rows
+        // directly: the form's value signal updates after this array's event.
+        const names = checkMembers(c.members.getRawValue()).members.map((m) => m.displayName);
+        if (c.captain.value && !names.includes(c.captain.value)) c.captain.setValue('');
       },
     });
     c.competitionId.valueChanges.pipe(takeUntilDestroyed()).subscribe({
@@ -189,12 +209,32 @@ export class CreateLeagueForm {
     this.slugEdited = value.trim() !== '';
   }
 
-  zoneTyped(): void {
+  zoneChosen(): void {
     this.zoneEdited = true;
   }
 
   seasonTyped(): void {
     this.seasonEdited = true;
+  }
+
+  /** Adds a blank row at the bottom and puts the cursor in its name. */
+  addRow(): void {
+    if (!this.canAddRow()) return;
+    this.controls.members.push(memberRow());
+    this.focus(`new-league-member-${this.controls.members.length - 1}-name`);
+  }
+
+  /** Removes a row; the sheet keeps at least one. */
+  removeRow(index: number): void {
+    const rows = this.controls.members;
+    if (rows.length <= 1) return;
+    rows.removeAt(index);
+    this.focus(`new-league-member-${Math.min(index, rows.length - 1)}-name`);
+  }
+
+  /** Whether this input of the row is the one to fix. */
+  rowInvalid(index: number, field: keyof MemberRow): boolean {
+    return this.rowErrors().get(index)?.field === field;
   }
 
   choosePreset(key: string): void {
@@ -248,7 +288,7 @@ export class CreateLeagueForm {
       timezone: v.timezone.trim(),
       competitionId: v.competitionId,
       seasonName: v.seasonName.trim(),
-      members: this.parsed().members.map(({ fullName, displayName }) => ({ fullName, displayName })),
+      members: this.checked().members.map(({ fullName, displayName }) => ({ fullName, displayName })),
       captainDisplayName: v.captain,
       captainEmail: v.captainIsMe ? null : v.captainEmail.trim(),
       emblemPreset: v.emblemPreset,
@@ -264,7 +304,7 @@ export class CreateLeagueForm {
       const message = error instanceof Error ? error.message : 'The league could not be created.';
       const field = FIELD_OF_CODE[code] ?? 'top';
       this.apiError.set({ field, message });
-      this.focus(field === 'top' ? 'new-league-error' : `new-league-${field}`);
+      this.focus(field === 'top' ? 'new-league-error' : field === 'members' ? 'new-league-members-error' : `new-league-${field}`);
     } finally {
       this.busy.set(false);
     }
@@ -284,7 +324,12 @@ export class CreateLeagueForm {
 
   private focusFirstInvalid(): void {
     const field = FIELD_ORDER.find((name) => this.controls[name].invalid);
-    if (field) this.focus(`new-league-${field}`);
+    if (field !== 'members') {
+      if (field) this.focus(`new-league-${field}`);
+      return;
+    }
+    const error = this.checked().errors[0];
+    this.focus(error ? `new-league-member-${error.row}-${error.field}` : 'new-league-member-0-name');
   }
 
   private focus(id: string): void {
@@ -293,6 +338,14 @@ export class CreateLeagueForm {
       { injector: this.injector },
     );
   }
+}
+
+function memberRow() {
+  return new FormGroup({
+    name: new FormControl('', { nonNullable: true }),
+    surname: new FormControl('', { nonNullable: true }),
+    superbru: new FormControl('', { nonNullable: true }),
+  });
 }
 
 /**
