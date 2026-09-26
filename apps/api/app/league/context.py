@@ -16,7 +16,7 @@ from uuid import UUID
 from fastapi import Depends, HTTPException, Path, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import func, insert, select, text, update
-from sqlalchemy.engine import Connection
+from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.exc import IntegrityError
 
 from app import competitions
@@ -249,6 +249,19 @@ def _engine(request: Request):
     return engine
 
 
+def claims_dependency(
+    request: Request, credentials: HTTPAuthorizationCredentials | None = Depends(bearer)
+) -> Claims:
+    """The verified token alone, for handlers that must not hold a transaction while they
+    call providers: they resolve the actor themselves in a short transaction (see
+    app/matchcentre/updates.py) instead of through `competition_member_dependency`."""
+    return _verified_claims(request, credentials)
+
+
+def engine_dependency(request: Request) -> Engine:
+    return _engine(request)
+
+
 def account_dependency(
     request: Request, credentials: HTTPAuthorizationCredentials | None = Depends(bearer)
 ) -> Iterator[Account]:
@@ -294,7 +307,14 @@ def competition_member_dependency(
     admin. Used by the member-only competition routes (previews, round updates)."""
     claims = _verified_claims(request, credentials)
     with _engine(request).begin() as connection:
-        account = resolve_account(connection, claims, request.state.request_id)
-        if not account.is_admin and not account_on_competition(account, competition_id):
-            raise not_a_member()
-        yield account
+        yield resolve_competition_member(connection, claims, request.state.request_id, competition_id)
+
+
+def resolve_competition_member(connection: Connection, claims: Claims, request_id: str, competition_id: str) -> Account:
+    """The caller as a member of a league playing `competition_id`, or the admin, inside the
+    given transaction; else 403 `not_a_member`. Shared by `competition_member_dependency` and
+    the handlers that resolve the caller themselves in a short transaction."""
+    account = resolve_account(connection, claims, request_id)
+    if not account.is_admin and not account_on_competition(account, competition_id):
+        raise not_a_member()
+    return account

@@ -2,6 +2,7 @@
 is tested without a database; the route, milestone persistence and read state need
 PIELE_TEST_DATABASE_URL like tests/test_league.py."""
 
+import dataclasses
 import json
 import os
 from datetime import datetime, timedelta, timezone
@@ -21,7 +22,7 @@ from app.matchcentre import service as service_module
 from app.matchcentre.cache import MemorySnapshotCache
 from app.matchcentre.milestones import FULL_TIME, TEAMSHEETS_PUBLISHED, Milestone
 from app.matchcentre.updates import build_events, teamsheets_due
-from tests.test_league import SECRET, SUPABASE_URL, captain_headers, lp, new_league
+from tests.test_league import SECRET, SUPABASE_URL, captain_headers, lp, new_league, signed_in
 from tests.test_scores import feed_match, round_feed
 
 DATABASE_URL = os.environ.get("PIELE_TEST_DATABASE_URL")
@@ -57,7 +58,7 @@ def test_events_come_from_milestones_previews_and_live_states_in_time_order() ->
     stored = {second.id: SimpleNamespace(revision=2, generated_at=KICKOFF - timedelta(days=1))}
     # The score feed is down for the finished match, so its kick-off is inferred from full time.
     matches = {second.id: {"state": "live"}}
-    events = build_events(fixtures, known, stored, matches)
+    events = build_events(fixtures, known, stored, matches, KICKOFF - timedelta(hours=1))
     assert [(e["kind"], e["fixtureId"]) for e in events] == [
         (TEAMSHEETS_PUBLISHED, first.id),
         ("preview_published", second.id),
@@ -76,8 +77,22 @@ def test_events_come_from_milestones_previews_and_live_states_in_time_order() ->
     }
 
 
-def test_scheduled_matches_without_milestones_report_nothing() -> None:
-    assert build_events(ROUND_ONE, {}, {}, {f.id: {"state": "scheduled"} for f in ROUND_ONE}) == []
+def test_scheduled_matches_without_milestones_report_nothing_before_kickoff() -> None:
+    states = {f.id: {"state": "scheduled"} for f in ROUND_ONE}
+    assert build_events(ROUND_ONE, {}, {}, states, KICKOFF - timedelta(minutes=1)) == []
+
+
+def test_kick_off_follows_the_published_time_when_the_feed_is_silent() -> None:
+    first, second, third = ROUND_ONE[:3]
+    later = max(f.kickoff_utc for f in ROUND_ONE)
+    # No feed at all: every match whose time has passed has kicked off.
+    silent = build_events(ROUND_ONE, {}, {}, {}, later)
+    assert [e["kind"] for e in silent] == ["kicked_off"] * len(ROUND_ONE)
+    assert silent[0]["occurredAt"] == first.kickoff_utc
+    # The feed's own word overrides the clock only for matches that will not be played.
+    states = {first.id: {"state": "postponed"}, second.id: {"state": "scheduled"}, third.id: {"state": "live"}}
+    events = build_events(ROUND_ONE[:3], {}, {}, states, later)
+    assert [(e["kind"], e["fixtureId"]) for e in events] == [("kicked_off", second.id), ("kicked_off", third.id)]
 
 
 # Database-backed: the route, milestone persistence and the member's read state ------------
@@ -169,6 +184,12 @@ def client(feeds: Feeds, clock) -> TestClient:
 def test_round_updates_need_a_member(client: TestClient) -> None:
     assert client.get("/v1/competitions/urc-2026-27/rounds/1/updates").status_code == 401
     assert client.get("/v1/competitions/urc-2026-27/rounds/99/updates", headers=captain_headers(client)).status_code == 404
+    assert client.get("/v1/competitions/nope/rounds/1/updates", headers=captain_headers(client)).status_code == 404
+    # The same rule as the preview route: a member of a league on the competition, or the admin.
+    stranger = signed_in(client, "STRANGER", f"stranger-{uuid4().hex[:8]}@example.com")
+    refused = client.get("/v1/competitions/urc-2026-27/rounds/1/updates", headers=stranger)
+    assert refused.status_code == 403 and refused.json()["detail"]["code"] == "not_a_member"
+    assert client.get("/v1/competitions/urc-2026-27/rounds/1/updates", headers=captain_headers(client)).status_code == 200
 
 
 @needs_database
@@ -275,3 +296,47 @@ def test_members_keep_their_notification_read_state(client: TestClient) -> None:
     assert too_many.status_code == 422
     too_long = client.put(lp(client, "/me/notifications"), json={"readAt": None, "readKeys": ["x" * 121]}, headers=headers)
     assert too_long.status_code == 422
+
+
+@needs_database
+def test_round_updates_do_not_hold_the_pool_while_providers_run(feeds: Feeds, clock, monkeypatch) -> None:
+    """With the PostgreSQL snapshot cache the route shares the one-connection pool with the
+    match centre; it must not keep a transaction open across the provider calls."""
+    import time
+
+    from app.matchcentre import cache as cache_module
+
+    settings = Settings(
+        _env_file=None,
+        environment="test",
+        database_url=DATABASE_URL,
+        supabase_url=SUPABASE_URL,
+        supabase_jwt_secret=SECRET,
+        supabase_service_role_key="service-key",
+    )
+    email = f"captain-{uuid4().hex[:8]}@example.com"
+    with get_engine(settings).begin() as connection:
+        league_id = new_league(connection, email)
+    app = create_app(settings, http_transport=httpx.MockTransport(feeds.handler))
+    centre = app.state.match_centres[URC.id]
+    assert isinstance(centre._cache, cache_module.PostgresSnapshotCache)
+    # The snapshot table outlives a run; expire a round snapshot an earlier run left fresh.
+    kept = centre._cache.get(centre.key("scores", "round", 1))
+    if kept is not None:
+        centre._cache.put(dataclasses.replace(kept, expires_at=KICKOFF))
+    client = TestClient(app)
+    client.league_id = league_id  # type: ignore[attr-defined]
+    client.captain_email = email  # type: ignore[attr-defined]
+    client.subjects = {}  # type: ignore[attr-defined]
+    monkeypatch.setattr(cache_module, "now_utc", lambda: KICKOFF + timedelta(hours=3))
+    clock(KICKOFF + timedelta(hours=3))
+    feeds.scores = round_feed(
+        feed_match(int(FIXTURE), status="result", period="post match", minute=81, finalised=1, score=(24, 19), ht=(10, 7))
+    )
+    started = time.monotonic()
+    response = client.get("/v1/competitions/urc-2026-27/rounds/1/updates", headers=captain_headers(client))
+    elapsed = time.monotonic() - started
+    assert response.status_code == 200
+    assert elapsed < 10, f"the route waited on the pool for {elapsed:.0f}s"
+    assert {e["kind"] for e in response.json()["events"]} >= {"kicked_off"}
+    assert feeds.score_requests == 1

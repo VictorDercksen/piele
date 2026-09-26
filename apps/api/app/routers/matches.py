@@ -1,14 +1,23 @@
 from datetime import datetime
 from typing import Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy import Engine
 from pydantic import BaseModel, ConfigDict
 
 from app import competitions
 from app.agent import previews
 from app.agent.models import MatchPreview
 from app.dependencies import competition_centre
-from app.league.context import Account, account_dependency, competition_member_dependency
+from app.league.auth import Claims
+from app.league.context import (
+    Account,
+    account_dependency,
+    claims_dependency,
+    competition_member_dependency,
+    engine_dependency,
+    resolve_competition_member,
+)
 from app.matchcentre import service as service_module
 from app.matchcentre import updates
 from app.matchcentre.service import MatchCentreService
@@ -167,12 +176,23 @@ def round_scores(round_number: int, centre: MatchCentreService = Depends(competi
 @router.get("/competitions/{competitionId}/rounds/{round_number}/updates", response_model=RoundUpdates)
 def round_updates(
     round_number: int,
+    request: Request,
     centre: MatchCentreService = Depends(competition_centre),
-    account: Account = Depends(competition_member_dependency),
+    claims: Claims = Depends(claims_dependency),
+    engine: Engine = Depends(engine_dependency),
 ) -> Any:
     """The round's teamsheets, previews, kick-offs and full-time results for the notifications
     panel. Members of a league on this competition (or the admin) only, because it reports
-    the Pavilion previews."""
+    the Pavilion previews. The member is resolved inside the handler, with the same rule as
+    `competition_member_dependency`, so no transaction is open while the match centre uses
+    the pool."""
     if not centre.competition.schedule().round(round_number):
         raise HTTPException(status_code=404, detail="Unknown round.")
-    return updates.round_updates(account.connection, centre, round_number, service_module.now_utc())
+    competition_id = centre.competition.id
+    return updates.round_updates(
+        engine,
+        centre,
+        round_number,
+        service_module.now_utc(),
+        lambda connection: resolve_competition_member(connection, claims, request.state.request_id, competition_id),
+    )

@@ -6,6 +6,7 @@ import { RoundEvent } from '../api/match-centre.models';
 import { CompetitionService } from '../competition/competition.service';
 import { competition } from '../competition/registry';
 import { ProfileStore } from '../profile/profile.store';
+import { LeagueContext } from './league-context';
 import { LeagueData } from './league-data';
 import {
   IDLE_REFRESH_MS,
@@ -14,6 +15,7 @@ import {
   NotificationsService,
   competitionNotices,
   isUnread,
+  withScheduledKickoffs,
 } from './notifications.service';
 import { SampleLeagueData } from './sample-league-data';
 
@@ -47,6 +49,24 @@ describe('read state', () => {
     expect(isUnread(read, 'feed:a', '2026-09-25T12:00:01Z')).toBe(true);
     expect(isUnread(read, 'feed:x', '2026-09-26T12:00:00Z')).toBe(false);
     expect(isUnread({ readAt: null, readKeys: [] }, 'feed:a', '2020-01-01T00:00:00Z')).toBe(true);
+    // Instants compare, whatever offset or precision the API used to write them.
+    expect(isUnread(read, 'feed:a', '2026-09-25T13:59:59+02:00')).toBe(false);
+    expect(isUnread(read, 'feed:a', '2026-09-25T12:00:00.500Z')).toBe(true);
+  });
+});
+
+describe('scheduled kick-offs', () => {
+  it('adds a kick-off for every fixture whose time has passed and the API has not reported', () => {
+    const fixtures = located(1);
+    const before = Date.parse(BENETTON.kickoffUtc!) - 1;
+    expect(withScheduledKickoffs([], fixtures, before)).toEqual([]);
+    const reported = [event('kicked_off', BENETTON.id, BENETTON.kickoffUtc!)];
+    const after = Date.parse(BENETTON.kickoffUtc!) + 60_000;
+    const events = withScheduledKickoffs(reported, fixtures, after);
+    // Benetton v Dragons is reported once; the other two Friday matches kick off at the same time.
+    expect(events.filter((e) => e.fixtureId === BENETTON.id)).toHaveLength(1);
+    expect(events.filter((e) => e.kind === 'kicked_off')).toHaveLength(3);
+    expect(events.every((e) => Date.parse(e.occurredAt) <= after)).toBe(true);
   });
 });
 
@@ -87,7 +107,7 @@ describe('competition notices', () => {
       new Set([BENETTON.id]),
     );
     expect(notices.map((n) => n.title)).toEqual([
-      'Benetton v Dragons is under way.',
+      'Benetton v Dragons kicked off.',
       'Benetton 24–19 Dragons.',
     ]);
     expect(notices[1].label).toBe('FULL TIME');
@@ -95,7 +115,7 @@ describe('competition notices', () => {
 });
 
 describe('NotificationsService', () => {
-  function setup(now: string, round = URC.currentRoundId(Date.parse(now))) {
+  async function setup(now: string, round = URC.currentRoundId(Date.parse(now))) {
     TestBed.resetTestingModule();
     vi.useFakeTimers({
       toFake: ['Date', 'setInterval', 'clearInterval', 'setTimeout', 'clearTimeout'],
@@ -120,58 +140,72 @@ describe('NotificationsService', () => {
         { provide: CompetitionService, useClass: Frozen },
       ],
     });
+    const context = TestBed.inject(LeagueContext);
+    await context.ensureAccount();
+    await context.select('piele');
+    // The member supports the Stormers, so their match is highlighted in every round.
+    await TestBed.inject(ProfileStore).save({
+      displayName: 'Test Member',
+      teamId: 'dhl-stormers',
+      photo: null,
+    });
     return TestBed.inject(NotificationsService);
   }
 
   afterEach(() => vi.useRealTimers());
 
-  it('shows the current round and the last week, with the member’s duty and poll pinned', () => {
-    const service = setup('2026-10-05T10:00:00Z', 2);
+  it('shows the current round and the last week, with the member’s duty and poll pinned', async () => {
+    const service = await setup('2026-10-05T10:00:00Z', 2);
     // Round 3 kicks off within the week, so its teamsheets and previews are followed too.
     expect(service.rounds().map((r) => r.id)).toEqual([2, 3]);
     expect(service.pinned().map((p) => p.key)).toEqual(['duty:duty-2', 'poll:poll-2']);
+    // Round 2 has been played: the Stormers match (the favourite team) gets its own kick-off
+    // line and the other seven fold into one, between the league entries by time.
+    const stormers = [...located(2).values()].find(
+      ({ fixture }) => fixture.awayAsset === 'dhl-stormers' || fixture.homeAsset === 'dhl-stormers',
+    )!.fixture;
+    const others = [...located(2).keys()].filter((id) => id !== stormers.id).sort();
     const keys = service.stream().map((n) => n.key);
     expect(keys).toEqual([
       'feed:feed-9',
+      `round:2:kicked_off:${others.join('.')}`,
       'feed:feed-7',
       'feed:feed-8',
       'feed:feed-6',
+      `fixture:${stormers.id}:kicked_off`,
       'feed:feed-5',
     ]);
-    expect(service.unread()).toBe(5);
+    expect(service.unread()).toBe(7);
+    expect(service.stream()[1].title).toBe('7 more matches kicked off.');
     expect(service.stream()[0].label).toBe('EVIDENCE');
     expect(service.stream()[0].action).toBe('View duties');
     expect(service.stream().every((n) => n.roundLabel === null)).toBe(true);
   });
 
-  it('keeps an earlier round’s events for a week and labels them', () => {
-    const service = setup('2026-09-28T10:00:00Z', 2);
+  it('keeps an earlier round’s events for a week and labels them', async () => {
+    const service = await setup('2026-09-28T10:00:00Z', 2);
     const keys = service.stream().map((n) => n.key);
     expect(keys).toContain('feed:feed-4'); // Franco’s Round 01 duty, accepted the day before
     expect(keys).not.toContain('feed:feed-1'); // the season opening, eight days earlier
     expect(service.stream().find((n) => n.key === 'feed:feed-4')?.roundLabel).toBe('R01');
   });
 
-  it('follows another round while one of its matches falls in this week', () => {
+  it('follows another round while one of its matches falls in this week', async () => {
     // Round 8 has a match on 21 Feb 2027, after rounds 9 to 11. On that day the calendar
     // makes Round 8 current again while Round 12 kicks off within the week.
-    const service = setup('2027-02-21T10:00:00Z');
+    const service = await setup('2027-02-21T10:00:00Z');
     expect(service.currentRound().id).toBe(8);
     expect(service.rounds().map((r) => r.id)).toEqual([8, 12]);
     // A week after Round 8's regular weekend, Round 9 is current and Round 8's results stay.
-    const january = setup('2027-01-02T10:00:00Z');
+    const january = await setup('2027-01-02T10:00:00Z');
     expect(january.rounds().map((r) => r.id)).toEqual([9, 8]);
-    expect(
-      setup('2027-01-15T10:00:00Z')
-        .rounds()
-        .map((r) => r.id),
-    ).toEqual([10]);
+    expect((await setup('2027-01-15T10:00:00Z')).rounds().map((r) => r.id)).toEqual([10]);
   });
 
   it('marks one item read without touching the rest, then everything at once', async () => {
-    const service = setup('2026-10-05T10:00:00Z', 2);
+    const service = await setup('2026-10-05T10:00:00Z', 2);
     await service.markRead('feed:feed-8');
-    expect(service.unread()).toBe(4);
+    expect(service.unread()).toBe(6);
     expect(service.read()).toEqual({ readAt: null, readKeys: ['feed:feed-8'] });
     await service.markRead('feed:feed-8');
     expect(service.read().readKeys).toEqual(['feed:feed-8']);
@@ -184,8 +218,36 @@ describe('NotificationsService', () => {
     );
   });
 
+  it('sends a read state the API refused again with the next refresh', async () => {
+    const service = await setup('2026-10-05T10:00:00Z', 2);
+    const league = TestBed.inject(LeagueData);
+    const saves = vi
+      .spyOn(league, 'saveNotificationsRead')
+      .mockRejectedValueOnce(new Error('The league is unreachable.'));
+    await service.markAllRead();
+    expect(saves).toHaveBeenCalledTimes(1);
+    await service.refresh();
+    expect(saves).toHaveBeenCalledTimes(2);
+    expect(saves.mock.calls[1][0]).toEqual(saves.mock.calls[0][0]);
+    await service.refresh();
+    expect(saves).toHaveBeenCalledTimes(2);
+  });
+
+  it('drops a refused read state once another league is shown', async () => {
+    const service = await setup('2026-10-05T10:00:00Z', 2);
+    const league = TestBed.inject(LeagueData);
+    const context = TestBed.inject(LeagueContext);
+    const saves = vi
+      .spyOn(league, 'saveNotificationsRead')
+      .mockRejectedValueOnce(new Error('The league is unreachable.'));
+    await service.markAllRead();
+    vi.spyOn(context, 'slug').mockReturnValue('pofadder-bowl');
+    await service.refresh();
+    expect(saves).toHaveBeenCalledTimes(1);
+  });
+
   it('refreshes every ten minutes while idle and every two while a match is on', async () => {
-    const service = setup('2026-10-05T10:00:00Z', 2);
+    const service = await setup('2026-10-05T10:00:00Z', 2);
     const league = TestBed.inject(LeagueData);
     const refreshes = vi.spyOn(league, 'refreshFeed');
     await service.refresh();
@@ -196,7 +258,7 @@ describe('NotificationsService', () => {
     expect(refreshes).toHaveBeenCalledTimes(2);
 
     // Ten minutes before Round 2’s first kick-off the play window opens.
-    const live = setup('2026-10-02T18:35:00Z', 2);
+    const live = await setup('2026-10-02T18:35:00Z', 2);
     const liveLeague = TestBed.inject(LeagueData);
     const liveRefreshes = vi.spyOn(liveLeague, 'refreshFeed');
     await live.refresh();
