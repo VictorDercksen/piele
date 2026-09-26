@@ -19,6 +19,16 @@
   gap: 14px;
 }
 /* The whole head opens and closes the card. */
+/* A bare chevron, like "Start a league.", not the shared pill icon button. */
+.card-head .expand-button {
+  background: none;
+  box-shadow: none;
+  color: var(--ink);
+}
+.card-head .expand-button:enabled:hover {
+  filter: none;
+  color: var(--accent);
+}
 .expand-button::after {
   content: '';
   position: absolute;
