@@ -65,7 +65,8 @@ export class ProfileStore {
    * league guards handle.
    */
   async whenKnown(): Promise<boolean> {
-    if (!this.api) return true;
+    // The sample admin in the league it holds no membership in has no profile to wait for.
+    if (!this.api) return !this.context.current() || this.context.isMemberOfCurrent();
     await this.auth.whenReady();
     if (!this.auth.signedIn()) return false;
     return (await this.api.ensureLoaded()) === 'member' && this.api.isMember();

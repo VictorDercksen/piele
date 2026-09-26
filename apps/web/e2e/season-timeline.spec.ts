@@ -136,7 +136,7 @@ test('desktop rail and top bar stay in view while the content scrolls', async ({
   await page.setViewportSize({ width: 1440, height: 800 });
   await page.goto('/piele?round=2');
   const rail = page.locator('.season-rail');
-  await expect(rail.getByRole('link', { name: 'Piele home' })).toBeVisible();
+  await expect(rail.getByRole('button', { name: 'Piele. Switch league' })).toBeVisible();
   await page.mouse.wheel(0, 1500);
   await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(500);
   expect((await page.locator('.top-bar').boundingBox())!.y).toBe(0);

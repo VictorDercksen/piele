@@ -5,21 +5,7 @@
   [style.--member-accent]="favouriteTeam()?.accent"
 >
   <aside class="season-rail">
-    <a
-      class="rail-brand"
-      [routerLink]="leagueHome()"
-      queryParamsHandling="preserve"
-      [attr.aria-label]="leagueName() + ' home'"
-    >
-      <app-league-crest
-        [name]="leagueName()"
-        [slug]="league()?.slug ?? ''"
-        [emblemUrl]="league()?.emblemUrl ?? null"
-      /><span
-        ><strong>{{ leagueName().toUpperCase() }}</strong
-        ><small>{{ competitionShortName() }} {{ season() }}</small></span
-      >
-    </a>
+    <app-league-switcher class="rail-brand" variant="rail" />
     <app-season-timeline
       [rounds]="rounds()"
       [current]="currentRound()"
@@ -30,21 +16,7 @@
     />
   </aside>
   <header class="top-bar">
-    <a
-      class="club-brand"
-      [routerLink]="leagueHome()"
-      queryParamsHandling="preserve"
-      [attr.aria-label]="leagueName() + ' home'"
-    >
-      <app-league-crest
-        [name]="leagueName()"
-        [slug]="league()?.slug ?? ''"
-        [emblemUrl]="league()?.emblemUrl ?? null"
-      /><span
-        ><strong>{{ leagueName().toUpperCase() }}</strong
-        ><small>{{ competitionShortName() }} {{ season() }}</small></span
-      >
-    </a>
+    <app-league-switcher class="club-brand" />
     <nav class="desktop-nav" aria-label="League navigation">
       @for (item of nav; track item.path) {
         <a
@@ -81,18 +53,24 @@
         </span>
         <span class="profile-text">
           <strong>{{ view.memberName() }}</strong>
-          <small
-            >{{ favouriteTeam()?.shortName }} supporter<img
-              class="profile-jersey"
-              [src]="favouriteTeam()?.jersey"
-              alt=""
-          /></small>
+          <small>
+            @if (favouriteTeam(); as team) {
+              {{ team.shortName }} supporter<img class="profile-jersey" [src]="team.jersey" alt="" />
+            } @else if (adminView()) {
+              Admin view
+            }
+          </small>
         </span>
       </a>
     </div>
   </header>
   <main id="main-content" class="main-content">
     <app-stadium-backdrop class="page-backdrop" [src]="pageBackground()" />
+    @if (adminView()) {
+      <p class="admin-ribbon" role="note">
+        <app-icon name="shield" />Admin view. You are not a member of this league.
+      </p>
+    }
     <div class="round-bar">
       <section class="round-context" aria-label="Selected round" aria-live="polite">
         <div>
@@ -182,7 +160,7 @@
       <router-outlet />
     </div>
     <footer class="club-footer">
-      <span>{{ leagueName().toUpperCase() }} / ROUND {{ round().code }}</span
+      <span>THE PAVILION / {{ leagueName().toUpperCase() }} / ROUND {{ round().code }}</span
       ><span>{{
         view.sample
           ? 'Sample league records for development. Names, points, duties and votes are illustrative.'

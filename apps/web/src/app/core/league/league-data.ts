@@ -1,8 +1,10 @@
 import { Injectable, Signal, signal } from '@angular/core';
 import {
+  AppearanceChange,
   Duty,
   EvidenceSubmission,
   FeedItem,
+  LeagueAppearance,
   LeagueMember,
   LeagueSummary,
   MemberMarks,
@@ -26,7 +28,14 @@ export abstract class LeagueData {
   abstract readonly currentMemberId: Signal<string | null>;
   abstract readonly currentMemberName: Signal<string | null>;
   abstract readonly captainMemberId: Signal<string | null>;
+  /** Captain or admin: may use the captain's desk. The API decides every action. */
+  abstract readonly administers: Signal<boolean>;
+  /** The league's join code for its steward; null for members, or when joining is closed. */
+  abstract readonly joinCode: Signal<string | null>;
+  /** Active members, the team sheet. */
   abstract readonly members: Signal<readonly LeagueMember[]>;
+  /** Members the steward removed, with the date and reason. Empty for plain members. */
+  abstract readonly withdrawnMembers: Signal<readonly LeagueMember[]>;
   abstract readonly standings: Signal<readonly RoundStanding[]>;
   abstract readonly marks: Signal<readonly MemberMarks[]>;
   abstract readonly duties: Signal<readonly Duty[]>;
@@ -65,6 +74,19 @@ export abstract class LeagueData {
   /** Undo a wrong claim so the right account can take the name. */
   abstract releaseMember(memberId: string): Promise<void>;
   abstract castVote(pollId: string, choice: string): Promise<void>;
+  /**
+   * Takes a member off the team sheet: open duties are voided, standings and marks stay. An
+   * unclaimed name without records is deleted instead.
+   */
+  abstract withdrawMember(memberId: string, reason: string): Promise<void>;
+  /** Puts a withdrawn member back on the team sheet in the active season. */
+  abstract reinstateMember(memberId: string): Promise<void>;
+  /** A new join code; the old link stops working. Resolves to the new code. */
+  abstract rotateJoinCode(): Promise<string>;
+  /** Closes joining: the join link stops working until a new code is made. */
+  abstract closeJoinCode(): Promise<void>;
+  /** Saves the league's emblem and accent colour and resolves to how the league now looks. */
+  abstract saveAppearance(change: AppearanceChange): Promise<LeagueAppearance>;
 }
 
 /** No league records. Used when neither the API nor sample data is configured. */
@@ -74,7 +96,10 @@ export class EmptyLeagueData extends LeagueData {
   readonly currentMemberId = signal<string | null>(null).asReadonly();
   readonly currentMemberName = signal<string | null>(null).asReadonly();
   readonly captainMemberId = signal<string | null>(null).asReadonly();
+  readonly administers = signal(false).asReadonly();
+  readonly joinCode = signal<string | null>(null).asReadonly();
   readonly members = signal<readonly LeagueMember[]>([]).asReadonly();
+  readonly withdrawnMembers = signal<readonly LeagueMember[]>([]).asReadonly();
   readonly standings = signal<readonly RoundStanding[]>([]).asReadonly();
   readonly marks = signal<readonly MemberMarks[]>([]).asReadonly();
   readonly duties = signal<readonly Duty[]>([]).asReadonly();
@@ -142,6 +167,26 @@ export class EmptyLeagueData extends LeagueData {
 
   castVote(): Promise<void> {
     return unavailable('Voting');
+  }
+
+  withdrawMember(): Promise<void> {
+    return unavailable('Membership changes');
+  }
+
+  reinstateMember(): Promise<void> {
+    return unavailable('Membership changes');
+  }
+
+  rotateJoinCode(): Promise<string> {
+    return Promise.reject(new Error('Join links are not available yet.'));
+  }
+
+  closeJoinCode(): Promise<void> {
+    return unavailable('Join links');
+  }
+
+  saveAppearance(): Promise<LeagueAppearance> {
+    return Promise.reject(new Error('League emblems are not available yet.'));
   }
 }
 

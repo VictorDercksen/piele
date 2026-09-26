@@ -101,7 +101,7 @@
         /></a>
       </article>
     }
-    @if (view.isCaptain() && view.reviewCount()) {
+    @if (view.administers() && view.reviewCount()) {
       <a class="captain-queue" [routerLink]="'/captain' | leaguePath" queryParamsHandling="preserve">
         <app-icon name="shield" /><span
           ><strong>Captain, you're up.</strong

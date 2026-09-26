@@ -1,11 +1,16 @@
 import { Injectable, Signal, WritableSignal, computed, inject, signal } from '@angular/core';
 import { CompetitionService } from '../competition/competition.service';
+import { isAccentColour, isEmblemPreset } from './emblems';
+import { ApiError } from './http-league-data';
 import { LeagueData } from './league-data';
 import {
+  AppearanceChange,
   Duty,
   DutyEvidence,
   EvidenceSubmission,
   FeedItem,
+  JoinPreview,
+  LeagueAppearance,
   LeagueMember,
   LeagueSummary,
   MemberMarks,
@@ -19,6 +24,7 @@ import {
 import { loadStoredRead, storeRead } from './notifications-read';
 import { sampleMarks } from './marks';
 import {
+  SAMPLE_ACCOUNT,
   SAMPLE_LEAGUES,
   SAMPLE_ME as ME,
   SampleDutyRecord as DutyRecord,
@@ -50,9 +56,18 @@ export class SampleLeagueData extends LeagueData {
   readonly source = 'sample';
   /** The slug of the league whose records are showing. */
   readonly slug = computed(() => this.active().seed.summary.slug);
-  readonly currentMemberId = signal<string | null>(ME).asReadonly();
+  /** The sample member, or null in the league the sample account sees only as the admin. */
+  readonly currentMemberId = computed(() => this.active().memberId);
   readonly currentMemberName = signal<string | null>(null).asReadonly();
   readonly captainMemberId = computed(() => this.active().seed.captainId);
+  /** The sample account is the admin, so it stewards every sample league. */
+  readonly administers = computed(
+    () => SAMPLE_ACCOUNT.isAdmin || this.active().seed.captainId === this.currentMemberId(),
+  );
+  readonly joinCode = computed(() => (this.administers() ? this.active().joinCode() : null));
+  readonly withdrawnMembers = this.from((league) => league.withdrawn);
+  /** The showing league's emblem and accent colour, including changes made this session. */
+  readonly appearance = this.from((league) => league.appearance);
   readonly loading = signal(false).asReadonly();
   readonly error = signal<string | null>(null).asReadonly();
   readonly members = this.from((league) => league.members);
@@ -127,6 +142,51 @@ export class SampleLeagueData extends LeagueData {
     return this.active().castVote(pollId, choice);
   }
 
+  withdrawMember(memberId: string, reason: string): Promise<void> {
+    return this.active().withdrawMember(memberId, reason);
+  }
+
+  reinstateMember(memberId: string): Promise<void> {
+    return this.active().reinstateMember(memberId);
+  }
+
+  rotateJoinCode(): Promise<string> {
+    return this.active().rotateJoinCode();
+  }
+
+  closeJoinCode(): Promise<void> {
+    return this.active().closeJoinCode();
+  }
+
+  saveAppearance(change: AppearanceChange): Promise<LeagueAppearance> {
+    return this.active().saveAppearance(change);
+  }
+
+  /**
+   * What `/join/{code}` shows for a sample league's current join code (codes rotate and
+   * close in memory). Rejects like the API for an unknown or closed code.
+   */
+  preview(code: string): JoinPreview {
+    const league = SAMPLE_LEAGUES.map((seed) => this.league(seed)).find(
+      (l) => l.joinCode() === code,
+    );
+    if (!league)
+      throw new ApiError(
+        404,
+        'unknown_join_code',
+        'That join link is not valid. Ask the captain for a new one.',
+      );
+    const { id, slug, name, timezone, competition, seasonName } = league.seed.summary;
+    return {
+      league: { id, slug, name, timezone, competition, seasonName, ...league.appearance() },
+      alreadyMember: !!league.memberId,
+      unclaimed: league
+        .members()
+        .filter((member) => !member.claimed)
+        .map((member) => ({ id: member.id, displayName: member.name })),
+    };
+  }
+
   private league(seed: SampleLeagueSeed): SampleLeague {
     let league = this.leagues.get(seed.summary.slug);
     if (!league) {
@@ -145,16 +205,30 @@ export class SampleLeagueData extends LeagueData {
 /** One sample league's in-memory records and the rules the API would apply to them. */
 class SampleLeague {
   readonly seed: SampleLeagueSeed;
+  /** The sample member here, or null where the sample account is only the admin. */
+  readonly memberId: string | null;
   private readonly competition: CompetitionService;
   private readonly memberRecords: WritableSignal<readonly LeagueMember[]>;
+  /** Active members; withdrawn ones move to `withdrawn` and drop out of every list. */
   readonly members: Signal<readonly LeagueMember[]>;
-  readonly standings: Signal<readonly RoundStanding[]>;
+  private readonly withdrawnRecords = signal<readonly LeagueMember[]>([]);
+  readonly withdrawn = this.withdrawnRecords.asReadonly();
+  private readonly standingRecords: Signal<readonly RoundStanding[]>;
+  readonly standings = computed(() => {
+    const active = new Set(this.memberRecords().map((m) => m.id));
+    return this.standingRecords().filter((s) => active.has(s.memberId));
+  });
   private readonly dutyRecords: WritableSignal<readonly DutyRecord[]>;
+  private readonly code: WritableSignal<string | null>;
+  readonly joinCode: Signal<string | null>;
+  private readonly look: WritableSignal<LeagueAppearance>;
+  readonly appearance: Signal<LeagueAppearance>;
   private readonly clock = signal(Date.now());
   readonly duties = computed<readonly Duty[]>(() => {
     const now = new Date(this.clock());
     const members = this.memberRecords();
-    return this.dutyRecords().map((record) => {
+    const active = new Set(members.map((m) => m.id));
+    return this.dutyRecords().filter((record) => active.has(record.memberId)).map((record) => {
       const marks = sampleMarks(
         record.deadlineAt,
         record.completedAt,
@@ -207,10 +281,16 @@ class SampleLeague {
 
   constructor(seed: SampleLeagueSeed, competition: CompetitionService) {
     this.seed = seed;
+    this.memberId = seed.summary.memberId;
     this.competition = competition;
     this.memberRecords = signal(seed.members);
     this.members = this.memberRecords.asReadonly();
-    this.standings = signal(seed.standings).asReadonly();
+    this.standingRecords = signal(seed.standings).asReadonly();
+    this.code = signal<string | null>(seed.joinCode);
+    this.joinCode = this.code.asReadonly();
+    const { emblemPreset, emblemUrl, accentColour } = seed.summary;
+    this.look = signal<LeagueAppearance>({ emblemPreset, emblemUrl, accentColour });
+    this.appearance = this.look.asReadonly();
     this.dutyRecords = signal<readonly DutyRecord[]>(seed.duties);
     this.pollRecords = signal<readonly Poll[]>(seed.polls);
     this.polls = this.pollRecords.asReadonly();
@@ -232,6 +312,7 @@ class SampleLeague {
   }
 
   submitEvidence({ dutyIds, note, subjectMemberId, claimedCompletedAt }: EvidenceSubmission): Promise<void> {
+    if (!this.memberId) return notAMember();
     const subject = subjectMemberId ?? ME;
     const now = new Date().toISOString();
     const submissionId = `sub-${Date.now()}`;
@@ -265,6 +346,7 @@ class SampleLeague {
   }
 
   createDuty(duty: NewDuty): Promise<void> {
+    if (!this.memberId) return notAMember();
     const member = this.memberRecords().find((m) => m.id === duty.memberId);
     if (!member) return Promise.reject(new Error('Unknown member.'));
     if (this.dutyRecords().some((d) => d.memberId === duty.memberId && d.roundId === duty.roundId && d.type === duty.type && (d.status === 'open' || d.status === 'pending_deadline')))
@@ -293,6 +375,7 @@ class SampleLeague {
   }
 
   voidDuty(dutyId: string, reason: string): Promise<void> {
+    if (!this.memberId) return notAMember();
     const duty = this.dutyRecords().find((d) => d.id === dutyId);
     if (!duty || duty.status === 'voided' || duty.status === 'completed')
       return Promise.reject(new Error('A completed or voided duty cannot be voided.'));
@@ -309,6 +392,7 @@ class SampleLeague {
   }
 
   resetClock(dutyId: string, reason: string): Promise<void> {
+    if (!this.memberId) return notAMember();
     const duty = this.dutyRecords().find((d) => d.id === dutyId);
     if (!duty || duty.status !== 'open') return Promise.reject(new Error('Only an open duty’s clock can be reset.'));
     if (duty.memberId === ME)
@@ -322,6 +406,7 @@ class SampleLeague {
   }
 
   decideEvidence(linkId: string, decision: 'accepted' | 'rejected', reason: string): Promise<void> {
+    if (!this.memberId) return notAMember();
     const duty = this.dutyRecords().find((d) => d.evidence.some((e) => e.id === linkId));
     const link = duty?.evidence.find((e) => e.id === linkId);
     if (!duty || !link || link.decision !== 'pending') return Promise.reject(new Error('This evidence was already decided.'));
@@ -376,6 +461,7 @@ class SampleLeague {
   }
 
   castVote(pollId: string, choice: string): Promise<void> {
+    if (!this.memberId) return notAMember();
     const poll = this.pollRecords().find((p) => p.id === pollId);
     if (!poll || poll.status !== 'Open' || !poll.options.includes(choice))
       return Promise.reject(new Error('This vote is closed.'));
@@ -387,6 +473,90 @@ class SampleLeague {
       ),
     );
     return Promise.resolve();
+  }
+
+  /**
+   * Off the team sheet, as the API does it: open duties voided, standings and marks kept
+   * (hidden while withdrawn). An unclaimed name without records is deleted instead.
+   */
+  withdrawMember(memberId: string, reason: string): Promise<void> {
+    const text = reason.trim();
+    if (!text || text.length > 500) return refuse(422, 'validation', 'Give a reason of up to 500 characters.');
+    if (memberId === this.seed.captainId)
+      return refuse(409, 'captain_membership', 'The captain cannot be removed. Appoint another captain first.');
+    if (memberId === this.memberId) return refuse(409, 'own_membership', 'You cannot remove yourself.');
+    if (this.withdrawnRecords().some((m) => m.id === memberId))
+      return refuse(409, 'already_withdrawn', 'That member was already removed.');
+    const member = this.memberRecords().find((m) => m.id === memberId);
+    if (!member) return refuse(404, 'unknown_member', 'That member is not on the team sheet.');
+    this.memberRecords.update((members) => members.filter((m) => m.id !== memberId));
+    if (!member.claimed && !this.hasRecords(memberId)) return Promise.resolve();
+    this.withdrawnRecords.update((members) => [
+      { ...member, leftAt: new Date().toISOString(), withdrawalReason: text },
+      ...members,
+    ]);
+    this.dutyRecords.update((duties) =>
+      duties.map((d) =>
+        d.memberId === memberId && (d.status === 'open' || d.status === 'pending_deadline')
+          ? { ...d, status: 'voided', voidReason: 'Member withdrawn' }
+          : d,
+      ),
+    );
+    this.post('member_left', null, `${member.name} left the clubhouse.`, '', member.name);
+    return Promise.resolve();
+  }
+
+  reinstateMember(memberId: string): Promise<void> {
+    const member = this.withdrawnRecords().find((m) => m.id === memberId);
+    if (!member) return refuse(409, 'not_withdrawn', 'That member is on the team sheet already.');
+    this.withdrawnRecords.update((members) => members.filter((m) => m.id !== memberId));
+    this.memberRecords.update((members) => [
+      ...members,
+      { ...member, leftAt: null, withdrawalReason: null },
+    ]);
+    this.post('member_returned', null, `${member.name} is back.`, '', member.name);
+    return Promise.resolve();
+  }
+
+  rotateJoinCode(): Promise<string> {
+    const bytes = crypto.getRandomValues(new Uint8Array(6));
+    const code = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+    this.code.set(code);
+    return Promise.resolve(code);
+  }
+
+  closeJoinCode(): Promise<void> {
+    this.code.set(null);
+    return Promise.resolve();
+  }
+
+  saveAppearance({ emblem, accentColour }: AppearanceChange): Promise<LeagueAppearance> {
+    if (emblem && 'preset' in emblem && !isEmblemPreset(emblem.preset))
+      return refuse(422, 'invalid_emblem', 'Choose one of the preset emblems.');
+    if (emblem && 'image' in emblem && !/^data:image\/jpeg;base64,/.test(emblem.image))
+      return refuse(422, 'unknown_upload', 'The emblem upload failed. Try again.');
+    if (accentColour !== undefined && accentColour !== null && !isAccentColour(accentColour))
+      return refuse(422, 'validation', 'Choose a colour as #rrggbb.');
+    const next: LeagueAppearance = {
+      ...this.look(),
+      ...(emblem === null ? { emblemPreset: null, emblemUrl: null } : {}),
+      ...(emblem && 'preset' in emblem ? { emblemPreset: emblem.preset, emblemUrl: null } : {}),
+      ...(emblem && 'image' in emblem ? { emblemPreset: null, emblemUrl: emblem.image } : {}),
+      ...(accentColour !== undefined ? { accentColour } : {}),
+    };
+    const changed =
+      next.emblemPreset !== this.look().emblemPreset || next.emblemUrl !== this.look().emblemUrl;
+    this.look.set(next);
+    if (changed) this.post('emblem_updated', null, `The ${this.seed.summary.name} emblem was updated.`, '', null);
+    return Promise.resolve(next);
+  }
+
+  /** Duties or round standings on record, which keep a name from being deleted. */
+  private hasRecords(memberId: string): boolean {
+    return (
+      this.dutyRecords().some((d) => d.memberId === memberId) ||
+      this.standingRecords().some((s) => s.memberId === memberId)
+    );
   }
 
   /** `Round 03 Spoon duty`, with the round labelled as the competition labels it. */
@@ -403,3 +573,12 @@ class SampleLeague {
   }
 }
 
+
+function refuse<T>(status: number, code: string, message: string): Promise<T> {
+  return Promise.reject(new ApiError(status, code, message));
+}
+
+/** The admin viewing a league it is not in cannot do what is recorded against a member. */
+function notAMember<T>(): Promise<T> {
+  return refuse(409, 'admin_not_a_member', 'Add yourself to this league from the management centre first.');
+}

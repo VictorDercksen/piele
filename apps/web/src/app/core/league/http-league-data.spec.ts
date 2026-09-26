@@ -17,6 +17,7 @@ const me = (profile: { favouriteTeamId: string | null; photoUrl: string | null }
   slug: 'piele',
   leagueName: 'Piele',
   timezone: 'Africa/Johannesburg',
+  emblemPreset: null,
   emblemUrl: null,
   accentColour: null,
   competition: { id: 'urc-2026-27', name: 'United Rugby Championship 2026/27', shortName: 'URC' },
@@ -56,9 +57,14 @@ describe('HttpLeagueData', () => {
   }
 
   /** Answers the league record requests that follow /me. */
-  function flushRecords(http: HttpTestingController, standings: unknown[] = [], base = API) {
+  function flushRecords(
+    http: HttpTestingController,
+    standings: unknown[] = [],
+    base = API,
+    members = '/members',
+  ) {
     http.expectOne(`${base}/standings`).flush(standings);
-    for (const path of ['/members', '/duties', '/marks', '/feed?limit=200'])
+    for (const path of [members, '/duties', '/marks', '/feed?limit=200'])
       http.expectOne(`${base}${path}`).flush([]);
   }
 
@@ -223,10 +229,212 @@ describe('HttpLeagueData', () => {
       administers: true,
     });
     await settle();
-    flushRecords(http);
+    flushRecords(http, [], API, '/members?include=withdrawn');
     expect(await loaded).toBe('member');
     expect(league.isMember()).toBe(false);
     expect(league.profile()).toBeNull();
     expect(league.currentMemberName()).toBe('Admin');
+  });
+
+  /** A steward's league: the captain's `me` with the join code, and its records. */
+  async function loadSteward(
+    http: HttpTestingController,
+    league: HttpLeagueData,
+    members: unknown[] = [],
+    extra: Record<string, unknown> = {},
+  ) {
+    const loaded = league.load('l-1');
+    http.expectOne(`${API}/me`).flush({
+      ...me({ favouriteTeamId: 'ospreys', photoUrl: null }),
+      isCaptain: true,
+      administers: true,
+      joinCode: '5a3b1e0f9c2d',
+      ...extra,
+    });
+    await settle();
+    http.expectOne(`${API}/members?include=withdrawn`).flush(members);
+    for (const path of ['/standings', '/duties', '/marks', '/feed?limit=200'])
+      http.expectOne(`${API}${path}`).flush([]);
+    expect(await loaded).toBe('member');
+  }
+
+  /** The records a write reloads, with the steward's team sheet. */
+  function flushRefresh(http: HttpTestingController, members: unknown[] = []) {
+    http.expectOne(`${API}/members?include=withdrawn`).flush(members);
+    for (const path of ['/standings', '/duties', '/marks', '/feed?limit=200'])
+      http.expectOne(`${API}${path}`).flush([]);
+  }
+
+  const member = (id: string, extra: Record<string, unknown> = {}) => ({
+    id,
+    displayName: id.toUpperCase(),
+    fullName: `Member ${id}`,
+    status: 'active',
+    claimed: true,
+    inSeason: true,
+    email: null,
+    leftAt: null,
+    withdrawalReason: null,
+    ...extra,
+  });
+
+  it('loads the steward’s team sheet with the withdrawn members and the join code', async () => {
+    const { league, http } = setup();
+    await loadSteward(http, league, [
+      member('m-1'),
+      member('m-2'),
+      member('m-3', {
+        status: 'withdrawn',
+        inSeason: false,
+        leftAt: '2026-09-20T08:00:00Z',
+        withdrawalReason: 'Moved away',
+      }),
+    ]);
+    expect(league.administers()).toBe(true);
+    expect(league.joinCode()).toBe('5a3b1e0f9c2d');
+    expect(league.members().map((m) => m.id)).toEqual(['m-1', 'm-2']);
+    expect(league.withdrawnMembers()).toEqual([
+      expect.objectContaining({
+        id: 'm-3',
+        leftAt: '2026-09-20T08:00:00Z',
+        withdrawalReason: 'Moved away',
+      }),
+    ]);
+
+    // A plain member's team sheet leaves the flag off and has no join code.
+    league.clear();
+    const plain = league.load('l-1');
+    http.expectOne(`${API}/me`).flush({
+      ...me({ favouriteTeamId: 'ospreys', photoUrl: null }),
+      joinCode: null,
+    });
+    await settle();
+    flushRecords(http);
+    await plain;
+    expect(league.joinCode()).toBeNull();
+    expect(league.withdrawnMembers()).toEqual([]);
+    http.verify();
+  });
+
+  it('withdraws a member with a reason and reinstates them', async () => {
+    const { league, http } = setup();
+    await loadSteward(http, league, [member('m-1'), member('m-2')]);
+
+    const withdrawing = league.withdrawMember('m-2', 'Moved to Perth');
+    const withdraw = http.expectOne(`${API}/members/m-2/withdraw`);
+    expect(withdraw.request.method).toBe('POST');
+    expect(withdraw.request.body).toEqual({ reason: 'Moved to Perth' });
+    withdraw.flush(null, { status: 204, statusText: 'No Content' });
+    await settle();
+    flushRefresh(http, [
+      member('m-1'),
+      member('m-2', { status: 'withdrawn', leftAt: '2026-09-26T10:00:00Z', withdrawalReason: 'Moved to Perth' }),
+    ]);
+    await withdrawing;
+    expect(league.members().map((m) => m.id)).toEqual(['m-1']);
+    expect(league.withdrawnMembers().map((m) => m.id)).toEqual(['m-2']);
+
+    const reinstating = league.reinstateMember('m-2');
+    const reinstate = http.expectOne(`${API}/members/m-2/reinstate`);
+    expect(reinstate.request.method).toBe('POST');
+    expect(reinstate.request.body).toBeNull();
+    reinstate.flush(null, { status: 204, statusText: 'No Content' });
+    await settle();
+    flushRefresh(http, [member('m-1'), member('m-2')]);
+    await reinstating;
+    expect(league.withdrawnMembers()).toEqual([]);
+    http.verify();
+  });
+
+  it('surfaces the API’s refusal to remove the captain', async () => {
+    const { league, http } = setup();
+    await loadSteward(http, league);
+    const withdrawing = league.withdrawMember('m-1', 'x');
+    http
+      .expectOne(`${API}/members/m-1/withdraw`)
+      .flush(
+        { detail: { code: 'captain_membership', message: 'The captain cannot be removed.' } },
+        { status: 409, statusText: 'Conflict' },
+      );
+    await expect(withdrawing).rejects.toMatchObject({
+      code: 'captain_membership',
+      message: 'The captain cannot be removed.',
+    });
+    http.verify();
+  });
+
+  it('rotates and closes the join code', async () => {
+    const { league, http } = setup();
+    await loadSteward(http, league);
+
+    const rotating = league.rotateJoinCode();
+    const rotate = http.expectOne(`${API}/join-code/rotate`);
+    expect(rotate.request.method).toBe('POST');
+    expect(rotate.request.body).toBeNull();
+    rotate.flush({ joinCode: 'b0e1d2c3a4f5' });
+    expect(await rotating).toBe('b0e1d2c3a4f5');
+    expect(league.joinCode()).toBe('b0e1d2c3a4f5');
+
+    const closing = league.closeJoinCode();
+    const close = http.expectOne(`${API}/join-code`);
+    expect(close.request.method).toBe('DELETE');
+    close.flush(null, { status: 204, statusText: 'No Content' });
+    await closing;
+    expect(league.joinCode()).toBeNull();
+    http.verify();
+  });
+
+  it('saves a preset and accent, uploads an image through a grant and removes the emblem', async () => {
+    const { league, http } = setup();
+    await loadSteward(http, league);
+    const steward = (extra: Record<string, unknown>) => ({
+      ...me({ favouriteTeamId: 'ospreys', photoUrl: null }),
+      isCaptain: true,
+      administers: true,
+      joinCode: '5a3b1e0f9c2d',
+      ...extra,
+    });
+
+    const preset = league.saveAppearance({ emblem: { preset: 'anvil' }, accentColour: '#c8742a' });
+    const put = http.expectOne(`${API}/appearance`);
+    expect(put.request.method).toBe('PUT');
+    expect(put.request.body).toEqual({ emblemPreset: 'anvil', accentColour: '#c8742a' });
+    put.flush(steward({ emblemPreset: 'anvil', accentColour: '#c8742a' }));
+    expect(await preset).toEqual({ emblemPreset: 'anvil', emblemUrl: null, accentColour: '#c8742a' });
+
+    // Removing a preset clears only the preset field.
+    const clearing = league.saveAppearance({ emblem: null });
+    const clear = http.expectOne(`${API}/appearance`);
+    expect(clear.request.body).toEqual({ emblemPreset: null });
+    clear.flush(steward({ emblemPreset: null, accentColour: '#c8742a' }));
+    await clearing;
+
+    const uploading = league.saveAppearance({ emblem: { image: NEW_PHOTO } });
+    await settle();
+    const grant = http.expectOne(`${API}/emblem/uploads`);
+    expect(grant.request.method).toBe('POST');
+    expect(grant.request.body).toEqual({ contentType: 'image/jpeg', sizeBytes: 6 });
+    grant.flush({ bucket: 'evidence', path: 'emblems/l-1/0123456789abcdef0123456789abcdef.jpg', token: 'tok' });
+    await settle();
+    expect(uploads).toEqual(['emblems/l-1/0123456789abcdef0123456789abcdef.jpg']);
+    const save = http.expectOne(`${API}/appearance`);
+    expect(save.request.body).toEqual({
+      emblemPath: 'emblems/l-1/0123456789abcdef0123456789abcdef.jpg',
+    });
+    save.flush(steward({ emblemUrl: 'https://storage.test/emblems/l-1/x.jpg?token=t' }));
+    expect((await uploading).emblemUrl).toBe('https://storage.test/emblems/l-1/x.jpg?token=t');
+
+    // Removing an upload clears only the path; the accent alone sends only the colour.
+    const removing = league.saveAppearance({ emblem: null });
+    const remove = http.expectOne(`${API}/appearance`);
+    expect(remove.request.body).toEqual({ emblemPath: null });
+    remove.flush(steward({}));
+    await removing;
+    const accent = league.saveAppearance({ accentColour: null });
+    const colour = http.expectOne(`${API}/appearance`);
+    expect(colour.request.body).toEqual({ accentColour: null });
+    colour.flush(steward({}));
+    await accent;
+    http.verify();
   });
 });

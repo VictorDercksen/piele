@@ -1,7 +1,13 @@
 <section class="claim">
   @if (league(); as league) {
     <div class="league-heading">
-      <app-league-crest [name]="league.name" [slug]="league.slug" [emblemUrl]="league.emblemUrl" />
+      <app-league-crest
+        [name]="league.name"
+        [slug]="league.slug"
+        [emblemUrl]="league.emblemUrl"
+        [emblemPreset]="league.emblemPreset ?? null"
+        [accentColour]="league.accentColour"
+      />
       <span class="eyebrow"
         >{{ league.name.toUpperCase() }} / {{ league.seasonName.toUpperCase() }}</span
       >

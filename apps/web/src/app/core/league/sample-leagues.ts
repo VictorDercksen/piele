@@ -14,7 +14,8 @@ import {
 /**
  * Illustrative leagues for local development only. Names, points, duties and votes are
  * samples, never published competition results. The sample member ("You") captains Piele and
- * plays in the Pofadder Bowl under another captain; the sample account is the admin.
+ * plays in the Pofadder Bowl under another captain; the sample account is the admin and also
+ * sees the Sample Third XV, which it holds no membership in (the admin view).
  */
 
 /** The sample member's id in every sample league. */
@@ -105,18 +106,32 @@ function table(
 
 const URC = competition('urc-2026-27');
 
-function summary(id: string, slug: string, name: string, captain: boolean): LeagueSummary {
+interface SummaryOptions {
+  readonly emblemPreset?: string | null;
+  readonly accentColour?: string | null;
+  /** False for a league the sample account only sees as the admin. */
+  readonly member?: boolean;
+}
+
+function summary(
+  id: string,
+  slug: string,
+  name: string,
+  captain: boolean,
+  { emblemPreset = null, accentColour = null, member = true }: SummaryOptions = {},
+): LeagueSummary {
   return {
     id,
     slug,
     name,
     timezone: 'Africa/Johannesburg',
+    emblemPreset,
     emblemUrl: null,
-    accentColour: null,
+    accentColour,
     competition: { id: URC.id, name: URC.name, shortName: URC.shortName },
     seasonName: `${URC.shortName} ${URC.season}`,
     inSeason: true,
-    memberId: SAMPLE_ME,
+    memberId: member ? SAMPLE_ME : null,
     // The sample member's name comes from the browser profile, as before leagues.
     displayName: null,
     isCaptain: captain,
@@ -379,7 +394,10 @@ const POFADDER_MEMBERS: readonly LeagueMember[] = [
 ];
 
 const POFADDER: SampleLeagueSeed = {
-  summary: summary('sample-league-pofadder-bowl', 'pofadder-bowl', 'Pofadder Bowl', false),
+  summary: summary('sample-league-pofadder-bowl', 'pofadder-bowl', 'Pofadder Bowl', false, {
+    emblemPreset: 'anvil',
+    accentColour: '#c8742a',
+  }),
   joinCode: 'b0e1d2c3a4f5',
   captainId: 'member-ds',
   members: POFADDER_MEMBERS,
@@ -474,6 +492,15 @@ const POFADDER: SampleLeagueSeed = {
       'Kallie',
     ),
     feedItem(
+      'feed-pb-5',
+      'emblem_updated',
+      null,
+      'The Pofadder Bowl emblem was updated.',
+      '',
+      '2026-09-21T08:00:00Z',
+      null,
+    ),
+    feedItem(
       'feed-pb-1',
       'season_opened',
       null,
@@ -485,10 +512,98 @@ const POFADDER: SampleLeagueSeed = {
   ],
 };
 
-/** Every sample league, in the account document's order (by name). */
-export const SAMPLE_LEAGUES: readonly SampleLeagueSeed[] = [PIELE, POFADDER];
+const THIRD_MEMBERS: readonly LeagueMember[] = [
+  memberRecord('member-hm', 'Hennie', 'Marais, Hennie', 'vodacom-bulls'),
+  memberRecord('member-zd', 'Zola', 'Dlamini, Zola', 'hollywoodbets-sharks'),
+  memberRecord('member-ck', 'Carel', 'Kotze, Carel', 'dhl-stormers'),
+  memberRecord('member-nv', 'Nadia', 'Visser, Nadia', 'leinster-rugby'),
+  memberRecord('member-wj', 'Wikus', 'Jansen, Wikus', '', false),
+];
 
-/** The sample account: a member of both sample leagues and the admin. */
+/** A league the sample account is not in: the admin sees it without a membership. */
+const THIRD: SampleLeagueSeed = {
+  summary: summary('sample-league-third', 'sample-third', 'Sample Third XV', false, {
+    accentColour: '#3f8f6b',
+    member: false,
+  }),
+  joinCode: 'c7d8e9f0a1b2',
+  captainId: 'member-hm',
+  members: THIRD_MEMBERS,
+  standings: [
+    ...table(THIRD_MEMBERS, 1, [1, 3, 0, 2], [13, 11.5, 10, 8]),
+    ...table(THIRD_MEMBERS, 2, [0, 2, 3, 1], [14.5, 12, 9.5, 7]),
+  ],
+  duties: [
+    {
+      id: 'duty-st-1',
+      memberId: 'member-zd',
+      roundId: 2,
+      type: 'spoon',
+      reason: 'Last place in Round 02.',
+      deadlineAt: '2026-10-09T18:45:00Z',
+      status: 'open',
+      completedAt: null,
+      clockResetAt: null,
+      voidReason: null,
+      createdAt: '2026-10-03T10:00:00Z',
+      evidence: [],
+    },
+  ],
+  polls: [],
+  notes: [
+    {
+      roundId: 2,
+      deadline: '02 Oct 2026 · 18:45 SAST',
+      activity: 'Hennie takes Round 2. Zola holds the spoon.',
+    },
+  ],
+  feed: [
+    feedItem(
+      'feed-st-2',
+      'duty_created',
+      2,
+      'Zola: Round 02 Spoon duty.',
+      'Last place in Round 02.',
+      '2026-10-03T10:00:00Z',
+      'Zola',
+    ),
+    feedItem(
+      'feed-st-4',
+      'member_returned',
+      null,
+      'Nadia is back.',
+      '',
+      '2026-09-24T08:00:00Z',
+      'Nadia',
+    ),
+    feedItem(
+      'feed-st-3',
+      'member_left',
+      null,
+      'Nadia left the clubhouse.',
+      'Moved to Cape Town for the season.',
+      '2026-09-20T08:00:00Z',
+      'Nadia',
+    ),
+    feedItem(
+      'feed-st-1',
+      'season_opened',
+      null,
+      'The Sample Third XV is open.',
+      '5 members enrolled. Hennie is captain.',
+      '2026-09-18T08:00:00Z',
+      null,
+    ),
+  ],
+};
+
+/** Every sample league, in the account document's order (by name). */
+export const SAMPLE_LEAGUES: readonly SampleLeagueSeed[] = [PIELE, POFADDER, THIRD];
+
+/**
+ * The sample account: a member of Piele and the Pofadder Bowl, and the admin, so it also
+ * lists the Sample Third XV without a membership.
+ */
 export const SAMPLE_ACCOUNT: Account = {
   userId: 'sample-user',
   photoUrl: null,

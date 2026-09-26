@@ -23,9 +23,9 @@ import { RoundViewService } from '../../league/round-view.service';
 import { ProfileStore } from '../../profile/profile.store';
 import { Icon } from '../../../shared/icon/icon';
 import { BallLoader } from '../../../shared/ball-loader/ball-loader';
-import { LeagueCrest } from '../../../shared/league-crest/league-crest';
 import { StadiumBackdrop } from '../../../shared/stadium-backdrop/stadium-backdrop';
 import { FixtureRibbon } from '../fixture-ribbon/fixture-ribbon';
+import { LeagueSwitcher } from '../league-switcher/league-switcher';
 import { NotificationsFlag } from '../notifications-flag/notifications-flag';
 import { SeasonTimeline } from '../season-timeline/season-timeline';
 import { PageData } from './page-data';
@@ -46,7 +46,7 @@ import { PageData } from './page-data';
     NotificationsFlag,
     FixtureRibbon,
     StadiumBackdrop,
-    LeagueCrest,
+    LeagueSwitcher,
     LeaguePathPipe,
   ],
 })
@@ -73,10 +73,10 @@ export class Shell {
   readonly retrievedAt = computed(() =>
     SNAPSHOT_DATE.format(new Date(this.competition.retrievedAt)),
   );
-  /** The league being shown, for the top-left block, eyebrows and footer. */
-  readonly league = this.context.current;
+  /** The league being shown, for the eyebrows and footer. */
   readonly leagueName = this.context.name;
-  readonly leagueHome = computed(() => this.context.url());
+  /** The admin in a league it holds no membership in. */
+  readonly adminView = computed(() => !!this.context.current() && !this.context.isMemberOfCurrent());
   readonly nav = [
     { path: '/', label: 'Home', icon: 'home' },
     { path: '/standings', label: 'Standings', icon: 'standings' },

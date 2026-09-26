@@ -16,7 +16,7 @@
       >League duties</a
     >
   </div>
-  @if (view.isCaptain()) {
+  @if (view.administers()) {
     <button type="button" class="primary-button" (click)="createDialog().open()">
       <app-icon name="duties" />New duty
     </button>
@@ -27,7 +27,7 @@
     @for (duty of visibleDuties(); track duty.id) {
       <app-duty-card
         [duty]="duty"
-        [captain]="view.isCaptain()"
+        [captain]="view.administers()"
         [sample]="view.sample"
         [roundCode]="view.round().code"
         (upload)="evidence().open(duty)"
@@ -46,7 +46,7 @@
       {{
         view.loading()
           ? 'Loading the register…'
-          : view.isCaptain() && scope() === 'league'
+          : view.administers() && scope() === 'league'
             ? 'Create a duty when a member owes the league something this round.'
             : 'There are no matching duties in this round’s register.'
       }}

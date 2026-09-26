@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
+  <title>Compass</title>
+  <!-- A preset league emblem. currentColor is the league's accent colour. -->
+  <g id="emblem" fill="currentColor">
+    <circle cx="48" cy="48" r="43"/>
+    <circle cx="48" cy="48" r="36" fill="#102024"/>
+    <circle cx="48" cy="48" r="31.5" fill="none" stroke="currentColor" stroke-opacity=".35" stroke-width="1.2"/>
+    <path d="M48.0 18.0 52.2 43.8 78.0 48.0 52.2 52.2 48.0 78.0 43.8 52.2 18.0 48.0 43.8 43.8Z"/>
+    <path d="M62.8 33.2 53.0 48.0 62.8 62.8 48.0 53.0 33.2 62.8 43.0 48.0 33.2 33.2 48.0 43.0Z" fill-opacity=".45"/>
+    <circle cx="48" cy="48" r="3.5" fill="#102024"/>
+  </g>
+</svg>

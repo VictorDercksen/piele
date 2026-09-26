@@ -28,14 +28,21 @@
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  // A bevelled brass ring around a dark timber face.
-  border: 1.5px solid #c49a59;
-  background: radial-gradient(circle at 50% 30%, #4a321d, #1d120a 72%), #1d120a;
+  // A bevelled brass ring around a dark timber face. League crests retint it with the
+  // league's accent colour through the --monogram-* properties.
+  border: 1.5px solid var(--monogram-ring, #c49a59);
+  background:
+    radial-gradient(
+      circle at 50% 30%,
+      var(--monogram-face-hi, #4a321d),
+      var(--monogram-face, #1d120a) 72%
+    ),
+    var(--monogram-face, #1d120a);
   box-shadow:
     inset 0 1px 0 #ffe7ae40,
     inset 0 -2px 4px #0009,
     0 1px 3px #0008;
-  color: #f1d392;
+  color: var(--monogram-ink, #f1d392);
   font-family: Georgia, 'Times New Roman', serif;
   font-size: calc(var(--size) * 0.38);
   font-weight: 600;

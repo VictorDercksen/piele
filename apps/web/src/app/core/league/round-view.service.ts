@@ -47,7 +47,14 @@ export class RoundViewService {
       !!this.league.currentMemberId() &&
       this.league.captainMemberId() === this.league.currentMemberId(),
   );
+  /** Captain or admin: the captain's desk and captain actions. The API decides each one. */
+  readonly administers = this.league.administers;
+  /** The admin in a league it holds no membership in: attributed actions need a membership. */
+  readonly adminView = computed(() => !this.league.currentMemberId());
   readonly members = this.league.members;
+  /** Members the steward removed this season, newest first. */
+  readonly withdrawn = this.league.withdrawnMembers;
+  readonly captainId = this.league.captainMemberId;
   /** The league captain's Superbru name, when the team sheet has loaded. */
   readonly captainName = computed(() => {
     const id = this.league.captainMemberId();
@@ -128,6 +135,14 @@ export class RoundViewService {
     this.league.feed().filter((item) => item.roundId === this.round().id),
   );
   readonly seasonFeed = this.league.feed;
+
+  /** Whether a member has duties or round standings on record in the loaded league. */
+  hasRecords(memberId: string): boolean {
+    return (
+      this.league.duties().some((d) => d.memberId === memberId) ||
+      this.league.standings().some((s) => s.memberId === memberId)
+    );
+  }
 
   feature(fixtureId: string): void {
     this.featuredId.set(fixtureId);

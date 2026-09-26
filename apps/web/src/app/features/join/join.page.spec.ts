@@ -14,6 +14,7 @@ const LEAGUE: JoinPreview['league'] = {
   slug: 'pofadder-bowl',
   name: 'Pofadder Bowl',
   timezone: 'Africa/Johannesburg',
+  emblemPreset: null,
   emblemUrl: null,
   accentColour: null,
   competition: { id: 'urc-2026-27', name: 'United Rugby Championship 2026/27', shortName: 'URC' },

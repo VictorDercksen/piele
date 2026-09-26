@@ -34,11 +34,20 @@ describe('Shell', () => {
     const brand = root.querySelector('.rail-brand')!;
     expect(brand.querySelector('strong')?.textContent).toBe('POFADDER BOWL');
     expect(brand.querySelector('small')?.textContent).toContain('URC');
-    expect(brand.getAttribute('aria-label')).toBe('Pofadder Bowl home');
-    expect(brand.getAttribute('href')).toBe('/pofadder-bowl?round=2');
-    // No emblem yet and not the first league: a monogram of the initials.
-    expect(brand.querySelector('app-member-avatar .monogram')?.textContent).toBe('PB');
-    expect(root.querySelector('.club-footer')?.textContent).toContain('POFADDER BOWL / ROUND 02');
+    const trigger = brand.querySelector('button.switcher-trigger')!;
+    expect(trigger.getAttribute('aria-label')).toBe('Pofadder Bowl. Switch league');
+    expect(trigger.getAttribute('aria-haspopup')).toBe('dialog');
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+    // The Pofadder Bowl's preset crest, tinted with its accent colour.
+    const crest = brand.querySelector<HTMLElement>('.switcher-trigger app-league-crest')!;
+    expect(crest.querySelector('use')?.getAttribute('href')).toBe(
+      'assets/images/emblems/anvil.svg#emblem',
+    );
+    expect(crest.style.getPropertyValue('--crest-accent')).toBe('#c8742a');
+    expect(root.querySelector('.club-footer')?.textContent).toContain(
+      'THE PAVILION / POFADDER BOWL / ROUND 02',
+    );
+    expect(root.querySelector('.admin-ribbon')).toBeNull();
     const nav = Array.from(root.querySelectorAll<HTMLAnchorElement>('.desktop-nav a'));
     expect(nav.map((a) => a.getAttribute('href')?.split('?')[0])).toEqual([
       '/pofadder-bowl',
@@ -47,6 +56,16 @@ describe('Shell', () => {
       '/pofadder-bowl/decisions',
       '/pofadder-bowl/more',
     ]);
+  });
+
+  it('shows the admin view ribbon and a tinted monogram in a league it is not in', async () => {
+    const root = await open('/sample-third', 'sample-third');
+    expect(root.querySelector('.admin-ribbon')?.textContent).toContain(
+      'Admin view. You are not a member of this league.',
+    );
+    const crest = root.querySelector<HTMLElement>('.rail-brand app-league-crest')!;
+    expect(crest.querySelector('.monogram')?.textContent).toBe('ST');
+    expect(crest.classList.contains('accented')).toBe(true);
   });
 
   it('shows the Piele crest for the first league', async () => {

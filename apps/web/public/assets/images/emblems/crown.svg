@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
+  <title>Crown</title>
+  <!-- A preset league emblem. currentColor is the league's accent colour. -->
+  <g id="emblem" fill="currentColor">
+    <circle cx="48" cy="48" r="43"/>
+    <circle cx="48" cy="48" r="36" fill="#102024"/>
+    <circle cx="48" cy="48" r="31.5" fill="none" stroke="currentColor" stroke-opacity=".35" stroke-width="1.2"/>
+    <path d="M25 61 21 35l13 11 14-18 14 18 13-11-4 26Z"/>
+    <circle cx="21" cy="33" r="3.5"/>
+    <circle cx="48" cy="25.5" r="4"/>
+    <circle cx="75" cy="33" r="3.5"/>
+    <rect x="25" y="63" width="46" height="7" rx="1.5"/>
+    <circle cx="36" cy="66.5" r="1.8" fill="#102024"/>
+    <circle cx="48" cy="66.5" r="1.8" fill="#102024"/>
+    <circle cx="60" cy="66.5" r="1.8" fill="#102024"/>
+  </g>
+</svg>

@@ -15,7 +15,7 @@
   <a [routerLink]="'/constitution' | leaguePath" queryParamsHandling="preserve">
     <app-icon name="book" /><span>Season constitution</span><app-icon name="arrow" />
   </a>
-  @if (view.isCaptain()) {
+  @if (view.administers()) {
     <a [routerLink]="'/captain' | leaguePath" queryParamsHandling="preserve">
       <app-icon name="shield" /><span>{{ view.round().title }} captain's desk</span
       ><app-icon name="arrow" />
@@ -43,3 +43,4 @@
     <app-loader [size]="20" label="Checking…" [showLabel]="true" />
   }
 </p>
+<p class="wordmark"><strong>THE PAVILION</strong> / the rugby clubhouse</p>

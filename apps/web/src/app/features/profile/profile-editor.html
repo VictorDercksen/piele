@@ -10,6 +10,8 @@
         [name]="leagueTitle()"
         [slug]="leagueSummary()?.slug ?? ''"
         [emblemUrl]="leagueSummary()?.emblemUrl ?? null"
+        [emblemPreset]="leagueSummary()?.emblemPreset ?? null"
+        [accentColour]="leagueSummary()?.accentColour ?? null"
       />{{ leagueTitle().toUpperCase() }}
       <span>{{ competitionLabel() }}</span></a
     >

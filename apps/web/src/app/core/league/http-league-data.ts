@@ -7,10 +7,12 @@ import { jpegBlob, jpegDataUrl } from '../profile/profile-photo';
 import type { Profile } from '../profile/profile.store';
 import { LeagueData } from './league-data';
 import {
+  AppearanceChange,
   CompetitionRef,
   Duty,
   EvidenceSubmission,
   FeedItem,
+  LeagueAppearance,
   LeagueMember,
   LeagueSummary,
   MemberMarks,
@@ -28,6 +30,7 @@ export interface Me {
   readonly slug: string;
   readonly leagueName: string;
   readonly timezone: string;
+  readonly emblemPreset?: string | null;
   readonly emblemUrl: string | null;
   readonly accentColour: string | null;
   readonly competition: CompetitionRef;
@@ -45,6 +48,15 @@ export interface Me {
   readonly photoUrl: string | null;
   readonly notificationsReadAt?: string | null;
   readonly notificationsReadKeys?: readonly string[];
+  /** Only for the steward; null for members or when joining is closed. */
+  readonly joinCode?: string | null;
+}
+
+/** Where to put an image in private Storage: the photo and emblem grants. */
+export interface ImageUploadGrant {
+  readonly bucket: string;
+  readonly path: string;
+  readonly token: string;
 }
 
 interface PhotoUploadGrant {
@@ -61,6 +73,8 @@ interface ApiMember {
   readonly claimed: boolean;
   readonly inSeason: boolean;
   readonly email: string | null;
+  readonly leftAt?: string | null;
+  readonly withdrawalReason?: string | null;
 }
 
 interface ApiDuty extends Omit<Duty, 'roundId'> {
@@ -113,6 +127,9 @@ export class HttpLeagueData extends LeagueData {
     return me?.isCaptain ? me.memberId : null;
   });
   readonly leagueName = computed(() => this.me()?.leagueName ?? null);
+  readonly administers = computed(() => this.me()?.administers ?? false);
+  private readonly joinCodeState = signal<string | null>(null);
+  readonly joinCode = this.joinCodeState.asReadonly();
   /** False for the admin in a league it holds no membership in. */
   readonly isMember = computed(() => !!this.me()?.memberId);
   private readonly photo = signal<string | null>(null);
@@ -125,6 +142,8 @@ export class HttpLeagueData extends LeagueData {
   });
   private readonly memberRecords = signal<readonly LeagueMember[]>([]);
   readonly members = this.memberRecords.asReadonly();
+  private readonly withdrawnRecords = signal<readonly LeagueMember[]>([]);
+  readonly withdrawnMembers = this.withdrawnRecords.asReadonly();
   /** Superbru round points the captain records from the pool results. */
   private readonly standingRecords = signal<readonly RoundStanding[]>([]);
   readonly standings = this.standingRecords.asReadonly();
@@ -187,6 +206,8 @@ export class HttpLeagueData extends LeagueData {
     this.me.set(null);
     this.photo.set(null);
     this.memberRecords.set([]);
+    this.withdrawnRecords.set([]);
+    this.joinCodeState.set(null);
     this.standingRecords.set([]);
     this.markRecords.set([]);
     this.dutyRecords.set([]);
@@ -295,6 +316,87 @@ export class HttpLeagueData extends LeagueData {
   }
 
   /**
+   * The team sheet: `GET /members`, or with `include=withdrawn` for the steward, split into
+   * the active and withdrawn lists.
+   */
+  async loadMembers(includeWithdrawn = this.administers(), leagueId = this.league()): Promise<void> {
+    const members = await this.request<ApiMember[]>(
+      'GET',
+      includeWithdrawn ? '/members?include=withdrawn' : '/members',
+      undefined,
+      leagueId,
+    );
+    if (this.league() !== leagueId) return;
+    const withdrawn = (m: ApiMember) => m.status === 'withdrawn' || !!m.leftAt;
+    this.memberRecords.set(members.filter((m) => !withdrawn(m)).map(toMember));
+    this.withdrawnRecords.set(
+      members
+        .filter(withdrawn)
+        .map(toMember)
+        .sort((a, b) => (b.leftAt ?? '').localeCompare(a.leftAt ?? '')),
+    );
+  }
+
+  async withdrawMember(memberId: string, reason: string): Promise<void> {
+    await this.request('POST', `/members/${memberId}/withdraw`, { reason });
+    await this.refresh();
+  }
+
+  async reinstateMember(memberId: string): Promise<void> {
+    await this.request('POST', `/members/${memberId}/reinstate`);
+    await this.refresh();
+  }
+
+  async rotateJoinCode(): Promise<string> {
+    const { joinCode } = await this.request<{ joinCode: string }>('POST', '/join-code/rotate');
+    this.joinCodeState.set(joinCode);
+    return joinCode;
+  }
+
+  async closeJoinCode(): Promise<void> {
+    await this.request('DELETE', '/join-code');
+    this.joinCodeState.set(null);
+  }
+
+  /** Where to upload a new emblem: `emblems/{leagueId}/...` in private Storage. */
+  emblemUploadGrant(contentType: string, sizeBytes: number): Promise<ImageUploadGrant> {
+    return this.request<ImageUploadGrant>('POST', '/emblem/uploads', { contentType, sizeBytes });
+  }
+
+  /**
+   * Saves the emblem and accent colour through `PUT /appearance`. A new image goes straight
+   * to private Storage with an API-issued grant first. Removing the emblem clears whichever
+   * kind the league has, so one call never names both.
+   */
+  async saveAppearance(change: AppearanceChange): Promise<LeagueAppearance> {
+    const body: Record<string, string | null> = {};
+    const emblem = change.emblem;
+    if (emblem === null) {
+      if (this.me()?.emblemUrl && !this.me()?.emblemPreset) body['emblemPath'] = null;
+      else body['emblemPreset'] = null;
+    } else if (emblem && 'preset' in emblem) {
+      body['emblemPreset'] = emblem.preset;
+    } else if (emblem && 'image' in emblem) {
+      body['emblemPath'] = await this.uploadEmblem(emblem.image);
+    }
+    if (change.accentColour !== undefined) body['accentColour'] = change.accentColour;
+    const me = await this.request<Me>('PUT', '/appearance', body);
+    this.adopt(me);
+    return appearanceOf(me);
+  }
+
+  private async uploadEmblem(dataUrl: string): Promise<string> {
+    const image = jpegBlob(dataUrl);
+    const grant = await this.emblemUploadGrant(image.type, image.size);
+    const upload = await this.auth
+      .storage()
+      .from(grant.bucket)
+      .uploadToSignedUrl(grant.path, grant.token, image, { contentType: image.type });
+    if (upload.error) throw new Error('The emblem upload failed. Check your connection and try again.');
+    return grant.path;
+  }
+
+  /**
    * Saves the favourite team to this league's membership and the photo to the account. A new
    * photo goes straight to private Storage with an API-issued grant; null removes the photo.
    */
@@ -363,31 +465,20 @@ export class HttpLeagueData extends LeagueData {
 
   private adopt(me: Me): void {
     this.me.set(me);
+    this.joinCodeState.set(me.administers ? (me.joinCode ?? null) : null);
     this.read.set({ readAt: me.notificationsReadAt ?? null, readKeys: me.notificationsReadKeys ?? [] });
   }
 
   private async refresh(leagueId = this.league()): Promise<void> {
     if (!leagueId) return;
-    const [members, standings, duties, marks, feed] = await Promise.all([
-      this.request<ApiMember[]>('GET', '/members', undefined, leagueId),
+    const [, standings, duties, marks, feed] = await Promise.all([
+      this.loadMembers(this.administers(), leagueId),
       this.request<ApiStanding[]>('GET', '/standings', undefined, leagueId),
       this.request<ApiDuty[]>('GET', '/duties', undefined, leagueId),
       this.request<MemberMarks[]>('GET', '/marks', undefined, leagueId),
       this.request<ApiFeedItem[]>('GET', '/feed?limit=200', undefined, leagueId),
     ]);
     if (this.league() !== leagueId) return;
-    this.memberRecords.set(
-      members.map((m) => ({
-        id: m.id,
-        name: m.displayName,
-        fullName: m.fullName,
-        initials: m.displayName.slice(0, 2).toUpperCase(),
-        teamId: '',
-        claimed: m.claimed,
-        inSeason: m.inSeason,
-        email: m.email,
-      })),
-    );
     this.standingRecords.set(
       standings.map(({ roundNumber, memberId, rank, points }) => ({
         roundId: roundNumber,
@@ -403,7 +494,7 @@ export class HttpLeagueData extends LeagueData {
   }
 
   private async request<T>(
-    method: 'GET' | 'POST' | 'PUT' | 'PATCH',
+    method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
     path: string,
     body?: unknown,
     leagueId = this.league(),
@@ -430,6 +521,30 @@ export class ApiError extends Error {
   ) {
     super(message);
   }
+}
+
+/** The emblem and accent colour from a league-scoped `me`. */
+export function appearanceOf(me: Me): LeagueAppearance {
+  return {
+    emblemPreset: me.emblemPreset ?? null,
+    emblemUrl: me.emblemUrl ?? null,
+    accentColour: me.accentColour ?? null,
+  };
+}
+
+function toMember(m: ApiMember): LeagueMember {
+  return {
+    id: m.id,
+    name: m.displayName,
+    fullName: m.fullName,
+    initials: m.displayName.slice(0, 2).toUpperCase(),
+    teamId: '',
+    claimed: m.claimed,
+    inSeason: m.inSeason,
+    email: m.email,
+    leftAt: m.leftAt ?? null,
+    withdrawalReason: m.withdrawalReason ?? null,
+  };
 }
 
 /** The base URL of one league's routes. */

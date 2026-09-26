@@ -10,6 +10,10 @@ export interface LeagueMember {
   readonly inSeason: boolean;
   /** Invitation email. Only the captain receives it. */
   readonly email?: string | null;
+  /** When the captain removed the member; set only on the withdrawn list. */
+  readonly leftAt?: string | null;
+  /** Why the member was removed, shown to the captain beside the date. */
+  readonly withdrawalReason?: string | null;
 }
 
 /** Superbru points and house marks are separate measures with no exchange rate. */
@@ -115,6 +119,9 @@ export type FeedKind =
   | 'standings_recorded'
   | 'member_joined'
   | 'member_added'
+  | 'member_left'
+  | 'member_returned'
+  | 'emblem_updated'
   | 'duty_created'
   | 'duty_voided'
   | 'duty_clock_reset'
@@ -182,7 +189,11 @@ export interface LeagueSummary {
   readonly name: string;
   /** IANA zone the league displays times in. */
   readonly timezone: string;
+  /** A preset crest's key (`assets/images/emblems/{key}.svg`), or null. */
+  readonly emblemPreset: string | null;
+  /** A short-lived signed URL of an uploaded emblem, or null. */
   readonly emblemUrl: string | null;
+  /** `#rrggbb`, tints the preset crest and the monogram. */
   readonly accentColour: string | null;
   readonly competition: CompetitionRef;
   readonly seasonName: string;
@@ -207,8 +218,32 @@ export interface Account {
 export interface JoinPreview {
   readonly league: Pick<
     LeagueSummary,
-    'id' | 'slug' | 'name' | 'timezone' | 'emblemUrl' | 'accentColour' | 'competition' | 'seasonName'
+    | 'id'
+    | 'slug'
+    | 'name'
+    | 'timezone'
+    | 'emblemPreset'
+    | 'emblemUrl'
+    | 'accentColour'
+    | 'competition'
+    | 'seasonName'
   >;
   readonly alreadyMember: boolean;
   readonly unclaimed: readonly UnclaimedName[];
+}
+
+/** How a league looks: its emblem and accent colour, as the API describes a league. */
+export interface LeagueAppearance {
+  readonly emblemPreset: string | null;
+  readonly emblemUrl: string | null;
+  readonly accentColour: string | null;
+}
+
+/**
+ * A change to the league's appearance. Fields left out stay as they are. `emblem` is a preset
+ * key, a prepared 512 px JPEG data URL to upload, or null to remove the emblem.
+ */
+export interface AppearanceChange {
+  readonly emblem?: { readonly preset: string } | { readonly image: string } | null;
+  readonly accentColour?: string | null;
 }

@@ -11,7 +11,7 @@ import { DEFAULT_ZONE, LeagueTime } from '../competition/league-time';
 import { COMPETITIONS, DEFAULT_COMPETITION_ID, competition } from '../competition/registry';
 import { HttpLeagueData, toApiError } from './http-league-data';
 import { LeagueData } from './league-data';
-import { Account, LeagueSummary } from './league.models';
+import { Account, AppearanceChange, LeagueAppearance, LeagueSummary } from './league.models';
 import { SAMPLE_ACCOUNT } from './sample-leagues';
 import { SampleLeagueData } from './sample-league-data';
 
@@ -129,6 +129,32 @@ export class LeagueContext {
     return true;
   }
 
+  /**
+   * Saves the current league's emblem and accent colour. The shell's crest follows the
+   * answer straight away; API builds then reload the account so every listed league is fresh.
+   */
+  async saveAppearance(change: AppearanceChange): Promise<LeagueAppearance> {
+    const appearance = await this.data.saveAppearance(change);
+    const current = this.current();
+    if (current) this.patch(current.id, appearance);
+    if (this.api) void this.refreshAccount();
+    return appearance;
+  }
+
+  /** Reads the account again in place (no sign of loading), keeping the current league. */
+  async refreshAccount(): Promise<void> {
+    if (!this.api) return;
+    try {
+      const account = await firstValueFrom(this.http.get<Account>(`${environment.apiUrl}/v1/me`));
+      this.accountState.set(account);
+      const current = this.current();
+      const listed = current && account.leagues.find((league) => league.id === current.id);
+      if (listed) this.currentState.set(listed);
+    } catch {
+      // The saved change already shows; the list catches up on the next load.
+    }
+  }
+
   /** Forgets the account and league, e.g. on sign-out. */
   clear(): void {
     this.accountState.set(null);
@@ -146,9 +172,11 @@ export class LeagueContext {
     await this.router.navigateByUrl('/sign-in');
   }
 
-  /** An in-app path in the current league: `/duties` becomes `/piele/duties`, `/` `/piele`. */
-  url(path = '/'): string {
-    const slug = this.slug();
+  /**
+   * An in-app path in the current league (or the league with `slug`): `/duties` becomes
+   * `/piele/duties`, `/` `/piele`.
+   */
+  url(path = '/', slug = this.slug()): string {
     const rest = path === '/' || path === '' ? '' : path.startsWith('/') ? path : `/${path}`;
     return slug ? `/${slug}${rest}` : rest || '/';
   }
@@ -177,6 +205,20 @@ export class LeagueContext {
       this.accountErrorState.set(toApiError(error).message);
       return null;
     }
+  }
+
+  /** Shows a league's new look in `current` and the account list. */
+  private patch(leagueId: string, appearance: LeagueAppearance): void {
+    const current = this.current();
+    if (current?.id === leagueId) this.currentState.set({ ...current, ...appearance });
+    const account = this.account();
+    if (account)
+      this.accountState.set({
+        ...account,
+        leagues: account.leagues.map((league) =>
+          league.id === leagueId ? { ...league, ...appearance } : league,
+        ),
+      });
   }
 
   /** Remembers the league for `/`; the API keeps it on the account. */
@@ -229,6 +271,7 @@ const LOCAL_ACCOUNT: Account = {
       slug: 'piele',
       name: 'Piele',
       timezone: DEFAULT_ZONE,
+      emblemPreset: null,
       emblemUrl: null,
       accentColour: null,
       competition: {

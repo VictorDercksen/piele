@@ -1,4 +1,7 @@
-section + section {
+section + section,
+app-join-link-card,
+app-appearance-card {
+  display: block;
   margin-top: 44px;
 }
 .review-row {
@@ -149,4 +152,48 @@ section + section {
     flex-direction: column;
     gap: 8px;
   }
+}
+
+.text-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.withdrawn {
+  margin-top: 18px;
+  border: 1px solid var(--line);
+  background: var(--surface-grain), var(--surface);
+}
+.withdrawn summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+}
+.withdrawn summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.withdrawn .count {
+  min-width: 22px;
+  padding: 2px 7px;
+  border-radius: 10px;
+  background: var(--tint);
+  color: var(--accent);
+  font-size: 11px;
+  text-align: center;
+}
+.withdrawn .member-list {
+  padding: 0 16px 6px;
+}
+.withdrawn .member-list li:last-child {
+  border-bottom: 0;
+}
+.tag.withdrawn-tag {
+  background: #3a2a26;
+  color: #ffb5ab;
 }

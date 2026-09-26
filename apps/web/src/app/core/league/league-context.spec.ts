@@ -28,6 +28,7 @@ function league(slug: string, name: string, extra: Partial<LeagueSummary> = {}):
     slug,
     name,
     timezone: 'Africa/Johannesburg',
+    emblemPreset: null,
     emblemUrl: null,
     accentColour: null,
     competition: URC,
@@ -57,6 +58,7 @@ function me(summary: LeagueSummary) {
     slug: summary.slug,
     leagueName: summary.name,
     timezone: summary.timezone,
+    emblemPreset: null,
     emblemUrl: null,
     accentColour: null,
     competition: URC,
@@ -113,8 +115,10 @@ function setup() {
   function flushLeague(summary: LeagueSummary) {
     const base = `${API}/leagues/${summary.id}`;
     http.expectOne(`${base}/me`).flush(me(summary));
+    // The steward's team sheet includes the withdrawn members.
+    const members = summary.isCaptain ? '/members?include=withdrawn' : '/members';
     return settle().then(() => {
-      for (const path of ['/members', '/standings', '/duties', '/marks', '/feed?limit=200'])
+      for (const path of [members, '/standings', '/duties', '/marks', '/feed?limit=200'])
         http.expectOne(`${base}${path}`).flush([]);
     });
   }
@@ -195,6 +199,35 @@ describe('LeagueContext', () => {
     expect(context.url('/duties')).toBe('/pofadder-bowl/duties');
     expect(context.within('/pofadder-bowl/match/1?round=2')).toBe('/match/1');
     expect(context.within('/pofadder-bowl?round=2')).toBe('/');
+    expect(context.url('/duties', 'piele')).toBe('/piele/duties');
+    http.verify();
+  });
+
+  it('shows a saved emblem at once and then reloads the account', async () => {
+    const { http, context, flushLeague } = setup();
+    const loading = context.ensureAccount();
+    http.expectOne(`${API}/me`).flush(account([PIELE, POFADDER], { lastLeagueId: PIELE.id }));
+    await loading;
+    const selecting = context.select('piele');
+    await settle();
+    await flushLeague(PIELE);
+    expect(await selecting).toBe(true);
+
+    const saving = context.saveAppearance({ emblem: { preset: 'oak' }, accentColour: '#3f8f6b' });
+    const put = http.expectOne(`${API}/leagues/${PIELE.id}/appearance`);
+    expect(put.request.body).toEqual({ emblemPreset: 'oak', accentColour: '#3f8f6b' });
+    put.flush({ ...me(PIELE), emblemPreset: 'oak', accentColour: '#3f8f6b' });
+    await saving;
+    expect(context.current()).toEqual(
+      expect.objectContaining({ emblemPreset: 'oak', emblemUrl: null, accentColour: '#3f8f6b' }),
+    );
+    expect(context.find('piele')?.emblemPreset).toBe('oak');
+    // The account list is read again so every league shows its latest look.
+    http
+      .expectOne(`${API}/me`)
+      .flush(account([{ ...PIELE, emblemPreset: 'oak', accentColour: '#3f8f6b' }, POFADDER]));
+    await settle();
+    expect(context.current()?.accentColour).toBe('#3f8f6b');
     http.verify();
   });
 });

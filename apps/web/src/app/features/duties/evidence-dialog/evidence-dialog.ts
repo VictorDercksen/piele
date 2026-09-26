@@ -51,7 +51,7 @@ export class EvidenceDialog {
 
   open(duty: RoundDutyView): void {
     const live = duty.status === 'open' || duty.status === 'pending_deadline';
-    if (!live || (!duty.mine && !this.view.isCaptain())) return;
+    if (!live || (!duty.mine && !this.view.administers())) return;
     this.duty.set(duty);
     this.file.set(null);
     this.error.set('');
