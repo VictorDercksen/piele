@@ -46,7 +46,7 @@ describe('Shell', () => {
     expect(crest.style.getPropertyValue('--crest-accent')).toBe('#c8742a');
     const logo = root.querySelector('.season-timeline .season-logo')!;
     expect(logo.getAttribute('src')).toBe('assets/images/urc-emblem.svg');
-    expect(root.querySelector('.club-footer')).toBeNull();
+    expect(root.querySelector('.club-footer')?.textContent).toBe('');
     expect(root.querySelector('.admin-ribbon')).toBeNull();
     const nav = Array.from(root.querySelectorAll<HTMLAnchorElement>('.desktop-nav a'));
     expect(nav.map((a) => a.getAttribute('href')?.split('?')[0])).toEqual([

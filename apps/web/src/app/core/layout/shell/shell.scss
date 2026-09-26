@@ -379,6 +379,11 @@ app-season-timeline {
   padding: 0 14px;
   font-weight: 700;
 }
+.club-footer {
+  padding-bottom: 24px;
+  margin-top: 33px;
+  border-top: 3px double var(--line);
+}
 
 @container (max-width: 1200px) {
   .league {
@@ -556,6 +561,9 @@ app-season-timeline {
   }
   .page-heading h1 {
     font-size: 27px;
+  }
+  .club-footer {
+    margin-top: 27px;
   }
 }
 @container (max-width: 350px) {
