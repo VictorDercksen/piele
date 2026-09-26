@@ -251,6 +251,14 @@ def account_dependency(
         yield resolve_account(connection, claims, request.state.request_id)
 
 
+def admin_dependency(account: Account = Depends(account_dependency)) -> Account:
+    """The admin (`users.is_admin`), for the management centre (/v1/admin), else 403
+    `admin_only`. No league context is set: each route sets the league it acts on."""
+    if not account.is_admin:
+        raise HTTPException(status_code=403, detail={"code": "admin_only", "message": "Only the admin can do this."})
+    return account
+
+
 def actor_dependency(
     request: Request,
     league_id: UUID = Path(alias="leagueId"),

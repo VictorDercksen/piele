@@ -1334,3 +1334,374 @@ def test_the_captain_rotates_and_closes_the_join_code(client: TestClient) -> Non
     make_admin(subject(client, "ADMIN"))
     assert client.get(lp(client, "/me"), headers=admin).json()["joinCode"] == third
     assert client.post(lp(client, "/join-code/rotate"), headers=admin).status_code == 200
+
+
+# Management centre (admin only) ------------------------------------------------------------
+
+
+def admin_headers(client: TestClient) -> dict[str, str]:
+    """Signs in a fresh account with a verified email and makes it the admin."""
+    email = f"admin-{uuid4().hex[:8]}@example.com"
+    client.admin_email = email  # type: ignore[attr-defined]
+    headers = signed_in(client, "ADMIN", email)
+    make_admin(subject(client, "ADMIN"))
+    return headers
+
+
+def new_league_body(**overrides) -> dict:
+    return {
+        "name": "Pofadder Bowl",
+        "slug": f"test-{uuid4().hex[:12]}",
+        "competitionId": "urc-2026-27",
+        "seasonName": "URC 2026/27",
+        "members": [
+            {"fullName": "Kaptein, Kobus", "displayName": "Kobus"},
+            {"fullName": "Speler, Sanet", "displayName": "Sanet"},
+        ],
+        "captainDisplayName": "Kobus",
+        "captainEmail": f"kobus-{uuid4().hex[:8]}@example.com",
+        **overrides,
+    }
+
+
+def admin_audit(league_id: str, *actions: str) -> list:
+    with migration_engine().begin() as connection:
+        return connection.execute(
+            text(
+                "select action, actor_label, actor_membership_id, entity_id, before, after, request_id"
+                " from piele.audit_events where league_id = :id and action = any(:actions) order by occurred_at, id"
+            ),
+            {"id": league_id, "actions": list(actions)},
+        ).all()
+
+
+def admin_entry(client: TestClient, headers: dict, league_id: str) -> dict:
+    """One league's AdminLeague. An empty PATCH changes nothing and returns it; the full list
+    reads every league in the shared test database, so only one test calls it."""
+    response = client.patch(f"/v1/admin/leagues/{league_id}", json={}, headers=headers)
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+def league_count() -> int:
+    with migration_engine().begin() as connection:
+        return connection.execute(text("select count(*) from piele.leagues")).scalar_one()
+
+
+def test_the_management_centre_is_for_the_admin_only(client: TestClient) -> None:
+    mo = mo_headers(client)
+    member_id = client.get(lp(client, "/me"), headers=mo).json()["memberId"]
+    league = f"/v1/admin/leagues/{client.league_id}"
+    calls = (
+        ("get", "/v1/admin/leagues", None),
+        ("post", "/v1/admin/leagues", new_league_body()),
+        ("patch", league, {"name": "Taken over"}),
+        ("post", f"{league}/captain", {"membershipId": member_id}),
+        ("post", f"{league}/members/me", {}),
+    )
+    for headers in (captain_headers(client), mo):
+        for method, path, body in calls:
+            response = client.request(method, path, json=body, headers=headers)
+            assert response.status_code == 403, (method, path, response.text)
+            assert response.json()["detail"] == {"code": "admin_only", "message": "Only the admin can do this."}
+    for method, path, body in calls:
+        assert client.request(method, path, json=body).status_code == 401
+    assert client.get(lp(client, "/me"), headers=mo).json()["leagueName"] == "Test league"
+
+    # The competition registry is for any signed-in account.
+    competitions = client.get("/v1/competitions", headers=mo)
+    assert competitions.status_code == 200, competitions.text
+    assert competitions.json() == [
+        {
+            "id": "urc-2026-27",
+            "name": "United Rugby Championship 2026/27",
+            "shortName": "URC",
+            "timezone": "Africa/Johannesburg",
+            "regularRounds": 18,
+            "lastRound": 21,
+        }
+    ]
+    assert client.get("/v1/competitions").status_code == 401
+
+
+def test_the_admin_lists_every_league_including_archived(client: TestClient) -> None:
+    captain = captain_headers(client)
+    mo_headers(client)
+    added = client.post(lp(client, "/members"), json={"displayName": "Vee", "fullName": "Visser, Vee"}, headers=captain).json()["id"]
+    assert put_standings(client, 1, {UUID(added): 1}).status_code == 200  # a record, so Vee is withdrawn, not deleted
+    assert withdraw(client, added).status_code == 204
+    admin = admin_headers(client)
+    zulu = second_league(client, f"zulu-{uuid4().hex[:8]}@example.com")
+    assert client.patch(f"/v1/admin/leagues/{zulu}", json={"status": "archived"}, headers=admin).status_code == 200
+
+    listed = client.get("/v1/admin/leagues", headers=admin)
+    assert listed.status_code == 200, listed.text
+    leagues = listed.json()
+    by_id = {league["id"]: league for league in leagues}
+    assert by_id[zulu]["status"] == "archived" and by_id[client.league_id]["status"] == "active"
+    statuses = [league["status"] for league in leagues]
+    assert statuses == sorted(statuses)  # active first
+    active_names = [league["name"] for league in leagues if league["status"] == "active"]
+    assert active_names == sorted(active_names)
+
+    entry = by_id[client.league_id]
+    captain_id = client.get(lp(client, "/me"), headers=captain).json()["memberId"]
+    assert set(entry) == {
+        "id", "slug", "name", "timezone", "status", "emblemPreset", "emblemUrl", "accentColour", "joinCode",
+        "competition", "season", "captain", "counts", "myMemberId", "createdAt",
+    }
+    assert (entry["name"], entry["timezone"], entry["joinCode"]) == ("Test league", "Africa/Johannesburg", join_code(client))
+    assert entry["slug"].startswith("test-") and entry["emblemPreset"] is None and entry["emblemUrl"] is None
+    assert entry["competition"] == {"id": "urc-2026-27", "name": "United Rugby Championship 2026/27", "shortName": "URC"}
+    assert entry["season"]["name"] == "URC 2026/27" and entry["season"]["status"] == "active"
+    assert entry["captain"] == {"memberId": captain_id, "displayName": "Captain", "claimed": True}
+    assert entry["counts"] == {"members": 3, "claimed": 2, "inSeason": 3, "withdrawn": 1}
+    assert entry["myMemberId"] is None and entry["createdAt"]
+    # The archived league stays in the admin's list but leaves everyone's account list.
+    assert zulu not in {league["id"] for league in client.get("/v1/me", headers=admin).json()["leagues"]}
+
+
+def test_the_admin_creates_a_league_and_captains_it(client: TestClient) -> None:
+    admin = admin_headers(client)
+    # The admin's name in another league is the default elsewhere, and the team comes along.
+    assert client.post(f"/v1/admin/leagues/{client.league_id}/members/me", json={"displayName": "Vic"}, headers=admin).status_code == 201
+    assert client.put(lp(client, "/me/profile"), json={"favouriteTeamId": "dhl-stormers"}, headers=admin).status_code == 200
+
+    body = new_league_body(
+        captainDisplayName="Vic",
+        captainEmail=None,
+        members=[{"fullName": "Dercksen, Victor", "displayName": "Vic"}, {"fullName": "Speler, Sanet", "displayName": "Sanet"}],
+        emblemPreset="anvil",
+        accentColour="#C8742A",
+        addMe=True,  # ignored: the admin is the captain
+    )
+    created = client.post("/v1/admin/leagues", json=body, headers=admin)
+    assert created.status_code == 201, created.text
+    league = created.json()
+    league_id = league["id"]
+    assert (league["name"], league["slug"], league["status"], league["timezone"]) == ("Pofadder Bowl", body["slug"], "active", "Africa/Johannesburg")
+    assert (league["emblemPreset"], league["emblemUrl"], league["accentColour"]) == ("anvil", None, "#c8742a")
+    assert len(league["joinCode"]) == 12 and league["season"]["name"] == "URC 2026/27"
+    assert league["captain"]["displayName"] == "Vic" and league["captain"]["claimed"] is True
+    assert league["myMemberId"] == league["captain"]["memberId"]
+    assert league["counts"] == {"members": 2, "claimed": 1, "inSeason": 2, "withdrawn": 0}
+
+    me = client.get(lp(client, "/me", league_id), headers=admin).json()
+    assert (me["memberId"], me["displayName"], me["isCaptain"], me["inSeason"]) == (league["myMemberId"], "Vic", True, True)
+    assert me["favouriteTeamId"] == "dhl-stormers"
+    entry = next(entry for entry in client.get("/v1/me", headers=admin).json()["leagues"] if entry["id"] == league_id)
+    assert (entry["memberId"], entry["isCaptain"], entry["inSeason"]) == (league["myMemberId"], True, True)
+    feed = client.get(lp(client, "/feed", league_id), headers=admin).json()
+    # One transaction, so one timestamp: compare without order.
+    assert {(f["kind"], f["title"]) for f in feed} == {("member_joined", "Vic joined the clubhouse."), ("season_opened", "URC 2026/27 is open.")}
+    events = {e.action: e for e in admin_audit(league_id, "league.created", "membership.claimed")}
+    assert {action: e.actor_label for action, e in events.items()} == {"league.created": "admin", "membership.claimed": "admin"}
+    assert events["league.created"].request_id is not None
+    assert str(events["membership.claimed"].actor_membership_id) == league["myMemberId"]
+
+
+def test_the_admin_creates_a_league_for_another_captain_and_joins_out_of_season(client: TestClient) -> None:
+    admin = admin_headers(client)
+    body = new_league_body(addMe=True, timezone="Europe/Dublin")
+    created = client.post("/v1/admin/leagues", json=body, headers=admin)
+    assert created.status_code == 201, created.text
+    league = created.json()
+    league_id = league["id"]
+    assert league["timezone"] == "Europe/Dublin"
+    assert league["captain"]["displayName"] == "Kobus" and league["captain"]["claimed"] is False
+    assert league["myMemberId"] is not None and league["myMemberId"] != league["captain"]["memberId"]
+    assert league["counts"] == {"members": 3, "claimed": 1, "inSeason": 2, "withdrawn": 0}
+
+    me = client.get(lp(client, "/me", league_id), headers=admin).json()
+    assert (me["memberId"], me["displayName"], me["isCaptain"], me["inSeason"], me["administers"]) == (
+        league["myMemberId"], "Admin", False, False, True
+    )
+    # The named captain claims on first sign-in and captains the league, in season.
+    kobus = signed_in(client, "KOBUS", body["captainEmail"])
+    kobus_me = client.get(lp(client, "/me", league_id), headers=kobus).json()
+    assert (kobus_me["displayName"], kobus_me["isCaptain"], kobus_me["inSeason"]) == ("Kobus", True, True)
+    members = {m["displayName"]: m for m in client.get(lp(client, "/members", league_id), headers=kobus).json()}
+    assert members["Admin"]["inSeason"] is False and members["Admin"]["claimed"] is True
+    # The admin's attributed writes now work in that league.
+    assert put_standings(client, 1, {UUID(members["Sanet"]["id"]): 3}, headers=admin, league_id=league_id).status_code == 200
+    feed = client.get(lp(client, "/feed", league_id), headers=admin).json()
+    assert "Admin joined the clubhouse as admin." in [f["title"] for f in feed]
+    [added] = admin_audit(league_id, "membership.admin_added")
+    assert (added.actor_label, str(added.actor_membership_id)) == ("admin", league["myMemberId"])
+
+    # Without addMe the admin is not a member.
+    plain = client.post("/v1/admin/leagues", json=new_league_body(), headers=admin).json()
+    assert plain["myMemberId"] is None and plain["counts"]["members"] == 2
+    # The captain's email may be the admin's own: the same as "me".
+    own = client.post("/v1/admin/leagues", json=new_league_body(captainEmail=client.admin_email.upper()), headers=admin).json()
+    assert own["captain"]["claimed"] is True and own["myMemberId"] == own["captain"]["memberId"]
+
+
+def test_create_league_errors_surface(client: TestClient) -> None:
+    admin = admin_headers(client)
+    taken = client.get(lp(client, "/me"), headers=captain_headers(client)).json()["slug"]
+    cases = [
+        ({"slug": "Not A Slug"}, 422, "invalid_slug"),
+        ({"slug": "manage"}, 422, "invalid_slug"),
+        ({"slug": taken}, 409, "slug_taken"),
+        ({"competitionId": "six-nations-2027"}, 422, "unknown_competition"),
+        ({"timezone": "Mars/Olympus"}, 422, "invalid_timezone"),
+        ({"accentColour": "orange"}, 422, "invalid_accent_colour"),
+        ({"members": [{"fullName": "A, A", "displayName": "Kobus"}, {"fullName": "B, B", "displayName": "Kobus"}]}, 422, "duplicate_member"),
+        ({"members": []}, 422, "duplicate_member"),
+        ({"captainDisplayName": "Nobody"}, 422, "unknown_captain"),
+        ({"emblemPreset": "dragon"}, 422, "invalid_emblem"),
+    ]
+    before = league_count()
+    for override, status, code in cases:
+        response = client.post("/v1/admin/leagues", json=new_league_body(**override), headers=admin)
+        assert response.status_code == status, (override, response.text)
+        assert response.json()["detail"]["code"] == code, override
+    # A clash with the admin's name when adding them rolls the whole league back.
+    clash = new_league_body(addMe=True, members=[{"fullName": "Kaptein, Kobus", "displayName": "Kobus"}, {"fullName": "Admin, Ann", "displayName": "Admin"}])
+    response = client.post("/v1/admin/leagues", json=clash, headers=admin)
+    assert response.status_code == 409 and response.json()["detail"]["code"] == "duplicate_member"
+    assert client.post("/v1/admin/leagues", json={**new_league_body(), "captainEmail": "not-an-email"}, headers=admin).status_code == 422
+    # "Me" as captain needs a verified address to reserve the captain's name for.
+    unverified = auth(subject(client, "ADMIN"), client.admin_email, verified=False)
+    response = client.post("/v1/admin/leagues", json=new_league_body(captainEmail=None), headers=unverified)
+    assert response.status_code == 422 and response.json()["detail"]["code"] == "unverified_email"
+    assert league_count() == before
+
+
+def test_the_admin_renames_archives_and_restores_a_league(client: TestClient) -> None:
+    captain = captain_headers(client)
+    admin = admin_headers(client)
+    path = f"/v1/admin/leagues/{client.league_id}"
+    missing = client.patch(f"/v1/admin/leagues/{uuid4()}", json={"name": "X"}, headers=admin)
+    assert missing.status_code == 404 and missing.json()["detail"]["code"] == "unknown_league"
+    assert client.patch(path, json={"timezone": "Mars/Olympus"}, headers=admin).json()["detail"]["code"] == "invalid_timezone"
+    assert client.patch(path, json={"status": "deleted"}, headers=admin).status_code == 422
+    assert client.patch(path, json={"name": "   "}, headers=admin).status_code == 422
+
+    renamed = client.patch(path, json={"name": " Piele Old Boys ", "timezone": "Europe/London"}, headers=admin)
+    assert renamed.status_code == 200, renamed.text
+    assert (renamed.json()["name"], renamed.json()["timezone"]) == ("Piele Old Boys", "Europe/London")
+    me = client.get(lp(client, "/me"), headers=captain).json()
+    assert (me["leagueName"], me["timezone"]) == ("Piele Old Boys", "Europe/London")
+    # Saving what is already there changes nothing.
+    assert client.patch(path, json={"name": "Piele Old Boys"}, headers=admin).status_code == 200
+
+    archived = client.patch(path, json={"status": "archived"}, headers=admin)
+    assert archived.status_code == 200 and archived.json()["status"] == "archived"
+    assert archived.json()["counts"]["members"] == 3  # every row is kept
+    for headers in (captain, admin):
+        gone = client.get(lp(client, "/standings"), headers=headers)
+        assert gone.status_code == 404 and gone.json()["detail"]["code"] == "unknown_league"
+        assert client.get(lp(client, "/me"), headers=headers).json()["detail"]["code"] == "unknown_league"
+    assert client.get("/v1/me", headers=captain).json()["leagues"] == []
+    assert client.get(f"/v1/join/{join_code(client)}", headers=captain).json()["detail"]["code"] == "unknown_join_code"
+    # An archived league can still be renamed from the management centre.
+    assert client.patch(path, json={"name": "Piele"}, headers=admin).json()["status"] == "archived"
+
+    restored = client.patch(path, json={"status": "active"}, headers=admin)
+    assert restored.status_code == 200 and restored.json()["status"] == "active"
+    assert [league["id"] for league in client.get("/v1/me", headers=captain).json()["leagues"]] == [client.league_id]
+    feed = client.get(lp(client, "/feed"), headers=captain).json()
+    assert (feed[0]["kind"], feed[0]["title"], feed[0]["actorName"]) == ("league_restored", "Piele is open again.", None)
+    assert not [f for f in feed if "archived" in f["title"]]
+
+    events = admin_audit(client.league_id, "league.updated", "league.archived", "league.restored")
+    assert [(e.action, e.actor_label, e.actor_membership_id) for e in events] == [
+        ("league.updated", "admin", None),
+        ("league.archived", "admin", None),
+        ("league.updated", "admin", None),
+        ("league.restored", "admin", None),
+    ]
+    assert events[0].before == {"name": "Test league", "timezone": "Africa/Johannesburg"}
+    assert events[0].after == {"name": "Piele Old Boys", "timezone": "Europe/London"}
+    assert (events[1].before, events[1].after) == ({"status": "active"}, {"status": "archived"})
+
+
+def test_the_admin_appoints_a_captain(client: TestClient) -> None:
+    captain = captain_headers(client)
+    mo = mo_headers(client)
+    admin = admin_headers(client)
+    captain_id = client.get(lp(client, "/me"), headers=captain).json()["memberId"]
+    mo_id = client.get(lp(client, "/me"), headers=mo).json()["memberId"]
+    ola_id = league_member_id(client, "Ola")
+    path = f"/v1/admin/leagues/{client.league_id}/captain"
+
+    def appoint(member_id):
+        return client.post(path, json={"membershipId": str(member_id)}, headers=admin)
+
+    assert appoint(uuid4()).json()["detail"]["code"] == "unknown_member"
+    assert appoint(uuid4()).status_code == 404
+    already = appoint(captain_id)
+    assert already.status_code == 409 and already.json()["detail"]["code"] == "already_captain"
+    unclaimed = appoint(ola_id)
+    assert unclaimed.status_code == 409 and unclaimed.json()["detail"]["code"] == "not_claimed"
+    other = second_league(client, f"zulu-{uuid4().hex[:8]}@example.com")
+    zulu_captain = admin_entry(client, admin, other)["captain"]["memberId"]
+    assert appoint(zulu_captain).json()["detail"]["code"] == "unknown_member"  # another league's member
+    missing = client.post(f"/v1/admin/leagues/{uuid4()}/captain", json={"membershipId": mo_id}, headers=admin)
+    assert missing.status_code == 404 and missing.json()["detail"]["code"] == "unknown_league"
+
+    appointed = appoint(mo_id)
+    assert appointed.status_code == 200, appointed.text
+    assert appointed.json()["captain"] == {"memberId": mo_id, "displayName": "Mo", "claimed": True}
+    mo_me = client.get(lp(client, "/me"), headers=mo).json()
+    assert mo_me["isCaptain"] is True and mo_me["administers"] is True and mo_me["joinCode"] is not None
+    old = client.get(lp(client, "/me"), headers=captain).json()
+    assert old["isCaptain"] is False and old["administers"] is False and old["joinCode"] is None
+    assert client.post(lp(client, "/members"), json={"displayName": "New", "fullName": "New, N"}, headers=captain).status_code == 403
+    assert next(l for l in client.get("/v1/me", headers=captain).json()["leagues"] if l["id"] == client.league_id)["isCaptain"] is False
+    feed = client.get(lp(client, "/feed"), headers=mo).json()
+    assert (feed[0]["kind"], feed[0]["title"], feed[0]["subjectName"]) == ("captain_appointed", "Mo is captain.", "Mo")
+    [event] = admin_audit(client.league_id, "league.captain_appointed")
+    assert event.actor_label == "admin" and event.actor_membership_id is None
+    assert (event.before, event.after) == ({"captainMembershipId": captain_id}, {"captainMembershipId": mo_id})
+    # A withdrawn member cannot be appointed.
+    assert withdraw(client, captain_id, headers=mo).status_code == 204
+    assert appoint(captain_id).json()["detail"]["code"] == "unknown_member"
+
+
+def test_the_admin_adds_themselves_to_a_league(client: TestClient) -> None:
+    captain = captain_headers(client)
+    admin = admin_headers(client)
+    path = f"/v1/admin/leagues/{client.league_id}/members/me"
+    missing = client.post(f"/v1/admin/leagues/{uuid4()}/members/me", headers=admin)
+    assert missing.status_code == 404 and missing.json()["detail"]["code"] == "unknown_league"
+    clash = client.post(path, json={"displayName": "mo"}, headers=admin)
+    assert clash.status_code == 409 and clash.json()["detail"]["code"] == "duplicate_member"
+
+    # No body: the default name is "Admin" when the admin belongs to no other league.
+    added = client.post(path, headers=admin)
+    assert added.status_code == 201, added.text
+    member_id = added.json()["memberId"]
+    me = client.get(lp(client, "/me"), headers=admin).json()
+    assert (me["memberId"], me["displayName"], me["inSeason"], me["isCaptain"], me["administers"]) == (member_id, "Admin", False, False, True)
+    member = next(m for m in client.get(lp(client, "/members"), headers=captain).json() if m["id"] == member_id)
+    assert (member["fullName"], member["claimed"], member["inSeason"]) == ("Admin", True, False)
+    assert admin_entry(client, admin, client.league_id)["myMemberId"] == member_id
+    # Idempotent: an active membership comes back as it is.
+    again = client.post(path, json={"displayName": "Someone else"}, headers=admin)
+    assert (again.status_code, again.json()) == (200, {"memberId": member_id})
+    feed = client.get(lp(client, "/feed"), headers=captain).json()
+    assert (feed[0]["kind"], feed[0]["title"], feed[0]["actorName"]) == ("member_joined", "Admin joined the clubhouse as admin.", "Admin")
+    assert len([f for f in feed if f["kind"] == "member_joined" and "as admin" in f["title"]]) == 1
+
+    # Withdrawn, the membership is reinstated, still out of season.
+    assert withdraw(client, member_id).status_code == 204
+    assert client.get(lp(client, "/me"), headers=admin).json()["memberId"] is None
+    reinstated = client.post(path, headers=admin)
+    assert (reinstated.status_code, reinstated.json()) == (200, {"memberId": member_id})
+    me = client.get(lp(client, "/me"), headers=admin).json()
+    assert (me["memberId"], me["inSeason"]) == (member_id, False)
+    assert client.get(lp(client, "/feed"), headers=captain).json()[0]["title"] == "Admin is back as admin."
+    events = admin_audit(client.league_id, "membership.admin_added")
+    assert [(e.actor_label, str(e.entity_id), e.before) for e in events] == [
+        ("admin", member_id, None),
+        ("admin", member_id, {"status": "withdrawn"}),
+    ]
+
+    # In another league the default name is the admin's name here.
+    other = second_league(client, f"zulu-{uuid4().hex[:8]}@example.com")
+    there = client.post(f"/v1/admin/leagues/{other}/members/me", json={}, headers=admin)
+    assert there.status_code == 201
+    assert client.get(lp(client, "/me", other), headers=admin).json()["displayName"] == "Admin"

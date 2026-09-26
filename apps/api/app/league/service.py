@@ -10,7 +10,7 @@ from typing import Any, Sequence
 from uuid import UUID, uuid4
 
 from fastapi import HTTPException
-from sqlalchemy import and_, func, insert, or_, select, text, update
+from sqlalchemy import and_, case, func, insert, literal, or_, select, text, update
 from sqlalchemy.engine import Connection
 from sqlalchemy.exc import IntegrityError
 
@@ -63,28 +63,63 @@ def record(
     """Append the audit event and, when the change is league-visible, the feed entry. The
     admin acting without a membership is recorded with no actor membership and the label
     `admin`."""
-    actor.connection.execute(
+    write_record(
+        actor.connection,
+        league_id=actor.league_id,
+        season_id=actor.season_id,
+        actor_membership_id=actor.membership_id,
+        actor_label=actor.display_name if actor.membership_id is not None else ADMIN_LABEL,
+        request_id=actor.request_id,
+        action=action,
+        entity_type=entity_type,
+        entity_id=entity_id,
+        reason=reason,
+        before=before,
+        after=after,
+        feed=feed,
+    )
+
+
+def write_record(
+    connection: Connection,
+    *,
+    league_id: UUID,
+    season_id: UUID | None,
+    actor_membership_id: UUID | None,
+    actor_label: str,
+    request_id: str | None,
+    action: str,
+    entity_type: str,
+    entity_id: UUID | None,
+    reason: str | None = None,
+    before: dict[str, Any] | None = None,
+    after: dict[str, Any] | None = None,
+    feed: FeedEntry | None = None,
+) -> None:
+    """`record` without an actor, for the management centre, whose routes act on a league
+    from outside it. Needs that league's context."""
+    connection.execute(
         insert(t.audit_events).values(
-            league_id=actor.league_id,
-            actor_membership_id=actor.membership_id,
-            actor_label=actor.display_name if actor.membership_id is not None else ADMIN_LABEL,
+            league_id=league_id,
+            actor_membership_id=actor_membership_id,
+            actor_label=actor_label,
             action=action,
             entity_type=entity_type,
             entity_id=entity_id,
             reason=reason,
             before=before,
             after=after,
-            request_id=actor.request_id,
+            request_id=request_id,
         )
     )
     if feed is not None:
-        actor.connection.execute(
+        connection.execute(
             insert(t.feed_entries).values(
-                league_id=actor.league_id,
-                season_id=actor.season_id,
+                league_id=league_id,
+                season_id=season_id,
                 round_number=feed.round_number,
                 kind=feed.kind,
-                actor_membership_id=actor.membership_id,
+                actor_membership_id=actor_membership_id,
                 subject_membership_id=feed.subject_membership_id,
                 duty_id=feed.duty_id,
                 submission_id=feed.submission_id,
@@ -320,11 +355,13 @@ def create_league(
     actor_label: str,
     emblem_path: str | None = None,
     accent_colour: str | None = None,
+    request_id: str | None = None,
 ) -> UUID:
     """Creates a league, its memberships (`members` are `{fullName, displayName}`), the
     captain's membership reserved for `captain_email`, the first season on the competition
     and its season memberships, in the caller's transaction. Used by the operator bootstrap
-    and, later, the admin's management centre. New leagues get a join code."""
+    and the admin's management centre (`create_admin_league`). New leagues get a join code.
+    Leaves the new league's context set."""
     if not SLUG_PATTERN.fullmatch(slug):
         raise problem(422, "invalid_slug", "Use 3 to 40 lower-case letters, digits and hyphens for the slug.")
     if slug in RESERVED_SLUGS:
@@ -405,6 +442,7 @@ def create_league(
             entity_type="league",
             entity_id=league_id,
             after={"name": name, "slug": slug, "members": len(memberships), "season": season_name, "competitionId": competition.id},
+            request_id=request_id,
         )
     )
     connection.execute(
@@ -919,6 +957,373 @@ def close_join_code(actor: Actor) -> None:
         after={"open": False},
     )
     actor.league_join_code = None
+
+
+# Management centre (admin only) ----------------------------------------------------------
+#
+# The admin acts on leagues from outside them: every league is readable through the
+# `leagues_admin` policy, and each operation sets the league's context before it reads its
+# season and members or writes anything. Audit events carry the label `admin` and, when the
+# admin holds a membership in that league, its id.
+
+ADMIN_DISPLAY_NAME = "Admin"
+
+
+@dataclass(frozen=True)
+class AdminLeagueCounts:
+    members: int
+    claimed: int
+    in_season: int
+    withdrawn: int
+
+
+@dataclass(frozen=True)
+class AdminCaptainView:
+    id: UUID
+    display_name: str
+    user_id: UUID | None
+
+
+@dataclass(frozen=True)
+class AdminLeagueView:
+    """A league as the management centre lists it, archived or not."""
+
+    league: Any
+    # The active season, or None; `competition_id` comes from it or the latest season.
+    season: Any | None
+    competition_id: str
+    competition: Competition | None
+    captain: AdminCaptainView | None
+    counts: AdminLeagueCounts
+    my_member_id: UUID | None
+
+
+def admin_leagues(account: Account) -> list[AdminLeagueView]:
+    """Every league, archived included: active first, then by name."""
+    connection = account.connection
+    set_context(connection, "league_id", None)
+    lg = t.leagues
+    leagues = connection.execute(
+        select(lg).order_by(case((lg.c.status == "active", 0), else_=1), lg.c.name, lg.c.slug)
+    ).all()
+    try:
+        return [_admin_view(account, league) for league in leagues]
+    finally:
+        set_context(connection, "league_id", None)
+
+
+def admin_league(account: Account, league_id: UUID) -> AdminLeagueView:
+    """One league as the management centre shows it. Leaves its context set."""
+    return _admin_view(account, _admin_target(account, league_id))
+
+
+def _admin_target(account: Account, league_id: UUID, *, for_update: bool = False) -> Any:
+    """The league in any status, with its context set, or 404 `unknown_league`."""
+    set_context(account.connection, "league_id", str(league_id))
+    query = select(t.leagues).where(t.leagues.c.id == league_id)
+    league = account.connection.execute(query.with_for_update() if for_update else query).first()
+    if league is None:
+        raise problem(404, "unknown_league", "Unknown league.")
+    return league
+
+
+def _admin_view(account: Account, league: Any) -> AdminLeagueView:
+    """Three round trips per league: its context, its season, and the counts."""
+    connection = account.connection
+    set_context(connection, "league_id", str(league.id))
+    m, sm, s = t.league_memberships, t.season_memberships, t.seasons
+    # The active season, else the latest one for its competition.
+    season = connection.execute(
+        select(s)
+        .where(s.c.league_id == league.id)
+        .order_by((s.c.status == "active").desc(), s.c.created_at.desc())
+        .limit(1)
+    ).first()
+    active = season if season is not None and season.status == "active" else None
+
+    def count(*conditions: Any) -> Any:
+        return select(func.count()).select_from(m).where(m.c.league_id == league.id, *conditions).scalar_subquery()
+
+    in_season = (
+        select(func.count())
+        .select_from(sm.join(m, m.c.id == sm.c.membership_id))
+        .where(sm.c.season_id == active.id, sm.c.status == "active", m.c.status == "active")
+        .scalar_subquery()
+        if active is not None
+        else literal(0)
+    )
+
+    def captain(column: Any) -> Any:
+        return select(column).where(m.c.id == league.captain_membership_id).scalar_subquery()
+
+    row = connection.execute(
+        select(
+            count(m.c.status == "active").label("members"),
+            count(m.c.status == "active", m.c.user_id.is_not(None)).label("claimed"),
+            count(m.c.status == "withdrawn").label("withdrawn"),
+            in_season.label("in_season"),
+            select(m.c.id)
+            .where(m.c.league_id == league.id, m.c.user_id == account.user_id, m.c.status == "active")
+            .scalar_subquery()
+            .label("my_member_id"),
+            captain(m.c.id).label("captain_id"),
+            captain(m.c.display_name).label("captain_name"),
+            captain(m.c.user_id).label("captain_user_id"),
+        )
+    ).one()
+    competition_id = season.competition_id if season is not None else ""
+    return AdminLeagueView(
+        league=league,
+        season=active,
+        competition_id=competition_id,
+        competition=competitions.ALL.get(competition_id),
+        captain=AdminCaptainView(row.captain_id, row.captain_name, row.captain_user_id) if row.captain_id is not None else None,
+        counts=AdminLeagueCounts(row.members, row.claimed, row.in_season, row.withdrawn),
+        my_member_id=row.my_member_id,
+    )
+
+
+def _admin_membership_id(account: Account, league_id: UUID) -> UUID | None:
+    """The admin's active membership in the league, if any."""
+    m = t.league_memberships
+    return account.connection.execute(
+        select(m.c.id).where(m.c.league_id == league_id, m.c.user_id == account.user_id, m.c.status == "active")
+    ).scalar_one_or_none()
+
+
+def _admin_record(account: Account, league_id: UUID, **kwargs: Any) -> None:
+    """Audit (and feed) for an admin action in the league whose context is set."""
+    season = active_season(account.connection, league_id)
+    write_record(
+        account.connection,
+        league_id=league_id,
+        season_id=season.id if season is not None else None,
+        actor_membership_id=_admin_membership_id(account, league_id),
+        actor_label=ADMIN_LABEL,
+        request_id=account.request_id,
+        **kwargs,
+    )
+
+
+def create_admin_league(
+    account: Account,
+    *,
+    name: str,
+    slug: str,
+    timezone: str | None,
+    competition_id: str,
+    season_name: str,
+    members: Sequence[dict[str, str]],
+    captain_display_name: str,
+    captain_email: str | None,
+    emblem_preset_key: str | None,
+    accent_colour: str | None,
+    add_me: bool,
+) -> UUID:
+    """`create_league` for the admin. A null captain email (or the admin's own verified
+    address) makes the admin the captain: the captain's name is reserved for that address and
+    claimed at once, in season. Otherwise `add_me` adds the admin as a member outside the
+    season, as `add_admin_membership` does."""
+    own_email = account.verified_email
+    captain_is_me = captain_email is None or (own_email is not None and captain_email.lower() == own_email)
+    if captain_is_me and own_email is None:
+        raise problem(422, "unverified_email", "Sign in with a verified email address to captain a league yourself.")
+    competition = competitions.ALL.get(competition_id)
+    connection = account.connection
+    league_id = create_league(
+        connection,
+        name=name,
+        slug=slug,
+        timezone=timezone or (competition.timezone if competition is not None else "Africa/Johannesburg"),
+        competition_id=competition_id,
+        season_name=season_name,
+        members=members,
+        captain_display_name=captain_display_name,
+        captain_email=own_email if captain_is_me else captain_email,
+        actor_label=ADMIN_LABEL,
+        emblem_path=f"{PRESET_PREFIX}{emblem_preset_key}" if emblem_preset_key is not None else None,
+        accent_colour=accent_colour.lower() if accent_colour is not None else None,
+        request_id=account.request_id,
+    )
+    if captain_is_me:
+        _claim_as_admin(account, league_id)
+    elif add_me:
+        add_admin_membership(account, league_id, display_name=None, full_name=None)
+    set_context(connection, "league_id", str(league_id))
+    return league_id
+
+
+def _claim_as_admin(account: Account, league_id: UUID) -> None:
+    """Binds the new league's captain membership (reserved for the admin's verified email) to
+    the admin's account, copying the team from the admin's membership on the competition."""
+    connection = account.connection
+    season = active_season(connection, league_id)
+    team = _team_on_competition(account, season.competition_id, exclude_league_id=league_id)
+    set_context(connection, "league_id", str(league_id))
+    m = t.league_memberships
+    captain_id = connection.execute(select(t.leagues.c.captain_membership_id).where(t.leagues.c.id == league_id)).scalar_one()
+    claimed = connection.execute(
+        update(m)
+        .where(m.c.id == captain_id, m.c.user_id.is_(None))
+        .values(user_id=account.user_id, favourite_team_id=team, updated_at=func.now(), version=m.c.version + 1)
+        .returning(m.c.display_name)
+    ).one()
+    _admin_record(
+        account,
+        league_id,
+        action="membership.claimed",
+        entity_type="league_membership",
+        entity_id=captain_id,
+        feed=FeedEntry(kind="member_joined", title=f"{claimed.display_name} joined the clubhouse."),
+    )
+
+
+def update_admin_league(account: Account, league_id: UUID, *, name: str | None, timezone: str | None, status: str | None) -> None:
+    """Renames the league, changes its time zone, or archives or restores it. Archiving keeps
+    every row; restoring tells the league it is open again."""
+    connection = account.connection
+    league = _admin_target(account, league_id, for_update=True)
+    details: dict[str, Any] = {}
+    if name is not None and name != league.name:
+        details["name"] = name
+    if timezone is not None and timezone != league.timezone:
+        known_zone = connection.execute(
+            text("select exists (select 1 from pg_timezone_names where name = :tz)"), {"tz": timezone}
+        ).scalar_one()
+        if not known_zone:
+            raise problem(422, "invalid_timezone", f"Unknown time zone {timezone!r}.")
+        details["timezone"] = timezone
+    status_changed = status is not None and status != league.status
+    if not details and not status_changed:
+        return
+    lg = t.leagues
+    connection.execute(
+        update(lg)
+        .where(lg.c.id == league_id, lg.c.version == league.version)
+        .values(**details, **({"status": status} if status_changed else {}), updated_at=func.now(), version=lg.c.version + 1)
+    )
+    if details:
+        _admin_record(
+            account,
+            league_id,
+            action="league.updated",
+            entity_type="league",
+            entity_id=league_id,
+            before={key: getattr(league, key) for key in details},
+            after=details,
+        )
+    if status_changed:
+        restored = status == "active"
+        _admin_record(
+            account,
+            league_id,
+            action="league.restored" if restored else "league.archived",
+            entity_type="league",
+            entity_id=league_id,
+            before={"status": league.status},
+            after={"status": status},
+            feed=FeedEntry(kind="league_restored", title=f"{details.get('name', league.name)} is open again.") if restored else None,
+        )
+
+
+def appoint_captain(account: Account, league_id: UUID, membership_id: UUID) -> None:
+    """Makes an active, claimed membership the league's captain. The admin appoints directly;
+    the plan's accept-a-transfer flow is not built."""
+    connection = account.connection
+    league = _admin_target(account, league_id, for_update=True)
+    m = t.league_memberships
+    row = connection.execute(select(m).where(m.c.id == membership_id, m.c.league_id == league_id)).first()
+    if row is None or row.status != "active":
+        raise problem(404, "unknown_member", "Unknown member.")
+    if membership_id == league.captain_membership_id:
+        raise problem(409, "already_captain", f"{row.display_name} is already the captain.")
+    if row.user_id is None:
+        raise problem(409, "not_claimed", "Only a member who has claimed their name can be captain.")
+    lg = t.leagues
+    connection.execute(
+        update(lg)
+        .where(lg.c.id == league_id, lg.c.version == league.version)
+        .values(captain_membership_id=membership_id, updated_at=func.now(), version=lg.c.version + 1)
+    )
+    _admin_record(
+        account,
+        league_id,
+        action="league.captain_appointed",
+        entity_type="league",
+        entity_id=league_id,
+        before={"captainMembershipId": str(league.captain_membership_id)},
+        after={"captainMembershipId": str(membership_id)},
+        feed=FeedEntry(kind="captain_appointed", title=f"{row.display_name} is captain.", subject_membership_id=membership_id),
+    )
+
+
+def add_admin_membership(
+    account: Account, league_id: UUID, *, display_name: str | None, full_name: str | None
+) -> tuple[UUID, bool]:
+    """Adds the admin to the league as a member outside the season, so their writes there
+    are attributed to them. Returns the membership id and whether it is new. Idempotent: an
+    active membership is returned as it is, and a withdrawn one is reinstated (still out of
+    season). The name defaults to the admin's name in another league, else "Admin"."""
+    connection = account.connection
+    _admin_target(account, league_id)
+    m = t.league_memberships
+    existing = connection.execute(
+        select(m).where(m.c.league_id == league_id, m.c.user_id == account.user_id).with_for_update()
+    ).first()
+    if existing is not None and existing.status == "active":
+        return existing.id, False
+    if existing is not None:
+        connection.execute(
+            update(m)
+            .where(m.c.id == existing.id, m.c.version == existing.version)
+            .values(status="active", left_at=None, withdrawal_reason=None, updated_at=func.now(), version=m.c.version + 1)
+        )
+        _admin_record(
+            account,
+            league_id,
+            action="membership.admin_added",
+            entity_type="league_membership",
+            entity_id=existing.id,
+            before={"status": "withdrawn"},
+            after={"status": "active", "displayName": existing.display_name, "inSeason": False},
+            feed=FeedEntry(kind="member_returned", title=f"{existing.display_name} is back as admin.", subject_membership_id=existing.id),
+        )
+        return existing.id, False
+
+    name = display_name or _admin_display_name(account, league_id)
+    taken = connection.execute(
+        select(m.c.id).where(m.c.league_id == league_id, m.c.status == "active", func.lower(m.c.display_name) == name.lower())
+    ).first()
+    if taken is not None:
+        raise problem(409, "duplicate_member", f"Another member of this league is called {name}. Choose another name.")
+    membership_id = connection.execute(
+        insert(m)
+        .values(league_id=league_id, user_id=account.user_id, display_name=name, full_name=full_name or name)
+        .returning(m.c.id)
+    ).scalar_one()
+    _admin_record(
+        account,
+        league_id,
+        action="membership.admin_added",
+        entity_type="league_membership",
+        entity_id=membership_id,
+        after={"status": "active", "displayName": name, "inSeason": False},
+        feed=FeedEntry(kind="member_joined", title=f"{name} joined the clubhouse as admin.", subject_membership_id=membership_id),
+    )
+    return membership_id, True
+
+
+def _admin_display_name(account: Account, league_id: UUID) -> str:
+    """The admin's display name in their most recently updated other membership, else
+    "Admin". The account's own memberships are readable in any league context."""
+    m = t.league_memberships
+    name = account.connection.execute(
+        select(m.c.display_name)
+        .where(m.c.user_id == account.user_id, m.c.league_id != league_id, m.c.status == "active")
+        .order_by(m.c.updated_at.desc())
+        .limit(1)
+    ).scalar_one_or_none()
+    return name or ADMIN_DISPLAY_NAME
 
 
 # Own profile --------------------------------------------------------------------------

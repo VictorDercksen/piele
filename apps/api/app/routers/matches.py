@@ -4,15 +4,17 @@ from typing import Any, Literal
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict
 
+from app import competitions
 from app.agent import previews
 from app.agent.models import MatchPreview
 from app.dependencies import competition_centre
-from app.league.context import Account, competition_member_dependency
+from app.league.context import Account, account_dependency, competition_member_dependency
 from app.matchcentre import service as service_module
 from app.matchcentre import updates
 from app.matchcentre.service import MatchCentreService
 
-# Competition data under /v1/competitions/{competitionId}: the same for every league.
+# The competition registry (/v1/competitions) and competition data under
+# /v1/competitions/{competitionId}: the same for every league.
 router = APIRouter(tags=["competitions"])
 
 SectionStatus = Literal["ok", "not_published", "too_early", "past", "unavailable"]
@@ -92,6 +94,33 @@ class RoundUpdates(BaseModel):
     round: int
     generatedAt: datetime
     events: list[RoundEvent]
+
+
+class CompetitionSummary(BaseModel):
+    id: str
+    name: str
+    shortName: str
+    # The competition's display time zone, the default for a new league on it.
+    timezone: str
+    regularRounds: int
+    lastRound: int
+
+
+@router.get("/competitions", response_model=list[CompetitionSummary])
+def list_competitions(account: Account = Depends(account_dependency)) -> list[CompetitionSummary]:
+    """The competitions a league can play (the registry), for the management centre's form.
+    Any signed-in account may read it."""
+    return [
+        CompetitionSummary(
+            id=competition.id,
+            name=competition.name,
+            shortName=competition.short_name,
+            timezone=competition.timezone,
+            regularRounds=competition.regular_rounds,
+            lastRound=competition.last_round,
+        )
+        for competition in competitions.ALL.values()
+    ]
 
 
 @router.get("/competitions/{competitionId}/matches/{fixture_id}", response_model=MatchCentre)

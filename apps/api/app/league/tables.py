@@ -46,8 +46,12 @@ leagues = Table(
     Column("accent_colour", String(7)),
     # Null closes the league to joining by code.
     Column("join_code", String(16)),
+    # 'active' or 'archived'. An archived league keeps every row but is left out of the
+    # account's list, and its league routes answer 404 `unknown_league`.
     Column("status", String(20), nullable=False),
     Column("version", Integer, nullable=False),
+    _ts("created_at", nullable=False),
+    _ts("updated_at", nullable=False),
 )
 
 league_memberships = Table(
@@ -85,6 +89,7 @@ seasons = Table(
     Column("competition_id", String(40), nullable=False),
     Column("status", String(20), nullable=False),
     _ts("closed_at"),
+    _ts("created_at", nullable=False),
 )
 
 season_memberships = Table(
