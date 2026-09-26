@@ -97,6 +97,11 @@ Rules:
 - Notification read state moves from the account to the membership, because the stream
   (league feed plus that competition's round events) is per league.
 - Rounds are validated against the competition, not a fixed 1 to 21.
+- A member can be removed from a league by its captain or the admin. Removal is a
+  withdrawal (`status = 'withdrawn'`, `left_at` set, already in the schema), never a
+  delete, so marks, standings, evidence and the audit trail keep pointing at a real row.
+  A withdrawn member can be reinstated. The captain cannot be removed until another
+  captain is appointed, and nobody can remove themselves through this route.
 
 ## 3. Database changes (all additive, one migration per phase)
 
@@ -182,6 +187,20 @@ favourite team and read marks), `members`, `duties`, `marks`, `standings`, `evid
 `join-code` (issue or rotate) for the captain or admin. The existing paths keep their
 shape under the prefix. `captain_dependency` becomes `steward_dependency`: captain of
 this league, or admin.
+
+Removing members (steward only):
+
+| Route | Action |
+| --- | --- |
+| `POST /v1/leagues/{id}/members/{memberId}/withdraw` | Body `{ reason }`. In one transaction: sets the league membership and its active season membership to withdrawn with `left_at = now()`; voids that member's open and pending duties with the reason "Member withdrawn" (marks earned so far stand); keeps standings rows and evidence; writes a feed entry "<name> left the clubhouse" and an audit event with the reason. Refuses the captain (409 `captain_membership`, appoint another captain first) and the caller's own membership (409 `own_membership`). An unclaimed name with no duties, standings or evidence rows is deleted outright instead, so a mistaken entry leaves no trace on the team sheet. |
+| `POST /v1/leagues/{id}/members/{memberId}/reinstate` | Clears the withdrawal on the league membership and re-enrols the member in the active season (a new season membership row when the old one is withdrawn, because `effective_to` marks the gap). Feed entry "<name> is back". `unique (league_id, user_id)` is why reinstatement exists: a withdrawn account cannot be added a second time. |
+| `POST /v1/leagues/{id}/members/me/leave` | Optional, member-initiated: the same withdrawal applied to the caller's own membership. Refused for the captain. Cheap to add once withdraw exists; decide whether members may leave without asking the captain. |
+
+After withdrawal the member's next request to that league returns 403 `not_a_member`,
+`GET /v1/me` no longer lists the league, and the web app redirects to `/`. Withdrawn
+members are excluded from standings, the duty register and the unclaimed list, and are
+returned by `GET /members` only when the caller is the steward and asks for
+`?include=withdrawn`.
 
 Competition routes (no league): `/v1/competitions/{competitionId}/matches/{fixtureId}`,
 `/.../matches/{fixtureId}/preview`, `/.../rounds/{n}/scores`, `/.../rounds/{n}/updates`.
@@ -333,6 +352,17 @@ member monogram treatment.
 - The existing `/claim` page becomes the join page for a specific league instead of an
   unscoped list.
 
+### Removing members (captain's desk)
+
+The team sheet on the captain's desk gains a "Remove" text button on every row except
+the captain's and the caller's own, next to the existing Release and Reserve buttons.
+It opens a confirmation dialog in the style of the reason dialog: the member's name, what
+will happen (off the team sheet and standings, open duties voided, marks kept), a required
+reason, and "Remove". Unclaimed names with no records get the same button labelled
+"Delete name" and a shorter confirmation. A collapsed "Withdrawn" group at the foot of the
+team sheet lists removed members with the date and reason and a "Reinstate" button.
+Rows stay disabled while the request is in flight, as with Release today.
+
 ### Management centre (`/manage`, admin only)
 
 - League list with member counts, competition, captain, status, join code and "Open"
@@ -342,6 +372,8 @@ member monogram treatment.
   per line as "Full name, Superbru name", emblem preset, accent colour. One request, one
   transaction.
 - Appoint captain: pick a claimed, active member.
+- League detail: the same team sheet as the captain's desk, with Remove, Reinstate,
+  Release and Reserve, so the admin can manage members of any league without opening it.
 - Archive and restore.
 - The route is guarded client-side by `isAdmin` for navigation only; the API decides.
 
@@ -374,7 +406,8 @@ Each phase ships on its own and keeps today's single-league behaviour for member
    the cross-league unclaimed exposure, league slug in web routes with `/` redirecting,
    admin flag and `steward_dependency`. One league in production still; members notice
    only the URL prefix.
-3. Switcher, emblem, join code and join page.
+3. Switcher, emblem, join code and join page. Remove and reinstate members on the
+   captain's desk (this part does not depend on multi-league and could ship earlier).
 4. Management centre: create league, appoint captain, add me, archive. Set `is_admin` on
    your account by SQL in production.
 5. Second rugby competition, when one is chosen: providers behind the Protocols, the
@@ -389,6 +422,10 @@ Each phase ships on its own and keeps today's single-league behaviour for member
   `admin_not_a_member`; after `members/me` the same write succeeds and the audit row
   carries `actor_label = 'admin'`.
 - API: unclaimed names are visible only through a valid join code and only for that league.
+- API: withdrawing a member voids their open duties, keeps their standings rows, excludes
+  them from `/standings`, `/duties` and the unclaimed list, and makes their next request
+  403; withdrawing the captain or oneself is refused; reinstating re-enrols them in the
+  season; an unclaimed name without records is deleted rather than withdrawn.
 - API: `admin_dependency` rejects captains; `create_league` writes an audit event and
   the league's first feed entry; the CLI and the endpoint produce identical rows;
   appointing a captain updates `captain_membership_id` and refuses an unclaimed name.
@@ -406,3 +443,5 @@ Each phase ships on its own and keeps today's single-league behaviour for member
    team sheet entirely, or shown as "not in this season" as proposed.
 3. Which rugby competition comes second, which decides the first provider implementation
    beyond the URC.
+4. Whether members may leave a league themselves (`members/me/leave`), or only the captain
+   and admin remove members.
