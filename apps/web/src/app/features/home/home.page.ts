@@ -7,6 +7,7 @@ import { ProfileStore } from '../../core/profile/profile.store';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideArrowRight } from '@ng-icons/lucide';
 import { Icon } from '../../shared/icon/icon';
+import { MemberAvatar } from '../../shared/member-avatar/member-avatar';
 import { EvidenceDialog } from '../duties/evidence-dialog/evidence-dialog';
 import { Feed } from './feed/feed';
 import { MatchHero } from './match-hero/match-hero';
@@ -17,7 +18,7 @@ import { MatchHero } from './match-hero/match-hero';
   templateUrl: './home.page.html',
   styleUrl: './home.page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, RouterLink, Icon, NgIcon, MatchHero, EvidenceDialog, Feed],
+  imports: [DecimalPipe, RouterLink, Icon, NgIcon, MatchHero, EvidenceDialog, Feed, MemberAvatar],
   viewProviders: [provideIcons({ lucideArrowRight })],
 })
 export class HomePage {
