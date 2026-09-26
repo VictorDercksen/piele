@@ -4,7 +4,7 @@ import { from, switchMap } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { AuthService } from './auth.service';
 
-/** Attaches the Supabase access token to Piele API requests only. */
+/** Attaches the Supabase access token to The Pavilion API requests only. */
 export const authInterceptor: HttpInterceptorFn = (request, next) => {
   const auth = inject(AuthService);
   if (!auth.configured || !environment.apiUrl || !request.url.startsWith(environment.apiUrl))

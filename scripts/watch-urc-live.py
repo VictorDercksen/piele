@@ -24,7 +24,7 @@ while datetime.now(timezone.utc) < stop:
     now = datetime.now(timezone.utc)
     try:
         req = urllib.request.Request(URL, data=json.dumps({"query": QUERY, "variables": {"r": [rnd]}}).encode(),
-            headers={"Content-Type": "application/json", "Accept": "application/json", "User-Agent": "Piele/0.1 live watcher"})
+            headers={"Content-Type": "application/json", "Accept": "application/json", "User-Agent": "Pavilion/0.1 live watcher"})
         with urllib.request.urlopen(req, timeout=20) as resp:
             headers = {k.lower(): v for k, v in resp.headers.items() if k.lower() in ("cache-control", "cf-cache-status", "age", "x-graphql-query-id")}
             body = json.load(resp)

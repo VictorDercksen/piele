@@ -13,7 +13,7 @@ import { filter, map, take } from 'rxjs';
   selector: 'app-root',
   // The boot classes are styled in index.html, which shows the same screen before Angular starts.
   template: `@if (booting()) {
-      <div class="boot" role="status" aria-label="Loading Piele">
+      <div class="boot" role="status" aria-label="Loading The Pavilion">
         <div class="boot-stage" aria-hidden="true">
           <span class="boot-shadow"></span>
           <span class="boot-hop">
@@ -22,7 +22,7 @@ import { filter, map, take } from 'rxjs';
         </div>
         <div class="boot-copy" aria-hidden="true">
           <span class="boot-kicker">Kick-off</span>
-          <span class="boot-wordmark">PIELE</span>
+          <span class="boot-wordmark">THE PAVILION</span>
           <span class="boot-status">
             @for (phrase of bootPhrases; track phrase) {
               <span>{{ phrase }}</span>

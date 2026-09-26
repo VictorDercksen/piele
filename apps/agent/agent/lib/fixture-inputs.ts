@@ -10,6 +10,6 @@ export interface FixtureInputs {
  * get_fixture_state and read by save_preview, so the model never copies them.
  */
 export const fixtureInputs = defineState(
-  'piele.fixture-inputs',
+  'pavilion.fixture-inputs',
   (): Record<string, FixtureInputs> => ({}),
 );

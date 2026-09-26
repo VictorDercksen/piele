@@ -30,7 +30,7 @@ def create_app(
     settings = settings or get_settings()
     # Interactive docs and the schema stay off in production; generate client types locally.
     docs_off = {"docs_url": None, "redoc_url": None, "openapi_url": None}
-    app = FastAPI(title="Piele API", version="0.1.0", **(docs_off if settings.is_production else {}))
+    app = FastAPI(title="The Pavilion API", version="0.1.0", **(docs_off if settings.is_production else {}))
     app.state.settings = settings
     app.state.match_centre = MatchCentreService(
         settings,

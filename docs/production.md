@@ -1,5 +1,7 @@
 # Production deployment runbook
 
+The product is The Pavilion; Piele is the name of its first league. The infrastructure below still carries the Piele names until the operator makes the renames in [Rename to The Pavilion](#rename-to-the-pavilion).
+
 Production is the `master` branch. Staging is the `staging` branch. Changes reach production through a pull request from `staging` (or a branch based on it) into `master`. CI (`.github/workflows/ci.yml`) must pass first.
 
 ## What deploys where
@@ -79,6 +81,28 @@ In both projects, clear Settings > Git > Ignored Build Step; `vercel.json` now o
 4. Storage: create a private bucket named `evidence` (no public access, no RLS policies for anon or authenticated). The API's service role key is the only writer and signer. Profile photos live in the same bucket under `avatars/`.
 5. Bootstrap the league once against the production database, as the runtime role: from `apps/api` with the production `DATABASE_URL` in the environment, run `uv run python -m app.league.bootstrap --captain-email <the captain's Google or sign-up email>`. It refuses to run twice. Then share the web link: each member signs in and claims their own Superbru name. The captain can reserve a name for a specific email from More > captain's desk, and release a name the wrong account claimed.
 6. Any signed-in account can claim an unclaimed name, so keep the link within the league until everyone has claimed theirs, or keep Google in Testing mode with the members as test users. The captain's desk shows who has claimed what. Every league endpoint requires a verified member token.
+
+## Rename to The Pavilion
+
+The code, package names and build output already use The Pavilion (`pavilion-web`, `pavilion-api`, `pavilion-agent`, output folder `dist/pavilion-web/browser`). These renames are outside the repository and are made by the operator:
+
+1. GitHub: rename the repository `VictorDercksen/piele` to `VictorDercksen/pavilion`. GitHub redirects the old URL. Afterwards re-check the Vercel Git link of each project, the Supabase GitHub integration's branch mapping and the Claude Code repository scope for this project.
+2. Vercel: rename the projects `piele-web`, `piele-api` and `piele-agent` to `pavilion-web`, `pavilion-api` and `pavilion-agent`. `piele-agent` does not exist yet; create it as `pavilion-agent`. Renaming changes the default `*.vercel.app` URLs, so in the same release update:
+   - `ALLOWED_ORIGINS` on the API (the web origin),
+   - `PIELE_API_URL` on the web (the API origin),
+   - `PIELE_API_URL` on the agent (the API origin),
+   - the Supabase Auth Site URL and Redirect URLs (`https://<web origin>/sign-in`) in both Supabase projects,
+   - the smoke check origins and the staging URLs in the root README.
+
+   Adding custom domains at the same time avoids changing these twice.
+3. Supabase: rename the projects `piele-staging` and `piele-production` to `pavilion-staging` and `pavilion-production`. Cosmetic only: project refs, connection strings and keys do not change.
+
+These stay as they are, on purpose:
+
+- Environment variables keep the `PIELE_*` prefix (`PIELE_API_URL`, `PIELE_SUPABASE_URL`, `PIELE_SUPABASE_PUBLISHABLE_KEY`, `PIELE_SAMPLE_LEAGUE_DATA`, `PIELE_AGENT_TOKEN`, `PIELE_TEST_DATABASE_URL`, `PIELE_WEB_PORT`). Renaming them means re-entering every Vercel variable in both environments.
+- The database schema `piele` and the runtime role `piele_api`. Renaming a schema and a role under row level security on a live database has no product benefit and real risk.
+- The storage bucket `evidence`.
+- The asset `piele-crest.png`, which becomes the Piele league's emblem.
 
 ## Each release
 

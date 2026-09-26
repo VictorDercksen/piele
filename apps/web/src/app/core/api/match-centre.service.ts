@@ -4,7 +4,7 @@ import { environment } from '../../../environments/environment';
 import { AuthService } from '../auth/auth.service';
 import { MatchCentre, MatchPreviewResponse } from './match-centre.models';
 
-/** Loads teamsheets, the kickoff forecast and the Piele preview for one fixture. */
+/** Loads teamsheets, the kickoff forecast and the Pavilion preview for one fixture. */
 @Injectable({ providedIn: 'root' })
 export class MatchCentreService {
   readonly configured = !!environment.apiUrl;

@@ -1,7 +1,7 @@
 import { defineTool } from 'eve/tools';
 import { z } from 'zod';
 import { fixtureInputs } from '../lib/fixture-inputs';
-import { pieleApi } from '../lib/piele-api';
+import { pavilionApi } from '../lib/pavilion-api';
 
 // Where the state's facts come from, so the preview can cite them like any other source.
 const STATE_SOURCES = [
@@ -25,7 +25,7 @@ export default defineTool({
   inputSchema: z.object({ fixtureId: z.string().regex(/^\d{1,12}$/) }),
   label: { start: ({ fixtureId }) => `Read the state of fixture ${fixtureId}` },
   async execute({ fixtureId }, ctx) {
-    const { stateHash, teamsheetHash, ...state } = await pieleApi<FixtureState>(
+    const { stateHash, teamsheetHash, ...state } = await pavilionApi<FixtureState>(
       `/fixtures/${fixtureId}/state`,
       { signal: ctx.abortSignal },
     );

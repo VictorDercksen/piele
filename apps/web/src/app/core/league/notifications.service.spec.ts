@@ -175,7 +175,7 @@ describe('NotificationsService', () => {
     await service.markAllRead();
     expect(service.unread()).toBe(0);
     expect(service.read()).toEqual({ readAt: '2026-10-05T10:00:00.000Z', readKeys: [] });
-    expect(JSON.parse(localStorage.getItem('piele-notifications-read-v2')!).readAt).toBe(
+    expect(JSON.parse(localStorage.getItem('pavilion-notifications-read-v2')!).readAt).toBe(
       '2026-10-05T10:00:00.000Z',
     );
   });

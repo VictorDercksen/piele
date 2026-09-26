@@ -58,10 +58,11 @@
 }
 .club-brand strong {
   display: block;
-  font-size: 25px;
+  font-size: 20px;
   font-weight: 700;
-  letter-spacing: 3px;
+  letter-spacing: 2.5px;
   line-height: 1.1;
+  white-space: nowrap;
 }
 .club-brand small {
   display: block;
@@ -206,12 +207,13 @@
   height: 40px;
   object-fit: contain;
 }
+// The rail is narrow, so the wordmark stacks: THE over PAVILION.
 .rail-brand strong {
   display: block;
-  font-size: 21px;
+  font-size: 16px;
   font-weight: 700;
-  letter-spacing: 2.5px;
-  line-height: 1.1;
+  letter-spacing: 2px;
+  line-height: 1.05;
 }
 .rail-brand small {
   display: block;
@@ -512,8 +514,8 @@ app-season-timeline {
     height: 38px;
   }
   .club-brand strong {
-    font-size: 24px;
-    letter-spacing: 2px;
+    font-size: 18px;
+    letter-spacing: 1.5px;
   }
   .demo-label {
     font-size: 8px;

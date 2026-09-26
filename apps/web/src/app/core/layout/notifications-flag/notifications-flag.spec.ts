@@ -93,7 +93,7 @@ describe('NotificationsFlag', () => {
     expect(flag.querySelector('.badge')).toBeNull();
     expect(flag.querySelector<HTMLButtonElement>('.read')!.disabled).toBe(true);
     expect(flag.querySelectorAll('.notification-item.unread').length).toBe(0);
-    const stored = JSON.parse(localStorage.getItem('piele-notifications-read-v2')!);
+    const stored = JSON.parse(localStorage.getItem('pavilion-notifications-read-v2')!);
     expect(stored.readAt).toBe('2026-10-05T10:00:00.000Z');
     expect(stored.readKeys).toEqual([]);
 

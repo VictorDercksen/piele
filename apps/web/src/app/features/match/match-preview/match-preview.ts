@@ -9,7 +9,7 @@ import { previewView } from './preview-view';
 const SAST = '+0200';
 
 /**
- * The Piele preview for one fixture: summary, key factors and mood per side, and the
+ * The Pavilion preview for one fixture: summary, key factors and mood per side, and the
  * sources they cite, on a floodlit poster washed in both clubs' colours. Agent text is
  * bound as plain text only.
  */

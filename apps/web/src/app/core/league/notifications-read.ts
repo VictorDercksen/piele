@@ -1,12 +1,15 @@
+import { readRenamedKey } from '../storage/renamed-key';
 import { NotificationsRead } from './league.models';
 
-const STORAGE_KEY = 'piele-notifications-read-v2';
+const STORAGE_KEY = 'pavilion-notifications-read-v2';
+/** The key before the rename to The Pavilion, read once and moved. */
+const LEGACY_STORAGE_KEY = 'piele-notifications-read-v2';
 export const EMPTY_READ: NotificationsRead = { readAt: null, readKeys: [] };
 
 /** Browser-kept read state for builds without the league API. */
 export function loadStoredRead(): NotificationsRead {
   try {
-    return parseRead(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null'));
+    return parseRead(JSON.parse(readRenamedKey(STORAGE_KEY, LEGACY_STORAGE_KEY) ?? 'null'));
   } catch {
     return EMPTY_READ;
   }

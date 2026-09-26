@@ -130,7 +130,7 @@ async function mockLiveApi(page: Page, stage: { current: Stage }) {
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() =>
     localStorage.setItem(
-      'piele-profile-v1',
+      'pavilion-profile-v1',
       JSON.stringify({ displayName: 'Victor Dercksen', teamId: 'dhl-stormers', photo: null }),
     ),
   );

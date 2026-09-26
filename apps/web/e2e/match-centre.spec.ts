@@ -72,7 +72,7 @@ async function mockApi(page: Page, handler?: (id: string, route: Route) => Promi
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() =>
     localStorage.setItem(
-      'piele-profile-v1',
+      'pavilion-profile-v1',
       JSON.stringify({ displayName: 'Victor Dercksen', teamId: 'dhl-stormers', photo: null }),
     ),
   );

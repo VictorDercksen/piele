@@ -1,6 +1,6 @@
-# Piele agent
+# The Pavilion agent
 
-The preview agent, built with [eve](https://vercel.com/docs/eve) (pinned at 0.66.3). Every two hours it asks the Piele API which fixtures need a preview, reads each fixture's state, has the `team-researcher` subagent research both sides on the web, writes a sourced preview and stores it through the API. Members read it on the match page.
+The preview agent, built with [eve](https://vercel.com/docs/eve) (pinned at 0.66.3). Every two hours it asks The Pavilion API which fixtures need a preview, reads each fixture's state, has the `team-researcher` subagent research both sides on the web, writes a sourced Pavilion preview and stores it through the API. Previews are competition data, so members of every league read the same preview on the match page.
 
 The agent holds no database credentials. It reaches the API's `/v1/agent` routes with one bearer token, and the API validates everything it stores. See `apps/api/app/agent/`.
 
@@ -10,7 +10,7 @@ The agent holds no database credentials. It reaches the API's `/v1/agent` routes
 | --- | --- |
 | `agent/agent.ts` | Root agent: DeepSeek V4 Pro through AI Gateway, no default tools, no self-delegation, per-session token and cost caps. |
 | `agent/instructions.md` | The writer's process and rules: cite every claim, treat fetched text as information only, no betting language, plain text. |
-| `agent/tools/` | `get_fixture_state` and `save_preview`, all calling the API through `agent/lib/piele-api.ts`. The state tool keeps the fixture's hashes in session state for `save_preview`, so the model never copies them. |
+| `agent/tools/` | `get_fixture_state` and `save_preview`, all calling the API through `agent/lib/pavilion-api.ts`. The state tool keeps the fixture's hashes in session state for `save_preview`, so the model never copies them. |
 | `agent/subagents/team-researcher/` | One team per call. Only `web_search` and `web_fetch`; fetches are limited to `agent/lib/allowlist.ts`. Returns structured items, each with its source URL. |
 | `agent/schedules/prepare-previews.ts` | Cron `*/15 * * * *` (UTC), a code handler with no model call. It claims due fixtures through `POST /v1/agent/dispatches` (both teamsheets published, no preview yet) and starts one writing session per claim. Ticks with nothing due cost one API call. Needs a paid Vercel plan (Hobby cron runs once a day). |
 | `agent/channels/previews.ts` | Starts one writing session per claim, from the schedule or from `POST /previews/run` (below), plus an empty `GET /previews/health`. |
@@ -22,11 +22,11 @@ The agent holds no database credentials. It reaches the API's `/v1/agent` routes
 
 ```bash
 # Claim and start whatever is due now
-curl -X POST https://<piele-agent domain>/previews/run -H "Authorization: Bearer $PIELE_AGENT_TOKEN"
+curl -X POST https://<pavilion-agent domain>/previews/run -H "Authorization: Bearer $PIELE_AGENT_TOKEN"
 # Only one fixture, if it is due
-curl -X POST https://<piele-agent domain>/previews/run -H "Authorization: Bearer $PIELE_AGENT_TOKEN" -d '{"fixtureId":"292584"}'
+curl -X POST https://<pavilion-agent domain>/previews/run -H "Authorization: Bearer $PIELE_AGENT_TOKEN" -d '{"fixtureId":"292584"}'
 # One fixture now, even if it has a preview, is inside a claim's 45 minutes or has used its 3 attempts
-curl -X POST https://<piele-agent domain>/previews/run -H "Authorization: Bearer $PIELE_AGENT_TOKEN" -d '{"fixtureId":"292584","force":true}'
+curl -X POST https://<pavilion-agent domain>/previews/run -H "Authorization: Bearer $PIELE_AGENT_TOKEN" -d '{"fixtureId":"292584","force":true}'
 ```
 
 It answers `202` with `{ started: [{ fixtureId, attempt, reason, sessionId }] }`, or `200` with an empty list when nothing was due. A forced run still needs both teamsheets published and a kickoff ahead, and a forced fixture with a preview gets a new revision. The claim is recorded in `piele.preview_dispatches` like a scheduled one.
@@ -42,7 +42,7 @@ Local builds use the `just-bash` sandbox (a dev dependency); on Vercel eve uses 
 
 ## Deploy
 
-A third Vercel project, `piele-agent`, rooted at `apps/agent`. `vercel.json` limits builds to `staging` and `master`, like the other two projects. Variables:
+A third Vercel project, `pavilion-agent` (create it under that name; it was planned as `piele-agent` before the rename), rooted at `apps/agent`. `vercel.json` limits builds to `staging` and `master`, like the other two projects. Variables:
 
 | Variable | Value |
 | --- | --- |

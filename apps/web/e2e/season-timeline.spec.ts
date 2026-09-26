@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() =>
     localStorage.setItem(
-      'piele-profile-v1',
+      'pavilion-profile-v1',
       JSON.stringify({ displayName: 'Victor Dercksen', teamId: 'dhl-stormers', photo: null }),
     ),
   );
@@ -140,7 +140,7 @@ test('desktop rail and top bar stay in view while the content scrolls', async ({
   await page.setViewportSize({ width: 1440, height: 800 });
   await page.goto('/?round=2');
   const rail = page.locator('.season-rail');
-  await expect(rail.getByRole('link', { name: 'Piele home' })).toBeVisible();
+  await expect(rail.getByRole('link', { name: 'The Pavilion home' })).toBeVisible();
   await page.mouse.wheel(0, 1500);
   await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(500);
   expect((await page.locator('.top-bar').boundingBox())!.y).toBe(0);
@@ -162,10 +162,10 @@ test('URC ball loader covers start-up and slow page changes', async ({ page }) =
     await route.continue();
   });
   const start = page.goto('/?round=2');
-  await expect(page.getByRole('status', { name: 'Loading Piele' })).toBeVisible();
+  await expect(page.getByRole('status', { name: 'Loading The Pavilion' })).toBeVisible();
   await start;
   await expect(page.locator('.league')).toBeVisible();
-  await expect(page.getByRole('status', { name: 'Loading Piele' })).toHaveCount(0);
+  await expect(page.getByRole('status', { name: 'Loading The Pavilion' })).toHaveCount(0);
 
   await page
     .getByRole('navigation', { name: 'League navigation', exact: true })

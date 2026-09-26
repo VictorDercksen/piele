@@ -1,4 +1,4 @@
-"""Competition events of a round for the notifications panel: teamsheets published, Piele
+"""Competition events of a round for the notifications panel: teamsheets published, Pavilion
 preview published, kick-off and full time. Built from the match centre's cached provider
 snapshots, the stored previews and the fixture milestones, so one request per round covers
 every fixture. Nothing here calls a provider that the match centre would not call anyway.

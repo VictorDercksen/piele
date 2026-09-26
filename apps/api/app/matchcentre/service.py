@@ -201,7 +201,7 @@ def _from_snapshot(snapshot: Snapshot, source: str) -> dict[str, Any]:
 
 def default_http_factory(settings: Settings) -> HttpFactory:
     timeout = httpx.Timeout(settings.external_timeout_seconds)
-    return lambda: httpx.Client(timeout=timeout, headers={"User-Agent": "Piele/0.1 match centre"})
+    return lambda: httpx.Client(timeout=timeout, headers={"User-Agent": "Pavilion/0.1 match centre"})
 
 
 __all__ = ["MatchCentreService", "default_http_factory"]

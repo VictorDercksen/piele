@@ -6,7 +6,7 @@ const ROUND_ONE = ['292584', '292585', '292586', '292587', '292588', '292589', '
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() =>
     localStorage.setItem(
-      'piele-profile-v1',
+      'pavilion-profile-v1',
       JSON.stringify({ displayName: 'Victor Dercksen', teamId: 'dhl-stormers', photo: null }),
     ),
   );

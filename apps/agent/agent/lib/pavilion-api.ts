@@ -1,17 +1,17 @@
 /**
- * Client for the Piele API's /v1/agent routes. The agent has no database credentials;
+ * Client for The Pavilion API's /v1/agent routes. The agent has no database credentials;
  * everything it reads and writes goes through these routes with one bearer token.
  */
 
 const TIMEOUT_MS = 30_000;
 
-export class PieleApiError extends Error {
+export class PavilionApiError extends Error {
   constructor(
     readonly status: number,
     message: string,
   ) {
     super(message);
-    this.name = 'PieleApiError';
+    this.name = 'PavilionApiError';
   }
 }
 
@@ -25,7 +25,7 @@ function setting(name: 'PIELE_API_URL' | 'PIELE_AGENT_TOKEN'): string {
  * Calls `/v1/agent{path}` and returns the parsed JSON body. A non-2xx answer throws with
  * the API's validation detail (never the token), so the model can correct a submission.
  */
-export async function pieleApi<T>(
+export async function pavilionApi<T>(
   path: string,
   options: { method?: 'GET' | 'POST'; body?: unknown; signal?: AbortSignal } = {},
 ): Promise<T> {
@@ -43,9 +43,9 @@ export async function pieleApi<T>(
   });
   const text = await response.text();
   if (!response.ok) {
-    throw new PieleApiError(
+    throw new PavilionApiError(
       response.status,
-      `Piele API ${method} ${path} answered ${response.status}: ${text.slice(0, 1000)}`,
+      `Pavilion API ${method} ${path} answered ${response.status}: ${text.slice(0, 1000)}`,
     );
   }
   return JSON.parse(text) as T;

@@ -107,7 +107,7 @@ def match_centre(fixture_id: str, request: Request) -> Any:
 
 @router.get("/matches/{fixture_id}/preview", response_model=MatchPreview)
 def match_preview(fixture_id: str, actor: Actor = Depends(actor_dependency)) -> Any:
-    """The latest Piele preview for members. Written by the preview agent before kickoff."""
+    """The latest Pavilion preview for members. Written by the preview agent before kickoff."""
     if load_schedule().fixture(fixture_id) is None:
         raise HTTPException(status_code=404, detail="Unknown fixture.")
     row = previews.latest(actor.connection, fixture_id)
@@ -136,7 +136,7 @@ def round_scores(round_number: int, request: Request) -> Any:
 @router.get("/rounds/{round_number}/updates", response_model=RoundUpdates)
 def round_updates(round_number: int, request: Request, actor: Actor = Depends(actor_dependency)) -> Any:
     """The round's teamsheets, previews, kick-offs and full-time results for the notifications
-    panel. Members only, because it reports the Piele previews."""
+    panel. Members only, because it reports the Pavilion previews."""
     if not load_schedule().round(round_number):
         raise HTTPException(status_code=404, detail="Unknown round.")
     return updates.round_updates(

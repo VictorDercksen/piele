@@ -3,8 +3,11 @@ import { AuthService } from '../auth/auth.service';
 import { club } from '../competition/teams';
 import { HttpLeagueData } from '../league/http-league-data';
 import { LeagueData } from '../league/league-data';
+import { readRenamedKey } from '../storage/renamed-key';
 
-const STORAGE_KEY = 'piele-profile-v1';
+const STORAGE_KEY = 'pavilion-profile-v1';
+/** The key before the rename to The Pavilion, read once and moved. */
+const LEGACY_STORAGE_KEY = 'piele-profile-v1';
 
 /**
  * The member's display name, favourite team and photo. Builds that talk to the API save it
@@ -67,7 +70,7 @@ export class ProfileStore {
 
 function readStored(): Profile | null {
   try {
-    const value: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null');
+    const value: unknown = JSON.parse(readRenamedKey(STORAGE_KEY, LEGACY_STORAGE_KEY) ?? 'null');
     return isProfile(value) ? value : null;
   } catch {
     return null;

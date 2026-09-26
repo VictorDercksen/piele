@@ -306,7 +306,7 @@ const EVENT_ICONS: Record<RoundEvent['kind'], string> = {
 };
 const EVENT_LABELS: Record<RoundEvent['kind'], string> = {
   teamsheets_published: 'TEAMSHEETS',
-  preview_published: 'PIELE PREVIEW',
+  preview_published: 'PAVILION PREVIEW',
   kicked_off: 'KICK-OFF',
   full_time: 'FULL TIME',
 };
@@ -366,7 +366,7 @@ export function competitionNotices(
 
 const GROUP_TITLES: Record<RoundEvent['kind'], (n: number, more: boolean) => string> = {
   teamsheets_published: (n, more) => `Teamsheets are in for ${n} ${more ? 'more ' : ''}matches.`,
-  preview_published: (n, more) => `${n} ${more ? 'more ' : ''}Piele previews are ready.`,
+  preview_published: (n, more) => `${n} ${more ? 'more ' : ''}Pavilion previews are ready.`,
   kicked_off: (n, more) => `${n} ${more ? 'more ' : ''}matches are under way.`,
   full_time: (n, more) => `Full time in ${n} ${more ? 'more ' : ''}matches.`,
 };
@@ -376,7 +376,7 @@ function fixtureNotice(event: RoundEvent, { fixture, round }: LocatedFixture): N
   const when = `${fixture.day} · ${fixture.time} SAST`;
   const text: Record<RoundEvent['kind'], [string, string]> = {
     teamsheets_published: [`${pair}: teamsheets are in.`, `${when} · ${fixture.venue}`],
-    preview_published: [`${pair}: the Piele preview is ready.`, `${when} · ${fixture.venue}`],
+    preview_published: [`${pair}: the Pavilion preview is ready.`, `${when} · ${fixture.venue}`],
     kicked_off: [`${pair} is under way.`, fixture.venue],
     full_time: [`${scoreline(event, fixture)}.`, `Full time at ${fixture.venue}`],
   };

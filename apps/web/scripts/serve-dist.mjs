@@ -5,7 +5,7 @@ import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 
-const root = 'dist/piele-web/browser';
+const root = 'dist/pavilion-web/browser';
 const port = Number(process.env['PIELE_WEB_PORT'] ?? 4400);
 const config = JSON.parse(await readFile('vercel.json', 'utf8'));
 const matches = (source, path) => new RegExp(`^${source}$`).test(path);

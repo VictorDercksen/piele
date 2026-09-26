@@ -6,7 +6,7 @@
   },
   "newProjectRoot": "projects",
   "projects": {
-    "piele-web": {
+    "pavilion-web": {
       "projectType": "application",
       "schematics": {
         "@schematics/angular:component": {
@@ -76,10 +76,10 @@
           "builder": "@angular/build:dev-server",
           "configurations": {
             "production": {
-              "buildTarget": "piele-web:build:production"
+              "buildTarget": "pavilion-web:build:production"
             },
             "development": {
-              "buildTarget": "piele-web:build:development"
+              "buildTarget": "pavilion-web:build:development"
             }
           },
           "defaultConfiguration": "development"

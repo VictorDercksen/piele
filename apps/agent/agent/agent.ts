@@ -1,7 +1,7 @@
 import { defineAgent } from 'eve';
 
 /**
- * The preview writer. It reads fixture state from the Piele API, delegates team research
+ * The preview writer. It reads fixture state from The Pavilion API, delegates team research
  * to the team-researcher subagent and stores a sourced preview. No web tools of its own.
  * Keep the model id in step with lib/models.ts.
  */
