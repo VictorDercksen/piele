@@ -11,6 +11,7 @@ import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from fastapi.testclient import TestClient
+from sqlalchemy import text
 from app.config import Settings
 from app.db import get_engine
 from app.league import bootstrap
@@ -117,8 +118,9 @@ def client(storage: FakeStorage) -> TestClient:
     # Each test gets its own league; the captain's email is unique per run.
     email = f"captain-{uuid4().hex[:8]}@example.com"
     with engine.begin() as connection:
-        bootstrap.bootstrap(connection, email, SEED)
+        league_id = bootstrap.bootstrap(connection, email, SEED)
     client = TestClient(create_app(settings, storage=storage))
+    client.league_id = league_id  # type: ignore[attr-defined]
     client.captain_email = email  # type: ignore[attr-defined]
     client.subjects = {}  # type: ignore[attr-defined]
     # Test leagues share one database, so reservations must not collide between tests.
@@ -243,6 +245,24 @@ def test_only_the_captain_manages_members(client: TestClient) -> None:
     )
     assert duplicate.status_code == 409
     assert client.post("/v1/members", json={"displayName": "Bad", "fullName": "B", "email": "nope"}, headers=captain_headers(client)).status_code == 422
+
+
+def test_members_who_left_are_off_the_team_sheet(client: TestClient) -> None:
+    engine = get_engine(client.app.state.settings)
+    with engine.begin() as connection:
+        connection.execute(
+            text("select set_config('piele.league_id', :id, true)"),
+            {"id": str(client.league_id)},  # type: ignore[attr-defined]
+        )
+        connection.execute(
+            text(
+                "update piele.league_memberships set status = 'withdrawn', left_at = now()"
+                " where league_id = :id and display_name = 'Ola'"
+            ),
+            {"id": str(client.league_id)},  # type: ignore[attr-defined]
+        )
+    members = client.get("/v1/members", headers=captain_headers(client)).json()
+    assert {m["displayName"] for m in members} == {"Captain", "Mo"}
 
 
 # Duties and marks ---------------------------------------------------------------------

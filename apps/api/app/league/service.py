@@ -104,6 +104,7 @@ def default_deadline(duty_type: str, round_number: int | None) -> datetime | Non
 
 
 def members(actor: Actor) -> Sequence[Any]:
+    """The team sheet: active memberships only. Members who left keep their history."""
     sm = t.season_memberships
     m = t.league_memberships
     return actor.connection.execute(
@@ -116,8 +117,12 @@ def members(actor: Actor) -> Sequence[Any]:
             m.c.user_id,
             sm.c.id.label("season_membership_id"),
         )
-        .select_from(m.outerjoin(sm, and_(sm.c.membership_id == m.c.id, sm.c.season_id == actor.season_id)))
-        .where(m.c.league_id == actor.league_id)
+        .select_from(
+            m.outerjoin(
+                sm, and_(sm.c.membership_id == m.c.id, sm.c.season_id == actor.season_id, sm.c.status == "active")
+            )
+        )
+        .where(m.c.league_id == actor.league_id, m.c.status == "active")
         .order_by(m.c.full_name)
     ).all()
 
