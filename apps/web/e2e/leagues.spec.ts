@@ -15,7 +15,6 @@ test('/ opens the account’s league and unknown leagues fall back to it', async
   const rail = page.locator('.rail-brand .switcher-trigger');
   await expect(rail.locator('strong')).toHaveText('PIELE');
   await expect(rail.locator('img')).toHaveAttribute('src', /piele-crest\.png/);
-  await expect(page.locator('.club-footer')).toContainText('THE PAVILION / PIELE / ROUND 02');
 
   await page.goto('/nowhere');
   await expect(page).toHaveURL(/\/piele$/);
@@ -38,7 +37,6 @@ test('the Pofadder Bowl shows its own name, captain, standings and feed', async 
   await expect(rail.locator('strong')).toHaveText('POFADDER BOWL');
   await expect(rail.locator('small')).toContainText('URC');
   await expect(rail.locator('use')).toHaveAttribute('href', 'assets/images/emblems/posts.svg#emblem');
-  await expect(page.locator('.club-footer')).toContainText('POFADDER BOWL / ROUND 02');
   const feed = page.locator('app-feed');
   await expect(feed).toContainText('Thabo: Round 02 Spoon duty.');
   await expect(feed).not.toContainText('Liam');

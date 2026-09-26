@@ -29,7 +29,7 @@ describe('Shell', () => {
     return harness.routeNativeElement!;
   }
 
-  it('names the current league top left and in the footer, with its competition', async () => {
+  it('names the current league top left, with its competition', async () => {
     const root = await open('/pofadder-bowl?round=2', 'pofadder-bowl');
     const brand = root.querySelector('.rail-brand')!;
     expect(brand.querySelector('strong')?.textContent).toBe('POFADDER BOWL');
@@ -44,9 +44,9 @@ describe('Shell', () => {
       'assets/images/emblems/posts.svg#emblem',
     );
     expect(crest.style.getPropertyValue('--crest-accent')).toBe('#c8742a');
-    expect(root.querySelector('.club-footer')?.textContent).toContain(
-      'THE PAVILION / POFADDER BOWL / ROUND 02',
-    );
+    const logo = root.querySelector('.season-timeline .season-logo')!;
+    expect(logo.getAttribute('src')).toBe('assets/images/urc-emblem.svg');
+    expect(root.querySelector('.club-footer')).toBeNull();
     expect(root.querySelector('.admin-ribbon')).toBeNull();
     const nav = Array.from(root.querySelectorAll<HTMLAnchorElement>('.desktop-nav a'));
     expect(nav.map((a) => a.getAttribute('href')?.split('?')[0])).toEqual([

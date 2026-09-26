@@ -379,29 +379,6 @@ app-season-timeline {
   padding: 0 14px;
   font-weight: 700;
 }
-.club-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 24px 0;
-  margin-top: 33px;
-  border-top: 3px double var(--line);
-  font-size: 8px;
-  letter-spacing: 1px;
-  color: var(--muted);
-}
-.club-footer > span:nth-child(2) {
-  max-width: 360px;
-  font-size: 10px;
-  letter-spacing: 0;
-  text-align: center;
-}
-.club-footer > span:last-child {
-  font-size: 22px;
-  font-weight: 700;
-  white-space: nowrap;
-}
 
 @container (max-width: 1200px) {
   .league {
@@ -425,7 +402,6 @@ app-season-timeline {
   .top-bar {
     gap: 18px;
   }
-  .club-footer > span:first-child,
   .demo-label {
     display: none;
   }
@@ -488,9 +464,6 @@ app-season-timeline {
   }
   .page-heading h1 {
     font-size: 25px;
-  }
-  .club-footer {
-    padding-bottom: 26px;
   }
   .mobile-nav {
     grid-area: nav;
@@ -583,15 +556,6 @@ app-season-timeline {
   }
   .page-heading h1 {
     font-size: 27px;
-  }
-  .club-footer {
-    align-items: flex-start;
-    padding: 22px 0;
-    margin-top: 27px;
-  }
-  .club-footer > span:nth-child(2) {
-    max-width: 230px;
-    text-align: left;
   }
 }
 @container (max-width: 350px) {

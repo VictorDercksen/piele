@@ -15,11 +15,10 @@
 .timeline-heading {
   padding: 0 9px 16px;
   border-bottom: 1px solid var(--line);
-  > span {
+  .season-logo {
     display: block;
-    font-size: 9px;
-    letter-spacing: 2px;
-    color: var(--muted);
+    width: 29px;
+    height: 30px;
   }
   strong {
     display: block;
@@ -162,8 +161,9 @@ button {
     gap: 12px;
     padding: 0;
     border: 0;
-    > span {
-      font-size: 8px;
+    .season-logo {
+      width: 21px;
+      height: 22px;
     }
     strong {
       font-size: 18px;
