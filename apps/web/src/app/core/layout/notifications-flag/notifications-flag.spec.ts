@@ -1,16 +1,23 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
-import { CompetitionService, buildRounds } from '../../competition/competition.service';
+import { CompetitionService } from '../../competition/competition.service';
+import { competition } from '../../competition/registry';
+import { LeagueContext } from '../../league/league-context';
 import { LeagueData } from '../../league/league-data';
 import { SampleLeagueData } from '../../league/sample-league-data';
 import { ProfileStore } from '../../profile/profile.store';
 import { routes } from '../../../app.routes';
 
 /** The sample league's Round 2 as the current round, seen the Monday after it. */
+const ROUNDS = competition('urc-2026-27').buildRounds(2);
 class RoundTwo extends CompetitionService {
-  override readonly currentRoundId = 2;
-  override readonly rounds = buildRounds(2);
+  override get currentRoundId() {
+    return 2;
+  }
+  override get rounds() {
+    return ROUNDS;
+  }
 }
 
 describe('NotificationsFlag', () => {
@@ -25,6 +32,9 @@ describe('NotificationsFlag', () => {
         { provide: CompetitionService, useClass: RoundTwo },
       ],
     });
+    const context = TestBed.inject(LeagueContext);
+    await context.ensureAccount();
+    await context.select('piele');
     await TestBed.inject(ProfileStore).save({
       displayName: 'Test Member',
       teamId: 'dhl-stormers',
@@ -93,7 +103,7 @@ describe('NotificationsFlag', () => {
     expect(flag.querySelector('.badge')).toBeNull();
     expect(flag.querySelector<HTMLButtonElement>('.read')!.disabled).toBe(true);
     expect(flag.querySelectorAll('.notification-item.unread').length).toBe(0);
-    const stored = JSON.parse(localStorage.getItem('pavilion-notifications-read-v2')!);
+    const stored = JSON.parse(localStorage.getItem('pavilion-notifications-read-v2:piele')!);
     expect(stored.readAt).toBe('2026-10-05T10:00:00.000Z');
     expect(stored.readKeys).toEqual([]);
 

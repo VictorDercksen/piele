@@ -1,4 +1,5 @@
 import { expect, test, Page } from '@playwright/test';
+import { seedProfile } from './support';
 
 // Round 1, Friday 25 September: Benetton v Dragons (292584) kicks off at 18:45 UTC.
 const BENETTON = '292584';
@@ -89,7 +90,7 @@ function scheduled(fixtureId: string) {
 
 /** Serves the API as the feed would during the match; `stage.current` moves it on. */
 async function mockLiveApi(page: Page, stage: { current: Stage }) {
-  await page.route('**/v1/rounds/*/scores', async (route) => {
+  await page.route('**/v1/competitions/*/rounds/*/scores', async (route) => {
     const now = new Date(await page.evaluate(() => Date.now())).toISOString();
     const { events, ...live } = score(stage.current, now);
     void events;
@@ -108,7 +109,7 @@ async function mockLiveApi(page: Page, stage: { current: Stage }) {
       },
     });
   });
-  await page.route('**/v1/matches/*', async (route) => {
+  await page.route('**/v1/competitions/*/matches/*', async (route) => {
     const now = new Date(await page.evaluate(() => Date.now())).toISOString();
     await route.fulfill({
       json: {
@@ -128,12 +129,7 @@ async function mockLiveApi(page: Page, stage: { current: Stage }) {
 }
 
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() =>
-    localStorage.setItem(
-      'pavilion-profile-v1',
-      JSON.stringify({ displayName: 'Victor Dercksen', teamId: 'dhl-stormers', photo: null }),
-    ),
-  );
+  await seedProfile(page);
 });
 
 test('a live match updates the ribbon, hero and scoring timeline', async ({ page }, testInfo) => {
@@ -142,7 +138,7 @@ test('a live match updates the ribbon, hero and scoring timeline', async ({ page
   await page.emulateMedia({ reducedMotion: 'reduce' });
   const stage = { current: LIVE };
   await mockLiveApi(page, stage);
-  await page.goto(`/match/${BENETTON}?round=1`);
+  await page.goto(`/piele/match/${BENETTON}?round=1`);
 
   const ribbon = page.locator('.fixture-ribbon button').filter({ hasText: 'Benetton' });
   await expect(ribbon).toHaveClass(/live/);
@@ -230,7 +226,7 @@ test('the scoring panel appears ten minutes before kickoff', async ({ page }) =>
   await mockLiveApi(page, {
     current: { state: 'scheduled', minute: null, home: 0, away: 0, events: [] },
   });
-  await page.goto(`/match/${BENETTON}?round=1`);
+  await page.goto(`/piele/match/${BENETTON}?round=1`);
   await expect(page.locator('app-match-hero')).toBeVisible();
   const panel = page.locator('app-scoring-panel');
   await expect(panel).toHaveCount(0);
@@ -244,12 +240,14 @@ test('the scoring panel appears ten minutes before kickoff', async ({ page }) =>
 test('rounds that have not started make no score request', async ({ page }) => {
   await page.clock.install({ time: KICKOFF - 2 * 24 * 60 * 60_000 });
   let requests = 0;
-  await page.route('**/v1/rounds/*/scores', (route) => {
+  await page.route('**/v1/competitions/*/rounds/*/scores', (route) => {
     requests++;
     return route.fulfill({ status: 500 });
   });
-  await page.route('**/v1/matches/*', (route) => route.fulfill({ status: 503, body: 'down' }));
-  await page.goto('/?round=1');
+  await page.route('**/v1/competitions/*/matches/*', (route) =>
+    route.fulfill({ status: 503, body: 'down' }),
+  );
+  await page.goto('/piele?round=1');
   await expect(page.locator('app-match-hero .match-time > span').first()).toHaveText('KICKOFF');
   await page.clock.runFor(60_000);
   expect(requests).toBe(0);

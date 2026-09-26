@@ -13,14 +13,17 @@ import {
   RouterOutlet,
 } from '@angular/router';
 import { debounce, filter, map, of, timer } from 'rxjs';
-import { CompetitionService } from '../../competition/competition.service';
+import { CompetitionService, shortSeason } from '../../competition/competition.service';
+import { LeagueTime } from '../../competition/league-time';
 import { SelectedRoundService } from '../../competition/selected-round.service';
-import { stadiumBackground } from '../../competition/stadiums';
 import { ToastService } from '../../feedback/toast.service';
+import { LeagueContext } from '../../league/league-context';
+import { LeaguePathPipe } from '../../league/league-path.pipe';
 import { RoundViewService } from '../../league/round-view.service';
 import { ProfileStore } from '../../profile/profile.store';
 import { Icon } from '../../../shared/icon/icon';
 import { BallLoader } from '../../../shared/ball-loader/ball-loader';
+import { LeagueCrest } from '../../../shared/league-crest/league-crest';
 import { StadiumBackdrop } from '../../../shared/stadium-backdrop/stadium-backdrop';
 import { FixtureRibbon } from '../fixture-ribbon/fixture-ribbon';
 import { NotificationsFlag } from '../notifications-flag/notifications-flag';
@@ -43,6 +46,8 @@ import { PageData } from './page-data';
     NotificationsFlag,
     FixtureRibbon,
     StadiumBackdrop,
+    LeagueCrest,
+    LeaguePathPipe,
   ],
 })
 export class Shell {
@@ -50,21 +55,28 @@ export class Shell {
   private readonly competition = inject(CompetitionService);
   private readonly selectedRound = inject(SelectedRoundService);
   private readonly profileStore = inject(ProfileStore);
+  private readonly context = inject(LeagueContext);
   readonly view = inject(RoundViewService);
   readonly toast = inject(ToastService);
 
   readonly profile = this.profileStore.profile;
   readonly favouriteTeam = this.profileStore.team;
   readonly initials = this.profileStore.initials;
-  readonly rounds = this.competition.rounds;
-  readonly currentRound = this.competition.currentRoundId;
+  readonly zoneName = inject(LeagueTime).abbreviation;
+  readonly rounds = computed(() => this.competition.rounds);
+  readonly currentRound = computed(() => this.competition.currentRoundId);
   readonly round = this.selectedRound.round;
-  readonly retrievedAt = new Intl.DateTimeFormat('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    timeZone: 'UTC',
-  }).format(new Date(this.competition.retrievedAt));
+  /** `26 / 27`. */
+  readonly season = computed(() => shortSeason(this.competition.season, ' / '));
+  readonly competitionShortName = computed(() => this.competition.shortName);
+  readonly regularRounds = computed(() => this.competition.regularRounds);
+  readonly retrievedAt = computed(() =>
+    SNAPSHOT_DATE.format(new Date(this.competition.retrievedAt)),
+  );
+  /** The league being shown, for the top-left block, eyebrows and footer. */
+  readonly league = this.context.current;
+  readonly leagueName = this.context.name;
+  readonly leagueHome = computed(() => this.context.url());
   readonly nav = [
     { path: '/', label: 'Home', icon: 'home' },
     { path: '/standings', label: 'Standings', icon: 'standings' },
@@ -82,13 +94,17 @@ export class Shell {
     { initialValue: this.router.url },
   );
   readonly currentUrl = computed(() => this.navigated());
-  readonly isHome = computed(() => this.path(this.navigated()) === '/');
+  /** The path inside the league: `/piele/match/1` is `/match/1`. */
+  private readonly leaguePath = computed(() => this.context.within(this.navigated()));
+  readonly isHome = computed(() => this.leaguePath() === '/');
+  readonly isMatch = computed(() => this.leaguePath().startsWith('/match/'));
   readonly pageBackground = computed(() => {
-    const path = this.path(this.navigated());
-    if (path === '/') return stadiumBackground(this.view.featured()?.venue);
+    const path = this.leaguePath();
+    const stadiums = this.competition.current().stadiums;
+    if (path === '/') return stadiums.background(this.view.featured()?.venue);
     if (path.startsWith('/match/')) {
       const fixture = this.competition.locate(path.slice('/match/'.length))?.fixture;
-      return stadiumBackground(fixture?.venue);
+      return stadiums.background(fixture?.venue);
     }
     return this.favouriteTeam()?.stadiumBackground;
   });
@@ -125,3 +141,11 @@ export class Shell {
     return url.split(/[?#]/)[0];
   }
 }
+
+/** The schedule snapshot's check date, a calendar date with no zone. */
+const SNAPSHOT_DATE = new Intl.DateTimeFormat('en-GB', {
+  day: '2-digit',
+  month: 'short',
+  year: 'numeric',
+  timeZone: 'UTC',
+});

@@ -6,7 +6,7 @@
 >
   <form [formGroup]="form" (ngSubmit)="submit()">
     <div class="dialog-top">
-      <span class="eyebrow">PIELE / CAPTAIN'S DESK</span
+      <span class="eyebrow">{{ view.leagueName().toUpperCase() }} / CAPTAIN'S DESK</span
       ><button type="button" class="icon-button" aria-label="Close dialog" (click)="close()">
         <app-icon name="close" />
       </button>
@@ -32,13 +32,13 @@
       <label class="field">
         <span>Round</span>
         <select formControlName="roundId">
-          @for (round of rounds; track round.id) {
+          @for (round of rounds(); track round.id) {
             <option [value]="round.id">{{ round.title }}</option>
           }
         </select>
       </label>
       <label class="field">
-        <span>Deadline (SAST)</span>
+        <span>Deadline ({{ zoneName() }})</span>
         <input type="datetime-local" formControlName="deadline" />
       </label>
     </div>

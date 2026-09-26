@@ -1,3 +1,16 @@
+.league-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  align-items: baseline;
+  margin: 0 0 14px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.league-line strong {
+  font-size: 15px;
+  color: #fff;
+}
 .more-links {
   display: grid;
   gap: 12px;

@@ -10,7 +10,9 @@ import {
   viewChild,
 } from '@angular/core';
 import { Router } from '@angular/router';
-import { formatLeagueTime } from '../../competition/league-time';
+import { CompetitionService } from '../../competition/competition.service';
+import { LeagueTime } from '../../competition/league-time';
+import { LeagueContext } from '../../league/league-context';
 import { Notice, NotificationsService, PinnedNotice } from '../../league/notifications.service';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideArrowRight } from '@ng-icons/lucide';
@@ -40,8 +42,11 @@ const UNFURL_MS = 1800;
 })
 export class NotificationsFlag {
   private readonly router = inject(Router);
+  private readonly context = inject(LeagueContext);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   readonly notifications = inject(NotificationsService);
+  private readonly competition = inject(CompetitionService);
+  private readonly time = inject(LeagueTime);
   private readonly trigger = viewChild.required<ElementRef<HTMLButtonElement>>('trigger');
   private readonly ripple = viewChild.required<ElementRef<SVGElement>>('ripple');
 
@@ -51,6 +56,8 @@ export class NotificationsFlag {
   private settleTimer: ReturnType<typeof setTimeout> | undefined;
 
   readonly round = this.notifications.currentRound;
+  readonly emblem = computed(() => this.competition.current().emblem);
+  readonly competitionName = computed(() => this.competition.current().name);
   readonly pinned = this.notifications.pinned;
   readonly items = this.notifications.stream;
   readonly unread = this.notifications.unread;
@@ -77,7 +84,7 @@ export class NotificationsFlag {
     const next = this.round()
       .fixtures.filter((f) => !!f.kickoffUtc && Date.parse(f.kickoffUtc) > now)
       .sort((a, b) => a.kickoffUtc!.localeCompare(b.kickoffUtc!))[0];
-    return next ? `${next.home} v ${next.away}, ${formatLeagueTime(next.kickoffUtc)}` : null;
+    return next ? `${next.home} v ${next.away}, ${this.time.format(next.kickoffUtc)}` : null;
   });
 
   constructor() {
@@ -132,7 +139,7 @@ export class NotificationsFlag {
 
   private go(path: string, round: number | null): void {
     this.close();
-    void this.router.navigate([path], {
+    void this.router.navigate([this.context.url(path)], {
       queryParams: round !== null ? { round } : {},
       queryParamsHandling: 'merge',
     });

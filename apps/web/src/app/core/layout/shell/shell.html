@@ -7,17 +7,24 @@
   <aside class="season-rail">
     <a
       class="rail-brand"
-      routerLink="/"
+      [routerLink]="leagueHome()"
       queryParamsHandling="preserve"
-      aria-label="The Pavilion home"
+      [attr.aria-label]="leagueName() + ' home'"
     >
-      <img src="assets/images/piele-crest.png" alt="League crest" /><span
-        ><strong>THE PAVILION</strong><small>THE RUGBY CLUBHOUSE</small></span
+      <app-league-crest
+        [name]="leagueName()"
+        [slug]="league()?.slug ?? ''"
+        [emblemUrl]="league()?.emblemUrl ?? null"
+      /><span
+        ><strong>{{ leagueName().toUpperCase() }}</strong
+        ><small>{{ competitionShortName() }} {{ season() }}</small></span
       >
     </a>
     <app-season-timeline
-      [rounds]="rounds"
-      [current]="currentRound"
+      [rounds]="rounds()"
+      [current]="currentRound()"
+      [season]="season()"
+      [regularRounds]="regularRounds()"
       [selected]="round().id"
       (choose)="selectRound($event)"
     />
@@ -25,18 +32,23 @@
   <header class="top-bar">
     <a
       class="club-brand"
-      routerLink="/"
+      [routerLink]="leagueHome()"
       queryParamsHandling="preserve"
-      aria-label="The Pavilion home"
+      [attr.aria-label]="leagueName() + ' home'"
     >
-      <img src="assets/images/piele-crest.png" alt="League crest" /><span
-        ><strong>THE PAVILION</strong><small>THE RUGBY CLUBHOUSE</small></span
+      <app-league-crest
+        [name]="leagueName()"
+        [slug]="league()?.slug ?? ''"
+        [emblemUrl]="league()?.emblemUrl ?? null"
+      /><span
+        ><strong>{{ leagueName().toUpperCase() }}</strong
+        ><small>{{ competitionShortName() }} {{ season() }}</small></span
       >
     </a>
     <nav class="desktop-nav" aria-label="League navigation">
       @for (item of nav; track item.path) {
         <a
-          [routerLink]="item.path"
+          [routerLink]="item.path | leaguePath"
           queryParamsHandling="preserve"
           routerLinkActive="selected"
           [routerLinkActiveOptions]="{ exact: item.path === '/' }"
@@ -56,7 +68,7 @@
       <app-notifications-flag />
       <a
         class="header-profile"
-        routerLink="/profile"
+        [routerLink]="'/profile' | leaguePath"
         [state]="{ returnUrl: currentUrl() }"
         aria-label="My profile"
       >
@@ -94,7 +106,7 @@
                 ? 'Sample league records'
                 : view.source === 'api'
                   ? 'League records'
-                  : 'Published URC schedule'
+                  : 'Published ' + competitionShortName() + ' schedule'
             }}
           </p>
         </div>
@@ -109,7 +121,7 @@
           ><button
             type="button"
             aria-label="Next round"
-            [disabled]="round().id === rounds.length"
+            [disabled]="round().id === rounds().length"
             (click)="selectRound(round().id + 1)"
           >
             <img src="assets/images/arrows/arrow-right.webp" alt="" />
@@ -122,14 +134,14 @@
     </div>
     <div
       class="page-heading"
-      [class.without-divider]="isHome() || currentUrl().startsWith('/match/')"
+      [class.without-divider]="isHome() || isMatch()"
     >
       <div>
         @if (page().parent; as parent) {
           <nav class="breadcrumbs" aria-label="Breadcrumb">
             <ol class="eyebrow">
               <li>
-                <a [routerLink]="parent.path" queryParamsHandling="preserve"
+                <a [routerLink]="parent.path | leaguePath" queryParamsHandling="preserve"
                   ><img class="crumb-arrow" src="assets/images/arrows/arrow-left.webp" alt="" />{{
                     parent.label.toUpperCase()
                   }}</a
@@ -143,7 +155,7 @@
         }
         <h1>{{ page().title }}</h1>
       </div>
-      @if (!isHome() && !currentUrl().startsWith('/match/')) {
+      @if (!isHome() && !isMatch()) {
         <span class="scope-note">{{
           page().seasonWide ? 'Applies to the whole season.' : 'Viewing ' + round().title + '.'
         }}</span>
@@ -170,23 +182,23 @@
       <router-outlet />
     </div>
     <footer class="club-footer">
-      <span>PIELE / ROUND {{ round().code }}</span
+      <span>{{ leagueName().toUpperCase() }} / ROUND {{ round().code }}</span
       ><span>{{
         view.sample
           ? 'Sample league records for development. Names, points, duties and votes are illustrative.'
           : view.source === 'api'
-            ? 'Official fixtures checked ' + retrievedAt + '. Times in SAST.'
+            ? 'Official fixtures checked ' + retrievedAt() + '. Times in ' + zoneName() + '.'
             : 'Official fixtures checked ' +
-              retrievedAt +
+              retrievedAt() +
               '. League records appear once the league API is connected.'
       }}</span
-      ><span>26 / 27</span>
+      ><span>{{ season() }}</span>
     </footer>
   </main>
   <nav class="mobile-nav" aria-label="Mobile league navigation">
     @for (item of mobileNav; track item.path) {
       <a
-        [routerLink]="item.path"
+        [routerLink]="item.path | leaguePath"
         queryParamsHandling="preserve"
         routerLinkActive="selected"
         [routerLinkActiveOptions]="{ exact: item.path === '/' }"

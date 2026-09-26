@@ -3,6 +3,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { AuthService } from '../auth/auth.service';
+import { CompetitionService } from '../competition/competition.service';
 import { RoundEvent, RoundUpdates } from './match-centre.models';
 
 /**
@@ -13,6 +14,7 @@ import { RoundEvent, RoundUpdates } from './match-centre.models';
 @Injectable({ providedIn: 'root' })
 export class RoundUpdatesService {
   private readonly http = inject(HttpClient);
+  private readonly competition = inject(CompetitionService);
   readonly configured = !!environment.apiUrl && inject(AuthService).configured;
   private readonly byRound = signal<ReadonlyMap<number, readonly RoundEvent[]>>(new Map());
   readonly events = computed<readonly RoundEvent[]>(() => [...this.byRound().values()].flat());
@@ -23,11 +25,10 @@ export class RoundUpdatesService {
   /** Fetches the given rounds and forgets rounds no longer followed. */
   async load(rounds: readonly number[]): Promise<void> {
     if (!this.configured) return;
+    const base = `${environment.apiUrl}/v1/competitions/${this.competition.current().id}`;
     const results = await Promise.allSettled(
       rounds.map((round) =>
-        firstValueFrom(
-          this.http.get<RoundUpdates>(`${environment.apiUrl}/v1/rounds/${round}/updates`),
-        ),
+        firstValueFrom(this.http.get<RoundUpdates>(`${base}/rounds/${round}/updates`)),
       ),
     );
     this.byRound.update((previous) => {

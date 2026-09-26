@@ -135,6 +135,10 @@ def members(actor: Actor) -> Sequence[Any]:
 # Leagues, accounts and joining -----------------------------------------------------------
 
 SLUG_PATTERN = re.compile(r"^[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])?$")
+# Top-level web routes that a league slug must never shadow (apps/web/src/app/app.routes.ts).
+RESERVED_SLUGS = frozenset(
+    {"sign-in", "join", "no-league", "manage", "standings", "duties", "decisions", "constitution", "captain", "more", "profile", "welcome", "match", "api", "v1"}
+)
 ACCENT_PATTERN = re.compile(r"^#[0-9a-f]{6}$")
 JOIN_CODE_PATTERN = re.compile(r"^[a-z0-9]{4,16}$")
 
@@ -160,6 +164,8 @@ def create_league(
     and, later, the admin's management centre. New leagues get a join code."""
     if not SLUG_PATTERN.fullmatch(slug):
         raise problem(422, "invalid_slug", "Use 3 to 40 lower-case letters, digits and hyphens for the slug.")
+    if slug in RESERVED_SLUGS:
+        raise problem(422, "invalid_slug", f"The slug {slug!r} is reserved.")
     if competition_id not in competitions.ALL:
         raise problem(
             422, "unknown_competition", f"Unknown competition {competition_id!r}; known: {', '.join(competitions.ALL)}."

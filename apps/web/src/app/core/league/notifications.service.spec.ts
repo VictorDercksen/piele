@@ -3,11 +3,8 @@ import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { RoundEvent } from '../api/match-centre.models';
-import {
-  CompetitionService,
-  buildRounds,
-  currentRoundId,
-} from '../competition/competition.service';
+import { CompetitionService } from '../competition/competition.service';
+import { competition } from '../competition/registry';
 import { ProfileStore } from '../profile/profile.store';
 import { LeagueData } from './league-data';
 import {
@@ -20,10 +17,12 @@ import {
 } from './notifications.service';
 import { SampleLeagueData } from './sample-league-data';
 
+const URC = competition('urc-2026-27');
+
 /** The published rounds, seen from a chosen moment. */
 function located(...roundIds: number[]): Map<string, LocatedFixture> {
   const map = new Map<string, LocatedFixture>();
-  for (const round of buildRounds(1))
+  for (const round of URC.buildRounds(1))
     if (roundIds.includes(round.id))
       for (const fixture of round.fixtures) map.set(fixture.id, { fixture, round: round.id });
   return map;
@@ -96,16 +95,21 @@ describe('competition notices', () => {
 });
 
 describe('NotificationsService', () => {
-  function setup(now: string, round = currentRoundId(Date.parse(now))) {
+  function setup(now: string, round = URC.currentRoundId(Date.parse(now))) {
     TestBed.resetTestingModule();
     vi.useFakeTimers({
       toFake: ['Date', 'setInterval', 'clearInterval', 'setTimeout', 'clearTimeout'],
     });
     vi.setSystemTime(Date.parse(now));
     localStorage.clear();
+    const rounds = URC.buildRounds(round);
     class Frozen extends CompetitionService {
-      override readonly currentRoundId = round;
-      override readonly rounds = buildRounds(round);
+      override get currentRoundId() {
+        return round;
+      }
+      override get rounds() {
+        return rounds;
+      }
     }
     TestBed.configureTestingModule({
       providers: [
@@ -175,7 +179,7 @@ describe('NotificationsService', () => {
     await service.markAllRead();
     expect(service.unread()).toBe(0);
     expect(service.read()).toEqual({ readAt: '2026-10-05T10:00:00.000Z', readKeys: [] });
-    expect(JSON.parse(localStorage.getItem('pavilion-notifications-read-v2')!).readAt).toBe(
+    expect(JSON.parse(localStorage.getItem('pavilion-notifications-read-v2:piele')!).readAt).toBe(
       '2026-10-05T10:00:00.000Z',
     );
   });

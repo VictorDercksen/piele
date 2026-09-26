@@ -51,10 +51,8 @@
   color: #fff;
   text-decoration: none;
 }
-.club-brand img {
-  width: 40px;
-  height: 44px;
-  object-fit: contain;
+.club-brand app-league-crest {
+  --avatar-size: 42px;
 }
 .club-brand strong {
   display: block;
@@ -67,7 +65,7 @@
 .club-brand small {
   display: block;
   margin-top: 6px;
-  font-size: 6px;
+  font-size: 9px;
   letter-spacing: 1.45px;
   color: #b2bdc4;
   white-space: nowrap;
@@ -202,12 +200,10 @@
   color: #fff;
   text-decoration: none;
 }
-.rail-brand img {
-  width: 34px;
-  height: 40px;
-  object-fit: contain;
+.rail-brand app-league-crest {
+  --avatar-size: 38px;
 }
-// The rail is narrow, so the wordmark stacks: THE over PAVILION.
+// The rail is narrow, so a long league name stacks: POFADDER over BOWL.
 .rail-brand strong {
   display: block;
   font-size: 16px;
@@ -218,7 +214,7 @@
 .rail-brand small {
   display: block;
   margin-top: 5px;
-  font-size: 5.5px;
+  font-size: 8.5px;
   letter-spacing: 1.2px;
   color: #b2bdc4;
   white-space: nowrap;
@@ -509,9 +505,8 @@ app-season-timeline {
     background: var(--surface-grain), #142429;
     color: #fff;
   }
-  .club-brand img {
-    width: 32px;
-    height: 38px;
+  .club-brand app-league-crest {
+    --avatar-size: 36px;
   }
   .club-brand strong {
     font-size: 18px;

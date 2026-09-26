@@ -1,6 +1,9 @@
 import { TestBed } from '@angular/core/testing';
 import { Fixture } from './competition.models';
 import { MatchArtwork, matchArtwork } from './match-artwork';
+import { competition } from './registry';
+
+const URC = competition('urc-2026-27');
 
 const MUNSTER_GLASGOW: Fixture = {
   id: 'test',
@@ -21,7 +24,7 @@ describe('match artwork', () => {
   });
 
   it('lists both clubs’ artwork and the venue flag, icon and background', () => {
-    expect(matchArtwork(MUNSTER_GLASGOW)).toEqual([
+    expect(matchArtwork(URC, MUNSTER_GLASGOW)).toEqual([
       'assets/images/club-banners/munster-rugby-pattern.jpeg',
       'assets/images/club-banners/munster-rugby-crest.svg',
       'assets/images/club-banners/glasgow-warriors-pattern.jpeg',
@@ -31,7 +34,7 @@ describe('match artwork', () => {
       'assets/images/match-nights/munster-rugby.webp',
     ]);
     expect(
-      matchArtwork({ ...MUNSTER_GLASGOW, awayAsset: 'unknown', venue: 'To be confirmed' }),
+      matchArtwork(URC, { ...MUNSTER_GLASGOW, awayAsset: 'unknown', venue: 'To be confirmed' }),
     ).toHaveLength(2);
   });
 

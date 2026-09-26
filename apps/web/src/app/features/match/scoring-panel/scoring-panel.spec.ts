@@ -2,6 +2,9 @@ import { TestBed } from '@angular/core/testing';
 import { Fixture } from '../../../core/competition/competition.models';
 import { scoringView } from '../scoring';
 import { ScoringPanel } from './scoring-panel';
+import { competition } from '../../../core/competition/registry';
+
+const URC = competition('urc-2026-27');
 
 const FIXTURE: Fixture = {
   id: '292584',
@@ -16,6 +19,7 @@ const FIXTURE: Fixture = {
 };
 
 const VIEW = scoringView(
+  URC,
   FIXTURE,
   {
     status: 'ok',

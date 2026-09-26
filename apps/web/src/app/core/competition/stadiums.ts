@@ -1,16 +1,22 @@
-import { club } from './teams';
+import { URC_TEAMS } from './teams';
+import { Country, StadiumCatalogue } from './competition.models';
 
-/** A country flag shipped in public/assets/images/flags. Source details: sources.json there. */
-export interface StadiumCountry {
-  readonly name: string;
-  readonly flag: string;
-}
-
-/** A known URC venue: its country and its icon in public/assets/images/stadiums. */
-interface Stadium {
-  readonly country: StadiumCountry;
+/** A known venue: its country and its icon in public/assets/images/stadiums. */
+export interface Stadium {
+  readonly country: Country;
   readonly icon: string;
   readonly background?: string;
+}
+
+/** Looks venues up by name regardless of case and surrounding space. */
+export function stadiumCatalogue(venues: Readonly<Record<string, Stadium>>): StadiumCatalogue {
+  const byName = new Map(Object.entries(venues).map(([name, s]) => [name.toLowerCase(), s]));
+  const find = (venue: string | null | undefined) => byName.get((venue ?? '').trim().toLowerCase());
+  return {
+    country: (venue) => find(venue)?.country,
+    icon: (venue) => find(venue)?.icon,
+    background: (venue) => find(venue)?.background,
+  };
 }
 
 const COUNTRIES = {
@@ -24,9 +30,9 @@ const COUNTRIES = {
 
 /**
  * Every venue in the published URC 2026/27 schedule, the country it stands in and its icon.
- * Mirrors the stadium list in apps/api/app/matchcentre/catalogue.py.
+ * Mirrors the URC stadium list in the API's competition catalogue.
  */
-const STADIUMS: Readonly<Record<string, Stadium>> = {
+const URC_VENUES: Readonly<Record<string, Stadium>> = {
   '10bet Ellis Park': stadium(COUNTRIES.southAfrica, 'ellis-park', '10bet-lions'),
   'Affidea Stadium': stadium(COUNTRIES.northernIreland, 'affidea-stadium', 'ulster-rugby'),
   'Aviva Stadium': stadium(COUNTRIES.ireland, 'aviva-stadium'),
@@ -49,35 +55,16 @@ const STADIUMS: Readonly<Record<string, Stadium>> = {
   'Virgin Media Park': stadium(COUNTRIES.ireland, 'virgin-media-park'),
 };
 
-const BY_NAME = new Map(Object.entries(STADIUMS).map(([name, s]) => [name.toLowerCase(), s]));
+export const URC_STADIUMS = stadiumCatalogue(URC_VENUES);
 
-/** The country of a known URC venue, or undefined for an unconfirmed or unknown one. */
-export function stadiumCountry(venue: string | null | undefined): StadiumCountry | undefined {
-  return find(venue)?.country;
-}
-
-/** The icon of a known URC venue, or undefined for an unconfirmed or unknown one. */
-export function stadiumIcon(venue: string | null | undefined): string | undefined {
-  return find(venue)?.icon;
-}
-
-/** Match-night artwork for the actual venue. Alternate grounds use the generic fallback. */
-export function stadiumBackground(venue: string | null | undefined): string | undefined {
-  return find(venue)?.background;
-}
-
-function find(venue: string | null | undefined): Stadium | undefined {
-  return BY_NAME.get((venue ?? '').trim().toLowerCase());
-}
-
-function country(name: string, code: string): StadiumCountry {
+function country(name: string, code: string): Country {
   return { name, flag: `assets/images/flags/${code}.svg` };
 }
 
-function stadium(country: StadiumCountry, icon: string, teamId?: string): Stadium {
+function stadium(country: Country, icon: string, teamId?: string): Stadium {
   return {
     country,
     icon: `assets/images/stadiums/${icon}.webp`,
-    background: club(teamId ?? '')?.stadiumBackground,
+    background: URC_TEAMS.find((team) => team.id === teamId)?.stadiumBackground,
   };
 }

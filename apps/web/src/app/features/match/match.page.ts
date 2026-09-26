@@ -1,4 +1,4 @@
-import { DatePipe, DecimalPipe } from '@angular/common';
+import { DecimalPipe } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -15,7 +15,10 @@ import { LiveScoresService, inPlayWindow } from '../../core/api/live-scores.serv
 import { MatchCentreService } from '../../core/api/match-centre.service';
 import { MatchCentre, SectionStatus } from '../../core/api/match-centre.models';
 import { CompetitionService } from '../../core/competition/competition.service';
+import { LeagueTime } from '../../core/competition/league-time';
+import { LeagueTimePipe } from '../../core/competition/league-time.pipe';
 import { SelectedRoundService } from '../../core/competition/selected-round.service';
+import { LeagueContext } from '../../core/league/league-context';
 import { RoundViewService } from '../../core/league/round-view.service';
 import { ProfileStore } from '../../core/profile/profile.store';
 import { NgIcon, provideIcons } from '@ng-icons/core';
@@ -42,16 +45,22 @@ import { scoringView } from './scoring';
 import { sheetView } from './teamsheet';
 import { weatherSky } from './weather-sky';
 
-/** South African Standard Time has no daylight saving, so a fixed offset is exact. */
-export const SAST = '+0200';
-
 /** Match details for one fixture: kickoff, deadline, live score, teamsheets and weather. */
 @Component({
   selector: 'app-match-page',
   templateUrl: './match.page.html',
   styleUrl: './match.page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, DecimalPipe, Icon, NgIcon, BallLoader, MatchHero, MatchPreview, ScoringPanel],
+  imports: [
+    LeagueTimePipe,
+    DecimalPipe,
+    Icon,
+    NgIcon,
+    BallLoader,
+    MatchHero,
+    MatchPreview,
+    ScoringPanel,
+  ],
   viewProviders: [
     provideIcons({
       lucideCloud,
@@ -72,13 +81,15 @@ export const SAST = '+0200';
 export class MatchPage {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly context = inject(LeagueContext);
   private readonly competition = inject(CompetitionService);
   private readonly live = inject(LiveScoresService);
   private readonly selected = inject(SelectedRoundService);
   private readonly matchCentre = inject(MatchCentreService);
   readonly view = inject(RoundViewService);
   readonly favouriteTeam = inject(ProfileStore).team;
-  readonly sast = SAST;
+  /** The display zone for the page's timestamps. */
+  readonly zone = inject(LeagueTime).zone;
 
   /** The fixture named in the URL, with its live score, which the shell's selected round follows. */
   readonly fixture = computed(() => this.view.featured());
@@ -106,8 +117,8 @@ export class MatchPage {
     }
     const kickoff = centre?.kickoffUtc ?? fixture.kickoffUtc;
     return [
-      sheetView(fixture.home, fixture.homeAsset, section.home, kickoff),
-      sheetView(fixture.away, fixture.awayAsset, section.away, kickoff),
+      sheetView(this.competition.current(), fixture.home, fixture.homeAsset, section.home, kickoff),
+      sheetView(this.competition.current(), fixture.away, fixture.awayAsset, section.away, kickoff),
     ];
   });
   /** Live score and scoring pitch, hidden until ten minutes before kickoff. */
@@ -116,6 +127,7 @@ export class MatchPage {
     if (!fixture) return null;
     const centre = this.data();
     return scoringView(
+      this.competition.current(),
       fixture,
       centre?.score,
       this.live.clock(),
@@ -130,7 +142,7 @@ export class MatchPage {
   /** Sky backdrop for the kickoff forecast, when there is one. */
   readonly sky = computed(() => {
     const weather = this.data()?.weather;
-    return weather?.status === 'ok' ? weatherSky(weather) : null;
+    return weather?.status === 'ok' ? weatherSky(weather, this.zone()) : null;
   });
 
   private lastFixtureId: string | null = null;
@@ -160,7 +172,8 @@ export class MatchPage {
 
   /** Copy for a section that has no data to show. */
   message(kind: 'teamsheets' | 'weather', status: SectionStatus): string {
-    return MESSAGES[kind][status] ?? MESSAGES[kind]['unavailable']!;
+    const text = MESSAGES[kind][status] ?? MESSAGES[kind]['unavailable']!;
+    return text.replace('{competition}', this.competition.shortName);
   }
 
   /**
@@ -172,7 +185,10 @@ export class MatchPage {
     const id = this.route.snapshot.paramMap.get('fixtureId') ?? '';
     const located = this.competition.locate(id);
     if (!located) {
-      void this.router.navigate(['/'], { queryParamsHandling: 'preserve', replaceUrl: true });
+      void this.router.navigate([this.context.url()], {
+        queryParamsHandling: 'preserve',
+        replaceUrl: true,
+      });
       return;
     }
     const roundChanged = this.lastFixtureId === id;
@@ -184,7 +200,7 @@ export class MatchPage {
     if (roundChanged) {
       const next = this.view.featured();
       if (next) {
-        void this.router.navigate(['/match', next.id], {
+        void this.router.navigate([this.context.url('/match'), next.id], {
           queryParamsHandling: 'preserve',
           replaceUrl: true,
         });
@@ -203,7 +219,7 @@ export class MatchPage {
 const MESSAGES: Record<string, Partial<Record<SectionStatus, string>>> = {
   teamsheets: {
     not_published: 'Teamsheets are usually published about 48 hours before kickoff.',
-    unavailable: 'The URC match centre could not be reached. Try again later.',
+    unavailable: 'The {competition} match centre could not be reached. Try again later.',
   },
   weather: {
     too_early: 'The kickoff forecast opens seven days before the match.',

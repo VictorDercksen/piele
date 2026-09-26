@@ -5,23 +5,32 @@ import { environment } from '../../../environments/environment';
 import { AuthService } from '../auth/auth.service';
 import { HttpLeagueData } from './http-league-data';
 
-const API = `${environment.apiUrl}/v1`;
+const API = `${environment.apiUrl}/v1/leagues/l-1`;
+const OTHER = `${environment.apiUrl}/v1/leagues/l-2`;
 const PHOTO_URL = 'https://storage.test/avatars/u-1/old.jpg?token=t';
 // The smallest byte run the photo check accepts as a JPEG.
 const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 0]);
 const NEW_PHOTO = 'data:image/jpeg;base64,/9j/4AAQ';
 
 const me = (profile: { favouriteTeamId: string | null; photoUrl: string | null }) => ({
+  leagueId: 'l-1',
+  slug: 'piele',
+  leagueName: 'Piele',
+  timezone: 'Africa/Johannesburg',
+  emblemUrl: null,
+  accentColour: null,
+  competition: { id: 'urc-2026-27', name: 'United Rugby Championship 2026/27', shortName: 'URC' },
+  seasonName: 'URC 2026/27',
+  inSeason: true,
   memberId: 'm-1',
   displayName: 'Trokkie',
   isCaptain: false,
-  leagueName: 'Piele',
-  seasonName: 'URC 2026/27',
-  inSeason: true,
+  isAdmin: false,
+  administers: false,
   ...profile,
 });
 
-describe('HttpLeagueData profile', () => {
+describe('HttpLeagueData', () => {
   const uploads: string[] = [];
 
   function setup() {
@@ -47,10 +56,10 @@ describe('HttpLeagueData profile', () => {
   }
 
   /** Answers the league record requests that follow /me. */
-  function flushRecords(http: HttpTestingController, standings: unknown[] = []) {
-    http.expectOne(`${API}/standings`).flush(standings);
+  function flushRecords(http: HttpTestingController, standings: unknown[] = [], base = API) {
+    http.expectOne(`${base}/standings`).flush(standings);
     for (const path of ['/members', '/duties', '/marks', '/feed?limit=200'])
-      http.expectOne(`${API}${path}`).flush([]);
+      http.expectOne(`${base}${path}`).flush([]);
   }
 
   async function settle() {
@@ -59,7 +68,7 @@ describe('HttpLeagueData profile', () => {
 
   it('loads the saved team and downloads the photo on sign-in', async () => {
     const { league, http } = setup();
-    const loaded = league.ensureLoaded();
+    const loaded = league.load('l-1');
     http.expectOne(`${API}/me`).flush(me({ favouriteTeamId: 'dhl-stormers', photoUrl: PHOTO_URL }));
     await settle();
     flushRecords(http);
@@ -74,7 +83,7 @@ describe('HttpLeagueData profile', () => {
 
   it('loads the Superbru round standings', async () => {
     const { league, http } = setup();
-    const loaded = league.ensureLoaded();
+    const loaded = league.load('l-1');
     http.expectOne(`${API}/me`).flush(me({ favouriteTeamId: null, photoUrl: null }));
     await settle();
     flushRecords(http, [
@@ -92,7 +101,7 @@ describe('HttpLeagueData profile', () => {
 
   it('has no profile until a team is chosen, and shows initials when the photo is not a JPEG', async () => {
     const { league, http } = setup();
-    const loaded = league.ensureLoaded();
+    const loaded = league.load('l-1');
     http.expectOne(`${API}/me`).flush(me({ favouriteTeamId: null, photoUrl: PHOTO_URL }));
     await settle();
     flushRecords(http);
@@ -113,7 +122,7 @@ describe('HttpLeagueData profile', () => {
 
   it('uploads a new photo to Storage before saving and removes it on request', async () => {
     const { league, http } = setup();
-    const loaded = league.ensureLoaded();
+    const loaded = league.load('l-1');
     http.expectOne(`${API}/me`).flush(me({ favouriteTeamId: 'ospreys', photoUrl: null }));
     await settle();
     flushRecords(http);
@@ -152,5 +161,72 @@ describe('HttpLeagueData profile', () => {
     expect(league.profile()?.photo).toBeNull();
     expect(uploads.length).toBe(1);
     http.verify();
+  });
+
+  it('clears one league’s records when another is chosen and loads that one', async () => {
+    const { league, http } = setup();
+    const first = league.load('l-1');
+    http.expectOne(`${API}/me`).flush(me({ favouriteTeamId: 'dhl-stormers', photoUrl: null }));
+    await settle();
+    flushRecords(http, [{ roundNumber: 1, memberId: 'm-1', memberName: 'Trokkie', rank: 1, points: 5 }]);
+    expect(await first).toBe('member');
+    expect(league.standings().length).toBe(1);
+    // The same league again shares what is loaded.
+    expect(await league.load('l-1')).toBe('member');
+    http.expectNone(`${API}/me`);
+
+    const second = league.load('l-2');
+    expect(league.leagueId()).toBe('l-2');
+    expect(league.standings()).toEqual([]);
+    expect(league.profile()).toBeNull();
+    http
+      .expectOne(`${OTHER}/me`)
+      .flush({ ...me({ favouriteTeamId: 'ospreys', photoUrl: null }), leagueId: 'l-2', memberId: 'm-9' });
+    await settle();
+    flushRecords(http, [], OTHER);
+    expect(await second).toBe('member');
+    expect(league.currentMemberId()).toBe('m-9');
+    expect(league.profile()?.teamId).toBe('ospreys');
+
+    const saving = league.markLastUsed();
+    const last = http.expectOne(`${OTHER}/me/last`);
+    expect(last.request.method).toBe('PUT');
+    last.flush(null, { status: 204, statusText: 'No Content' });
+    await saving;
+    http.verify();
+  });
+
+  it('reports a league the API refuses and emits it', async () => {
+    const { league, http } = setup();
+    const refused: string[] = [];
+    league.refused.subscribe({ next: (id) => refused.push(id) });
+    const loaded = league.load('l-1');
+    http
+      .expectOne(`${API}/me`)
+      .flush(
+        { detail: { code: 'not_a_member', message: 'You are not a member of this league.' } },
+        { status: 403, statusText: 'Forbidden' },
+      );
+    expect(await loaded).toBe('not_member');
+    expect(league.error()).toBeNull();
+    expect(refused).toEqual(['l-1']);
+  });
+
+  it('shows the admin a league without a membership and no profile', async () => {
+    const { league, http } = setup();
+    const loaded = league.load('l-1');
+    http.expectOne(`${API}/me`).flush({
+      ...me({ favouriteTeamId: null, photoUrl: null }),
+      memberId: null,
+      displayName: 'Admin',
+      isAdmin: true,
+      administers: true,
+    });
+    await settle();
+    flushRecords(http);
+    expect(await loaded).toBe('member');
+    expect(league.isMember()).toBe(false);
+    expect(league.profile()).toBeNull();
+    expect(league.currentMemberName()).toBe('Admin');
   });
 });

@@ -67,8 +67,8 @@
     </ol>
   </details>
   <p class="preview-note">
-    As of {{ preview.generatedAt | date: 'd MMM HH:mm' : sast }} SAST. Written by the Pavilion agent
-    from public sources and the published teamsheets. It can be wrong.
+    As of {{ preview.generatedAt | leagueTime: 'd MMM HH:mm z' : zone() }}. Written by the Pavilion
+    agent from public sources and the published teamsheets. It can be wrong.
   </p>
 } @else {
   <p class="preview-empty">

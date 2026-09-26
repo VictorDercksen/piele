@@ -63,10 +63,8 @@ button:disabled {
   color: #fff;
   text-decoration: none;
 }
-.profile-brand img {
-  width: 45px;
-  height: 55px;
-  object-fit: contain;
+.profile-brand app-league-crest {
+  --avatar-size: 50px;
 }
 .profile-brand span {
   font-size: 10px;

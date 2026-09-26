@@ -6,7 +6,7 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { MatchPreview } from './match-preview';
 import { MatchPreview as Preview } from '../../../core/api/match-centre.models';
 
-const URL = `${environment.apiUrl}/v1/matches/292605/preview`;
+const URL = `${environment.apiUrl}/v1/competitions/urc-2026-27/matches/292605/preview`;
 
 const PREVIEW: Preview = {
   revision: 2,

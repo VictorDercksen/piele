@@ -8,7 +8,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
-import { fromLocalInput } from '../../../core/competition/league-time';
+import { LeagueTime } from '../../../core/competition/league-time';
 import { ToastService } from '../../../core/feedback/toast.service';
 import { LeagueData } from '../../../core/league/league-data';
 import { RoundDutyView, RoundViewService } from '../../../core/league/round-view.service';
@@ -32,6 +32,9 @@ const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
 export class EvidenceDialog {
   private readonly toast = inject(ToastService);
   private readonly league = inject(LeagueData);
+  private readonly time = inject(LeagueTime);
+  /** The display zone's abbreviation, for the completion time label. */
+  readonly zoneName = this.time.abbreviation;
   readonly view = inject(RoundViewService);
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
   readonly duty = signal<RoundDutyView | null>(null);
@@ -83,7 +86,7 @@ export class EvidenceDialog {
     if (!duty || !file || this.note.invalid || this.busy()) return;
     let claimedCompletedAt: string | undefined;
     if (this.onBehalf()) {
-      const instant = fromLocalInput(this.completedAt.value);
+      const instant = this.time.fromLocalInput(this.completedAt.value);
       if (!instant) {
         this.error.set('Record when the duty was completed.');
         return;

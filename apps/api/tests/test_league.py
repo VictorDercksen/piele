@@ -787,6 +787,8 @@ def test_create_league_refuses_a_taken_slug(client: TestClient) -> None:
         bootstrap.bootstrap(connection, f"b-{uuid4().hex[:8]}@example.com", SEED, slug=slug)
     with engine.begin() as connection, pytest.raises(SystemExit, match="slug"):
         bootstrap.bootstrap(connection, "c@example.com", SEED, slug="Not A Slug")
+    with engine.begin() as connection, pytest.raises(SystemExit, match="reserved"):
+        bootstrap.bootstrap(connection, "c@example.com", SEED, slug="standings")
     with engine.begin() as connection, pytest.raises(SystemExit, match="Unknown time zone"):
         bootstrap.bootstrap(connection, "c@example.com", SEED, slug=f"test-{uuid4().hex[:12]}", timezone="Mars/Olympus")
 

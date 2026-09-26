@@ -1,4 +1,5 @@
 import { Fixture } from './competition.models';
+import { DEFAULT_ZONE, zoneAbbreviation } from './league-time';
 
 /** What the score bug shows for a fixture: before kickoff, in play or after the whistle. */
 export interface ScoreBug {
@@ -10,7 +11,8 @@ export interface ScoreBug {
   readonly live: boolean;
 }
 
-export function scoreBug(fixture: Fixture): ScoreBug {
+/** The score bug, with a kickoff time labelled in the display zone. */
+export function scoreBug(fixture: Fixture, zone = DEFAULT_ZONE): ScoreBug {
   const score = fixture.score ?? '';
   switch (fixture.state) {
     case 'live':
@@ -44,7 +46,7 @@ export function scoreBug(fixture: Fixture): ScoreBug {
         heading: null,
         caption: 'KICKOFF',
         value: fixture.time,
-        note: fixture.kickoffUtc ? 'SAST' : 'TIME TBC',
+        note: fixture.kickoffUtc ? zoneAbbreviation(zone, fixture.kickoffUtc) : 'TIME TBC',
         live: false,
       };
   }

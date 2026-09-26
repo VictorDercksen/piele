@@ -17,7 +17,7 @@ import { CompetitionRound } from '../../competition/competition.models';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: ` <nav class="season-timeline" aria-label="Season timeline">
     <div class="timeline-heading">
-      <span>THE SEASON</span><strong>26 / 27</strong
+      <span>THE SEASON</span><strong>{{ season() }}</strong
       ><button type="button" class="current-link" (click)="choose.emit(current())">
         Current round<ng-icon class="link-icon" name="lucideLocateFixed" />
       </button>
@@ -49,7 +49,7 @@ import { CompetitionRound } from '../../competition/competition.models';
         </button>
       }
     </div>
-    <p class="timeline-foot">18 rounds. The playoffs.<br />One clubhouse.</p>
+    <p class="timeline-foot">{{ regularRounds() }} rounds. The playoffs.<br />One clubhouse.</p>
   </nav>`,
   styleUrl: './season-timeline.scss',
   imports: [NgIcon],
@@ -57,6 +57,9 @@ import { CompetitionRound } from '../../competition/competition.models';
 })
 export class SeasonTimeline {
   readonly current = input(1);
+  /** `26 / 27`. */
+  readonly season = input.required<string>();
+  readonly regularRounds = input.required<number>();
   readonly rounds = input.required<readonly CompetitionRound[]>();
   readonly selected = input.required<number>();
   readonly choose = output<number>();

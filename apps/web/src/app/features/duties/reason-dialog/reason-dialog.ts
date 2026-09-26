@@ -2,10 +2,12 @@ import {
   ChangeDetectionStrategy,
   Component,
   ElementRef,
+  inject,
   signal,
   viewChild,
 } from '@angular/core';
 import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
+import { LeagueContext } from '../../../core/league/league-context';
 import { Icon } from '../../../shared/icon/icon';
 import { Loader } from '../../../shared/loader/loader';
 
@@ -19,6 +21,7 @@ import { Loader } from '../../../shared/loader/loader';
 })
 export class ReasonDialog {
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
+  readonly leagueName = inject(LeagueContext).name;
   readonly request = signal<ReasonRequest | null>(null);
   readonly error = signal('');
   readonly busy = signal(false);

@@ -26,7 +26,7 @@
 <section class="honours-board" aria-label="Round standings">
   <div class="board-light" aria-hidden="true"></div>
   <div class="honours-heading">
-    <span>PIELE / {{ measure() === 'points' ? 'ROUND ' + view.round().code : 'SEASON' }}</span>
+    <span>{{ view.leagueName().toUpperCase() }} / {{ measure() === 'points' ? 'ROUND ' + view.round().code : 'SEASON' }}</span>
     <h2>{{ measure() === 'points' ? 'Superbru points' : 'House marks' }}</h2>
   </div>
   @if (measure() === 'marks') {

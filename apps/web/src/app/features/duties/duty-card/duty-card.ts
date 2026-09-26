@@ -7,7 +7,7 @@ import {
   output,
   signal,
 } from '@angular/core';
-import { formatLeagueTime, formatRelative } from '../../../core/competition/league-time';
+import { LeagueTime } from '../../../core/competition/league-time';
 import { LeagueData } from '../../../core/league/league-data';
 import { DutyEvidence } from '../../../core/league/league.models';
 import { RoundDutyView } from '../../../core/league/round-view.service';
@@ -32,6 +32,7 @@ import { lucidePlay } from '@ng-icons/lucide';
 })
 export class DutyCard {
   private readonly league = inject(LeagueData);
+  private readonly time = inject(LeagueTime);
   readonly duty = input.required<RoundDutyView>();
   readonly captain = input(false);
   readonly sample = input(false);
@@ -44,10 +45,10 @@ export class DutyCard {
   /** The captain records a challenge resolved in the member's favour. */
   readonly resetClock = output<void>();
   readonly playbackError = signal('');
-  readonly deadline = computed(() => formatLeagueTime(this.duty().deadlineAt));
+  readonly deadline = computed(() => this.time.format(this.duty().deadlineAt));
   readonly nextMark = computed(() => {
     const at = this.duty().marks.nextMarkAt;
-    return at ? formatLeagueTime(at) : null;
+    return at ? this.time.format(at) : null;
   });
   readonly live = computed(
     () => this.duty().status === 'open' || this.duty().status === 'pending_deadline',
@@ -63,12 +64,12 @@ export class DutyCard {
   );
   readonly clockReset = computed(() => {
     const at = this.duty().clockResetAt;
-    return at ? formatLeagueTime(at) : null;
+    return at ? this.time.format(at) : null;
   });
   readonly evidenceSummary = computed(() => {
     const duty = this.duty();
     if (duty.status === 'completed')
-      return `Accepted · completed ${formatLeagueTime(duty.completedAt)}`;
+      return `Accepted · completed ${this.time.format(duty.completedAt)}`;
     if (duty.status === 'voided') return `Voided · ${duty.voidReason || 'no reason given'}`;
     if (duty.evidence.some((e) => e.decision === 'pending')) return 'Submitted for review';
     if (duty.evidence.some((e) => e.decision === 'rejected')) return 'Rejected · submit again';
@@ -76,7 +77,7 @@ export class DutyCard {
   });
 
   when(evidence: DutyEvidence): string {
-    return formatRelative(evidence.submittedAt);
+    return this.time.relative(evidence.submittedAt);
   }
 
   decisionLabel(evidence: DutyEvidence): string {

@@ -9,11 +9,11 @@ import {
   output,
   signal,
 } from '@angular/core';
-import { CLUB_BANNERS } from '../../../core/competition/club-banners';
 import { Fixture } from '../../../core/competition/competition.models';
+import { CompetitionService } from '../../../core/competition/competition.service';
+import { LeagueTime } from '../../../core/competition/league-time';
 import { MatchArtwork } from '../../../core/competition/match-artwork';
 import { scoreBug } from '../../../core/competition/match-status';
-import { stadiumCountry, stadiumIcon } from '../../../core/competition/stadiums';
 import { Icon } from '../../../shared/icon/icon';
 
 /** Featured fixture with official club banners and stadium details. */
@@ -26,6 +26,8 @@ import { Icon } from '../../../shared/icon/icon';
 })
 export class MatchHero {
   private readonly artwork = inject(MatchArtwork);
+  private readonly competition = inject(CompetitionService);
+  private readonly zone = inject(LeagueTime).zone;
   readonly fixture = input.required<Fixture>();
   readonly roundCode = input.required<string>();
   readonly favourite = input('');
@@ -44,15 +46,17 @@ export class MatchHero {
       !previous || this.artwork.ready(next) ? next : previous.value,
   });
   /** Kickoff time, live score or result for the fixture on screen. */
-  readonly bug = computed(() => scoreBug(this.shown()));
-  readonly homeBanner = computed(() => CLUB_BANNERS[this.shown().homeAsset]);
-  readonly awayBanner = computed(() => CLUB_BANNERS[this.shown().awayAsset]);
-  readonly country = computed(() => stadiumCountry(this.shown().venue));
+  readonly bug = computed(() => scoreBug(this.shown(), this.zone()));
+  readonly homeBanner = computed(() => this.competition.current().banners[this.shown().homeAsset]);
+  readonly awayBanner = computed(() => this.competition.current().banners[this.shown().awayAsset]);
+  readonly country = computed(() =>
+    this.competition.current().stadiums.country(this.shown().venue),
+  );
   /** An icon that failed to load, replaced by the generic stadium drawing. */
   readonly iconFailed = signal<string | undefined>(undefined);
   /** The venue's own icon; unknown venues and failed loads fall back to the generic drawing. */
   readonly stadiumIcon = computed(() => {
-    const icon = stadiumIcon(this.shown().venue);
+    const icon = this.competition.current().stadiums.icon(this.shown().venue);
     return icon === this.iconFailed() ? undefined : icon;
   });
 

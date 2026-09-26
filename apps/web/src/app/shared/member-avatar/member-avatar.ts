@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
+import { CompetitionService } from '../../core/competition/competition.service';
 
 /**
  * A member's avatar on the honours boards: their photo, else their favourite team's artwork,
@@ -10,8 +11,8 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
   template: `
     @if (photo(); as photo) {
       <img class="photo" [src]="photo" alt="" />
-    } @else if (teamId()) {
-      <img class="crest" [src]="'assets/images/teams/' + teamId() + '.png'" alt="" />
+    } @else if (teamArtwork(); as artwork) {
+      <img class="crest" [src]="artwork" alt="" />
     } @else {
       <span class="monogram">{{ initials() }}</span>
     }
@@ -21,9 +22,12 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
   host: { 'aria-hidden': 'true' },
 })
 export class MemberAvatar {
+  private readonly competition = inject(CompetitionService);
   readonly name = input.required<string>();
   readonly photo = input<string | null>(null);
   readonly teamId = input('');
+  /** The team's artwork in the current competition; unknown teams show the monogram. */
+  readonly teamArtwork = computed(() => this.competition.current().team(this.teamId())?.avatar);
   readonly initials = computed(() => monogram(this.name()));
 }
 

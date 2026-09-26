@@ -1,9 +1,10 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { map } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
+import { CompetitionService, shortSeason } from '../../core/competition/competition.service';
 import { safeReturnUrl } from '../../core/profile/profile.guards';
 import { Loader } from '../../shared/loader/loader';
 
@@ -18,8 +19,13 @@ import { Loader } from '../../shared/loader/loader';
 export class SignInPage {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly competition = inject(CompetitionService);
   private readonly returnUrl = toSignal(
     inject(ActivatedRoute).queryParamMap.pipe(map((params) => params.get('returnUrl'))),
+  );
+  /** `URC 26/27`. */
+  readonly competitionLabel = computed(
+    () => `${this.competition.shortName} ${shortSeason(this.competition.season)}`,
   );
   readonly mode = signal<'sign-in' | 'sign-up'>('sign-in');
   readonly busy = signal<'google' | 'password' | null>(null);

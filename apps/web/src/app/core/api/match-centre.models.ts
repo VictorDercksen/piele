@@ -1,4 +1,4 @@
-/** Contracts of `GET /v1/matches/{fixtureId}` and `GET /v1/rounds/{round}/scores` in the Python API. */
+/** Contracts of `GET /v1/competitions/{competitionId}/matches/{fixtureId}` and `GET /v1/competitions/{competitionId}/rounds/{round}/scores` in the Python API. */
 
 export type SectionStatus = 'ok' | 'not_published' | 'too_early' | 'past' | 'unavailable';
 
@@ -121,7 +121,7 @@ export interface MatchCentre {
 }
 
 /**
- * Contract of `GET /v1/matches/{fixtureId}/preview`. Written by the preview agent from
+ * Contract of `GET /v1/competitions/{competitionId}/matches/{fixtureId}/preview`. Written by the preview agent from
  * public sources; render every field as plain text.
  */
 export interface PreviewSource {
@@ -161,7 +161,7 @@ export interface MatchPreviewResponse {
   readonly preview: MatchPreview | null;
 }
 
-/** Contract of `GET /v1/rounds/{round}/updates`: the round's competition milestones. */
+/** Contract of `GET /v1/competitions/{competitionId}/rounds/{round}/updates`: the round's competition milestones. */
 export type RoundEventKind =
   'teamsheets_published' | 'preview_published' | 'kicked_off' | 'full_time';
 

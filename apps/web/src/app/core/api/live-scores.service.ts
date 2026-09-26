@@ -2,6 +2,7 @@ import { httpResource } from '@angular/common/http';
 import { DestroyRef, Injectable, computed, inject, linkedSignal, signal } from '@angular/core';
 import { environment } from '../../../environments/environment';
 import { Fixture } from '../competition/competition.models';
+import { CompetitionService } from '../competition/competition.service';
 import { SelectedRoundService } from '../competition/selected-round.service';
 import { MatchScore, MatchState, RoundScores } from './match-centre.models';
 
@@ -52,6 +53,7 @@ export function withScore(fixture: Fixture, score: MatchScore | undefined, since
 @Injectable({ providedIn: 'root' })
 export class LiveScoresService {
   private readonly selected = inject(SelectedRoundService);
+  private readonly competition = inject(CompetitionService);
   readonly configured = !!environment.apiUrl;
   /** Advanced on every poll tick so kickoff windows open and close. */
   private readonly now = signal(Date.now());
@@ -69,7 +71,7 @@ export class LiveScoresService {
   );
   private readonly resource = httpResource<RoundScores>(() =>
     this.configured && this.started()
-      ? `${environment.apiUrl}/v1/rounds/${this.selected.id()}/scores`
+      ? `${environment.apiUrl}/v1/competitions/${this.competition.current().id}/rounds/${this.selected.id()}/scores`
       : undefined,
   );
   /** The latest scores for the selected round, kept through a failed refresh. */

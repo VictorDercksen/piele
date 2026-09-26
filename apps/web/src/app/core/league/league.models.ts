@@ -147,11 +147,10 @@ export interface EvidenceSubmission {
   readonly claimedCompletedAt?: string;
 }
 
-/** A Superbru name a signed-in account may claim. */
+/** A Superbru name a signed-in account may claim in one league. */
 export interface UnclaimedName {
   readonly id: string;
   readonly displayName: string;
-  readonly fullName: string;
 }
 
 export interface NewMember {
@@ -167,4 +166,49 @@ export interface NewMember {
 export interface NotificationsRead {
   readonly readAt: string | null;
   readonly readKeys: readonly string[];
+}
+
+/** The competition a league plays, as the API names it. */
+export interface CompetitionRef {
+  readonly id: string;
+  readonly name: string;
+  readonly shortName: string;
+}
+
+/** One league on the account document (`GET /v1/me`). */
+export interface LeagueSummary {
+  readonly id: string;
+  readonly slug: string;
+  readonly name: string;
+  /** IANA zone the league displays times in. */
+  readonly timezone: string;
+  readonly emblemUrl: string | null;
+  readonly accentColour: string | null;
+  readonly competition: CompetitionRef;
+  readonly seasonName: string;
+  readonly inSeason: boolean;
+  /** Null when the admin sees a league it holds no membership in. */
+  readonly memberId: string | null;
+  readonly displayName: string | null;
+  readonly isCaptain: boolean;
+  readonly favouriteTeamId: string | null;
+}
+
+/** The signed-in account and the leagues it can open (`GET /v1/me`). */
+export interface Account {
+  readonly userId: string;
+  readonly photoUrl: string | null;
+  readonly isAdmin: boolean;
+  readonly lastLeagueId: string | null;
+  readonly leagues: readonly LeagueSummary[];
+}
+
+/** What a join link shows before claiming a name (`GET /v1/join/{code}`). */
+export interface JoinPreview {
+  readonly league: Pick<
+    LeagueSummary,
+    'id' | 'slug' | 'name' | 'timezone' | 'emblemUrl' | 'accentColour' | 'competition' | 'seasonName'
+  >;
+  readonly alreadyMember: boolean;
+  readonly unclaimed: readonly UnclaimedName[];
 }

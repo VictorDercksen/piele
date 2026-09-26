@@ -19,7 +19,7 @@
     <input type="file" accept="video/*" (change)="pickFile($event)" />
   </label>
   @if (onBehalf()) {
-    <label class="field-label" for="evidence-completed">Completed at (SAST)</label>
+    <label class="field-label" for="evidence-completed">Completed at ({{ zoneName() }})</label>
     <input
       id="evidence-completed"
       class="text-input"

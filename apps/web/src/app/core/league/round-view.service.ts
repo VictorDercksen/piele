@@ -1,7 +1,9 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { LiveScoresService } from '../api/live-scores.service';
+import { CompetitionService } from '../competition/competition.service';
 import { SelectedRoundService } from '../competition/selected-round.service';
 import { ProfileStore } from '../profile/profile.store';
+import { LeagueContext } from './league-context';
 import { LeagueData } from './league-data';
 import { Duty } from './league.models';
 
@@ -12,8 +14,12 @@ export class RoundViewService {
   private readonly profile = inject(ProfileStore);
   private readonly selected = inject(SelectedRoundService);
   private readonly live = inject(LiveScoresService);
+  private readonly competition = inject(CompetitionService);
+  private readonly context = inject(LeagueContext);
 
   readonly sample = this.league.source === 'sample';
+  /** The league being shown, e.g. for "PIELE / ROUND 02" eyebrows. */
+  readonly leagueName = this.context.name;
   readonly source = this.league.source;
   readonly loading = this.league.loading;
   readonly error = this.league.error;
@@ -42,12 +48,19 @@ export class RoundViewService {
       this.league.captainMemberId() === this.league.currentMemberId(),
   );
   readonly members = this.league.members;
+  /** The league captain's Superbru name, when the team sheet has loaded. */
+  readonly captainName = computed(() => {
+    const id = this.league.captainMemberId();
+    return id === this.league.currentMemberId()
+      ? this.memberName()
+      : (this.league.members().find((m) => m.id === id)?.name ?? null);
+  });
   readonly note = computed(() => this.league.notes().find((n) => n.roundId === this.round().id));
   readonly deadline = computed(() => this.note()?.deadline ?? 'Not confirmed by the captain');
   readonly activity = computed(
     () =>
       this.note()?.activity ??
-      (this.round().id <= 18
+      (this.round().id <= this.competition.regularRounds
         ? `${this.fixtures().length} published fixtures. League results, duties and decisions have not been recorded.`
         : 'Playoff window published. Teams, venues and kickoffs are to be confirmed.'),
   );

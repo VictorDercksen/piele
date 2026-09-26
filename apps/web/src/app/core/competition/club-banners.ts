@@ -1,5 +1,7 @@
+import { ClubBanner } from './competition.models';
+
 /** Official URC club banner artwork. Source details: public/assets/images/club-banners/sources.json. */
-export const CLUB_BANNERS: Readonly<Record<string, ClubBanner>> = {
+export const URC_CLUB_BANNERS: Readonly<Record<string, ClubBanner>> = {
   'hollywoodbets-sharks': {
     name: 'Hollywoodbets Sharks',
     colour: '#504B50',
@@ -97,10 +99,3 @@ export const CLUB_BANNERS: Readonly<Record<string, ClubBanner>> = {
     crest: 'assets/images/club-banners/vodacom-bulls-crest.svg',
   },
 };
-
-export interface ClubBanner {
-  readonly name: string;
-  readonly colour: string;
-  readonly pattern: string;
-  readonly crest: string;
-}

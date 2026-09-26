@@ -1,5 +1,8 @@
 import { Teamsheet, TeamsheetPlayer } from '../../core/api/match-centre.models';
 import { ageOn, averageAge, sheetView } from './teamsheet';
+import { competition } from '../../core/competition/registry';
+
+const URC = competition('urc-2026-27');
 
 const KICKOFF = '2026-09-25T18:45:00Z';
 
@@ -35,7 +38,7 @@ describe('teamsheet view', () => {
       ],
       replacements: [player(16, { position: 'sub 1', dateOfBirth: '2004-01-09' })],
     };
-    const view = sheetView('Benetton', 'benetton-rugby', sheet, KICKOFF);
+    const view = sheetView(URC, 'Benetton', 'benetton-rugby', sheet, KICKOFF);
     expect(view.banner?.crest).toContain('benetton-rugby-crest');
     expect(view.accent).toBe('#73d8a0');
     expect(view.starters[0]).toEqual({
@@ -55,6 +58,7 @@ describe('teamsheet view', () => {
 
   it('leaves ages out when the kickoff is unknown', () => {
     const view = sheetView(
+      URC,
       'TBC',
       'unknown-club',
       { starters: [player(1)], replacements: [] },

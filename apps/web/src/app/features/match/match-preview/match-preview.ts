@@ -1,12 +1,11 @@
-import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideChevronDown, lucideExternalLink, lucideRotateCcw } from '@ng-icons/lucide';
 import { MatchCentreService } from '../../../core/api/match-centre.service';
+import { CompetitionService } from '../../../core/competition/competition.service';
+import { LeagueTime } from '../../../core/competition/league-time';
+import { LeagueTimePipe } from '../../../core/competition/league-time.pipe';
 import { previewView } from './preview-view';
-
-/** South African Standard Time has no daylight saving, so a fixed offset is exact. */
-const SAST = '+0200';
 
 /**
  * The Pavilion preview for one fixture: summary, key factors and mood per side, and the
@@ -24,18 +23,20 @@ const SAST = '+0200';
     '[style.--home-accent]': 'view()?.sides?.[0]?.accent',
     '[style.--away-accent]': 'view()?.sides?.[1]?.accent',
   },
-  imports: [DatePipe, NgIcon],
+  imports: [LeagueTimePipe, NgIcon],
   viewProviders: [provideIcons({ lucideChevronDown, lucideExternalLink, lucideRotateCcw })],
 })
 export class MatchPreview {
   private readonly matchCentre = inject(MatchCentreService);
+  private readonly competition = inject(CompetitionService);
+  /** The display zone for the preview's timestamp. */
+  readonly zone = inject(LeagueTime).zone;
   readonly fixtureId = input.required<string>();
   readonly home = input.required<string>();
   readonly away = input.required<string>();
   /** Club ids for colours. */
   readonly homeClub = input('');
   readonly awayClub = input('');
-  readonly sast = SAST;
   /** The five-step mood scale. */
   readonly steps = [1, 2, 3, 4, 5] as const;
 
@@ -45,7 +46,14 @@ export class MatchPreview {
   readonly view = computed(() => {
     const preview = this.resource.hasValue() ? this.resource.value()?.preview : null;
     return preview
-      ? previewView(preview, this.home(), this.away(), this.homeClub(), this.awayClub())
+      ? previewView(
+          this.competition.current(),
+          preview,
+          this.home(),
+          this.away(),
+          this.homeClub(),
+          this.awayClub(),
+        )
       : null;
   });
 

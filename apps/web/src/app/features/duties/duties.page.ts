@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, viewChild } from 
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { map } from 'rxjs';
-import { formatLeagueTime } from '../../core/competition/league-time';
+import { LeagueTime } from '../../core/competition/league-time';
 import { ToastService } from '../../core/feedback/toast.service';
 import { RoundDutyView, RoundViewService } from '../../core/league/round-view.service';
 import { Icon } from '../../shared/icon/icon';
@@ -21,6 +21,7 @@ import { ReasonDialog } from './reason-dialog/reason-dialog';
 })
 export class DutiesPage {
   private readonly toast = inject(ToastService);
+  private readonly time = inject(LeagueTime);
   readonly view = inject(RoundViewService);
   readonly evidence = viewChild.required(EvidenceDialog);
   readonly createDialog = viewChild.required(CreateDutyDialog);
@@ -60,7 +61,7 @@ export class DutiesPage {
 
   created(duty: { title: string; memberName: string; deadlineAt: string | null }): void {
     this.toast.show(
-      `${duty.title} created for ${duty.memberName}. Due ${formatLeagueTime(duty.deadlineAt)}.`,
+      `${duty.title} created for ${duty.memberName}. Due ${this.time.format(duty.deadlineAt)}.`,
     );
   }
 }

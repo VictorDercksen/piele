@@ -31,11 +31,7 @@
         <div class="fall-shading" aria-hidden="true"></div>
         <div class="stitch" aria-hidden="true"></div>
         <header>
-          <img
-            class="urc-logo"
-            src="assets/images/urc-emblem.svg"
-            alt="United Rugby Championship"
-          />
+          <img class="urc-logo" [src]="emblem()" [alt]="competitionName()" />
           <button type="button" class="close" aria-label="Close notifications" (click)="close()">
             <app-icon name="close" />
           </button>

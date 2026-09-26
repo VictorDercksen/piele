@@ -1,5 +1,5 @@
 import { MatchPreview, PreviewFactor } from '../../../core/api/match-centre.models';
-import { club } from '../../../core/competition/teams';
+import { Competition } from '../../../core/competition/competition.models';
 
 export type MoodTone = 'down' | 'level' | 'up';
 
@@ -44,6 +44,7 @@ const MOODS: Record<number, { label: string; tone: MoodTone }> = {
 
 /** Display model of a preview: labelled moods and numbered source citations. */
 export function previewView(
+  competition: Competition,
   preview: MatchPreview,
   home: string,
   away: string,
@@ -55,7 +56,7 @@ export function previewView(
     const score = Math.max(-2, Math.min(2, Math.round(mood.score)));
     return {
       label,
-      accent: club(clubId)?.accent,
+      accent: competition.team(clubId)?.accent,
       mood: { ...MOODS[score], step: score + 3, note: mood.note, cites: cites(mood.sources) },
       factors: preview.keyFactors[key].map((factor: PreviewFactor) => ({
         text: factor.text,

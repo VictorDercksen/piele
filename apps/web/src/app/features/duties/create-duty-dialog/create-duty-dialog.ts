@@ -10,8 +10,8 @@ import {
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { CompetitionService, firstKickoff } from '../../../core/competition/competition.service';
-import { formatLeagueTime, fromLocalInput, toLocalInput } from '../../../core/competition/league-time';
+import { CompetitionService } from '../../../core/competition/competition.service';
+import { LeagueTime } from '../../../core/competition/league-time';
 import { LeagueData } from '../../../core/league/league-data';
 import { DutyType } from '../../../core/league/league.models';
 import { RoundViewService } from '../../../core/league/round-view.service';
@@ -32,13 +32,16 @@ import { Loader } from '../../../shared/loader/loader';
 export class CreateDutyDialog {
   private readonly league = inject(LeagueData);
   private readonly competition = inject(CompetitionService);
+  private readonly time = inject(LeagueTime);
+  /** The display zone's abbreviation, for the deadline label. */
+  readonly zoneName = this.time.abbreviation;
   readonly view = inject(RoundViewService);
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
   readonly created = output<{ title: string; memberName: string; deadlineAt: string | null }>();
   readonly error = signal('');
   readonly busy = signal(false);
   readonly submitted = signal(false);
-  readonly rounds = this.competition.rounds;
+  readonly rounds = computed(() => this.competition.rounds);
   readonly form = new FormGroup({
     memberId: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
     type: new FormControl<DutyType>('spoon', { nonNullable: true }),
@@ -52,11 +55,11 @@ export class CreateDutyDialog {
   readonly members = computed(() => this.view.members().filter((m) => m.inSeason));
   /** The plan's default: due when the following round kicks off. */
   readonly defaultDeadline = computed(() =>
-    this.type() === 'spoon' && this.roundId() < this.rounds.length
-      ? firstKickoff(this.roundId() + 1)
+    this.type() === 'spoon' && this.roundId() < this.rounds().length
+      ? this.competition.current().firstKickoff(this.roundId() + 1)
       : null,
   );
-  readonly defaultDeadlineLabel = computed(() => formatLeagueTime(this.defaultDeadline(), 'unknown'));
+  readonly defaultDeadlineLabel = computed(() => this.time.format(this.defaultDeadline(), 'unknown'));
   readonly needsDeadline = computed(() => this.type() !== 'spoon' || !this.defaultDeadline());
   readonly deadlineOverridden = computed(() => !!this.values().deadline);
 
@@ -82,14 +85,14 @@ export class CreateDutyDialog {
   }
 
   suggestDefault(): void {
-    this.form.controls.deadline.setValue(toLocalInput(this.defaultDeadline()));
+    this.form.controls.deadline.setValue(this.time.toLocalInput(this.defaultDeadline()));
   }
 
   async submit(): Promise<void> {
     this.submitted.set(true);
     if (this.form.invalid || this.busy()) return;
     const { memberId, type, roundId, deadline, reason } = this.form.getRawValue();
-    const deadlineAt = deadline ? fromLocalInput(deadline) : null;
+    const deadlineAt = deadline ? this.time.fromLocalInput(deadline) : null;
     if (deadline && !deadlineAt) {
       this.error.set('Enter a valid deadline.');
       return;

@@ -1,8 +1,6 @@
-/** A country with a flag shipped in public/assets/images/flags. Source details: sources.json there. */
-export interface Country {
-  readonly name: string;
-  readonly flag: string;
-}
+import { CountryCatalogue } from './competition.models';
+
+/* Flags ship in public/assets/images/flags. Source details: sources.json there. */
 
 /**
  * Flag codes for the countries of birth the URC player feed reports, keyed by the feed's
@@ -61,9 +59,11 @@ const BY_NAME = new Map(
   Object.entries(FLAG_CODES).map(([name, code]) => [name.toLowerCase(), code]),
 );
 
-/** The country and flag for a name from the player feed, or undefined when there is no flag. */
-export function countryNamed(name: string | null | undefined): Country | undefined {
-  const trimmed = (name ?? '').trim();
-  const code = BY_NAME.get(trimmed.toLowerCase());
-  return code ? { name: trimmed, flag: `assets/images/flags/${code}.svg` } : undefined;
-}
+/** The country and flag for a name from the URC player feed, or undefined when there is no flag. */
+export const URC_COUNTRIES: CountryCatalogue = {
+  named(name) {
+    const trimmed = (name ?? '').trim();
+    const code = BY_NAME.get(trimmed.toLowerCase());
+    return code ? { name: trimmed, flag: `assets/images/flags/${code}.svg` } : undefined;
+  },
+};

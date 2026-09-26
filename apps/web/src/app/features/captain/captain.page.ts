@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject, signal, viewChild } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { formatLeagueTime, formatRelative } from '../../core/competition/league-time';
+import { LeagueTime } from '../../core/competition/league-time';
 import { ToastService } from '../../core/feedback/toast.service';
 import { LeagueData } from '../../core/league/league-data';
 import { LeagueMember } from '../../core/league/league.models';
@@ -22,6 +22,7 @@ import { ReasonDialog } from '../duties/reason-dialog/reason-dialog';
 })
 export class CaptainPage {
   private readonly league = inject(LeagueData);
+  private readonly time = inject(LeagueTime);
   private readonly toast = inject(ToastService);
   readonly view = inject(RoundViewService);
   readonly reasonDialog = viewChild.required(ReasonDialog);
@@ -50,15 +51,15 @@ export class CaptainPage {
   readonly addingMember = signal(false);
 
   when(review: ReviewView): string {
-    return formatRelative(review.evidence.submittedAt);
+    return this.time.relative(review.evidence.submittedAt);
   }
 
   completion(review: ReviewView): string {
     const { evidence, duty } = review;
     const own = evidence.submitterId === duty.memberId;
     return own
-      ? `Counts from submission · ${formatLeagueTime(evidence.submittedAt)}`
-      : `Recorded by ${evidence.submitterName} · completed ${formatLeagueTime(evidence.claimedCompletedAt)}`;
+      ? `Counts from submission · ${this.time.format(evidence.submittedAt)}`
+      : `Recorded by ${evidence.submitterName} · completed ${this.time.format(evidence.claimedCompletedAt)}`;
   }
 
   decide(review: ReviewView, decision: 'accepted' | 'rejected'): void {
@@ -164,7 +165,7 @@ export class CaptainPage {
 
   private completionInstant(review: ReviewView): string {
     const { evidence, duty } = review;
-    return formatLeagueTime(
+    return this.time.format(
       evidence.submitterId === duty.memberId ? evidence.submittedAt : evidence.claimedCompletedAt,
     );
   }

@@ -1,4 +1,5 @@
 import { WeatherSection } from '../../core/api/match-centre.models';
+import { DEFAULT_ZONE, hourIn } from '../../core/competition/league-time';
 
 export type SkyScene =
   'clear' | 'partly' | 'cloudy' | 'fog' | 'drizzle' | 'rain' | 'snow' | 'storm';
@@ -14,11 +15,12 @@ export interface WeatherSky {
 /**
  * Maps an Open-Meteo WMO weather code to a sky scene. Unknown codes read as cloudy.
  * Day or night comes from the forecast's `isDay`; older snapshots without it fall
- * back to the kickoff hour in SAST, which is within two hours of every URC venue.
+ * back to the kickoff hour in the display zone, which for the URC in SAST is within two
+ * hours of every venue.
  */
-export function weatherSky(weather: WeatherSection): WeatherSky {
+export function weatherSky(weather: WeatherSection, zone = DEFAULT_ZONE): WeatherSky {
   const scene = sceneFor(weather.weatherCode ?? null);
-  const time = (weather.isDay ?? daylightHour(weather.forecastHourUtc)) ? 'day' : 'night';
+  const time = (weather.isDay ?? daylightHour(weather.forecastHourUtc, zone)) ? 'day' : 'night';
   return { scene, time, icon: ICONS[scene][time] };
 }
 
@@ -34,11 +36,11 @@ function sceneFor(code: number | null): SkyScene {
   return 'cloudy';
 }
 
-function daylightHour(forecastHourUtc: string | undefined): boolean {
+function daylightHour(forecastHourUtc: string | undefined, zone: string): boolean {
   const moment = forecastHourUtc ? Date.parse(forecastHourUtc) : NaN;
   if (Number.isNaN(moment)) return true;
-  const sastHour = (new Date(moment).getUTCHours() + 2) % 24;
-  return sastHour >= 6 && sastHour < 19;
+  const hour = hourIn(moment, zone);
+  return hour >= 6 && hour < 19;
 }
 
 const ICONS: Record<SkyScene, Record<SkyTime, string>> = {

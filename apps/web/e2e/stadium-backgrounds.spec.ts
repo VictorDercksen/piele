@@ -1,18 +1,14 @@
 import { expect, test } from '@playwright/test';
+import { seedProfile } from './support';
 
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() =>
-    localStorage.setItem(
-      'pavilion-profile-v1',
-      JSON.stringify({ displayName: 'Stadium test', teamId: 'dhl-stormers', photo: null }),
-    ),
-  );
+  await seedProfile(page, { displayName: 'Stadium test' });
 });
 
 test('page artwork follows the match and returns to the favourite club on other pages', async ({
   page,
 }) => {
-  await page.goto('/?round=1');
+  await page.goto('/piele?round=1');
   const backdrop = page.locator('.page-backdrop img.visible');
   await expect(backdrop).toHaveAttribute('src', /connacht-rugby\.webp/);
   await expect(page.locator('app-match-hero .stadium-background')).toHaveCount(0);
@@ -24,7 +20,7 @@ test('page artwork follows the match and returns to the favourite club on other 
   await expect(backdrop).toHaveAttribute('src', /benetton-rugby\.webp/);
   await expect(backdrop).toHaveCSS('transition-duration', '0.65s');
   await page.getByRole('button', { name: 'Enter the match centre' }).click();
-  await expect(page).toHaveURL(/\/match\/292584/);
+  await expect(page).toHaveURL(/\/piele\/match\/292584/);
   await expect(page.locator('.scope-note')).toHaveCount(0);
   await expect(page.locator('.match-story')).toHaveCSS('background-image', 'none');
   await expect(backdrop).toHaveAttribute('src', /benetton-rugby\.webp/);
@@ -44,7 +40,7 @@ test('profile artwork previews unsaved team choices and respects reduced motion'
   page,
 }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  await page.goto('/profile');
+  await page.goto('/piele/profile');
   const backdrop = page.locator('.poster-photo img.visible');
   await expect(backdrop).toHaveAttribute('src', /dhl-stormers\.webp/);
   await page.getByRole('radio', { name: 'Munster Rugby', exact: true }).check();
@@ -55,7 +51,7 @@ test('profile artwork previews unsaved team choices and respects reduced motion'
   await expect(backdrop).toHaveAttribute('src', /glasgow-warriors\.webp/);
   await page.getByRole('button', { name: 'Cancel profile changes' }).click();
   await expect(page.locator('.header-profile')).toContainText('Stormers');
-  await page.goto('/profile');
+  await page.goto('/piele/profile');
   await expect(backdrop).toHaveAttribute('src', /dhl-stormers\.webp/);
   await page.getByRole('radio', { name: 'Munster Rugby', exact: true }).check();
   await page.getByRole('button', { name: 'Save profile', exact: true }).click();

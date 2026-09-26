@@ -1,6 +1,6 @@
 <dialog #dialog class="detail-dialog" aria-labelledby="vote-title">
   <div class="dialog-top">
-    <span class="eyebrow">PIELE / ROUND {{ view.round().code }}</span
+    <span class="eyebrow">{{ view.leagueName().toUpperCase() }} / ROUND {{ view.round().code }}</span
     ><button type="button" class="icon-button" aria-label="Close dialog" (click)="close()">
       <app-icon name="close" />
     </button>

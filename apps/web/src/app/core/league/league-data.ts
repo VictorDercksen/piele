@@ -4,6 +4,7 @@ import {
   EvidenceSubmission,
   FeedItem,
   LeagueMember,
+  LeagueSummary,
   MemberMarks,
   NewDuty,
   NewMember,
@@ -38,6 +39,11 @@ export abstract class LeagueData {
   abstract readonly error: Signal<string | null>;
   /** What the member has read in the notifications panel. */
   abstract readonly notificationsRead: Signal<NotificationsRead>;
+  /**
+   * Points the records at a league. `LeagueContext.select` calls this; the API client
+   * clears the previous league's records and loads the new one.
+   */
+  abstract selectLeague(league: LeagueSummary): void;
   abstract reload(): void;
   /** Fetches only the feed, for the notifications panel's periodic refresh. */
   abstract refreshFeed(): Promise<void>;
@@ -77,8 +83,14 @@ export class EmptyLeagueData extends LeagueData {
   readonly feed = signal<readonly FeedItem[]>([]).asReadonly();
   readonly loading = signal(false).asReadonly();
   readonly error = signal<string | null>(null).asReadonly();
+  private slug: string | null = null;
   private readonly read = signal<NotificationsRead>(loadStoredRead());
   readonly notificationsRead = this.read.asReadonly();
+
+  selectLeague(league: LeagueSummary): void {
+    this.slug = league.slug;
+    this.read.set(loadStoredRead(league.slug));
+  }
 
   reload(): void {}
 
@@ -88,7 +100,7 @@ export class EmptyLeagueData extends LeagueData {
 
   saveNotificationsRead(read: NotificationsRead): Promise<void> {
     this.read.set(read);
-    storeRead(read);
+    storeRead(read, this.slug);
     return Promise.resolve();
   }
 

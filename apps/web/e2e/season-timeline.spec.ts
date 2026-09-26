@@ -1,18 +1,14 @@
 import { test, expect } from '@playwright/test';
+import { seedProfile } from './support';
 
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() =>
-    localStorage.setItem(
-      'pavilion-profile-v1',
-      JSON.stringify({ displayName: 'Victor Dercksen', teamId: 'dhl-stormers', photo: null }),
-    ),
-  );
+  await seedProfile(page);
 });
 
 test('all published rounds, playoffs, timezone and selection persistence', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  await page.goto('/?round=1');
+  await page.goto('/piele?round=1');
   const stops = page.getByRole('navigation', { name: 'Season timeline' }).locator('.round-stop');
   const choose = (round: number) => stops.nth(round - 1).click();
   await expect(stops).toHaveCount(21);
@@ -49,7 +45,7 @@ test('all published rounds, playoffs, timezone and selection persistence', async
 
 test('keyboard timeline and playoff layout on a phone', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 850 });
-  await page.goto('/?round=18');
+  await page.goto('/piele?round=18');
   const timeline = page.getByRole('navigation', { name: 'Season timeline' });
   const round18 = timeline.getByRole('button', { name: 'Round 18, Upcoming', exact: true });
   await round18.focus();
@@ -67,12 +63,12 @@ test('keyboard timeline and playoff layout on a phone', async ({ page }) => {
       .getByRole('link', { name: 'Rounds', exact: true }),
   ).toHaveCount(0);
   await page.getByRole('button', { name: 'Enter the match centre' }).click();
-  await expect(page).toHaveURL(/\/match\/\d+\?round=21/);
+  await expect(page).toHaveURL(/\/piele\/match\/\d+\?round=21/);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
 test('sample league duties, evidence, votes and round scoping', async ({ page }) => {
-  await page.goto('/?round=2');
+  await page.goto('/piele?round=2');
   const nav = page.getByRole('navigation', { name: 'League navigation', exact: true });
   await expect(page.getByRole('region', { name: 'Selected round' })).toContainText(
     'Sample league records',
@@ -98,7 +94,7 @@ test('sample league duties, evidence, votes and round scoping', async ({ page })
   await expect(page.getByRole('status')).toContainText('No file was uploaded');
 
   await nav.getByRole('link', { name: 'Duties', exact: true }).click();
-  await expect(page).toHaveURL(/\/duties\?round=2/);
+  await expect(page).toHaveURL(/\/piele\/duties\?round=2/);
   await expect(page.locator('.register-card')).toHaveCount(1);
   await expect(page.locator('.register-card')).toContainText('Submitted for review');
   await page.getByRole('link', { name: 'League duties', exact: true }).click();
@@ -120,7 +116,7 @@ test('sample league duties, evidence, votes and round scoping', async ({ page })
     .getByRole('navigation', { name: 'Season timeline' })
     .getByRole('button', { name: 'Round 03, Upcoming', exact: true })
     .click();
-  await expect(page).toHaveURL(/\/standings\?round=3/);
+  await expect(page).toHaveURL(/\/piele\/standings\?round=3/);
   await expect(page.locator('.standing-row')).toHaveCount(0);
 
   await nav.getByRole('link', { name: 'More', exact: true }).click();
@@ -132,15 +128,15 @@ test('sample league duties, evidence, votes and round scoping', async ({ page })
   await page.getByRole('dialog').filter({ hasText: 'Release Liam?' }).getByRole('button', { name: 'Release name' }).click();
   await expect(liam).toContainText('OPEN');
   await expect(page.locator('.member-list li').filter({ hasText: 'You' }).getByRole('button', { name: /Release/ })).toHaveCount(0);
-  await page.goto('/constitution');
+  await page.goto('/piele/constitution');
   await expect(page.getByRole('heading', { name: 'Same club. Shared rules.' })).toBeVisible();
 });
 
 test('desktop rail and top bar stay in view while the content scrolls', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 800 });
-  await page.goto('/?round=2');
+  await page.goto('/piele?round=2');
   const rail = page.locator('.season-rail');
-  await expect(rail.getByRole('link', { name: 'The Pavilion home' })).toBeVisible();
+  await expect(rail.getByRole('link', { name: 'Piele home' })).toBeVisible();
   await page.mouse.wheel(0, 1500);
   await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(500);
   expect((await page.locator('.top-bar').boundingBox())!.y).toBe(0);
@@ -161,7 +157,7 @@ test('URC ball loader covers start-up and slow page changes', async ({ page }) =
     if (hold && route.request().url().includes('chunk-')) await page.waitForTimeout(1500);
     await route.continue();
   });
-  const start = page.goto('/?round=2');
+  const start = page.goto('/piele?round=2');
   await expect(page.getByRole('status', { name: 'Loading The Pavilion' })).toBeVisible();
   await start;
   await expect(page.locator('.league')).toBeVisible();
@@ -188,7 +184,7 @@ test('URC ball loader covers start-up and slow page changes', async ({ page }) =
 test('fixture strip sits under the round header and features a match on the home page', async ({
   page,
 }) => {
-  await page.goto('/?round=2');
+  await page.goto('/piele?round=2');
   const strip = page.getByRole('group', { name: 'Round 02 fixtures' });
   await expect(strip.getByRole('button')).toHaveCount(8);
   await expect(page.locator('.score-bug')).toContainText('Stormers');
@@ -207,7 +203,7 @@ test('fixture strip sits under the round header and features a match on the home
 });
 
 test('captain creates, records and decides duties; the feed follows', async ({ page }) => {
-  await page.goto('/duties?round=2&scope=league');
+  await page.goto('/piele/duties?round=2&scope=league');
   await expect(page.locator('.register-card')).toHaveCount(2);
   await page.getByRole('button', { name: 'New duty' }).click();
   const dialog = page.getByRole('dialog').filter({ hasText: 'Put it on the register.' });
@@ -294,7 +290,7 @@ test('evidence dialog is centred on desktop and phone', async ({ page }) => {
     [320, 700],
   ]) {
     await page.setViewportSize({ width, height });
-    await page.goto('/?round=2');
+    await page.goto('/piele?round=2');
     await page.getByRole('button', { name: 'Upload evidence', exact: true }).click();
     const dialog = page.getByRole('dialog').filter({ hasText: 'The proof is in the video.' });
     await expect(dialog).toBeVisible();
