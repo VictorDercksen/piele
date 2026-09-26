@@ -1,23 +1,23 @@
-import { Injectable, signal } from '@angular/core';
-import { CLUB_BANNERS } from './club-banners';
-import { Fixture } from './competition.models';
-import { stadiumBackground, stadiumCountry, stadiumIcon } from './stadiums';
+import { Injectable, inject, signal } from '@angular/core';
+import { Competition, Fixture } from './competition.models';
+import { CompetitionService } from './competition.service';
 
 /** Longest a matchup switch waits for artwork before showing it as it arrives. */
 const MAX_WAIT_MS = 600;
 
 /** Club artwork and venue images decoded together before changing the match hero. */
-export function matchArtwork(fixture: Fixture): string[] {
-  const home = CLUB_BANNERS[fixture.homeAsset];
-  const away = CLUB_BANNERS[fixture.awayAsset];
+export function matchArtwork(competition: Competition, fixture: Fixture): string[] {
+  const home = competition.banners[fixture.homeAsset];
+  const away = competition.banners[fixture.awayAsset];
+  const { stadiums } = competition;
   return [
     home?.pattern,
     home?.crest,
     away?.pattern,
     away?.crest,
-    stadiumCountry(fixture.venue)?.flag,
-    stadiumIcon(fixture.venue),
-    stadiumBackground(fixture.venue),
+    stadiums.country(fixture.venue)?.flag,
+    stadiums.icon(fixture.venue),
+    stadiums.background(fixture.venue),
   ].filter((url): url is string => !!url);
 }
 
@@ -27,13 +27,14 @@ export function matchArtwork(fixture: Fixture): string[] {
  */
 @Injectable({ providedIn: 'root' })
 export class MatchArtwork {
+  private readonly competition = inject(CompetitionService);
   /** Decoded images, held so the browser keeps them in its memory cache. */
   private readonly images = new Map<string, HTMLImageElement>();
   private readonly settled = signal<ReadonlySet<string>>(new Set());
 
   /** Starts loading and decoding the fixture's artwork. Repeat calls are free. */
   preload(fixture: Fixture): void {
-    for (const url of matchArtwork(fixture)) {
+    for (const url of matchArtwork(this.competition.current(), fixture)) {
       if (this.images.has(url)) continue;
       const image = new Image();
       image.src = url;
@@ -54,7 +55,7 @@ export class MatchArtwork {
   /** Whether the fixture's artwork has decoded, failed or taken too long to wait for. */
   ready(fixture: Fixture): boolean {
     const settled = this.settled();
-    return matchArtwork(fixture).every((url) => settled.has(url));
+    return matchArtwork(this.competition.current(), fixture).every((url) => settled.has(url));
   }
 }
 

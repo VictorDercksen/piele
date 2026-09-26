@@ -1,21 +1,11 @@
-"""Static competition catalogues: URC clubs and the stadiums in the published schedule.
+"""URC 2026/27 catalogues: the clubs and the stadiums in the published schedule.
 
 The club list mirrors apps/web/src/app/core/competition/teams.ts. Stadium coordinates
 are approximate pitch locations used only for weather forecasts. Countries are rugby
 unions (Ulster and Belfast are Ireland), used to classify travel for match previews.
 """
 
-from dataclasses import dataclass
-
-
-@dataclass(frozen=True)
-class Club:
-    id: str
-    source_id: int
-    name: str
-    short_name: str
-    country: str
-
+from app.competitions.base import Club, Stadium
 
 CLUBS: tuple[Club, ...] = (
     Club("benetton-rugby", 2019, "Benetton Rugby", "Benetton", "Italy"),
@@ -35,22 +25,6 @@ CLUBS: tuple[Club, ...] = (
     Club("ulster-rugby", 2129, "Ulster Rugby", "Ulster", "Ireland"),
     Club("zebre-parma", 4474, "Zebre Parma", "Zebre", "Italy"),
 )
-
-_BY_ID = {club.id: club for club in CLUBS}
-
-
-def club(club_id: str | None) -> Club | None:
-    return _BY_ID.get(club_id or "")
-
-
-@dataclass(frozen=True)
-class Stadium:
-    name: str
-    city: str
-    country: str
-    latitude: float
-    longitude: float
-
 
 STADIUMS: tuple[Stadium, ...] = (
     Stadium("10bet Ellis Park", "Johannesburg", "South Africa", -26.1978, 28.0606),
@@ -74,9 +48,3 @@ STADIUMS: tuple[Stadium, ...] = (
     Stadium("Thomond Park", "Limerick", "Ireland", 52.6742, -8.6428),
     Stadium("Virgin Media Park", "Cork", "Ireland", 51.8836, -8.4877),
 )
-
-_STADIUM_BY_NAME = {stadium.name.lower(): stadium for stadium in STADIUMS}
-
-
-def stadium(venue: str | None) -> Stadium | None:
-    return _STADIUM_BY_NAME.get((venue or "").lower())

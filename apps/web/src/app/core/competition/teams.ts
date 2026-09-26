@@ -1,16 +1,7 @@
-export interface ClubTeam {
-  readonly id: string;
-  readonly sourceId: number;
-  readonly name: string;
-  readonly shortName: string;
-  readonly colour: string;
-  readonly accent: string;
-  readonly jersey: string;
-  readonly stadiumBackground: string;
-  readonly illustrated: boolean;
-}
+import { ClubTeam } from './competition.models';
 
-export const TEAMS: readonly ClubTeam[] = [
+/** The sixteen URC clubs of 2026/27. Artwork lives in public/assets/images by club id. */
+export const URC_TEAMS: readonly ClubTeam[] = [
   team('benetton-rugby', 2019, 'Benetton Rugby', 'Benetton', '#176c43', '#73d8a0'),
   team('vodacom-bulls', 5586, 'Vodacom Bulls', 'Bulls', '#22589c', '#83bfff'),
   team('cardiff-rugby', 4471, 'Cardiff Rugby', 'Cardiff', '#263b50', '#80c9ee'),
@@ -47,14 +38,7 @@ function team(
     accent,
     illustrated,
     jersey: `assets/images/jerseys/${id}.${illustrated ? 'svg' : 'png'}`,
+    avatar: `assets/images/teams/${id}.png`,
     stadiumBackground: `assets/images/match-nights/${id}.webp`,
   };
-}
-
-export function club(id: string): ClubTeam | undefined {
-  return TEAMS.find((team) => team.id === id);
-}
-
-export function jersey(id: string): string {
-  return club(id)?.jersey ?? 'assets/images/jerseys/tbc.svg';
 }

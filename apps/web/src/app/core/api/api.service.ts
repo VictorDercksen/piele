@@ -9,7 +9,7 @@ export interface ApiHealth {
   readonly database: 'ok' | 'unconfigured' | 'error';
 }
 
-/** Client for the Piele Python API under `/v1`. */
+/** Client for The Pavilion Python API under `/v1`. */
 @Injectable({ providedIn: 'root' })
 export class ApiService {
   private readonly http = inject(HttpClient);

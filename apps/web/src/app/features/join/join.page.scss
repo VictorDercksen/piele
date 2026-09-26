@@ -138,3 +138,26 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 }
+.league-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  --avatar-size: 44px;
+}
+.unclaimed-note {
+  margin: 16px 0 0;
+  color: #d5d9c6;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+a.primary-button,
+a.text-button {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.lead + .actions,
+.unclaimed-note + .actions {
+  margin-top: 24px;
+}

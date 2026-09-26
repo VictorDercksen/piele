@@ -78,7 +78,7 @@ describe('LiveScoresService', () => {
     return { service, http };
   }
 
-  const url = `${environment.apiUrl}/v1/rounds/1/scores`;
+  const url = `${environment.apiUrl}/v1/competitions/urc-2026-27/rounds/1/scores`;
   const round = (state: MatchScore['state']): RoundScores => ({
     round: 1,
     generatedAt: '2026-09-25T19:30:00Z',

@@ -1,5 +1,7 @@
 # Production deployment runbook
 
+The product is The Pavilion; Piele is the name of its first league. The infrastructure below still carries the Piele names until the operator makes the renames in [Rename to The Pavilion](#rename-to-the-pavilion).
+
 Production is the `master` branch. Staging is the `staging` branch. Changes reach production through a pull request from `staging` (or a branch based on it) into `master`. CI (`.github/workflows/ci.yml`) must pass first.
 
 ## What deploys where
@@ -76,9 +78,39 @@ In both projects, clear Settings > Git > Ignored Build Step; `vercel.json` now o
 1. Supabase > Authentication > Providers: enable Email (keep "Confirm email" on) and Google. Google needs an OAuth client in Google Cloud with the Supabase callback URL (`https://<ref>.supabase.co/auth/v1/callback`) as an authorised redirect URI; paste its client ID and secret into the provider.
 2. Authentication > URL Configuration: set the Site URL to the production web origin and add `https://<web origin>/sign-in` (and the staging origin's `/sign-in`) to Redirect URLs. OAuth returns to `/sign-in?returnUrl=…`.
 3. Settings > JWT Keys: projects on JWT signing keys need nothing more; the API verifies against `/auth/v1/.well-known/jwks.json`. A project still on the legacy secret needs `SUPABASE_JWT_SECRET` on the API.
-4. Storage: create a private bucket named `evidence` (no public access, no RLS policies for anon or authenticated). The API's service role key is the only writer and signer. Profile photos live in the same bucket under `avatars/`.
-5. Bootstrap the league once against the production database, as the runtime role: from `apps/api` with the production `DATABASE_URL` in the environment, run `uv run python -m app.league.bootstrap --captain-email <the captain's Google or sign-up email>`. It refuses to run twice. Then share the web link: each member signs in and claims their own Superbru name. The captain can reserve a name for a specific email from More > captain's desk, and release a name the wrong account claimed.
-6. Any signed-in account can claim an unclaimed name, so keep the link within the league until everyone has claimed theirs, or keep Google in Testing mode with the members as test users. The captain's desk shows who has claimed what. Every league endpoint requires a verified member token.
+4. Storage: create a private bucket named `evidence` (no public access, no RLS policies for anon or authenticated). The API's service role key is the only writer and signer. Profile photos live in the same bucket under `avatars/`, league emblems under `emblems/<league id>/`.
+5. Bootstrap a league against the production database, as the runtime role: from `apps/api` with the production `DATABASE_URL` in the environment, run `uv run python -m app.league.bootstrap --captain-email <the captain's Google or sign-up email>`. The members file's `league`, `slug` and `competitionId` (Piele, `piele`, `urc-2026-27`) are the defaults; pass `--members-file`, `--slug`, `--name` and `--competition` for another league. It refuses to run when a league with that slug exists (Piele already does: migration `20260926160000_multi_league.sql` gave the existing league the slug `piele`). Every league has a join code. The captain (or the admin) finds the join link, `https://<web origin>/join/<code>`, on the captain's desk, and can copy it, rotate the code (the old link stops working) or close joining there; share the link and each member signs in and claims their own Superbru name in that league. The captain can reserve a name for a specific email from More > captain's desk (claimed automatically at that address's next verified sign-in), release a name the wrong account claimed, remove a member with a reason (their open duties are voided, their records kept; an unclaimed name without records is deleted) and reinstate a removed member, and set the league's emblem (a preset or an uploaded image) and accent colour.
+6. Anyone with the join link can claim an unclaimed name in that league, so keep the link within the league until everyone has claimed theirs and then close joining or rotate the code from the captain's desk, or keep Google in Testing mode with the members as test users. Unclaimed names are visible only through a valid join code. The captain's desk shows who has claimed what. Every league endpoint requires a verified token of that league's member or the admin.
+7. The admin. One account holds global admin rights: it opens every league, has the captain's rights in each, and runs the management centre. The API never grants it. After the admin has signed in once (which creates the account row), set it with the migration role in the Supabase SQL editor:
+
+   ```sql
+   update piele.users set is_admin = true where email = '<admin email>';
+   ```
+
+   Check that exactly one row changed. Remove it with `is_admin = false`. The admin can read a league without belonging to it, but anything recorded as done by a member (creating duties, recording standings, evidence) needs a membership in that league; the API answers `409 admin_not_a_member` until then.
+8. Management centre. Signed in as the admin, open `https://<web origin>/manage` (the API's `/v1/admin` routes; every other account gets `403 admin_only`). It lists every league, archived ones included, with its captain, member counts and join code, and creates a league: name, slug, competition, time zone, season name, the members (full name and Superbru name), the captain (by email, or the admin), an optional preset emblem and accent colour, and whether to add the admin as a member outside the season. Leagues can still be created with the bootstrap command in step 5; both use the same code and refuse a taken slug. From the same page the admin renames a league or changes its time zone, archives it (every row is kept, but it leaves everyone's league list and its links and join code stop working) or restores it, appoints any member who has claimed their name as captain, and adds themselves to a league outside the season ("Add me"), after which their own actions there are recorded under that membership. Every action is in the league's audit trail with the label `admin`. Uploaded emblems live in the `evidence` bucket under `emblems/<league id>/`; preset emblems ship with the web app.
+
+## Rename to The Pavilion
+
+The code, package names and build output already use The Pavilion (`pavilion-web`, `pavilion-api`, `pavilion-agent`, output folder `dist/pavilion-web/browser`). These renames are outside the repository and are made by the operator:
+
+1. GitHub: rename the repository `VictorDercksen/piele` to `VictorDercksen/pavilion`. GitHub redirects the old URL. Afterwards re-check the Vercel Git link of each project, the Supabase GitHub integration's branch mapping and the Claude Code repository scope for this project.
+2. Vercel: rename the projects `piele-web`, `piele-api` and `piele-agent` to `pavilion-web`, `pavilion-api` and `pavilion-agent`. `piele-agent` does not exist yet; create it as `pavilion-agent`. Renaming changes the default `*.vercel.app` URLs, so in the same release update:
+   - `ALLOWED_ORIGINS` on the API (the web origin),
+   - `PIELE_API_URL` on the web (the API origin),
+   - `PIELE_API_URL` on the agent (the API origin),
+   - the Supabase Auth Site URL and Redirect URLs (`https://<web origin>/sign-in`) in both Supabase projects,
+   - the smoke check origins and the staging URLs in the root README.
+
+   Adding custom domains at the same time avoids changing these twice.
+3. Supabase: rename the projects `piele-staging` and `piele-production` to `pavilion-staging` and `pavilion-production`. Cosmetic only: project refs, connection strings and keys do not change.
+
+These stay as they are, on purpose:
+
+- Environment variables keep the `PIELE_*` prefix (`PIELE_API_URL`, `PIELE_SUPABASE_URL`, `PIELE_SUPABASE_PUBLISHABLE_KEY`, `PIELE_SAMPLE_LEAGUE_DATA`, `PIELE_AGENT_TOKEN`, `PIELE_TEST_DATABASE_URL`, `PIELE_WEB_PORT`). Renaming them means re-entering every Vercel variable in both environments.
+- The database schema `piele` and the runtime role `piele_api`. Renaming a schema and a role under row level security on a live database has no product benefit and real risk.
+- The storage bucket `evidence`.
+- The asset `piele-crest.png`, which becomes the Piele league's emblem.
 
 ## Each release
 
@@ -86,6 +118,15 @@ In both projects, clear Settings > Git > Ignored Build Step; `vercel.json` now o
 2. Merge. Vercel builds both projects and the Supabase integration applies new migrations. Migrations must be additive so the running code keeps working while they apply.
 3. Run `npm run smoke -- --web <production web origin> --api <production API origin>`. All checks must pass.
 4. Bring `staging` level with `master` if the release was merged from another branch.
+
+### Release notes: several leagues (migrations 20260926150000 to 20260926180000)
+
+Push the four migrations with the API code that needs them, in one merge. The Supabase integration applies them while Vercel builds, and the previously deployed API keeps serving until the new deployment is live. In that short window, between the migrations applying and the new API deploying:
+
+- The old API cannot record fixture milestones or claim names. `20260926150000_competitions.sql` moves the milestone key to the competition, which leaves the old API's milestone upsert without a matching index until `20260926180000_hardening.sql` adds `ux_fixture_milestones_legacy` back in the same push. Claims fail because unclaimed names are visible only inside a league context (`20260926160000_multi_league.sql`) and membership rows are writable only inside one (`20260926180000_hardening.sql`), which the old API never sets for a claim. A name reserved for a member's email is claimed at their next sign-in once the new API is live; anyone else claims again from the join link.
+- Favourite team and notification read changes made on the old API are lost. The old API writes them to the account (`users.favourite_team_id`, `users.notifications_read_*`), which the new code no longer reads (they now live on each league membership), and after `20260926180000_hardening.sql` the runtime role may no longer update those columns, so those saves fail.
+
+Keep the window short: promote the API deployment as soon as the migrations have applied, then run the smoke check. A later cleanup migration drops `ux_fixture_milestones_legacy` and the old `users` columns once the new API is live.
 
 ## Rollback
 

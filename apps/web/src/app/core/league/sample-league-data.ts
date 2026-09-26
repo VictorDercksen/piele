@@ -1,12 +1,19 @@
-import { Injectable, computed, signal } from '@angular/core';
-import { firstKickoff } from '../competition/competition.service';
+import { Injectable, Signal, WritableSignal, computed, inject, signal } from '@angular/core';
+import { CompetitionService } from '../competition/competition.service';
+import { isAccentColour, isEmblemPreset } from './emblems';
+import { ApiError } from './http-league-data';
 import { LeagueData } from './league-data';
 import {
+  Account,
+  AppearanceChange,
   Duty,
   DutyEvidence,
   EvidenceSubmission,
   FeedItem,
+  JoinPreview,
+  LeagueAppearance,
   LeagueMember,
+  LeagueSummary,
   MemberMarks,
   NewDuty,
   NewMember,
@@ -17,172 +24,255 @@ import {
 } from './league.models';
 import { loadStoredRead, storeRead } from './notifications-read';
 import { sampleMarks } from './marks';
+import {
+  SAMPLE_ACCOUNT,
+  SAMPLE_LEAGUES,
+  SAMPLE_ME as ME,
+  SampleDutyRecord as DutyRecord,
+  SampleLeagueSeed,
+  feedItem,
+  memberRecord,
+} from './sample-leagues';
 
-const ME = 'member-me';
-
-const MEMBERS: readonly LeagueMember[] = [
-  memberRecord('member-jp', 'Johan', 'Pretorius, Johan', 'dhl-stormers'),
-  memberRecord('member-pw', 'PieterW', 'Wessels, Pieter', 'vodacom-bulls'),
-  memberRecord(ME, 'You', 'You', 'hollywoodbets-sharks'),
-  memberRecord('member-fb', 'Franco', 'Botha, Franco', 'munster-rugby'),
-  memberRecord('member-lm', 'Liam', 'Meyer, Liam', 'leinster-rugby'),
-  memberRecord('member-as', 'Arno', 'Smit, Arno', '10bet-lions'),
-];
-
-function memberRecord(id: string, name: string, fullName: string, teamId: string): LeagueMember {
-  return {
-    id,
-    name,
-    fullName,
-    initials: name.slice(0, 2).toUpperCase(),
-    teamId,
-    claimed: true,
-    inSeason: true,
-  };
-}
-
-function table(roundId: number, order: number[], points: number[]) {
-  return order.map((member, index): RoundStanding => ({
-    roundId,
-    memberId: MEMBERS[member].id,
-    rank: index + 1,
-    points: points[index],
-  }));
-}
-
-interface DutyRecord {
-  readonly id: string;
-  readonly memberId: string;
-  readonly roundId: number | null;
-  readonly type: Duty['type'];
-  readonly reason: string;
-  readonly deadlineAt: string | null;
-  readonly status: Duty['status'];
-  readonly completedAt: string | null;
-  readonly clockResetAt: string | null;
-  readonly voidReason: string | null;
-  readonly createdAt: string;
-  readonly evidence: readonly DutyEvidence[];
-}
-
-function title(type: Duty['type'], roundId: number | null): string {
+function title(
+  type: Duty['type'],
+  roundId: number | null,
+  roundCode: (id: number) => string,
+): string {
   const label = type === 'spoon' ? 'Spoon duty' : 'Pick confirmation';
   if (roundId === null) return label;
-  const code = roundId <= 18 ? String(roundId).padStart(2, '0') : { 19: 'QF', 20: 'SF', 21: 'F' }[roundId];
-  return `Round ${code} ${label}`;
+  return `Round ${roundCode(roundId)} ${label}`;
 }
 
 /**
- * Illustrative league records for local development only. Names, points, duties and
- * votes are samples, never published competition results.
+ * The sample leagues for local development, one set of in-memory records per league.
+ * `selectLeague` switches every signal to that league's records; changes live until reload.
+ * Names, points, duties and votes are samples, never published competition results.
  */
 @Injectable()
 export class SampleLeagueData extends LeagueData {
+  private readonly competition = inject(CompetitionService);
+  private readonly leagues = new Map<string, SampleLeague>();
+  /** Every sample league, including those made in the management centre this session. */
+  private readonly seeds = signal<readonly SampleLeagueSeed[]>(SAMPLE_LEAGUES);
+  private readonly active = signal<SampleLeague>(this.league(SAMPLE_LEAGUES[0]));
   readonly source = 'sample';
-  readonly currentMemberId = signal<string | null>(ME).asReadonly();
+  /**
+   * Whether the sample account is the admin. Read once from the first page's address:
+   * `?sampleAdmin=0` makes it a plain member of Piele and the Pofadder Bowl.
+   */
+  readonly isAdmin = sampleAdmin();
+  /** The slug of the league whose records are showing. */
+  readonly slug = computed(() => this.active().seed.summary.slug);
+  /** The sample member, or null in the league the sample account sees only as the admin. */
+  readonly currentMemberId = computed(() => this.active().memberId);
   readonly currentMemberName = signal<string | null>(null).asReadonly();
-  readonly captainMemberId = signal<string | null>(ME).asReadonly();
+  readonly captainMemberId = computed(() => this.active().captain());
+  /** The sample account is the admin, so it stewards every sample league. */
+  readonly administers = computed(
+    () => this.isAdmin || this.active().captain() === this.currentMemberId(),
+  );
+  readonly joinCode = computed(() => (this.administers() ? this.active().joinCode() : null));
+  readonly withdrawnMembers = this.from((league) => league.withdrawn);
+  /** The showing league's emblem and accent colour, including changes made this session. */
+  readonly appearance = this.from((league) => league.appearance);
   readonly loading = signal(false).asReadonly();
   readonly error = signal<string | null>(null).asReadonly();
-  private readonly memberRecords = signal(MEMBERS);
-  readonly members = this.memberRecords.asReadonly();
-  readonly standings = signal<readonly RoundStanding[]>([
-    ...table(1, [1, 0, 2, 4, 5, 3], [15, 13.5, 12, 10, 8.5, 6]),
-    ...table(2, [0, 3, 1, 5, 4, 2], [16, 14, 12, 10.5, 9, 5.5]),
-  ]).asReadonly();
-  private readonly dutyRecords = signal<readonly DutyRecord[]>([
-    {
-      id: 'duty-1',
-      memberId: 'member-fb',
-      roundId: 1,
-      type: 'spoon',
-      reason: 'Last place in Round 01.',
-      deadlineAt: '2026-10-02T18:45:00Z',
-      status: 'completed',
-      completedAt: '2026-09-27T14:10:00Z',
-      clockResetAt: null,
-      voidReason: null,
-      createdAt: '2026-09-26T08:00:00Z',
-      evidence: [
-        {
-          id: 'link-1',
-          submissionId: 'sub-1',
-          assetId: 'asset-1',
-          decision: 'accepted',
-          submittedAt: '2026-09-27T14:10:00Z',
-          claimedCompletedAt: null,
-          decidedAt: '2026-09-27T19:00:00Z',
-          reason: 'Clear video, spoon and beer both visible.',
-          effectiveCompletedAt: '2026-09-27T14:10:00Z',
-          note: 'Done at the braai.',
-          submitterId: 'member-fb',
-          submitterName: 'Franco',
-        },
-      ],
-    },
-    {
-      id: 'duty-2',
-      memberId: ME,
-      roundId: 2,
-      type: 'spoon',
-      reason: 'Last place in Round 02.',
-      deadlineAt: '2026-10-09T18:45:00Z',
-      status: 'open',
-      completedAt: null,
-      clockResetAt: null,
-      voidReason: null,
-      createdAt: '2026-10-03T08:00:00Z',
-      evidence: [],
-    },
-    {
-      id: 'duty-3',
-      memberId: 'member-lm',
-      roundId: 2,
-      type: 'pick_confirmation',
-      reason: 'Two picks missing on the Superbru round page.',
-      deadlineAt: '2026-10-09T18:45:00Z',
-      status: 'open',
-      completedAt: null,
-      clockResetAt: null,
-      voidReason: null,
-      createdAt: '2026-10-03T08:05:00Z',
-      evidence: [
-        {
-          id: 'link-3',
-          submissionId: 'sub-3',
-          assetId: 'asset-3',
-          decision: 'pending',
-          submittedAt: '2026-10-04T10:30:00Z',
-          claimedCompletedAt: null,
-          decidedAt: null,
-          reason: null,
-          effectiveCompletedAt: null,
-          note: 'Picks confirmed on the app, screen recording attached.',
-          submitterId: 'member-lm',
-          submitterName: 'Liam',
-        },
-      ],
-    },
-    {
-      id: 'duty-4',
-      memberId: 'member-as',
-      roundId: 1,
-      type: 'pick_confirmation',
-      reason: 'No picks recorded for Round 01.',
-      deadlineAt: '2026-09-01T18:45:00Z',
-      status: 'open',
-      completedAt: null,
-      clockResetAt: null,
-      voidReason: null,
-      createdAt: '2026-08-30T08:00:00Z',
-      evidence: [],
-    },
-  ]);
+  readonly members = this.from((league) => league.members);
+  readonly standings = this.from((league) => league.standings);
+  readonly duties = this.from((league) => league.duties);
+  readonly marks = this.from((league) => league.marks);
+  readonly polls = this.from((league) => league.polls);
+  readonly notes = this.from((league) => league.notes);
+  readonly feed = this.from((league) => league.feed);
+  readonly notificationsRead = this.from((league) => league.read);
+
+  /** Switches to a sample league's records. Unknown slugs keep the current league. */
+  selectLeague(league: LeagueSummary): void {
+    const seed = this.seed(league.slug);
+    if (seed) this.active.set(this.league(seed));
+  }
+
+  /** The sample league with this slug, whether or not it is showing. */
+  seed(slug: string): SampleLeagueSeed | undefined {
+    return this.seeds().find((s) => s.summary.slug === slug);
+  }
+
+  /** Every sample league's records, archived ones included, for the management centre. */
+  sampleLeagues(): readonly SampleLeague[] {
+    return this.seeds().map((seed) => this.league(seed));
+  }
+
+  /** Adds a league made in the management centre; it lives until reload. */
+  addLeague(seed: SampleLeagueSeed): SampleLeague {
+    this.seeds.update((seeds) => [...seeds, seed]);
+    return this.league(seed);
+  }
+
+  /**
+   * The sample account document, as `GET /v1/me` would answer now: active leagues only, by
+   * name; the admin also lists the leagues it holds no membership in.
+   */
+  account(): Account {
+    return {
+      ...SAMPLE_ACCOUNT,
+      isAdmin: this.isAdmin,
+      leagues: this.sampleLeagues()
+        .filter((league) => league.status() === 'active' && (this.isAdmin || !!league.memberId))
+        .map((league) => league.summary())
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    };
+  }
+
+  reload(): void {
+    this.active().reload();
+  }
+
+  refreshFeed(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  saveNotificationsRead(read: NotificationsRead): Promise<void> {
+    return this.active().saveNotificationsRead(read);
+  }
+
+  submitEvidence(submission: EvidenceSubmission): Promise<void> {
+    return this.active().submitEvidence(submission);
+  }
+
+  createDuty(duty: NewDuty): Promise<void> {
+    return this.active().createDuty(duty);
+  }
+
+  voidDuty(dutyId: string, reason: string): Promise<void> {
+    return this.active().voidDuty(dutyId, reason);
+  }
+
+  resetClock(dutyId: string, reason: string): Promise<void> {
+    return this.active().resetClock(dutyId, reason);
+  }
+
+  decideEvidence(linkId: string, decision: 'accepted' | 'rejected', reason: string): Promise<void> {
+    return this.active().decideEvidence(linkId, decision, reason);
+  }
+
+  playbackUrl(): Promise<string> {
+    return Promise.reject(new Error('Sample evidence has no video.'));
+  }
+
+  addMember(member: NewMember): Promise<void> {
+    return this.active().addMember(member);
+  }
+
+  releaseMember(memberId: string): Promise<void> {
+    return this.active().releaseMember(memberId);
+  }
+
+  updateMember(memberId: string, email: string | null): Promise<void> {
+    return this.active().updateMember(memberId, email);
+  }
+
+  castVote(pollId: string, choice: string): Promise<void> {
+    return this.active().castVote(pollId, choice);
+  }
+
+  withdrawMember(memberId: string, reason: string): Promise<void> {
+    return this.active().withdrawMember(memberId, reason);
+  }
+
+  reinstateMember(memberId: string): Promise<void> {
+    return this.active().reinstateMember(memberId);
+  }
+
+  rotateJoinCode(): Promise<string> {
+    return this.active().rotateJoinCode();
+  }
+
+  closeJoinCode(): Promise<void> {
+    return this.active().closeJoinCode();
+  }
+
+  saveAppearance(change: AppearanceChange): Promise<LeagueAppearance> {
+    return this.active().saveAppearance(change);
+  }
+
+  /**
+   * What `/join/{code}` shows for a sample league's current join code (codes rotate and
+   * close in memory). Rejects like the API for an unknown or closed code.
+   */
+  preview(code: string): JoinPreview {
+    const league = this.sampleLeagues().find(
+      (l) => l.status() === 'active' && l.joinCode() === code,
+    );
+    if (!league)
+      throw new ApiError(
+        404,
+        'unknown_join_code',
+        'That join link is not valid. Ask the captain for a new one.',
+      );
+    const { id, slug, name, timezone, competition, seasonName } = league.summary();
+    return {
+      league: { id, slug, name, timezone, competition, seasonName, ...league.appearance() },
+      alreadyMember: !!league.memberId,
+      unclaimed: league
+        .members()
+        .filter((member) => !member.claimed)
+        .map((member) => ({ id: member.id, displayName: member.name })),
+    };
+  }
+
+  private league(seed: SampleLeagueSeed): SampleLeague {
+    let league = this.leagues.get(seed.summary.slug);
+    if (!league) {
+      league = new SampleLeague(seed, this.competition);
+      this.leagues.set(seed.summary.slug, league);
+    }
+    return league;
+  }
+
+  /** A signal that follows the active league's records. */
+  private from<T>(pick: (league: SampleLeague) => Signal<T>): Signal<T> {
+    return computed(() => pick(this.active())());
+  }
+}
+
+/** One sample league's in-memory records and the rules the API would apply to them. */
+export class SampleLeague {
+  readonly seed: SampleLeagueSeed;
+  private readonly me: WritableSignal<string | null>;
+  private readonly meInSeason = signal(true);
+  private readonly captainState: WritableSignal<string>;
+  /** The captain's membership. */
+  readonly captain: Signal<string>;
+  private readonly nameState: WritableSignal<string>;
+  private readonly zoneState: WritableSignal<string>;
+  private readonly statusState = signal<'active' | 'archived'>('active');
+  readonly name: Signal<string>;
+  readonly timezone: Signal<string>;
+  /** Archived leagues keep their records but leave every list but the management centre's. */
+  readonly status = this.statusState.asReadonly();
+  private readonly competition: CompetitionService;
+  private readonly memberRecords: WritableSignal<readonly LeagueMember[]>;
+  /** Active members; withdrawn ones move to `withdrawn` and drop out of every list. */
+  readonly members: Signal<readonly LeagueMember[]>;
+  private readonly withdrawnRecords = signal<readonly LeagueMember[]>([]);
+  readonly withdrawn = this.withdrawnRecords.asReadonly();
+  private readonly standingRecords: Signal<readonly RoundStanding[]>;
+  readonly standings = computed(() => {
+    const active = new Set(this.memberRecords().map((m) => m.id));
+    return this.standingRecords().filter((s) => active.has(s.memberId));
+  });
+  private readonly dutyRecords: WritableSignal<readonly DutyRecord[]>;
+  private readonly code: WritableSignal<string | null>;
+  readonly joinCode: Signal<string | null>;
+  private readonly look: WritableSignal<LeagueAppearance>;
+  readonly appearance: Signal<LeagueAppearance>;
   private readonly clock = signal(Date.now());
   readonly duties = computed<readonly Duty[]>(() => {
     const now = new Date(this.clock());
     const members = this.memberRecords();
-    return this.dutyRecords().map((record) => {
+    const active = new Set(members.map((m) => m.id));
+    return this.dutyRecords().filter((record) => active.has(record.memberId)).map((record) => {
       const marks = sampleMarks(
         record.deadlineAt,
         record.completedAt,
@@ -202,7 +292,7 @@ export class SampleLeagueData extends LeagueData {
       return {
         ...record,
         memberName: members.find((m) => m.id === record.memberId)?.name ?? 'Unknown member',
-        title: title(record.type, record.roundId),
+        title: this.title(record.type, record.roundId),
         display,
         marks,
       };
@@ -225,91 +315,114 @@ export class SampleLeagueData extends LeagueData {
     }
     return [...totals.values()].sort((a, b) => b.marks - a.marks || a.memberName.localeCompare(b.memberName));
   });
-  private readonly pollRecords = signal<readonly Poll[]>([
-    {
-      id: 'poll-1',
-      roundId: 1,
-      question: 'Accept the Round 1 fixture correction?',
-      description: 'The corrected Glasgow–Stormers result was reviewed by the league.',
-      options: ['Accept correction', 'Keep original result', 'Abstain'],
-      closes: '29 Sep 2026 · 21:00 SAST',
-      status: 'Closed',
-      participants: 10,
-      eligible: 12,
-      result: 'Correction accepted · 8 for, 1 against, 1 abstention.',
-    },
-    {
-      id: 'poll-2',
-      roundId: 2,
-      question: 'Accept the Round 2 result correction?',
-      description: 'Review the proposed result correction before the round is finalised.',
-      options: ['Accept correction', 'Keep original result', 'Abstain'],
-      closes: '10 Oct 2026 · 21:00 SAST',
-      status: 'Open',
-      participants: 7,
-      eligible: 12,
-    },
-    {
-      id: 'poll-3',
-      roundId: 3,
-      question: 'Confirm the Round 3 pick deadline?',
-      description: 'Review the proposed 18:45 SAST deadline before the opening fixture.',
-      options: ['Confirm 18:45 SAST', 'Request a review', 'Abstain'],
-      closes: '08 Oct 2026 · 21:00 SAST',
-      status: 'Open',
-      participants: 8,
-      eligible: 12,
-    },
-  ]);
-  readonly polls = this.pollRecords.asReadonly();
-  readonly notes = signal<readonly RoundNote[]>([
-    {
-      roundId: 1,
-      deadline: '25 Sep 2026 · 19:00 SAST',
-      activity: 'Pieter wins Round 1 with 15.0 points. Franco’s evidence was accepted.',
-    },
-    {
-      roundId: 2,
-      deadline: '02 Oct 2026 · 18:45 SAST',
-      activity:
-        'Johan leads Round 2 with 16.0 points. A result correction is awaiting the league’s decision.',
-    },
-    {
-      roundId: 3,
-      deadline: '09 Oct 2026 · 18:45 SAST',
-      activity: 'Round 3 standings and duties will appear after results are recorded.',
-    },
-  ]).asReadonly();
-  private readonly feedRecords = signal<readonly FeedItem[]>([
-    feedItem('feed-9', 'evidence_submitted', 2, 'Liam submitted evidence for Round 02 Pick confirmation.', 'Waiting for an uninvolved reviewer.', '2026-10-04T10:30:00Z', 'Liam'),
-    feedItem('feed-8', 'duty_created', 2, 'You: Round 02 Spoon duty.', 'Last place in Round 02.', '2026-10-03T08:00:00Z', 'You'),
-    feedItem('feed-7', 'duty_created', 2, 'Liam: Round 02 Pick confirmation.', 'Two picks missing on the Superbru round page.', '2026-10-03T08:05:00Z', 'Liam'),
-    feedItem('feed-6', 'match_result', 2, 'Glasgow Warriors 24–19 DHL Stormers.', 'Round 02 opener. Johan called it.', '2026-10-02T20:40:00Z', null),
-    feedItem('feed-5', 'poll_opened', 2, 'Vote: accept the Round 2 result correction?', 'Closes 10 Oct 2026 · 21:00 SAST.', '2026-10-02T09:00:00Z', null),
-    feedItem('feed-4', 'evidence_accepted', 1, 'Franco: Round 01 Spoon duty completed.', 'Clear video, spoon and beer both visible.', '2026-09-27T19:00:00Z', 'Franco'),
-    feedItem('feed-3', 'evidence_submitted', 1, 'Franco submitted evidence for Round 01 Spoon duty.', 'Done at the braai.', '2026-09-27T14:10:00Z', 'Franco'),
-    feedItem('feed-2', 'duty_created', 1, 'Franco: Round 01 Spoon duty.', 'Last place in Round 01.', '2026-09-26T08:00:00Z', 'Franco'),
-    feedItem('feed-1', 'season_opened', null, 'URC 2026/27 is open.', '6 members enrolled. You are captain.', '2026-09-20T08:00:00Z', null),
-  ]);
-  readonly feed = this.feedRecords.asReadonly();
-  private readonly read = signal<NotificationsRead>(loadStoredRead());
-  readonly notificationsRead = this.read.asReadonly();
+  private readonly pollRecords: WritableSignal<readonly Poll[]>;
+  readonly polls: Signal<readonly Poll[]>;
+  readonly notes: Signal<readonly RoundNote[]>;
+  private readonly feedRecords: WritableSignal<readonly FeedItem[]>;
+  readonly feed: Signal<readonly FeedItem[]>;
+  private readonly readState: WritableSignal<NotificationsRead>;
+  readonly read: Signal<NotificationsRead>;
+
+  constructor(seed: SampleLeagueSeed, competition: CompetitionService) {
+    this.seed = seed;
+    this.me = signal(seed.summary.memberId);
+    this.captainState = signal(seed.captainId);
+    this.captain = this.captainState.asReadonly();
+    this.nameState = signal(seed.summary.name);
+    this.name = this.nameState.asReadonly();
+    this.zoneState = signal(seed.summary.timezone);
+    this.timezone = this.zoneState.asReadonly();
+    this.competition = competition;
+    this.memberRecords = signal(seed.members);
+    this.members = this.memberRecords.asReadonly();
+    this.standingRecords = signal(seed.standings).asReadonly();
+    this.code = signal<string | null>(seed.joinCode);
+    this.joinCode = this.code.asReadonly();
+    const { emblemPreset, emblemUrl, accentColour } = seed.summary;
+    this.look = signal<LeagueAppearance>({ emblemPreset, emblemUrl, accentColour });
+    this.appearance = this.look.asReadonly();
+    this.dutyRecords = signal<readonly DutyRecord[]>(seed.duties);
+    this.pollRecords = signal<readonly Poll[]>(seed.polls);
+    this.polls = this.pollRecords.asReadonly();
+    this.notes = signal(seed.notes).asReadonly();
+    this.feedRecords = signal<readonly FeedItem[]>(seed.feed);
+    this.feed = this.feedRecords.asReadonly();
+    this.readState = signal<NotificationsRead>(loadStoredRead(seed.summary.slug));
+    this.read = this.readState.asReadonly();
+  }
+
+  /** The sample member here, or null where the sample account is only the admin. */
+  get memberId(): string | null {
+    return this.me();
+  }
+
+  /** The league as the account document lists it now. */
+  readonly summary = computed<LeagueSummary>(() => {
+    const me = this.me();
+    return {
+      ...this.seed.summary,
+      name: this.name(),
+      timezone: this.timezone(),
+      ...this.look(),
+      memberId: me,
+      isCaptain: !!me && this.captain() === me,
+      inSeason: !me || this.meInSeason(),
+    };
+  });
 
   reload(): void {
     this.clock.set(Date.now());
   }
 
-  refreshFeed(): Promise<void> {
-    return Promise.resolve();
+  /** Renames, moves or archives the league as `PATCH /v1/admin/leagues/{id}` does. */
+  update(change: { name?: string; timezone?: string; status?: 'active' | 'archived' }): void {
+    if (change.name) this.nameState.set(change.name);
+    if (change.timezone) this.zoneState.set(change.timezone);
+    if (change.status && change.status !== this.status()) {
+      this.statusState.set(change.status);
+      if (change.status === 'active') this.post('league_restored', null, `${this.name()} is open again.`, '', null);
+    }
+  }
+
+  /** Makes an active, claimed member the captain. */
+  appoint(memberId: string): void {
+    const member = this.memberRecords().find((m) => m.id === memberId);
+    this.captainState.set(memberId);
+    if (member) this.post('captain_appointed', null, `${member.name} is captain.`, '', member.name);
+  }
+
+  /**
+   * Adds the sample account as a member outside the season (the admin's "Add me"). Returns
+   * whether it was new; a withdrawn membership comes back, still outside the season.
+   */
+  addAdmin(name: string): boolean {
+    if (this.me() && this.memberRecords().some((m) => m.id === this.me())) return false;
+    const withdrawn = this.withdrawnRecords().find((m) => m.id === ME);
+    this.withdrawnRecords.update((members) => members.filter((m) => m.id !== ME));
+    const record = withdrawn
+      ? { ...withdrawn, leftAt: null, withdrawalReason: null, inSeason: false }
+      : { ...memberRecord(ME, name, name, ''), inSeason: false };
+    this.memberRecords.update((members) => [...members, record]);
+    this.me.set(ME);
+    this.meInSeason.set(false);
+    this.post(
+      withdrawn ? 'member_returned' : 'member_joined',
+      null,
+      withdrawn ? `${record.name} is back as admin.` : `${record.name} joined the clubhouse as admin.`,
+      '',
+      record.name,
+    );
+    return !withdrawn;
   }
 
   saveNotificationsRead(read: NotificationsRead): Promise<void> {
-    this.read.set(read);
-    storeRead(read);
+    this.readState.set(read);
+    storeRead(read, this.seed.summary.slug);
     return Promise.resolve();
   }
 
   submitEvidence({ dutyIds, note, subjectMemberId, claimedCompletedAt }: EvidenceSubmission): Promise<void> {
+    if (!this.memberId) return notAMember();
     const subject = subjectMemberId ?? ME;
     const now = new Date().toISOString();
     const submissionId = `sub-${Date.now()}`;
@@ -338,16 +451,17 @@ export class SampleLeagueData extends LeagueData {
     );
     if (!touched.length) return Promise.reject(new Error('That duty is no longer open.'));
     const name = this.memberRecords().find((m) => m.id === subject)?.name ?? 'Member';
-    this.post('evidence_submitted', touched[0].roundId, `${name} submitted evidence for ${touched.map((d) => title(d.type, d.roundId)).join(', ')}.`, subject === ME ? 'Waiting for an uninvolved reviewer.' : 'Recorded by the captain.', name);
+    this.post('evidence_submitted', touched[0].roundId, `${name} submitted evidence for ${touched.map((d) => this.title(d.type, d.roundId)).join(', ')}.`, subject === ME ? 'Waiting for an uninvolved reviewer.' : 'Recorded by the captain.', name);
     return Promise.resolve();
   }
 
   createDuty(duty: NewDuty): Promise<void> {
+    if (!this.memberId) return notAMember();
     const member = this.memberRecords().find((m) => m.id === duty.memberId);
     if (!member) return Promise.reject(new Error('Unknown member.'));
     if (this.dutyRecords().some((d) => d.memberId === duty.memberId && d.roundId === duty.roundId && d.type === duty.type && (d.status === 'open' || d.status === 'pending_deadline')))
       return Promise.reject(new Error('That member already has a live duty of this type in this round.'));
-    const deadlineAt = duty.deadlineAt ?? (duty.type === 'spoon' ? firstKickoff(duty.roundId + 1) : null);
+    const deadlineAt = duty.deadlineAt ?? (duty.type === 'spoon' ? this.competition.current().firstKickoff(duty.roundId + 1) : null);
     const id = `duty-${Date.now()}`;
     this.dutyRecords.update((duties) => [
       ...duties,
@@ -366,11 +480,12 @@ export class SampleLeagueData extends LeagueData {
         evidence: [],
       },
     ]);
-    this.post('duty_created', duty.roundId, `${member.name}: ${title(duty.type, duty.roundId)}.`, duty.reason || (deadlineAt ? '' : 'Deadline to be confirmed.'), member.name);
+    this.post('duty_created', duty.roundId, `${member.name}: ${this.title(duty.type, duty.roundId)}.`, duty.reason || (deadlineAt ? '' : 'Deadline to be confirmed.'), member.name);
     return Promise.resolve();
   }
 
   voidDuty(dutyId: string, reason: string): Promise<void> {
+    if (!this.memberId) return notAMember();
     const duty = this.dutyRecords().find((d) => d.id === dutyId);
     if (!duty || duty.status === 'voided' || duty.status === 'completed')
       return Promise.reject(new Error('A completed or voided duty cannot be voided.'));
@@ -382,11 +497,12 @@ export class SampleLeagueData extends LeagueData {
       ),
     );
     const name = this.memberRecords().find((m) => m.id === duty.memberId)?.name ?? 'Member';
-    this.post('duty_voided', duty.roundId, `${name}: ${title(duty.type, duty.roundId)} voided.`, reason, name);
+    this.post('duty_voided', duty.roundId, `${name}: ${this.title(duty.type, duty.roundId)} voided.`, reason, name);
     return Promise.resolve();
   }
 
   resetClock(dutyId: string, reason: string): Promise<void> {
+    if (!this.memberId) return notAMember();
     const duty = this.dutyRecords().find((d) => d.id === dutyId);
     if (!duty || duty.status !== 'open') return Promise.reject(new Error('Only an open duty’s clock can be reset.'));
     if (duty.memberId === ME)
@@ -395,11 +511,12 @@ export class SampleLeagueData extends LeagueData {
       duties.map((d) => (d.id === dutyId ? { ...d, clockResetAt: new Date().toISOString() } : d)),
     );
     const name = this.memberRecords().find((m) => m.id === duty.memberId)?.name ?? 'Member';
-    this.post('duty_clock_reset', duty.roundId, `${name}: ${title(duty.type, duty.roundId)} clock reset.`, reason, name);
+    this.post('duty_clock_reset', duty.roundId, `${name}: ${this.title(duty.type, duty.roundId)} clock reset.`, reason, name);
     return Promise.resolve();
   }
 
   decideEvidence(linkId: string, decision: 'accepted' | 'rejected', reason: string): Promise<void> {
+    if (!this.memberId) return notAMember();
     const duty = this.dutyRecords().find((d) => d.evidence.some((e) => e.id === linkId));
     const link = duty?.evidence.find((e) => e.id === linkId);
     if (!duty || !link || link.decision !== 'pending') return Promise.reject(new Error('This evidence was already decided.'));
@@ -425,12 +542,8 @@ export class SampleLeagueData extends LeagueData {
       ),
     );
     const name = this.memberRecords().find((m) => m.id === duty.memberId)?.name ?? 'Member';
-    this.post(decision === 'accepted' ? 'evidence_accepted' : 'evidence_rejected', duty.roundId, `${name}: ${title(duty.type, duty.roundId)} ${decision === 'accepted' ? 'completed' : 'evidence rejected'}.`, reason, name);
+    this.post(decision === 'accepted' ? 'evidence_accepted' : 'evidence_rejected', duty.roundId, `${name}: ${this.title(duty.type, duty.roundId)} ${decision === 'accepted' ? 'completed' : 'evidence rejected'}.`, reason, name);
     return Promise.resolve();
-  }
-
-  playbackUrl(): Promise<string> {
-    return Promise.reject(new Error('Sample evidence has no video.'));
   }
 
   addMember(member: NewMember): Promise<void> {
@@ -444,7 +557,8 @@ export class SampleLeagueData extends LeagueData {
   }
 
   releaseMember(memberId: string): Promise<void> {
-    if (memberId === ME) return Promise.reject(new Error('The captain’s own membership cannot be released.'));
+    if (memberId === this.captain())
+      return Promise.reject(new Error('The captain’s own membership cannot be released.'));
     this.memberRecords.update((members) =>
       members.map((m) => (m.id === memberId ? { ...m, claimed: false } : m)),
     );
@@ -457,6 +571,7 @@ export class SampleLeagueData extends LeagueData {
   }
 
   castVote(pollId: string, choice: string): Promise<void> {
+    if (!this.memberId) return notAMember();
     const poll = this.pollRecords().find((p) => p.id === pollId);
     if (!poll || poll.status !== 'Open' || !poll.options.includes(choice))
       return Promise.reject(new Error('This vote is closed.'));
@@ -470,6 +585,96 @@ export class SampleLeagueData extends LeagueData {
     return Promise.resolve();
   }
 
+  /**
+   * Off the team sheet, as the API does it: open duties voided, standings and marks kept
+   * (hidden while withdrawn). An unclaimed name without records is deleted instead.
+   */
+  withdrawMember(memberId: string, reason: string): Promise<void> {
+    const text = reason.trim();
+    if (!text || text.length > 500) return refuse(422, 'validation', 'Give a reason of up to 500 characters.');
+    if (memberId === this.captain())
+      return refuse(409, 'captain_membership', 'The captain cannot be removed. Appoint another captain first.');
+    if (memberId === this.memberId) return refuse(409, 'own_membership', 'You cannot remove yourself.');
+    if (this.withdrawnRecords().some((m) => m.id === memberId))
+      return refuse(409, 'already_withdrawn', 'That member was already removed.');
+    const member = this.memberRecords().find((m) => m.id === memberId);
+    if (!member) return refuse(404, 'unknown_member', 'That member is not on the team sheet.');
+    this.memberRecords.update((members) => members.filter((m) => m.id !== memberId));
+    if (!member.claimed && !this.hasRecords(memberId)) return Promise.resolve();
+    this.withdrawnRecords.update((members) => [
+      { ...member, leftAt: new Date().toISOString(), withdrawalReason: text },
+      ...members,
+    ]);
+    this.dutyRecords.update((duties) =>
+      duties.map((d) =>
+        d.memberId === memberId && (d.status === 'open' || d.status === 'pending_deadline')
+          ? { ...d, status: 'voided', voidReason: 'Member withdrawn' }
+          : d,
+      ),
+    );
+    this.post('member_left', null, `${member.name} left the clubhouse.`, '', member.name);
+    return Promise.resolve();
+  }
+
+  reinstateMember(memberId: string): Promise<void> {
+    const member = this.withdrawnRecords().find((m) => m.id === memberId);
+    if (!member) return refuse(409, 'not_withdrawn', 'That member is on the team sheet already.');
+    this.withdrawnRecords.update((members) => members.filter((m) => m.id !== memberId));
+    this.memberRecords.update((members) => [
+      ...members,
+      { ...member, leftAt: null, withdrawalReason: null },
+    ]);
+    this.post('member_returned', null, `${member.name} is back.`, '', member.name);
+    return Promise.resolve();
+  }
+
+  rotateJoinCode(): Promise<string> {
+    const bytes = crypto.getRandomValues(new Uint8Array(6));
+    const code = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+    this.code.set(code);
+    return Promise.resolve(code);
+  }
+
+  closeJoinCode(): Promise<void> {
+    this.code.set(null);
+    return Promise.resolve();
+  }
+
+  saveAppearance({ emblem, accentColour }: AppearanceChange): Promise<LeagueAppearance> {
+    if (emblem && 'preset' in emblem && !isEmblemPreset(emblem.preset))
+      return refuse(422, 'invalid_emblem', 'Choose one of the preset emblems.');
+    if (emblem && 'image' in emblem && !/^data:image\/jpeg;base64,/.test(emblem.image))
+      return refuse(422, 'unknown_upload', 'The emblem upload failed. Try again.');
+    if (accentColour !== undefined && accentColour !== null && !isAccentColour(accentColour))
+      return refuse(422, 'validation', 'Choose a colour as #rrggbb.');
+    const next: LeagueAppearance = {
+      ...this.look(),
+      ...(emblem === null ? { emblemPreset: null, emblemUrl: null } : {}),
+      ...(emblem && 'preset' in emblem ? { emblemPreset: emblem.preset, emblemUrl: null } : {}),
+      ...(emblem && 'image' in emblem ? { emblemPreset: null, emblemUrl: emblem.image } : {}),
+      ...(accentColour !== undefined ? { accentColour } : {}),
+    };
+    const changed =
+      next.emblemPreset !== this.look().emblemPreset || next.emblemUrl !== this.look().emblemUrl;
+    this.look.set(next);
+    if (changed) this.post('emblem_updated', null, `The ${this.name()} emblem was updated.`, '', null);
+    return Promise.resolve(next);
+  }
+
+  /** Duties or round standings on record, which keep a name from being deleted. */
+  private hasRecords(memberId: string): boolean {
+    return (
+      this.dutyRecords().some((d) => d.memberId === memberId) ||
+      this.standingRecords().some((s) => s.memberId === memberId)
+    );
+  }
+
+  /** `Round 03 Spoon duty`, with the round labelled as the competition labels it. */
+  private title(type: Duty['type'], roundId: number | null): string {
+    const competition = this.competition.current();
+    return title(type, roundId, (id) => competition.roundCode(id));
+  }
+
   private post(kind: FeedItem['kind'], roundId: number | null, titleText: string, detail: string, subjectName: string | null): void {
     this.feedRecords.update((items) => [
       feedItem(`feed-${Date.now()}`, kind, roundId, titleText, detail, new Date().toISOString(), subjectName),
@@ -478,14 +683,21 @@ export class SampleLeagueData extends LeagueData {
   }
 }
 
-function feedItem(
-  id: string,
-  kind: FeedItem['kind'],
-  roundId: number | null,
-  title: string,
-  detail: string,
-  occurredAt: string,
-  subjectName: string | null,
-): FeedItem {
-  return { id, kind, roundId, title, detail, occurredAt, actorName: 'You', subjectName, dutyId: null };
+
+/** `?sampleAdmin=0` on the first page makes the sample account a plain member. */
+function sampleAdmin(): boolean {
+  try {
+    return new URLSearchParams(globalThis.location?.search ?? '').get('sampleAdmin') !== '0';
+  } catch {
+    return true;
+  }
+}
+
+function refuse<T>(status: number, code: string, message: string): Promise<T> {
+  return Promise.reject(new ApiError(status, code, message));
+}
+
+/** The admin viewing a league it is not in cannot do what is recorded against a member. */
+function notAMember<T>(): Promise<T> {
+  return refuse(409, 'admin_not_a_member', 'Add yourself to this league from the management centre first.');
 }

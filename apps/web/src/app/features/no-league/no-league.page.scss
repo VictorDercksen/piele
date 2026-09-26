@@ -1,0 +1,39 @@
+.join-form {
+  display: grid;
+  gap: 8px;
+  margin: 24px 0 8px;
+}
+.join-form label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: #d5d9c6;
+}
+.join-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.join-row input {
+  flex: 1 1 220px;
+  min-width: 0;
+  min-height: 46px;
+  padding: 10px 14px;
+  border: 1px solid #425460;
+  background: #17292b;
+  color: inherit;
+  font: inherit;
+}
+.join-row input:focus-visible {
+  outline: 2px solid #ff957e;
+  outline-offset: 2px;
+}
+.join-row input[aria-invalid='true'] {
+  border-color: #ff957e;
+}
+a.text-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+}

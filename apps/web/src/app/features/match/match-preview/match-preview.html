@@ -1,5 +1,5 @@
 <div class="section-title">
-  <h2 id="preview-title">Piele preview.</h2>
+  <h2 id="preview-title">Pavilion preview.</h2>
 </div>
 @if (failed()) {
   <p class="preview-empty" role="alert">
@@ -12,7 +12,7 @@
   <p class="preview-empty">Loading the preview.</p>
 } @else if (view(); as preview) {
   <div class="poster">
-    <p class="poster-title">Piele's<br />read.</p>
+    <p class="poster-title">The Pavilion's<br />read.</p>
     <p class="summary">{{ preview.summary }}</p>
     <div class="sides">
       @for (side of preview.sides; track side.label) {
@@ -67,8 +67,8 @@
     </ol>
   </details>
   <p class="preview-note">
-    As of {{ preview.generatedAt | date: 'd MMM HH:mm' : sast }} SAST. Written by the Piele agent
-    from public sources and the published teamsheets. It can be wrong.
+    As of {{ preview.generatedAt | leagueTime: 'd MMM HH:mm z' : zone() }}. Written by the Pavilion
+    agent from public sources and the published teamsheets. It can be wrong.
   </p>
 } @else {
   <p class="preview-empty">

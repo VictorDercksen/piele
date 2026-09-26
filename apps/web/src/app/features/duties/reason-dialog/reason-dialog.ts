@@ -2,14 +2,20 @@ import {
   ChangeDetectionStrategy,
   Component,
   ElementRef,
+  inject,
   signal,
   viewChild,
 } from '@angular/core';
 import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
+import { LeagueContext } from '../../../core/league/league-context';
 import { Icon } from '../../../shared/icon/icon';
 import { Loader } from '../../../shared/loader/loader';
 
-/** A confirmation with a reason, used to void duties and to decide evidence. */
+/**
+ * A confirmation with a reason, used to void duties, decide evidence and remove members, and
+ * without one (`noReason`) for plain confirmations such as rotating the join link or, in the
+ * management centre, archiving a league.
+ */
 @Component({
   selector: 'app-reason-dialog',
   templateUrl: './reason-dialog.html',
@@ -19,12 +25,17 @@ import { Loader } from '../../../shared/loader/loader';
 })
 export class ReasonDialog {
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
+  readonly leagueName = inject(LeagueContext).name;
   readonly request = signal<ReasonRequest | null>(null);
   readonly error = signal('');
   readonly busy = signal(false);
   readonly reason = new FormControl('', { nonNullable: true, validators: [Validators.maxLength(500)] });
 
+  /** What had focus when the dialog opened; it gets it back on close while still on the page. */
+  private opener: HTMLElement | null = null;
+
   open(request: ReasonRequest): void {
+    this.opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     this.request.set(request);
     this.error.set('');
     this.reason.reset();
@@ -39,6 +50,12 @@ export class ReasonDialog {
 
   close(): void {
     this.dialog().nativeElement.close();
+  }
+
+  restoreFocus(): void {
+    const opener = this.opener;
+    this.opener = null;
+    if (opener?.isConnected && !(opener as HTMLButtonElement).disabled) opener.focus();
   }
 
   async submit(): Promise<void> {
@@ -63,10 +80,14 @@ export class ReasonDialog {
 }
 
 export interface ReasonRequest {
+  /** The line above the title; the league's captain's desk by default. */
+  readonly eyebrow?: string;
   readonly title: string;
   readonly description: string;
   readonly submitLabel: string;
   readonly required: boolean;
+  /** A plain confirmation: no reason field. */
+  readonly noReason?: boolean;
   readonly spoon?: boolean;
   readonly action: (reason: string) => Promise<void>;
   readonly done?: () => void;

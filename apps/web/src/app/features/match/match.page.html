@@ -41,7 +41,7 @@
         <p class="panel-source">
           {{ centre.score?.source }}
           @if (centre.score?.fetchedAt; as at) {
-            · updated {{ at | date: 'HH:mm:ss' : sast }} SAST
+            · updated {{ at | leagueTime: 'HH:mm:ss z' : zone() }}
           }
         </p>
       </app-scoring-panel>
@@ -98,10 +98,10 @@
             </div>
             <p class="panel-source">
               {{ centre.weather.stadium }}, {{ centre.weather.city }} at
-              {{ centre.weather.forecastHourUtc | date: 'HH:mm' : sast }} SAST ·
+              {{ centre.weather.forecastHourUtc | leagueTime: 'HH:mm z' : zone() }} ·
               {{ centre.weather.source }}
               @if (centre.weather.fetchedAt; as at) {
-                · updated {{ at | date: 'd MMM HH:mm' : sast }}
+                · updated {{ at | leagueTime: 'd MMM HH:mm' : zone() }}
               }
             </p>
           } @else {
@@ -229,7 +229,7 @@
         <p class="panel-source">
           {{ centre.teamsheets.source }}
           @if (centre.teamsheets.fetchedAt; as at) {
-            · checked {{ at | date: 'd MMM HH:mm' : sast }} SAST
+            · checked {{ at | leagueTime: 'd MMM HH:mm z' : zone() }}
           }
         </p>
       </section>

@@ -1,0 +1,65 @@
+<section class="claim">
+  <span class="eyebrow">THE PAVILION / JOIN A LEAGUE</span>
+  @if (accountError(); as message) {
+    <h1>Not just now.</h1>
+    <p class="error" role="alert">{{ message }}</p>
+    <div class="actions">
+      <button
+        type="button"
+        class="primary-button"
+        [disabled]="busy()"
+        [attr.aria-busy]="busy()"
+        (click)="retry()"
+      >
+        @if (busy()) {
+          <app-loader [size]="18" aria-hidden="true" />
+        }
+        Try again
+      </button>
+    </div>
+  } @else {
+    <h1>No league yet.</h1>
+    <p class="lead">
+      {{ email() || 'This account' }} is not on a league's team sheet yet. Ask your captain for the
+      league's join link, then open it or paste it here.
+    </p>
+    @if (home(); as league) {
+      <p class="lead">
+        <a class="text-button" [routerLink]="['/', league.slug]"
+          >Open {{ league.name }}<ng-icon class="link-icon" name="lucideArrowRight"
+        /></a>
+      </p>
+    }
+    <form class="join-form" [formGroup]="form" (ngSubmit)="join()">
+      <label for="join-code">Join link or code</label>
+      <div class="join-row">
+        <input
+          id="join-code"
+          formControlName="code"
+          autocomplete="off"
+          autocapitalize="off"
+          spellcheck="false"
+          maxlength="300"
+          placeholder="Paste the link or code"
+          [attr.aria-invalid]="submitted() && invalid()"
+          [attr.aria-describedby]="submitted() && invalid() ? 'join-code-error' : null"
+        />
+        <button type="submit" class="primary-button">
+          Join<ng-icon class="link-icon" name="lucideArrowRight" />
+        </button>
+      </div>
+      @if (submitted() && invalid()) {
+        <p id="join-code-error" class="error" role="alert">
+          That is not a join link or code. Paste the whole link the captain sent.
+        </p>
+      }
+    </form>
+  }
+  @if (canSignOut) {
+    <div class="actions">
+      <button type="button" class="text-button" (click)="signOut()" [disabled]="busy()">
+        Wrong account? Sign out
+      </button>
+    </div>
+  }
+</section>

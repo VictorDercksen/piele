@@ -73,7 +73,7 @@
                 <app-icon name="duties" />View duty
               </button>
             }
-            <a class="text-button" routerLink="/duties" queryParamsHandling="preserve"
+            <a class="text-button" [routerLink]="'/duties' | leaguePath" queryParamsHandling="preserve"
               >Duty details<ng-icon class="link-icon" name="lucideArrowRight"
             /></a>
           </div>
@@ -92,7 +92,7 @@
         </p>
         <a
           class="text-button"
-          routerLink="/duties"
+          [routerLink]="'/duties' | leaguePath"
           [queryParams]="{ scope: 'league' }"
           queryParamsHandling="merge"
           >League duties ({{ view.duties().length }})<ng-icon
@@ -101,8 +101,8 @@
         /></a>
       </article>
     }
-    @if (view.isCaptain() && view.reviewCount()) {
-      <a class="captain-queue" routerLink="/captain" queryParamsHandling="preserve">
+    @if (view.administers() && view.reviewCount()) {
+      <a class="captain-queue" [routerLink]="'/captain' | leaguePath" queryParamsHandling="preserve">
         <app-icon name="shield" /><span
           ><strong>Captain, you're up.</strong
           ><small>{{ view.reviewCount() }} items in Round {{ view.round().code }}</small></span
@@ -114,7 +114,7 @@
   <aside class="standings-panel honours-board">
     <div class="board-light" aria-hidden="true"></div>
     <div class="honours-heading">
-      <span>PIELE / ROUND {{ view.round().code }}</span>
+      <span>{{ view.leagueName().toUpperCase() }} / ROUND {{ view.round().code }}</span>
       <h2>The pecking order.</h2>
     </div>
     @if (view.standings().length) {
@@ -135,7 +135,7 @@
           </li>
         }
       </ol>
-      <a class="table-link" routerLink="/standings" queryParamsHandling="preserve">
+      <a class="table-link" [routerLink]="'/standings' | leaguePath" queryParamsHandling="preserve">
         Full round standings <app-icon name="arrow" />
       </a>
     } @else {

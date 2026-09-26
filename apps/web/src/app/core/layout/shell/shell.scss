@@ -44,32 +44,9 @@
   box-shadow: 0 6px 28px #0005;
   color: var(--chalk);
 }
+// The top-left block is the league switcher (core/layout/league-switcher).
 .club-brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: #fff;
-  text-decoration: none;
-}
-.club-brand img {
-  width: 40px;
-  height: 44px;
-  object-fit: contain;
-}
-.club-brand strong {
-  display: block;
-  font-size: 25px;
-  font-weight: 700;
-  letter-spacing: 3px;
-  line-height: 1.1;
-}
-.club-brand small {
-  display: block;
-  margin-top: 6px;
-  font-size: 6px;
-  letter-spacing: 1.45px;
-  color: #b2bdc4;
-  white-space: nowrap;
+  flex: 0 1 auto;
 }
 .desktop-nav {
   display: flex;
@@ -187,39 +164,16 @@
   height: 100vh;
   height: 100dvh;
   min-width: 0;
+  // Above the content, so the league switcher's popover can overlap it.
+  z-index: 5;
   border-right: 1px solid var(--line);
   background: var(--surface-grain), linear-gradient(160deg, #23353b, #152326 55%, #252c25);
   box-shadow: inset -1px 0 #f2efdf0a;
 }
 .rail-brand {
-  display: flex;
   flex-shrink: 0;
-  align-items: center;
-  gap: 8px;
   height: 76px;
   padding: 0 14px;
-  color: #fff;
-  text-decoration: none;
-}
-.rail-brand img {
-  width: 34px;
-  height: 40px;
-  object-fit: contain;
-}
-.rail-brand strong {
-  display: block;
-  font-size: 21px;
-  font-weight: 700;
-  letter-spacing: 2.5px;
-  line-height: 1.1;
-}
-.rail-brand small {
-  display: block;
-  margin-top: 5px;
-  font-size: 5.5px;
-  letter-spacing: 1.2px;
-  color: #b2bdc4;
-  white-space: nowrap;
 }
 .top-bar .club-brand {
   display: none;
@@ -241,6 +195,25 @@ app-season-timeline {
 .page-backdrop {
   z-index: -2;
   max-height: 1500px;
+}
+// The admin reading a league it holds no membership in.
+.admin-ribbon {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 calc(-1 * var(--gutter));
+  padding: 10px var(--gutter);
+  border-bottom: 1px solid #2e5566;
+  background: #1d3340;
+  color: #bfe6f2;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+.admin-ribbon app-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
 }
 .main-content::before {
   content: '';
@@ -471,6 +444,9 @@ app-season-timeline {
   }
   .season-rail {
     position: static;
+    // A grid item keeps its z-index even when static; under the top bar it must not cover
+    // the league switcher's sheet.
+    z-index: auto;
     height: auto;
     border-right: 0;
     border-bottom: 1px solid var(--line);
@@ -494,8 +470,7 @@ app-season-timeline {
   }
 }
 @container (max-width: 800px) {
-  .desktop-nav,
-  .club-brand small {
+  .desktop-nav {
     display: none;
   }
   .round-bar {
@@ -506,14 +481,6 @@ app-season-timeline {
     padding: 0 22px;
     background: var(--surface-grain), #142429;
     color: #fff;
-  }
-  .club-brand img {
-    width: 32px;
-    height: 38px;
-  }
-  .club-brand strong {
-    font-size: 24px;
-    letter-spacing: 2px;
   }
   .demo-label {
     font-size: 8px;

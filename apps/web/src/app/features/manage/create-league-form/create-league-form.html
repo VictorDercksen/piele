@@ -1,0 +1,263 @@
+<form class="create-form" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+  @if (apiError()?.field === 'top') {
+    <p id="new-league-error" class="error-message top-error" role="alert" tabindex="-1">
+      {{ apiError()?.message }}
+    </p>
+  }
+
+  <fieldset class="group">
+    <legend>The league</legend>
+    <div class="grid two">
+      <div class="field">
+        <label for="new-league-name">League name</label>
+        <input
+          id="new-league-name"
+          formControlName="name"
+          maxlength="120"
+          autocomplete="off"
+          placeholder="Pofadder Bowl"
+          [attr.aria-invalid]="invalid('name')"
+          [attr.aria-describedby]="invalid('name') ? 'new-league-name-error' : null"
+        />
+        @if (invalid('name')) {
+          <p id="new-league-name-error" class="field-error">Give the league a name.</p>
+        }
+      </div>
+      <div class="field">
+        <label for="new-league-slug">Slug <span>(its address)</span></label>
+        <input
+          id="new-league-slug"
+          formControlName="slug"
+          maxlength="40"
+          autocomplete="off"
+          autocapitalize="off"
+          spellcheck="false"
+          [attr.aria-invalid]="invalid('slug')"
+          aria-describedby="new-league-slug-hint new-league-slug-error"
+          (input)="slugTyped($event)"
+        />
+        <p id="new-league-slug-hint" class="hint">
+          Members open it at /{{ value().slug || 'slug' }}. Lower-case letters, digits and hyphens.
+        </p>
+        @if (fieldApiError('slug'); as message) {
+          <p id="new-league-slug-error" class="field-error" role="alert">{{ message }}</p>
+        } @else if (invalid('slug')) {
+          <p id="new-league-slug-error" class="field-error">{{ slugMessage() }}</p>
+        }
+      </div>
+    </div>
+  </fieldset>
+
+  <fieldset class="group">
+    <legend>The season</legend>
+    <div class="grid three">
+      <div class="field">
+        <label for="new-league-competitionId">Competition</label>
+        @if (competitions(); as list) {
+          <select
+            id="new-league-competitionId"
+            formControlName="competitionId"
+            [attr.aria-invalid]="invalid('competitionId')"
+          >
+            @for (option of list; track option.id) {
+              <option [value]="option.id">{{ option.name }}</option>
+            }
+          </select>
+        } @else if (competitionsError()) {
+          <p class="field-error" role="alert">{{ competitionsError() }}</p>
+          <button type="button" class="text-button" (click)="loadCompetitions()">Try again</button>
+        } @else {
+          <p class="hint"><app-loader [size]="16" aria-hidden="true" /> Loading competitions…</p>
+        }
+        @if (invalid('competitionId') && competitions()) {
+          <p class="field-error">Choose a competition.</p>
+        }
+      </div>
+      <div class="field">
+        <label for="new-league-timezone">Time zone</label>
+        <input
+          id="new-league-timezone"
+          formControlName="timezone"
+          maxlength="64"
+          autocomplete="off"
+          spellcheck="false"
+          [attr.aria-invalid]="invalid('timezone')"
+          aria-describedby="new-league-timezone-hint"
+          (input)="zoneTyped()"
+        />
+        <p id="new-league-timezone-hint" class="hint">
+          An IANA zone, such as Africa/Johannesburg or Europe/London.
+        </p>
+        @if (invalid('timezone')) {
+          <p class="field-error">That is not a time zone this browser knows.</p>
+        }
+      </div>
+      <div class="field">
+        <label for="new-league-seasonName">Season name</label>
+        <input
+          id="new-league-seasonName"
+          formControlName="seasonName"
+          maxlength="80"
+          autocomplete="off"
+          [attr.aria-invalid]="invalid('seasonName')"
+          (input)="seasonTyped()"
+        />
+        @if (invalid('seasonName')) {
+          <p class="field-error">Name the season.</p>
+        }
+      </div>
+    </div>
+  </fieldset>
+
+  <fieldset class="group">
+    <legend>The team sheet</legend>
+    <div class="grid members-grid">
+      <div class="field">
+        <label for="new-league-members">Members <span>(one per line)</span></label>
+        <textarea
+          id="new-league-members"
+          formControlName="members"
+          rows="8"
+          spellcheck="false"
+          placeholder="Steyn, Doempie, Doempie&#10;Kallie Kruger, Kallie"
+          aria-describedby="new-league-members-hint new-league-members-summary"
+          [attr.aria-invalid]="invalid('members')"
+        ></textarea>
+        <p id="new-league-members-hint" class="hint">
+          Write each member as “Full name, Superbru name”. The Superbru name comes after the last
+          comma and is how the league shows them.
+        </p>
+        @if (fieldApiError('members'); as message) {
+          <p class="field-error" role="alert">{{ message }}</p>
+        }
+      </div>
+      <div class="members-preview" id="new-league-members-summary" aria-live="polite">
+        <p class="preview-count">{{ summaryLine() }}</p>
+        @if (parsed().errors.length) {
+          <ul class="line-errors" aria-label="Lines to fix">
+            @for (problem of parsed().errors; track problem.line) {
+              <li>
+                <strong>Line {{ problem.line }}</strong> <q>{{ problem.text }}</q>
+                <span>{{ problem.message }}</span>
+              </li>
+            }
+          </ul>
+        } @else if (invalid('members')) {
+          <p class="field-error">Paste at least one member.</p>
+        }
+        @if (parsed().members.length) {
+          <ol class="member-preview" aria-label="Members to add">
+            @for (member of parsed().members; track member.line) {
+              <li>
+                <strong>{{ member.displayName }}</strong><small>{{ member.fullName }}</small>
+              </li>
+            }
+          </ol>
+        }
+      </div>
+    </div>
+  </fieldset>
+
+  <fieldset class="group">
+    <legend>The captain</legend>
+    <div class="grid two">
+      <div class="field">
+        <label for="new-league-captain">Captain</label>
+        <select
+          id="new-league-captain"
+          formControlName="captain"
+          [attr.aria-invalid]="invalid('captain')"
+          aria-describedby="new-league-captain-hint"
+        >
+          <option value="">{{ captainOptions().length ? 'Choose a member' : 'Add members first' }}</option>
+          @for (name of captainOptions(); track name) {
+            <option [value]="name">{{ name }}</option>
+          }
+        </select>
+        <p id="new-league-captain-hint" class="hint">One of the members above.</p>
+        @if (invalid('captain')) {
+          <p class="field-error">Choose the captain from the members.</p>
+        }
+      </div>
+      <div class="field">
+        <label class="check">
+          <input type="checkbox" formControlName="captainIsMe" />
+          <span>The captain is me <small>(my sign-in claims this name now)</small></span>
+        </label>
+        @if (!value().captainIsMe) {
+          <label for="new-league-captainEmail">Captain's email</label>
+          <input
+            id="new-league-captainEmail"
+            type="email"
+            formControlName="captainEmail"
+            maxlength="254"
+            autocomplete="off"
+            spellcheck="false"
+            aria-describedby="new-league-captainEmail-hint"
+            [attr.aria-invalid]="invalid('captainEmail')"
+          />
+          <p id="new-league-captainEmail-hint" class="hint">
+            The captain's name is kept for this address until they sign in with it.
+          </p>
+          @if (invalid('captainEmail')) {
+            <p class="field-error">Give the captain's email address.</p>
+          }
+          <label class="check">
+            <input type="checkbox" formControlName="addMe" />
+            <span>Also add me as a member <small>(outside the season)</small></span>
+          </label>
+        }
+      </div>
+    </div>
+  </fieldset>
+
+  <fieldset class="group">
+    <legend>Colours and crest</legend>
+    <div class="grid look-grid">
+      <div class="look-preview" aria-live="polite">
+        <app-league-crest
+          [name]="value().name || 'New league'"
+          [slug]="value().slug"
+          [emblemUrl]="null"
+          [emblemPreset]="value().emblemPreset"
+          [accentColour]="value().accentColour"
+        />
+        <span>{{ presetLabel() ? presetLabel() + ' crest' : 'Monogram' }}</span>
+      </div>
+      <div class="look-controls">
+        <app-emblem-picker
+          legend="Emblem"
+          [selected]="value().emblemPreset"
+          [accent]="accentValue()"
+          (chosen)="choosePreset($event)"
+        />
+        @if (value().emblemPreset) {
+          <button type="button" class="text-button" (click)="clearPreset()">Use the monogram</button>
+        }
+        <div class="accent-row">
+          <label for="new-league-accent">Accent colour</label>
+          <input
+            id="new-league-accent"
+            type="color"
+            [value]="accentValue()"
+            (input)="chooseAccent($event)"
+          />
+          <span class="accent-value">{{ accentValue() }}</span>
+          @if (value().accentColour) {
+            <button type="button" class="text-button" (click)="defaultAccent()">Use the default</button>
+          }
+        </div>
+      </div>
+    </div>
+  </fieldset>
+
+  <div class="form-actions submit-row">
+    <button type="submit" class="primary-button" [disabled]="busy()" [attr.aria-busy]="busy()">
+      @if (busy()) {
+        <app-loader [size]="16" aria-hidden="true" />
+      }
+      Create league<ng-icon class="link-icon" name="lucideArrowRight" />
+    </button>
+    <p class="hint">One request makes the league, its season and its team sheet, then opens it.</p>
+  </div>
+</form>

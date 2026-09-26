@@ -3,7 +3,7 @@
   "framework": "angular",
   "installCommand": "npm ci",
   "buildCommand": "node scripts/write-environment.mjs && npm run build",
-  "outputDirectory": "dist/piele-web/browser",
+  "outputDirectory": "dist/pavilion-web/browser",
   "ignoreCommand": "[ \"$VERCEL_GIT_COMMIT_REF\" != \"staging\" ] && [ \"$VERCEL_GIT_COMMIT_REF\" != \"master\" ]",
   "rewrites": [{ "source": "/((?!.*\\.).*)", "destination": "/index.html" }],
   "headers": [

@@ -52,7 +52,7 @@
   <p class="page-description">
     Members sign in with Google or a password and claim their own name. Reserving a name for an
     email is optional: only a sign-in with that address can then take it. Release a name if the
-    wrong account claimed it.
+    wrong account claimed it; remove a member who has left the league.
   </p>
   <ul class="member-list">
     @for (member of view.members(); track member.id) {
@@ -114,15 +114,67 @@
               type="button"
               class="text-button"
               (click)="edit(member)"
+              [disabled]="memberBusy() === member.id"
               [attr.aria-label]="'Reserve ' + member.name + ' for an email'"
             >
               {{ member.email ? 'Change' : 'Reserve' }}
+            </button>
+          }
+          @if (removable(member)) {
+            <button
+              type="button"
+              class="text-button remove"
+              (click)="remove(member)"
+              [disabled]="memberBusy() === member.id"
+              [attr.aria-label]="'Remove ' + member.name"
+            >
+              Remove
             </button>
           }
         }
       </li>
     }
   </ul>
+  @if (view.withdrawn().length) {
+    <details class="withdrawn" #withdrawnGroup>
+      <summary>
+        Withdrawn <span class="count">{{ view.withdrawn().length }}</span>
+      </summary>
+      <ul class="member-list">
+        @for (member of view.withdrawn(); track member.id) {
+          <li>
+            <span class="member-name"
+              ><strong>{{ member.name }}</strong><small>{{ member.fullName }}</small></span
+            >
+            <span class="member-status">
+              <span class="tag withdrawn-tag">WITHDRAWN</span>
+              <small
+                >{{ member.leftAt ? 'Removed ' + removedOn(member) : 'Removed' }}
+                @if (member.withdrawalReason) {
+                  · {{ member.withdrawalReason }}
+                }
+              </small>
+            </span>
+            <button
+              type="button"
+              class="text-button"
+              (click)="reinstate(member)"
+              [disabled]="memberBusy() === member.id"
+              [attr.aria-label]="'Reinstate ' + member.name"
+            >
+              @if (memberBusy() === member.id) {
+                <app-loader [size]="16" aria-hidden="true" />
+              }
+              Reinstate
+            </button>
+          </li>
+        }
+      </ul>
+    </details>
+  }
+  @if (withdrawError()) {
+    <p class="error-message" role="alert">{{ withdrawError() }}</p>
+  }
   <form class="add-member" [formGroup]="newMember" (ngSubmit)="addMember()">
     <h3>Add a member</h3>
     <div class="add-grid">
@@ -150,4 +202,8 @@
     </button>
   </form>
 </section>
+
+<app-join-link-card [dialog]="reasonDialog()" />
+
+<app-appearance-card />
 <app-reason-dialog />

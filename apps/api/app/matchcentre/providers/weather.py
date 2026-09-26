@@ -10,7 +10,7 @@ from typing import Any
 import httpx
 
 from app.matchcentre.cache import Fetched
-from app.matchcentre.catalogue import Stadium
+from app.competitions.base import Stadium
 
 FORECAST_WINDOW = timedelta(days=7)
 MATCH_LENGTH = timedelta(hours=2)

@@ -1,7 +1,5 @@
 import { Teamsheet, TeamsheetPlayer } from '../../core/api/match-centre.models';
-import { CLUB_BANNERS, ClubBanner } from '../../core/competition/club-banners';
-import { Country, countryNamed } from '../../core/competition/countries';
-import { club } from '../../core/competition/teams';
+import { ClubBanner, Competition, Country } from '../../core/competition/competition.models';
 
 /** One side of the teamsheet panel, styled with its club's banner artwork. */
 export interface SheetView {
@@ -31,6 +29,7 @@ const YEAR_MS = 365.2425 * 24 * 60 * 60 * 1000;
 const BENCH_SLOT = /^sub \d+$/i;
 
 export function sheetView(
+  competition: Competition,
   label: string,
   clubId: string,
   sheet: Teamsheet,
@@ -43,12 +42,12 @@ export function sheetView(
     position: p.position && !BENCH_SLOT.test(p.position) ? p.position : null,
     captain: p.captain,
     age: kickoff ? ageOn(p.dateOfBirth, kickoff) : null,
-    country: countryNamed(p.birthCountry),
+    country: competition.countries.named(p.birthCountry),
   });
   return {
     label,
-    banner: CLUB_BANNERS[clubId],
-    accent: club(clubId)?.accent,
+    banner: competition.banners[clubId],
+    accent: competition.team(clubId)?.accent,
     starters: sheet.starters.map(player),
     replacements: sheet.replacements.map(player),
     startersAverageAge: kickoff ? averageAge(sheet.starters, kickoff) : null,

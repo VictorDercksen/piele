@@ -15,7 +15,7 @@ test('deep links load the production build without CSP violations', async ({ pag
   expect(response?.status()).toBe(200);
   expect(response?.headers()['content-security-policy']).toContain("script-src 'self'");
   expect(response?.headers()['x-content-type-options']).toBe('nosniff');
-  await expect(page).toHaveURL(/\/welcome\?returnUrl=/);
+  await expect(page).toHaveURL(/\/piele\/welcome\?returnUrl=%2Fpiele%2Fduties/);
   await expect(page.getByRole('radio')).toHaveCount(16);
   const background = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
   expect(background).not.toBe('rgba(0, 0, 0, 0)');

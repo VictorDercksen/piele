@@ -2,6 +2,7 @@
 is tested without a database; the route, milestone persistence and read state need
 PIELE_TEST_DATABASE_URL like tests/test_league.py."""
 
+import dataclasses
 import json
 import os
 from datetime import datetime, timedelta, timezone
@@ -13,16 +14,15 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.agent import previews
+from app.competitions.urc_2026_27 import COMPETITION as URC
 from app.config import Settings
 from app.db import get_engine
-from app.league import bootstrap
 from app.main import create_app
 from app.matchcentre import service as service_module
 from app.matchcentre.cache import MemorySnapshotCache
 from app.matchcentre.milestones import FULL_TIME, TEAMSHEETS_PUBLISHED, Milestone
-from app.matchcentre.schedule import load_schedule
 from app.matchcentre.updates import build_events, teamsheets_due
-from tests.test_league import SECRET, SEED, SUPABASE_URL, captain_headers
+from tests.test_league import SECRET, SUPABASE_URL, captain_headers, lp, new_league, signed_in
 from tests.test_scores import feed_match, round_feed
 
 DATABASE_URL = os.environ.get("PIELE_TEST_DATABASE_URL")
@@ -30,7 +30,7 @@ needs_database = pytest.mark.skipif(not DATABASE_URL, reason="PIELE_TEST_DATABAS
 
 FIXTURE = "292584"  # Benetton v Dragons, round 1, 2026-09-25 18:45 UTC
 KICKOFF = datetime(2026, 9, 25, 18, 45, tzinfo=timezone.utc)
-ROUND_ONE = load_schedule().round(1)
+ROUND_ONE = URC.schedule().round(1)
 
 
 def milestone(fixture_id: str, kind: str, at: datetime, **detail) -> Milestone:
@@ -38,12 +38,12 @@ def milestone(fixture_id: str, kind: str, at: datetime, **detail) -> Milestone:
 
 
 def test_teamsheets_are_looked_for_from_three_days_before_until_two_days_after() -> None:
-    fixture = load_schedule().fixture(FIXTURE)
+    fixture = URC.schedule().fixture(FIXTURE)
     assert not teamsheets_due(fixture, KICKOFF - timedelta(days=3, minutes=1))
     assert teamsheets_due(fixture, KICKOFF - timedelta(days=2, hours=23))
     assert teamsheets_due(fixture, KICKOFF + timedelta(days=1, hours=23))
     assert not teamsheets_due(fixture, KICKOFF + timedelta(days=2, minutes=1))
-    playoff = next(f for f in load_schedule().fixtures if f.home_id is None)
+    playoff = next(f for f in URC.schedule().fixtures if f.home_id is None)
     assert not teamsheets_due(playoff, KICKOFF)
 
 
@@ -169,7 +169,7 @@ def client(feeds: Feeds, clock) -> TestClient:
     )
     email = f"captain-{uuid4().hex[:8]}@example.com"
     with get_engine(settings).begin() as connection:
-        league_id = bootstrap.bootstrap(connection, email, SEED)
+        league_id = new_league(connection, email)
     app = create_app(
         settings, http_transport=httpx.MockTransport(feeds.handler), snapshot_cache=MemorySnapshotCache()
     )
@@ -182,15 +182,21 @@ def client(feeds: Feeds, clock) -> TestClient:
 
 @needs_database
 def test_round_updates_need_a_member(client: TestClient) -> None:
-    assert client.get("/v1/rounds/1/updates").status_code == 401
-    assert client.get("/v1/rounds/99/updates", headers=captain_headers(client)).status_code == 404
+    assert client.get("/v1/competitions/urc-2026-27/rounds/1/updates").status_code == 401
+    assert client.get("/v1/competitions/urc-2026-27/rounds/99/updates", headers=captain_headers(client)).status_code == 404
+    assert client.get("/v1/competitions/nope/rounds/1/updates", headers=captain_headers(client)).status_code == 404
+    # The same rule as the preview route: a member of a league on the competition, or the admin.
+    stranger = signed_in(client, "STRANGER", f"stranger-{uuid4().hex[:8]}@example.com")
+    refused = client.get("/v1/competitions/urc-2026-27/rounds/1/updates", headers=stranger)
+    assert refused.status_code == 403 and refused.json()["detail"]["code"] == "not_a_member"
+    assert client.get("/v1/competitions/urc-2026-27/rounds/1/updates", headers=captain_headers(client)).status_code == 200
 
 
 @needs_database
 def test_teamsheet_milestones_keep_their_first_time(client: TestClient, feeds: Feeds, clock) -> None:
     headers = captain_headers(client)
     clock(KICKOFF - timedelta(days=10))
-    before = client.get("/v1/rounds/1/updates", headers=headers).json()["events"]
+    before = client.get("/v1/competitions/urc-2026-27/rounds/1/updates", headers=headers).json()["events"]
     if before:
         # Milestones are global and append-only; a database that already holds Round 1's
         # cannot show the first observation again. CI starts from an empty database.
@@ -200,13 +206,13 @@ def test_teamsheet_milestones_keep_their_first_time(client: TestClient, feeds: F
     seen = KICKOFF - timedelta(days=2)
     clock(seen)
     feeds.published.add(FIXTURE)
-    events = client.get("/v1/rounds/1/updates", headers=headers).json()["events"]
+    events = client.get("/v1/competitions/urc-2026-27/rounds/1/updates", headers=headers).json()["events"]
     assert events == [{"kind": "teamsheets_published", "fixtureId": FIXTURE, "occurredAt": "2026-09-23T18:45:00Z", "revision": None, "homeScore": None, "awayScore": None}]
     # Every fixture in the window was looked at once; the published one is not asked again.
     assert sorted(feeds.teamsheet_requests) == sorted(int(f.id) for f in ROUND_ONE)
 
     clock(seen + timedelta(hours=7))  # past the published snapshot's TTL
-    later = client.get("/v1/rounds/1/updates", headers=headers).json()["events"]
+    later = client.get("/v1/competitions/urc-2026-27/rounds/1/updates", headers=headers).json()["events"]
     assert later[0]["occurredAt"] == "2026-09-23T18:45:00Z"
     assert feeds.teamsheet_requests.count(int(FIXTURE)) == 1
 
@@ -215,12 +221,12 @@ def test_teamsheet_milestones_keep_their_first_time(client: TestClient, feeds: F
 def test_full_time_is_recorded_once_and_survives_a_feed_outage(client: TestClient, feeds: Feeds, clock) -> None:
     headers = captain_headers(client)
     clock(KICKOFF - timedelta(days=10))
-    if any(e["kind"] == "full_time" for e in client.get("/v1/rounds/1/updates", headers=headers).json()["events"]):
+    if any(e["kind"] == "full_time" for e in client.get("/v1/competitions/urc-2026-27/rounds/1/updates", headers=headers).json()["events"]):
         pytest.skip("Round 1 full-time milestones already recorded in this database")
     final = feed_match(int(FIXTURE), status="result", period="post match", minute=81, finalised=1, score=(24, 19), ht=(10, 7))
     feeds.scores = round_feed(final)
     clock(KICKOFF + timedelta(hours=3))
-    events = client.get("/v1/rounds/1/updates", headers=headers).json()["events"]
+    events = client.get("/v1/competitions/urc-2026-27/rounds/1/updates", headers=headers).json()["events"]
     kinds = {(e["kind"], e["fixtureId"]) for e in events}
     assert ("kicked_off", FIXTURE) in kinds
     full_time = next(e for e in events if e["kind"] == "full_time")
@@ -229,7 +235,7 @@ def test_full_time_is_recorded_once_and_survives_a_feed_outage(client: TestClien
 
     feeds.down = True
     clock(KICKOFF + timedelta(days=5))
-    again = client.get("/v1/rounds/1/updates", headers=headers).json()["events"]
+    again = client.get("/v1/competitions/urc-2026-27/rounds/1/updates", headers=headers).json()["events"]
     assert [e for e in again if e["fixtureId"] == FIXTURE and e["kind"] in ("kicked_off", "full_time")] == [
         e for e in events if e["fixtureId"] == FIXTURE and e["kind"] in ("kicked_off", "full_time")
     ]
@@ -243,6 +249,7 @@ def test_stored_previews_are_reported(client: TestClient, clock) -> None:
         row, created = previews.save(
             connection,
             {
+                "competition_id": URC.id,
                 "fixture_id": FIXTURE,
                 "generated_at": KICKOFF - timedelta(days=1),
                 "inputs_hash": "a" * 64,
@@ -258,7 +265,7 @@ def test_stored_previews_are_reported(client: TestClient, clock) -> None:
         )
     assert created
     clock(KICKOFF - timedelta(hours=12))
-    events = client.get("/v1/rounds/1/updates", headers=headers).json()["events"]
+    events = client.get("/v1/competitions/urc-2026-27/rounds/1/updates", headers=headers).json()["events"]
     preview = next(e for e in events if e["kind"] == "preview_published")
     assert preview["fixtureId"] == FIXTURE and preview["revision"] == row.revision
     assert preview["occurredAt"] == "2026-09-24T18:45:00Z"
@@ -267,27 +274,27 @@ def test_stored_previews_are_reported(client: TestClient, clock) -> None:
 @needs_database
 def test_members_keep_their_notification_read_state(client: TestClient) -> None:
     headers = captain_headers(client)
-    me = client.get("/v1/me", headers=headers).json()
+    me = client.get(lp(client, "/me"), headers=headers).json()
     assert me["notificationsReadAt"] is None and me["notificationsReadKeys"] == []
 
-    first = client.put("/v1/me/notifications", json={"readAt": "2026-09-20T08:00:00Z", "readKeys": ["feed:1", " feed:2 ", "feed:1"]}, headers=headers)
+    first = client.put(lp(client, "/me/notifications"), json={"readAt": "2026-09-20T08:00:00Z", "readKeys": ["feed:1", " feed:2 ", "feed:1"]}, headers=headers)
     assert first.status_code == 200
     assert first.json() == {"readAt": "2026-09-20T08:00:00Z", "readKeys": ["feed:1", "feed:2"]}
 
     # A stale device cannot move the mark back; its keys join the newer ones.
-    stale = client.put("/v1/me/notifications", json={"readAt": "2026-09-19T08:00:00Z", "readKeys": ["feed:3"]}, headers=headers).json()
+    stale = client.put(lp(client, "/me/notifications"), json={"readAt": "2026-09-19T08:00:00Z", "readKeys": ["feed:3"]}, headers=headers).json()
     assert stale == {"readAt": "2026-09-20T08:00:00Z", "readKeys": ["feed:3", "feed:1", "feed:2"]}
     # Mark all read: the mark moves up and the keys are cleared client-side, kept server-side.
-    cleared = client.put("/v1/me/notifications", json={"readAt": "2026-09-21T08:00:00Z", "readKeys": []}, headers=headers).json()
+    cleared = client.put(lp(client, "/me/notifications"), json={"readAt": "2026-09-21T08:00:00Z", "readKeys": []}, headers=headers).json()
     assert cleared["readAt"] == "2026-09-21T08:00:00Z"
     # A mark in the future is held at the server clock.
-    ahead = client.put("/v1/me/notifications", json={"readAt": "2999-01-01T00:00:00Z", "readKeys": []}, headers=headers).json()
+    ahead = client.put(lp(client, "/me/notifications"), json={"readAt": "2999-01-01T00:00:00Z", "readKeys": []}, headers=headers).json()
     assert ahead["readAt"] < "2999"
-    assert client.get("/v1/me", headers=headers).json()["notificationsReadAt"] == ahead["readAt"]
+    assert client.get(lp(client, "/me"), headers=headers).json()["notificationsReadAt"] == ahead["readAt"]
 
-    too_many = client.put("/v1/me/notifications", json={"readAt": None, "readKeys": [f"k{i}" for i in range(201)]}, headers=headers)
+    too_many = client.put(lp(client, "/me/notifications"), json={"readAt": None, "readKeys": [f"k{i}" for i in range(201)]}, headers=headers)
     assert too_many.status_code == 422
-    too_long = client.put("/v1/me/notifications", json={"readAt": None, "readKeys": ["x" * 121]}, headers=headers)
+    too_long = client.put(lp(client, "/me/notifications"), json={"readAt": None, "readKeys": ["x" * 121]}, headers=headers)
     assert too_long.status_code == 422
 
 
@@ -309,10 +316,16 @@ def test_round_updates_do_not_hold_the_pool_while_providers_run(feeds: Feeds, cl
     )
     email = f"captain-{uuid4().hex[:8]}@example.com"
     with get_engine(settings).begin() as connection:
-        bootstrap.bootstrap(connection, email, SEED)
+        league_id = new_league(connection, email)
     app = create_app(settings, http_transport=httpx.MockTransport(feeds.handler))
-    assert isinstance(app.state.match_centre._cache, cache_module.PostgresSnapshotCache)
+    centre = app.state.match_centres[URC.id]
+    assert isinstance(centre._cache, cache_module.PostgresSnapshotCache)
+    # The snapshot table outlives a run; expire a round snapshot an earlier run left fresh.
+    kept = centre._cache.get(centre.key("scores", "round", 1))
+    if kept is not None:
+        centre._cache.put(dataclasses.replace(kept, expires_at=KICKOFF))
     client = TestClient(app)
+    client.league_id = league_id  # type: ignore[attr-defined]
     client.captain_email = email  # type: ignore[attr-defined]
     client.subjects = {}  # type: ignore[attr-defined]
     monkeypatch.setattr(cache_module, "now_utc", lambda: KICKOFF + timedelta(hours=3))
@@ -321,7 +334,7 @@ def test_round_updates_do_not_hold_the_pool_while_providers_run(feeds: Feeds, cl
         feed_match(int(FIXTURE), status="result", period="post match", minute=81, finalised=1, score=(24, 19), ht=(10, 7))
     )
     started = time.monotonic()
-    response = client.get("/v1/rounds/1/updates", headers=captain_headers(client))
+    response = client.get("/v1/competitions/urc-2026-27/rounds/1/updates", headers=captain_headers(client))
     elapsed = time.monotonic() - started
     assert response.status_code == 200
     assert elapsed < 10, f"the route waited on the pool for {elapsed:.0f}s"

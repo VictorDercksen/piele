@@ -343,7 +343,7 @@ wheels = [
 ]
 
 [[package]]
-name = "piele-api"
+name = "pavilion-api"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [

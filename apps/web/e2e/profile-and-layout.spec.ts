@@ -10,7 +10,7 @@ test('first visit requires a favourite team and saves a personal identity', asyn
   page,
 }, testInfo) => {
   await page.goto('/');
-  await expect(page).toHaveURL(/\/welcome/);
+  await expect(page).toHaveURL(/\/piele\/welcome\?returnUrl=%2Fpiele$/);
   await expect(page.getByRole('radio')).toHaveCount(16);
   await page.getByRole('button', { name: 'Enter the clubhouse' }).click();
   await expect(page.getByText('Choose the team you support.')).toBeVisible();
@@ -53,7 +53,7 @@ test('first visit requires a favourite team and saves a personal identity', asyn
 });
 
 test('profile photo, replacement, removal and team changes persist', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/piele');
   await join(page);
   await page.getByRole('link', { name: 'My profile', exact: true }).click();
   const upload = page.locator('app-profile-editor input[type=file]');
@@ -105,7 +105,7 @@ test('profile photo, replacement, removal and team changes persist', async ({ pa
 });
 
 test('cancel preserves profile and failed storage reports a visible error', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/piele');
   await join(page);
   await page.getByRole('link', { name: 'My profile', exact: true }).click();
   await page.getByRole('radio', { name: 'Munster Rugby', exact: true }).check();
@@ -126,7 +126,7 @@ test('Floodlights layouts and club assets work from desktop to 320px', async ({
 }, testInfo) => {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  await page.goto('/?round=2');
+  await page.goto('/piele?round=2');
   await join(page);
   await page.evaluate(() => document.fonts.ready);
   const heroBounds = await page.locator('app-match-hero').boundingBox();
@@ -181,7 +181,7 @@ test('Floodlights layouts and club assets work from desktop to 320px', async ({
     }
   }
   await page.getByRole('button', { name: 'Enter the match centre' }).click();
-  await expect(page).toHaveURL(/\/match\/\d+\?round=2/);
+  await expect(page).toHaveURL(/\/piele\/match\/\d+\?round=2/);
   await expect(page.locator('.page-heading .eyebrow')).toContainText('ROUND 02 / MATCH CENTRE');
   await expect(page.locator('app-match-hero')).toContainText('Stormers');
   await page.getByRole('link', { name: 'My profile', exact: true }).click();

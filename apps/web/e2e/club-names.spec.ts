@@ -1,15 +1,11 @@
 import { expect, test } from '@playwright/test';
+import { seedProfile } from './support';
 
 // Round 1 features all sixteen clubs across its eight fixtures.
 const ROUND_ONE = ['292584', '292585', '292586', '292587', '292588', '292589', '292590', '292591'];
 
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() =>
-    localStorage.setItem(
-      'piele-profile-v1',
-      JSON.stringify({ displayName: 'Victor Dercksen', teamId: 'dhl-stormers', photo: null }),
-    ),
-  );
+  await seedProfile(page);
   await page.route('**/v1/**', (route) => route.fulfill({ status: 503, body: 'down' }));
 });
 
@@ -20,7 +16,7 @@ for (const width of [320, 360, 390, 768, 1440]) {
     const failures: string[] = [];
     await page.setViewportSize({ width, height: 950 });
     for (const id of ROUND_ONE) {
-      await page.goto(`/match/${id}?round=1`);
+      await page.goto(`/piele/match/${id}?round=1`);
       await expect(page.locator('app-match-hero h2').first()).toBeVisible();
       const broken = await page.locator('app-match-hero h2').evaluateAll((titles) =>
         titles.flatMap((title) => {

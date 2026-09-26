@@ -5,8 +5,15 @@
 >
   <div class="profile-poster">
     <app-stadium-backdrop class="poster-photo" [src]="selectedTeam()?.stadiumBackground" />
-    <a class="profile-brand" routerLink="/" aria-label="Piele home"
-      ><img src="assets/images/piele-crest.png" alt="" />PIELE <span>URC 26/27</span></a
+    <a class="profile-brand" [routerLink]="leagueHome()" [attr.aria-label]="leagueTitle() + ' home'"
+      ><app-league-crest
+        [name]="leagueTitle()"
+        [slug]="leagueSummary()?.slug ?? ''"
+        [emblemUrl]="leagueSummary()?.emblemUrl ?? null"
+        [emblemPreset]="leagueSummary()?.emblemPreset ?? null"
+        [accentColour]="leagueSummary()?.accentColour ?? null"
+      />{{ leagueTitle().toUpperCase() }}
+      <span>{{ competitionLabel() }}</span></a
     >
     <div class="poster-copy">
       <span>YOUR CLUB. YOUR COLOURS.</span>
@@ -33,7 +40,7 @@
   <form class="profile-form" [formGroup]="form" (ngSubmit)="save()">
     <div class="form-heading">
       <div>
-        <span class="eyebrow">{{ existing ? 'YOUR PROFILE' : 'WELCOME TO PIELE' }}</span>
+        <span class="eyebrow">{{ existing ? 'YOUR PROFILE' : 'WELCOME TO THE PAVILION' }}</span>
         <h2>{{ existing ? 'Make it yours.' : 'Who do you back?' }}</h2>
       </div>
       @if (existing) {
@@ -65,9 +72,12 @@
     }
     <fieldset>
       <legend>Your favourite team <span>Required</span></legend>
-      <p class="field-hint">Your jersey, profile and personal highlights take on these colours.</p>
+      <p class="field-hint">
+        Your team in {{ leagueTitle() }}. Your jersey, profile and personal highlights take on these
+        colours.
+      </p>
       <div class="team-options">
-        @for (team of teams; track team.id) {
+        @for (team of teams(); track team.id) {
           <label
             class="team-option"
             [class.chosen]="teamId() === team.id"

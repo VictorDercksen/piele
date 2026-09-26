@@ -1,7 +1,8 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { formatRelative } from '../../../core/competition/league-time';
+import { LeagueTime } from '../../../core/competition/league-time';
 import { feedIcon, feedLabel, feedPath } from '../../../core/league/feed-presentation';
+import { LeaguePathPipe } from '../../../core/league/league-path.pipe';
 import { FeedItem } from '../../../core/league/league.models';
 import { RoundViewService } from '../../../core/league/round-view.service';
 import { Icon } from '../../../shared/icon/icon';
@@ -12,17 +13,18 @@ import { Icon } from '../../../shared/icon/icon';
   templateUrl: './feed.html',
   styleUrl: './feed.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, Icon],
+  imports: [RouterLink, LeaguePathPipe, Icon],
 })
 export class Feed {
   readonly view = inject(RoundViewService);
+  private readonly time = inject(LeagueTime);
   readonly scope = signal<'round' | 'season'>('round');
   readonly items = computed(() =>
     (this.scope() === 'round' ? this.view.feed() : this.view.seasonFeed()).map((item) => ({
       ...item,
       icon: feedIcon(item.kind),
       label: feedLabel(item.kind),
-      when: formatRelative(item.occurredAt),
+      when: this.time.relative(item.occurredAt),
       path: feedPath(item),
       roundLabel: this.roundLabel(item),
     })),

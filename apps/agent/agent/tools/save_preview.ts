@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { isAllowedUrl } from '../lib/allowlist';
 import { fixtureInputs } from '../lib/fixture-inputs';
 import { RESEARCHER_MODEL, WRITER_MODEL } from '../lib/models';
-import { pieleApi } from '../lib/piele-api';
+import { pavilionApi } from '../lib/pavilion-api';
 
 // Mirrors the API's limits in apps/api/app/agent/models.py; the API validates again.
 const sourceRefs = z.array(z.number().int().min(0)).min(1).max(5);
@@ -48,7 +48,7 @@ export default defineTool({
           .join(', ')}`,
       );
     }
-    return pieleApi<{ id: string; revision: number }>('/previews', {
+    return pavilionApi<{ id: string; revision: number }>('/previews', {
       method: 'POST',
       signal: ctx.abortSignal,
       body: {

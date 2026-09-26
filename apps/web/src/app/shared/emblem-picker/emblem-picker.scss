@@ -1,0 +1,86 @@
+:host {
+  display: block;
+}
+.presets {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+legend {
+  margin-bottom: 8px;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+.preset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  gap: 8px;
+}
+.preset {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 10px 6px 8px;
+  border: 1px solid var(--line);
+  background: #0f1b1e;
+  cursor: pointer;
+}
+.preset input {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.preset svg {
+  width: 56px;
+  height: 56px;
+  filter: drop-shadow(0 1px 2px #0008);
+}
+.preset span {
+  font-size: 11px;
+  color: var(--ink);
+}
+.preset:hover {
+  border-color: #f2efdf55;
+}
+.preset:has(input:checked) {
+  border-color: var(--orange);
+  background: linear-gradient(0deg, #f58b651f, transparent), #0f1b1e;
+  box-shadow: inset 0 -3px var(--orange);
+}
+.preset:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.preset:has(input:disabled) {
+  opacity: 0.55;
+  cursor: default;
+}
+@container (max-width: 700px) {
+  .preset-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .preset svg {
+    width: 44px;
+    height: 44px;
+  }
+}
+@container (max-width: 350px) {
+  .preset-grid {
+    gap: 6px;
+  }
+  .preset {
+    padding: 8px 2px 6px;
+  }
+  .preset svg {
+    width: 38px;
+    height: 38px;
+  }
+}

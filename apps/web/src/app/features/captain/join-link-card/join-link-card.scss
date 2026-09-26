@@ -1,0 +1,78 @@
+:host {
+  display: block;
+}
+.field-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.link-row {
+  display: flex;
+  gap: 10px;
+}
+.link-row input {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--surface);
+  color: var(--ink);
+  font-family: ui-monospace, monospace;
+  font-size: 13px;
+}
+.link-row input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.link-row .primary-button {
+  flex-shrink: 0;
+}
+.primary-button ng-icon {
+  --ng-icon__size: 16px;
+}
+.copy-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 22px;
+  margin-top: 8px;
+  color: #7fe0c2;
+  font-size: 12px;
+  font-weight: 600;
+}
+.copy-status app-icon {
+  width: 16px;
+  height: 16px;
+}
+.link-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 24px;
+}
+.closed {
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--orange);
+  background: var(--surface-grain), var(--surface);
+}
+.closed h3 {
+  margin-bottom: 6px;
+  font-size: 16px;
+  font-weight: 700;
+}
+.closed p {
+  margin-bottom: 14px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.error-message {
+  margin-top: 10px;
+}
+@container (max-width: 500px) {
+  .link-row {
+    flex-direction: column;
+  }
+}

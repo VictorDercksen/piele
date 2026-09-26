@@ -4,10 +4,11 @@ import { inPlayWindow } from '../api/live-scores.service';
 import { RoundUpdatesService } from '../api/round-updates.service';
 import { CompetitionRound, Fixture } from '../competition/competition.models';
 import { CompetitionService } from '../competition/competition.service';
-import { formatLeagueTime, formatRelative } from '../competition/league-time';
+import { DEFAULT_ZONE, LeagueTime, zoneAbbreviation } from '../competition/league-time';
 import { ToastService } from '../feedback/toast.service';
 import { ProfileStore } from '../profile/profile.store';
 import { feedIcon, feedLabel, feedPath } from './feed-presentation';
+import { LeagueContext } from './league-context';
 import { LeagueData } from './league-data';
 import { FeedItem, NotificationsRead } from './league.models';
 import { RoundViewService } from './round-view.service';
@@ -31,7 +32,9 @@ const MAX_READ_KEYS = 200;
 @Injectable({ providedIn: 'root' })
 export class NotificationsService {
   private readonly league = inject(LeagueData);
+  private readonly context = inject(LeagueContext);
   private readonly competition = inject(CompetitionService);
+  private readonly time = inject(LeagueTime);
   private readonly profile = inject(ProfileStore);
   private readonly view = inject(RoundViewService);
   private readonly updates = inject(RoundUpdatesService);
@@ -41,8 +44,12 @@ export class NotificationsService {
   private readonly now = signal(Date.now());
   private lastRefresh = 0;
   private refreshing: Promise<void> | null = null;
-  /** A read state the API did not accept, sent again with the next refresh. */
-  private unsaved: NotificationsRead | null = null;
+  /**
+   * A read state the API did not accept, sent again with the next refresh while the same
+   * league is shown (another league's read state is its own).
+   */
+  private unsaved: { readonly read: NotificationsRead; readonly league: string | null } | null =
+    null;
 
   readonly currentRound = computed(() => this.competition.round(this.competition.currentRoundId)!);
   /**
@@ -92,8 +99,8 @@ export class NotificationsService {
         title: duty.title,
         detail:
           duty.display === 'overdue'
-            ? `Overdue since ${formatLeagueTime(duty.deadlineAt)} · ${duty.marks.marks} ${duty.marks.marks === 1 ? 'mark' : 'marks'}`
-            : `${duty.statusLabel} · due ${formatLeagueTime(duty.deadlineAt)}`,
+            ? `Overdue since ${this.time.format(duty.deadlineAt)} · ${duty.marks.marks} ${duty.marks.marks === 1 ? 'mark' : 'marks'}`
+            : `${duty.statusLabel} · due ${this.time.format(duty.deadlineAt)}`,
         action: 'View duty',
         path: '/duties',
         round: duty.roundId,
@@ -138,6 +145,7 @@ export class NotificationsService {
       ),
       fixtures,
       this.highlighted(),
+      this.time.zone(),
     );
     const read = this.read();
     return [...league, ...competition]
@@ -145,7 +153,7 @@ export class NotificationsService {
       .slice(0, MAX_ITEMS)
       .map((notice) => ({
         ...notice,
-        when: formatRelative(notice.occurredAt, new Date(now)),
+        when: this.time.relative(notice.occurredAt, new Date(now)),
         roundLabel:
           notice.round !== null && notice.round !== current.id
             ? `R${this.competition.round(notice.round)?.code ?? notice.round}`
@@ -212,7 +220,7 @@ export class NotificationsService {
   refresh(): Promise<void> {
     if (this.refreshing) return this.refreshing;
     this.lastRefresh = Date.now();
-    const unsaved = this.unsaved;
+    const unsaved = this.unsaved?.league === this.context.slug() ? this.unsaved.read : null;
     this.unsaved = null;
     this.refreshing = Promise.allSettled([
       this.member() ? this.league.refreshFeed() : Promise.resolve(),
@@ -242,7 +250,7 @@ export class NotificationsService {
     try {
       await this.league.saveNotificationsRead(read);
     } catch (error) {
-      this.unsaved = read;
+      this.unsaved = { read, league: this.context.slug() };
       this.toast.show(
         error instanceof Error ? error.message : 'Your read notifications could not be saved.',
       );
@@ -344,7 +352,7 @@ const EVENT_ICONS: Record<RoundEvent['kind'], string> = {
 };
 const EVENT_LABELS: Record<RoundEvent['kind'], string> = {
   teamsheets_published: 'TEAMSHEETS',
-  preview_published: 'PIELE PREVIEW',
+  preview_published: 'PAVILION PREVIEW',
   kicked_off: 'KICK-OFF',
   full_time: 'FULL TIME',
 };
@@ -358,6 +366,7 @@ export function competitionNotices(
   events: readonly RoundEvent[],
   fixtures: ReadonlyMap<string, LocatedFixture>,
   highlighted: ReadonlySet<string>,
+  zone = DEFAULT_ZONE,
 ): Notice[] {
   const notices: Notice[] = [];
   const groups = new Map<string, { round: number; events: RoundEvent[] }>();
@@ -365,7 +374,7 @@ export function competitionNotices(
     const located = fixtures.get(event.fixtureId);
     if (!located) continue;
     if (highlighted.has(located.fixture.id)) {
-      notices.push(fixtureNotice(event, located));
+      notices.push(fixtureNotice(event, located, zone));
       continue;
     }
     const groupKey = `${located.round}:${event.kind}`;
@@ -376,7 +385,7 @@ export function competitionNotices(
   const single = notices.slice();
   for (const { round, events: grouped } of groups.values()) {
     if (grouped.length === 1) {
-      notices.push(fixtureNotice(grouped[0], fixtures.get(grouped[0].fixtureId)!));
+      notices.push(fixtureNotice(grouped[0], fixtures.get(grouped[0].fixtureId)!, zone));
       continue;
     }
     const kind = grouped[0].kind;
@@ -406,17 +415,21 @@ export function competitionNotices(
 
 const GROUP_TITLES: Record<RoundEvent['kind'], (n: number, more: boolean) => string> = {
   teamsheets_published: (n, more) => `Teamsheets are in for ${n} ${more ? 'more ' : ''}matches.`,
-  preview_published: (n, more) => `${n} ${more ? 'more ' : ''}Piele previews are ready.`,
+  preview_published: (n, more) => `${n} ${more ? 'more ' : ''}Pavilion previews are ready.`,
   kicked_off: (n, more) => `${n} ${more ? 'more ' : ''}matches kicked off.`,
   full_time: (n, more) => `Full time in ${n} ${more ? 'more ' : ''}matches.`,
 };
 
-function fixtureNotice(event: RoundEvent, { fixture, round }: LocatedFixture): Notice {
+function fixtureNotice(
+  event: RoundEvent,
+  { fixture, round }: LocatedFixture,
+  zone: string,
+): Notice {
   const pair = `${fixture.home} v ${fixture.away}`;
-  const when = `${fixture.day} · ${fixture.time} SAST`;
+  const when = `${fixture.day} · ${fixture.time} ${zoneAbbreviation(zone, fixture.kickoffUtc)}`;
   const text: Record<RoundEvent['kind'], [string, string]> = {
     teamsheets_published: [`${pair}: teamsheets are in.`, `${when} · ${fixture.venue}`],
-    preview_published: [`${pair}: the Piele preview is ready.`, `${when} · ${fixture.venue}`],
+    preview_published: [`${pair}: the Pavilion preview is ready.`, `${when} · ${fixture.venue}`],
     kicked_off: [`${pair} kicked off.`, `${when} · ${fixture.venue}`],
     full_time: [`${scoreline(event, fixture)}.`, `Full time at ${fixture.venue}`],
   };

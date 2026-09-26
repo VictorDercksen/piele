@@ -1,9 +1,12 @@
-import { stadiumBackground, stadiumCountry, stadiumIcon } from './stadiums';
-import { TEAMS } from './teams';
-import { URC_SCHEDULE } from './urc-fixtures';
+import { competition } from './registry';
+
+const URC = competition('urc-2026-27');
+const stadiumCountry = URC.stadiums.country;
+const stadiumIcon = URC.stadiums.icon;
+const stadiumBackground = URC.stadiums.background;
 
 describe('stadiums', () => {
-  const venues = new Set(URC_SCHEDULE.fixtures.flatMap((m) => (m.venue ? [m.venue] : [])));
+  const venues = new Set(URC.fixtures.flatMap((m) => (m.venue ? [m.venue] : [])));
 
   it('names a country for every scheduled venue', () => {
     for (const venue of venues) expect(stadiumCountry(venue), venue).toBeDefined();
@@ -14,9 +17,11 @@ describe('stadiums', () => {
   });
 
   it('maps one primary stadium background to every club', () => {
-    const backgrounds = new Set([...venues].map(stadiumBackground).filter(Boolean));
+    const backgrounds = new Set(
+      [...venues].map((venue) => stadiumBackground(venue)).filter(Boolean),
+    );
     expect(backgrounds.size).toBe(16);
-    for (const team of TEAMS) {
+    for (const team of URC.teams) {
       expect(backgrounds.has(`assets/images/match-nights/${team.id}.webp`), team.name).toBe(true);
     }
   });

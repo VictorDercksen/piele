@@ -3,22 +3,25 @@
   class="detail-dialog compact-dialog"
   [class.spoon-duty]="request()?.spoon"
   aria-labelledby="reason-title"
+  (close)="restoreFocus()"
 >
   <div class="dialog-top">
-    <span class="eyebrow">PIELE / CAPTAIN'S DESK</span
+    <span class="eyebrow">{{ request()?.eyebrow ?? leagueName().toUpperCase() + " / CAPTAIN'S DESK" }}</span
     ><button type="button" class="icon-button" aria-label="Close dialog" (click)="close()">
       <app-icon name="close" />
     </button>
   </div>
   <h2 id="reason-title">{{ request()?.title }}</h2>
   <p>{{ request()?.description }}</p>
-  <label class="field-label" for="reason-text"
-    >Reason
-    @if (!request()?.required) {
-      <span>(optional)</span>
-    }
-  </label>
-  <textarea id="reason-text" rows="3" maxlength="500" [formControl]="reason"></textarea>
+  @if (!request()?.noReason) {
+    <label class="field-label" for="reason-text"
+      >Reason
+      @if (!request()?.required) {
+        <span>(optional)</span>
+      }
+    </label>
+    <textarea id="reason-text" rows="3" maxlength="500" [formControl]="reason"></textarea>
+  }
   @if (error()) {
     <p class="error-message" role="alert">{{ error() }}</p>
   }

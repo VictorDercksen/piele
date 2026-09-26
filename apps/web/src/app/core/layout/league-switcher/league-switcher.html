@@ -1,0 +1,121 @@
+<button
+  #trigger
+  type="button"
+  class="switcher-trigger"
+  aria-haspopup="dialog"
+  [attr.aria-expanded]="open()"
+  [attr.aria-controls]="id"
+  [attr.aria-label]="triggerLabel()"
+  (click)="toggle()"
+>
+  <app-league-crest
+    [name]="name()"
+    [slug]="league()?.slug ?? ''"
+    [emblemUrl]="league()?.emblemUrl ?? null"
+    [emblemPreset]="league()?.emblemPreset ?? null"
+    [accentColour]="league()?.accentColour ?? null"
+  /><span class="brand-text"
+    ><strong>{{ name().toUpperCase() }}</strong
+    ><small
+      >{{ competitionLine() }}
+      @if (variant() === 'rail') {
+        <ng-icon class="switch-glyph" name="lucideChevronsUpDown" aria-hidden="true" />
+      }
+    </small></span
+  >
+  @if (variant() === 'bar') {
+    <ng-icon class="switch-glyph" name="lucideChevronsUpDown" aria-hidden="true" />
+  }
+</button>
+<div class="scrim" aria-hidden="true" (click)="close()"></div>
+<div
+  #panel
+  class="switcher-panel"
+  role="dialog"
+  [id]="id"
+  [attr.aria-labelledby]="id + '-title'"
+  [attr.aria-hidden]="!open()"
+  [attr.inert]="open() ? null : ''"
+>
+  <div class="panel-top">
+    <h2 [id]="id + '-title'">Switch league</h2>
+    <button type="button" class="close" aria-label="Close league switcher" (click)="close()">
+      <app-icon name="close" />
+    </button>
+  </div>
+  @for (group of groups(); track group.title) {
+    @if (group.title) {
+      <h3 class="group-title">{{ group.title }}</h3>
+    }
+    <ul class="league-rows" [attr.aria-label]="group.title ?? 'Your leagues'">
+      @for (row of group.leagues; track row.id) {
+        <li>
+          <a
+            class="league-row"
+            [class.current]="isCurrent(row)"
+            [routerLink]="target(row).path"
+            [queryParams]="target(row).queryParams"
+            [attr.aria-current]="isCurrent(row) ? 'true' : null"
+            (click)="close()"
+          >
+            <app-league-crest
+              [name]="row.name"
+              [slug]="row.slug"
+              [emblemUrl]="row.emblemUrl"
+              [emblemPreset]="row.emblemPreset ?? null"
+              [accentColour]="row.accentColour"
+            />
+            <span class="row-text">
+              <strong>{{ row.name }}</strong>
+              <small>{{ seasonLine(row) }}</small>
+            </span>
+            <span class="row-tags">
+              @if (isCurrent(row)) {
+                <span class="tag current-tag">Current</span>
+              }
+              @if (row.isCaptain) {
+                <span class="tag">Captain</span>
+              }
+              @if (!row.memberId) {
+                <span class="tag admin-tag">Admin view</span>
+              } @else if (!row.inSeason) {
+                <span class="tag muted-tag">Not in this season</span>
+              }
+            </span>
+          </a>
+        </li>
+      }
+    </ul>
+  }
+  <form class="join" (submit)="join($event)">
+    <h3 class="group-title">Join a league</h3>
+    <label [for]="id + '-code'">Join link or code</label>
+    <div class="join-row">
+      <input
+        [id]="id + '-code'"
+        #codeInput
+        name="code"
+        autocomplete="off"
+        autocapitalize="off"
+        spellcheck="false"
+        maxlength="300"
+        placeholder="Paste the link from your captain"
+        [attr.aria-invalid]="joinInvalid()"
+        [attr.aria-describedby]="joinInvalid() ? id + '-error' : null"
+      />
+      <button type="submit" class="primary-button">
+        Join<ng-icon class="link-icon" name="lucideArrowRight" />
+      </button>
+    </div>
+    @if (joinInvalid()) {
+      <p [id]="id + '-error'" class="join-error" role="alert">
+        That is not a join link or code. Paste the whole link the captain sent.
+      </p>
+    }
+  </form>
+  @if (isAdmin()) {
+    <a class="manage-link" routerLink="/manage" (click)="close()"
+      >Manage leagues<ng-icon class="link-icon" name="lucideArrowRight"
+    /></a>
+  }
+</div>

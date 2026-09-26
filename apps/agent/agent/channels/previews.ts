@@ -1,7 +1,7 @@
 import { defineChannel, GET, POST } from 'eve/channels';
 import type { SessionAuthContext } from 'eve/context';
 import { claimFixtures, sessionAddress, sessionPrompt } from '../lib/dispatch';
-import { PieleApiError } from '../lib/piele-api';
+import { PavilionApiError } from '../lib/pavilion-api';
 import { hasAgentToken, parseRunRequest } from '../lib/run-request';
 
 /** One fixture claimed through the API's POST /v1/agent/dispatches. */
@@ -13,8 +13,8 @@ export interface PreviewTarget {
 // Principal of sessions started by hand through POST /previews/run.
 const RUN_AUTH: SessionAuthContext = {
   attributes: {},
-  authenticator: 'piele-agent-token',
-  principalId: 'piele:run',
+  authenticator: 'pavilion-agent-token',
+  principalId: 'pavilion:run',
   principalType: 'service',
 };
 
@@ -44,7 +44,7 @@ export default defineChannel<undefined, void, PreviewTarget>({
       try {
         claimed = await claimFixtures(options);
       } catch (error) {
-        if (error instanceof PieleApiError && error.status < 500) {
+        if (error instanceof PavilionApiError && error.status < 500) {
           return Response.json({ error: error.message }, { status: error.status });
         }
         throw error;

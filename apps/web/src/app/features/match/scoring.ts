@@ -1,7 +1,5 @@
 import { ScoreEvent, ScoreEventKind, ScoreSection } from '../../core/api/match-centre.models';
-import { CLUB_BANNERS } from '../../core/competition/club-banners';
-import { Fixture } from '../../core/competition/competition.models';
-import { club } from '../../core/competition/teams';
+import { Competition, Fixture } from '../../core/competition/competition.models';
 
 /** A live score older than this is labelled as delayed. */
 export const STALE_MS = 2 * 60_000;
@@ -149,6 +147,7 @@ const FALLBACK_ACCENT = '#9fb6b0';
  * kickoff, and while the API reports the scores as too early.
  */
 export function scoringView(
+  competition: Competition,
   fixture: Fixture,
   section: ScoreSection | undefined,
   now: number,
@@ -158,8 +157,9 @@ export function scoringView(
   const kickoff = kickoffUtc ? Date.parse(kickoffUtc) : Number.NaN;
   if (now < kickoff - SHOW_BEFORE_KICKOFF_MS) return null;
 
-  const home = side(fixture, 'home', section);
-  const away = side(fixture, 'away', section);
+  const home = side(competition, fixture, 'home', section);
+  const away = side(competition, fixture, 'away', section);
+  const centre = `${competition.shortName} match centre`;
   if (section.status !== 'ok') {
     return {
       tag: 'unavailable',
@@ -169,12 +169,12 @@ export function scoringView(
       away,
       rows: [],
       latest: null,
-      lines: pitchLines(null, null, 'Live scores could not be loaded from the URC match centre.'),
+      lines: pitchLines(null, null, `Live scores could not be loaded from the ${centre}.`),
       marker: null,
       fieldHeight: fieldHeight([]),
       finished: false,
       result: 'Full time',
-      empty: 'Live scores could not be loaded from the URC match centre.',
+      empty: `Live scores could not be loaded from the ${centre}.`,
     };
   }
 
@@ -197,13 +197,13 @@ export function scoringView(
   const empty = events.length
     ? null
     : noTimeline
-      ? `The URC match centre is unreachable, so the score comes from ${section.source} and the scoring timeline is unavailable.`
+      ? `The ${centre} is unreachable, so the score comes from ${section.source} and the scoring timeline is unavailable.`
       : state === 'scheduled'
         ? 'Scores appear here from kickoff.'
         : state === 'postponed' || state === 'cancelled'
           ? `The match has been ${state}.`
           : 'No points scored yet.';
-  const rows = layout(fixture, events, clock);
+  const rows = layout(competition, fixture, events, clock);
   const score = state === 'scheduled' ? null : scoreOf(section);
   return {
     tag: stale ? 'delayed' : (TAGS[state] ?? state.replace('_', ' ')),
@@ -247,7 +247,12 @@ const x = (t: number) => (Math.min(Math.max(t, 0), FULL_TIME) / FULL_TIME) * 100
  * halfway line or the live marker: a row that would is held back and earlier rows on its
  * side move up to make room.
  */
-function layout(fixture: Fixture, events: readonly PlacedEvent[], clock: number | null) {
+function layout(
+  competition: Competition,
+  fixture: Fixture,
+  events: readonly PlacedEvent[],
+  clock: number | null,
+) {
   const barriers = [HALF_TIME, ...(clock === null ? [] : [clock])].sort((a, b) => a - b);
   const placed: Record<'home' | 'away', { centre: number; height: number; row: PitchRowBase }[]> = {
     home: [],
@@ -255,7 +260,7 @@ function layout(fixture: Fixture, events: readonly PlacedEvent[], clock: number 
   };
   const order: { side: 'home' | 'away'; index: number }[] = [];
   for (const { event, t, half } of events) {
-    const row = pitchRow(fixture, event, t);
+    const row = pitchRow(competition, fixture, event, t);
     const height = row.try ? ROW_HEIGHT.try : ROW_HEIGHT.slim;
     // A second-half event at exactly 40 minutes belongs below the halfway line.
     const past = (b: number) => b < t || (half === 2 && b === HALF_TIME);
@@ -292,12 +297,13 @@ function layout(fixture: Fixture, events: readonly PlacedEvent[], clock: number 
 type PitchRowBase = Omit<PitchRow, 'top'>;
 
 function pitchRow(
+  competition: Competition,
   fixture: Fixture,
   event: ScoreEvent & { side: 'home' | 'away' },
   t: number,
 ): PitchRowBase {
   const clubId = event.side === 'home' ? fixture.homeAsset : fixture.awayAsset;
-  const colours = club(clubId);
+  const colours = competition.team(clubId);
   const points = event.points || POINTS[event.kind];
   return {
     key: `${event.id ?? `${event.time}-${event.kind}-${event.side}`}`,
@@ -324,13 +330,18 @@ function surname(player: string): string {
   return parts.length > 1 && /^\p{L}\.?$/u.test(parts[0]) ? parts.slice(1).join(' ') : player;
 }
 
-function side(fixture: Fixture, which: 'home' | 'away', section: ScoreSection): SideView {
+function side(
+  competition: Competition,
+  fixture: Fixture,
+  which: 'home' | 'away',
+  section: ScoreSection,
+): SideView {
   const clubId = which === 'home' ? fixture.homeAsset : fixture.awayAsset;
-  const colours = club(clubId);
+  const colours = competition.team(clubId);
   const points = section.state === 'scheduled' ? null : section[which]?.score;
   return {
     name: which === 'home' ? fixture.home : fixture.away,
-    crest: CLUB_BANNERS[clubId]?.crest,
+    crest: competition.banners[clubId]?.crest,
     colour: colours?.colour ?? FALLBACK_COLOUR,
     accent: colours?.accent ?? FALLBACK_ACCENT,
     score: points === null || points === undefined ? '–' : String(points),

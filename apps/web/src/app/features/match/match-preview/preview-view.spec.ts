@@ -1,5 +1,8 @@
 import { MatchPreview } from '../../../core/api/match-centre.models';
 import { previewView } from './preview-view';
+import { competition } from '../../../core/competition/registry';
+
+const URC = competition('urc-2026-27');
 
 const PREVIEW: MatchPreview = {
   revision: 2,
@@ -31,7 +34,7 @@ const PREVIEW: MatchPreview = {
 
 describe('preview view', () => {
   it('labels moods and numbers citations from one', () => {
-    const view = previewView(PREVIEW, 'Scarlets', 'Benetton');
+    const view = previewView(URC, PREVIEW, 'Scarlets', 'Benetton');
     expect(view.sides.map((side) => [side.label, side.mood.label, side.mood.tone])).toEqual([
       ['Scarlets', 'Buoyant', 'up'],
       ['Benetton', 'Unsettled', 'down'],
@@ -41,18 +44,18 @@ describe('preview view', () => {
   });
 
   it('places moods on a five-step scale and adds club colours', () => {
-    const view = previewView(PREVIEW, 'Scarlets', 'Benetton', 'scarlets', 'benetton-rugby');
+    const view = previewView(URC, PREVIEW, 'Scarlets', 'Benetton', 'scarlets', 'benetton-rugby');
     expect(view.sides.map((side) => side.mood.step)).toEqual([5, 2]);
     expect(view.sides[1].accent).toBe('#73d8a0');
   });
 
   it('leaves the club colour out for an unknown club', () => {
-    const side = previewView(PREVIEW, 'A', 'B', 'tbc', '').sides[0];
+    const side = previewView(URC, PREVIEW, 'A', 'B', 'tbc', '').sides[0];
     expect(side.accent).toBeUndefined();
   });
 
   it('names each source by publisher, else by host', () => {
-    const view = previewView(PREVIEW, 'Scarlets', 'Benetton');
+    const view = previewView(URC, PREVIEW, 'Scarlets', 'Benetton');
     expect(view.sources.map((source) => [source.number, source.origin])).toEqual([
       [1, 'URC'],
       [2, 'example.org'],
@@ -64,6 +67,6 @@ describe('preview view', () => {
       ...PREVIEW,
       sentiment: { ...PREVIEW.sentiment, home: { ...PREVIEW.sentiment.home, score: 7 } },
     };
-    expect(previewView(preview, 'A', 'B').sides[0].mood.label).toBe('Buoyant');
+    expect(previewView(URC, preview, 'A', 'B').sides[0].mood.label).toBe('Buoyant');
   });
 });

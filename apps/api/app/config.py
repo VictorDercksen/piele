@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     # Profile photos share the bucket under avatars/. The browser uploads a 384 px JPEG.
     profile_photo_max_bytes: int = 512 * 1024
     profile_photo_url_ttl_seconds: int = 5 * 60
+    # League emblems share the bucket under emblems/<league id>/. The browser uploads a
+    # 512 px image; the signed URL lasts a day because the league list shows every emblem.
+    league_emblem_max_bytes: int = 1024 * 1024
+    league_emblem_url_ttl_seconds: int = 24 * 60 * 60
 
     # Match centre providers.
     urc_graphql_url: str = "https://www.unitedrugby.com/graphql"

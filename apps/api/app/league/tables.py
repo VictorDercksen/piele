@@ -5,7 +5,7 @@ Only the columns the API reads or writes are declared. Constraints and policies 
 the migrations, which are the single schema history.
 """
 
-from sqlalchemy import BigInteger, Column, DateTime, Integer, MetaData, Numeric, SmallInteger, String, Table, Text, text
+from sqlalchemy import BigInteger, Boolean, Column, DateTime, Integer, MetaData, Numeric, SmallInteger, String, Table, Text, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 
 metadata = MetaData(schema="piele")
@@ -21,11 +21,14 @@ users = Table(
     Column("id", UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")),
     Column("auth_subject", UUID(as_uuid=True), nullable=False),
     Column("email", String(320)),
-    Column("favourite_team_id", String(40)),
+    # Account-wide profile photo under avatars/<user id>/. The favourite team and the
+    # notification read state moved to league_memberships (20260926160000_multi_league.sql);
+    # the old users columns are left undeclared until a later migration drops them.
     Column("photo_path", String(300)),
     _ts("photo_updated_at"),
-    _ts("notifications_read_at"),
-    Column("notifications_read_keys", JSONB, nullable=False),
+    # Set only by an operator with SQL (docs/production.md), never by the API.
+    Column("is_admin", Boolean, nullable=False),
+    Column("last_league_id", UUID(as_uuid=True)),
     _ts("updated_at", nullable=False),
 )
 
@@ -34,9 +37,21 @@ leagues = Table(
     metadata,
     Column("id", UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")),
     Column("name", String(120), nullable=False),
+    Column("slug", String(40), nullable=False),
     Column("timezone", String(64), nullable=False),
     Column("captain_membership_id", UUID(as_uuid=True), nullable=False),
+    # 'preset:<key>' or an object in the private bucket under emblems/<league id>/ (checked
+    # by leagues_emblem_path_own); null shows the default crest or a monogram.
+    Column("emblem_path", String(300)),
+    Column("accent_colour", String(7)),
+    # Null closes the league to joining by code.
+    Column("join_code", String(16)),
+    # 'active' or 'archived'. An archived league keeps every row but is left out of the
+    # account's list, and its league routes answer 404 `unknown_league`.
+    Column("status", String(20), nullable=False),
     Column("version", Integer, nullable=False),
+    _ts("created_at", nullable=False),
+    _ts("updated_at", nullable=False),
 )
 
 league_memberships = Table(
@@ -49,8 +64,16 @@ league_memberships = Table(
     Column("full_name", String(120), nullable=False),
     Column("invited_email", String(320)),
     Column("status", String(20), nullable=False),
+    # The member's team in this league's competition, and what they have read in this
+    # league's notifications panel (a high-water mark and exception keys).
+    Column("favourite_team_id", String(40)),
+    _ts("notifications_read_at"),
+    Column("notifications_read_keys", JSONB, nullable=False),
     _ts("joined_at", nullable=False),
+    # Set together when the captain or admin withdraws the member (status 'withdrawn');
+    # cleared on reinstatement.
     _ts("left_at"),
+    Column("withdrawal_reason", Text),
     Column("version", Integer, nullable=False),
     _ts("updated_at", nullable=False),
 )
@@ -62,8 +85,11 @@ seasons = Table(
     Column("league_id", UUID(as_uuid=True), nullable=False),
     Column("name", String(80), nullable=False),
     Column("competition", String(80), nullable=False),
+    # A key of app.competitions.ALL (20260926150000_competitions.sql).
+    Column("competition_id", String(40), nullable=False),
     Column("status", String(20), nullable=False),
     _ts("closed_at"),
+    _ts("created_at", nullable=False),
 )
 
 season_memberships = Table(
@@ -73,7 +99,12 @@ season_memberships = Table(
     Column("league_id", UUID(as_uuid=True), nullable=False),
     Column("season_id", UUID(as_uuid=True), nullable=False),
     Column("membership_id", UUID(as_uuid=True), nullable=False),
+    # A withdrawal ends the row (status 'withdrawn', effective_to); reinstatement adds a new
+    # one, so a member may hold several rows in a season but at most one active.
     Column("status", String(20), nullable=False),
+    _ts("effective_from", nullable=False),
+    _ts("effective_to"),
+    _ts("updated_at", nullable=False),
 )
 
 duties = Table(

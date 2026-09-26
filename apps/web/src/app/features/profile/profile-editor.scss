@@ -58,18 +58,19 @@ button:disabled {
   font-size: 29px;
   font-weight: 800;
   letter-spacing: 3px;
+  // THE PAVILION stacks onto two lines on narrow posters.
+  line-height: 1.05;
   color: #fff;
   text-decoration: none;
 }
-.profile-brand img {
-  width: 45px;
-  height: 55px;
-  object-fit: contain;
+.profile-brand app-league-crest {
+  --avatar-size: 50px;
 }
 .profile-brand span {
   font-size: 10px;
   letter-spacing: 1px;
   margin-left: auto;
+  white-space: nowrap;
 }
 .poster-copy {
   margin: auto 0;

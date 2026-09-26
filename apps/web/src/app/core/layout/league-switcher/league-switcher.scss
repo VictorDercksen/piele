@@ -1,0 +1,381 @@
+// The top-left block and its league switcher: a popover on wide screens, a sheet that drops
+// from under the top bar on phones.
+:host {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.switcher-trigger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 48px;
+  margin-left: -6px;
+  padding: 4px 8px 4px 6px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: #fff;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+.switcher-trigger:hover {
+  border-color: #f2efdf22;
+  background: #ffffff0d;
+}
+:host(.open) .switcher-trigger {
+  border-color: #f58b6588;
+  background: #ffffff0f;
+}
+.switcher-trigger:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.switcher-trigger app-league-crest {
+  --avatar-size: 42px;
+}
+.brand-text {
+  min-width: 0;
+}
+.brand-text strong {
+  display: block;
+  overflow: hidden;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 2.5px;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.brand-text small {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  font-size: 9px;
+  letter-spacing: 1.45px;
+  color: #b2bdc4;
+  white-space: nowrap;
+}
+.switch-glyph {
+  --ng-icon__size: 16px;
+  flex-shrink: 0;
+  color: #b2bdc4;
+}
+// The rail is narrow, so a long league name stacks: POFADDER over BOWL.
+:host(.rail) .switcher-trigger {
+  gap: 8px;
+  margin-left: -4px;
+  padding: 4px;
+}
+:host(.rail) .switcher-trigger app-league-crest {
+  --avatar-size: 38px;
+}
+:host(.rail) .brand-text strong {
+  font-size: 16px;
+  letter-spacing: 2px;
+  line-height: 1.05;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+:host(.rail) .brand-text small {
+  margin-top: 5px;
+  font-size: 8.5px;
+  letter-spacing: 1.2px;
+}
+:host(.rail) .switch-glyph {
+  --ng-icon__size: 12px;
+}
+:host(.rail) .switcher-panel {
+  left: 8px;
+}
+
+.scrim {
+  display: none;
+}
+.switcher-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: -6px;
+  z-index: 2;
+  width: 380px;
+  max-width: calc(100vw - 32px);
+  max-height: min(640px, calc(100dvh - 100px));
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 16px 18px 20px;
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--orange);
+  border-radius: 4px;
+  background: var(--surface-grain), linear-gradient(160deg, #1e3035, #0f1b1e);
+  box-shadow: 0 22px 48px #000a;
+  color: var(--ink);
+  text-align: left;
+  visibility: hidden;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition:
+    opacity 0.16s,
+    transform 0.16s,
+    visibility 0s 0.16s;
+}
+:host(.open) .switcher-panel {
+  visibility: visible;
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 0.16s,
+    transform 0.16s;
+}
+.panel-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+h2 {
+  font-size: 20px;
+  font-weight: 800;
+  font-style: italic;
+  letter-spacing: -0.2px;
+  text-transform: uppercase;
+}
+.close {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  margin-right: -8px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+}
+.close:hover {
+  background: #ffffff12;
+  color: var(--ink);
+}
+.close app-icon {
+  width: 16px;
+  height: 16px;
+}
+.group-title {
+  margin: 14px 0 6px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: var(--accent);
+  text-transform: uppercase;
+}
+.league-rows {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.group-title + .league-rows {
+  margin-top: 0;
+}
+.league-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--ink);
+  text-decoration: none;
+}
+.league-row app-league-crest {
+  --avatar-size: 36px;
+}
+.league-row:hover {
+  background: #263a49;
+}
+.league-row.current {
+  border-color: #f58b6544;
+  background: linear-gradient(90deg, #f58b651f, transparent 80%);
+  box-shadow: inset 3px 0 var(--orange);
+}
+.league-row:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.row-text {
+  min-width: 0;
+}
+.row-text strong {
+  display: block;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+.row-text small {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.row-tags {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+.current-tag {
+  background: #1d3f36;
+  color: #7fe0c2;
+}
+.admin-tag {
+  background: #1d3340;
+  color: #9fd3e6;
+}
+.muted-tag {
+  background: #ffffff0d;
+  color: var(--muted);
+}
+.join {
+  margin-top: 16px;
+  border-top: 1px solid var(--line);
+}
+.join label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.join-row {
+  display: flex;
+  gap: 8px;
+}
+.join-row input {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: #0b1518;
+  color: var(--ink);
+  font-size: 14px;
+}
+.join-row input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.join-row .primary-button {
+  flex-shrink: 0;
+}
+.manage-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 48px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+.manage-link:hover {
+  color: var(--accent);
+}
+.manage-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.join-error {
+  margin-top: 8px;
+  color: #ff9c86;
+  font-size: 12px;
+}
+
+// Phones: the top bar holds the block, and the switcher drops as a sheet across the screen
+// from under the bar (the bar is the sheet's containing block).
+@container (max-width: 800px) {
+  :host(:not(.rail)) {
+    position: static;
+  }
+  .switcher-trigger app-league-crest {
+    --avatar-size: 36px;
+  }
+  .brand-text strong {
+    font-size: 18px;
+    letter-spacing: 1.5px;
+  }
+  :host(:not(.rail)) .brand-text small {
+    display: none;
+  }
+  :host(:not(.rail)) .scrim {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 1;
+    display: block;
+    height: 100dvh;
+    background: #050b0dcc;
+    visibility: hidden;
+    opacity: 0;
+    transition:
+      opacity 0.2s,
+      visibility 0s 0.2s;
+  }
+  :host(.open:not(.rail)) .scrim {
+    visibility: visible;
+    opacity: 1;
+    transition: opacity 0.2s;
+  }
+  :host(:not(.rail)) .switcher-panel {
+    top: 100%;
+    left: 0;
+    right: 0;
+    width: auto;
+    max-width: none;
+    max-height: calc(100dvh - 64px - 24px);
+    padding: 14px 17px 20px;
+    border-top: 0;
+    border-right: 0;
+    border-left: 0;
+    border-bottom: 3px solid var(--orange);
+    border-radius: 0 0 8px 8px;
+    transform: translateY(-16px);
+  }
+  :host(.open:not(.rail)) .switcher-panel {
+    transform: none;
+  }
+}
+@container (max-width: 350px) {
+  .brand-text strong {
+    font-size: 16px;
+    letter-spacing: 1px;
+  }
+  :host(:not(.rail)) .switcher-panel {
+    padding: 12px 13px 18px;
+  }
+  .league-row {
+    gap: 9px;
+    padding: 8px 6px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .switcher-panel,
+  :host(.open) .switcher-panel,
+  .scrim {
+    transition: none;
+    transform: none;
+  }
+}

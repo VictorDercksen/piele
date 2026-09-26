@@ -1,0 +1,109 @@
+<section class="claim">
+  @if (league(); as league) {
+    <div class="league-heading">
+      <app-league-crest
+        [name]="league.name"
+        [slug]="league.slug"
+        [emblemUrl]="league.emblemUrl"
+        [emblemPreset]="league.emblemPreset ?? null"
+        [accentColour]="league.accentColour"
+      />
+      <span class="eyebrow"
+        >{{ league.name.toUpperCase() }} / {{ league.seasonName.toUpperCase() }}</span
+      >
+    </div>
+    @if (preview()?.alreadyMember) {
+      <h1>You're in.</h1>
+      <p class="lead">You already have a name in {{ league.name }}.</p>
+      @if (names()?.length) {
+        <p class="unclaimed-note">
+          Still to claim their names:
+          @for (name of names(); track name.id; let last = $last) {
+            <strong>{{ name.displayName }}</strong
+            >{{ last ? '.' : ', ' }}
+          }
+        </p>
+      }
+      <div class="actions">
+        <a class="primary-button" [routerLink]="leagueLink()"
+          >Open {{ league.name }}<ng-icon class="link-icon" name="lucideArrowRight"
+        /></a>
+      </div>
+    } @else {
+      <h1>Which one is you?</h1>
+      <p class="lead">
+        Pick your Superbru name in {{ league.name }}. It is tied to
+        {{ email() || 'this account' }} from now on, so choose carefully. The captain can undo a
+        wrong pick.
+      </p>
+      @if (names(); as list) {
+        @if (list.length) {
+          <div class="names" role="radiogroup" aria-label="Superbru names">
+            @for (name of list; track name.id) {
+              <button
+                type="button"
+                role="radio"
+                class="name"
+                [class.chosen]="chosen() === name.id"
+                [attr.aria-checked]="chosen() === name.id"
+                (click)="choose(name.id)"
+              >
+                <strong>{{ name.displayName }}</strong>
+              </button>
+            }
+          </div>
+        } @else if (!error()) {
+          <p class="empty">
+            Every name on the team sheet is taken. Ask the captain to add you or to release a wrong
+            claim.
+          </p>
+        }
+      }
+      @if (error()) {
+        <p class="error" role="alert">{{ error() }}</p>
+      }
+      <div class="actions">
+        <button
+          type="button"
+          class="primary-button"
+          [disabled]="!chosen() || busy()"
+          [attr.aria-busy]="busy()"
+          (click)="claim()"
+        >
+          @if (busy()) {
+            <app-loader [size]="18" aria-hidden="true" />
+          }
+          {{ confirming() ? 'Yes, I am ' + chosenName() : 'This is me' }}
+        </button>
+        @if (canSignOut) {
+          <button type="button" class="text-button" (click)="signOut()" [disabled]="busy()">
+            Wrong account? Sign out
+          </button>
+        }
+      </div>
+      @if (confirming()) {
+        <p class="confirm" role="status">
+          Tap again to confirm. Once claimed, only the captain can release {{ chosenName() }}.
+        </p>
+      }
+    }
+  } @else if (invalid()) {
+    <span class="eyebrow">THE PAVILION / JOIN A LEAGUE</span>
+    <h1>That link does not work.</h1>
+    <p class="lead">{{ invalid() }}</p>
+    <div class="actions">
+      <a class="text-button" routerLink="/no-league"
+        >Enter another code<ng-icon class="link-icon" name="lucideArrowRight"
+      /></a>
+    </div>
+  } @else if (error()) {
+    <span class="eyebrow">THE PAVILION / JOIN A LEAGUE</span>
+    <h1>Not just now.</h1>
+    <p class="error" role="alert">{{ error() }}</p>
+    <div class="actions">
+      <button type="button" class="primary-button" (click)="load()">Try again</button>
+    </div>
+  } @else {
+    <div class="loading"><app-ball-loader [size]="44" label="Loading the team sheet" /></div>
+  }
+</section>

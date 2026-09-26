@@ -1,4 +1,4 @@
-import { pieleApi } from './piele-api';
+import { pavilionApi } from './pavilion-api';
 
 /** One fixture claimed through the API's POST /v1/agent/dispatches. */
 export interface Dispatch {
@@ -19,7 +19,7 @@ export interface DispatchOptions {
 
 /** Claims the due fixtures (or one fixture) in the API; each claim gets one writing session. */
 export async function claimFixtures(options?: DispatchOptions): Promise<Dispatch[]> {
-  const { dispatches } = await pieleApi<{ dispatches: Dispatch[] }>('/dispatches', {
+  const { dispatches } = await pavilionApi<{ dispatches: Dispatch[] }>('/dispatches', {
     method: 'POST',
     body: options,
   });
@@ -33,5 +33,5 @@ export function sessionAddress({ fixtureId, attempt }: Pick<Dispatch, 'fixtureId
 
 /** The message that starts a writing session. */
 export function sessionPrompt({ fixtureId, round, kickoffUtc }: Dispatch): string {
-  return `Write the Piele preview for fixture ${fixtureId} (round ${round}, kickoff ${kickoffUtc} UTC).`;
+  return `Write the Pavilion preview for fixture ${fixtureId} (round ${round}, kickoff ${kickoffUtc} UTC).`;
 }

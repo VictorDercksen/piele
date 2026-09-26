@@ -20,7 +20,7 @@
 </div>
 @if (view.poll(); as poll) {
   @if (scope() === 'round') {
-    <a class="feed-item" routerLink="/decisions" queryParamsHandling="preserve">
+    <a class="feed-item" [routerLink]="'/decisions' | leaguePath" queryParamsHandling="preserve">
       <span class="feed-icon"><app-icon name="decisions" /></span
       ><span
         ><span class="feed-label">{{
@@ -42,7 +42,7 @@
   @if (item.path) {
     <a
       class="feed-item"
-      [routerLink]="item.path"
+      [routerLink]="item.path | leaguePath"
       [queryParams]="item.roundId !== null ? { round: item.roundId } : {}"
       queryParamsHandling="merge"
     >

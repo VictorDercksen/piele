@@ -1,6 +1,15 @@
-import { ChangeDetectionStrategy, Component, inject, signal, viewChild } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  Injector,
+  afterNextRender,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { formatLeagueTime, formatRelative } from '../../core/competition/league-time';
+import { LeagueTime } from '../../core/competition/league-time';
 import { ToastService } from '../../core/feedback/toast.service';
 import { LeagueData } from '../../core/league/league-data';
 import { LeagueMember } from '../../core/league/league.models';
@@ -10,21 +19,30 @@ import { lucidePlay } from '@ng-icons/lucide';
 import { Icon } from '../../shared/icon/icon';
 import { Loader } from '../../shared/loader/loader';
 import { ReasonDialog } from '../duties/reason-dialog/reason-dialog';
+import { AppearanceCard } from './appearance-card/appearance-card';
+import { JoinLinkCard } from './join-link-card/join-link-card';
 
-/** Evidence awaiting the captain in the selected round, and the season's members. */
+/**
+ * The steward's desk (the captain, or the admin): evidence awaiting a decision in the selected
+ * round, the team sheet with removal and reinstatement, the join link and the league's look.
+ */
 @Component({
   selector: 'app-captain-page',
   templateUrl: './captain.page.html',
   styleUrl: './captain.page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, Icon, NgIcon, Loader, ReasonDialog],
+  imports: [ReactiveFormsModule, Icon, NgIcon, Loader, ReasonDialog, JoinLinkCard, AppearanceCard],
   viewProviders: [provideIcons({ lucidePlay })],
 })
 export class CaptainPage {
   private readonly league = inject(LeagueData);
+  private readonly time = inject(LeagueTime);
   private readonly toast = inject(ToastService);
   readonly view = inject(RoundViewService);
+  private readonly injector = inject(Injector);
   readonly reasonDialog = viewChild.required(ReasonDialog);
+  private readonly withdrawnGroup = viewChild<ElementRef<HTMLDetailsElement>>('withdrawnGroup');
+  readonly withdrawError = signal('');
   readonly playbackError = signal('');
   readonly memberError = signal('');
   readonly memberBusy = signal<string | null>(null);
@@ -50,15 +68,15 @@ export class CaptainPage {
   readonly addingMember = signal(false);
 
   when(review: ReviewView): string {
-    return formatRelative(review.evidence.submittedAt);
+    return this.time.relative(review.evidence.submittedAt);
   }
 
   completion(review: ReviewView): string {
     const { evidence, duty } = review;
     const own = evidence.submitterId === duty.memberId;
     return own
-      ? `Counts from submission · ${formatLeagueTime(evidence.submittedAt)}`
-      : `Recorded by ${evidence.submitterName} · completed ${formatLeagueTime(evidence.claimedCompletedAt)}`;
+      ? `Counts from submission · ${this.time.format(evidence.submittedAt)}`
+      : `Recorded by ${evidence.submitterName} · completed ${this.time.format(evidence.claimedCompletedAt)}`;
   }
 
   decide(review: ReviewView, decision: 'accepted' | 'rejected'): void {
@@ -136,6 +154,65 @@ export class CaptainPage {
     });
   }
 
+  /** Every row but the league captain's and the steward's own. The API decides the rest. */
+  removable(member: LeagueMember): boolean {
+    return member.id !== this.view.captainId() && member.id !== this.view.memberId();
+  }
+
+  remove(member: LeagueMember): void {
+    const deleted = !member.claimed && !this.view.hasRecords(member.id);
+    this.withdrawError.set('');
+    this.reasonDialog().open({
+      title: `Remove ${member.name}?`,
+      description: deleted
+        ? `${member.name} comes off the team sheet. This name has no records yet and will be deleted.`
+        : `${member.name} comes off the team sheet and the standings, and their open duties are voided. Their marks and past records stay, and you can reinstate them later.`,
+      submitLabel: 'Remove',
+      required: true,
+      action: async (reason) => {
+        this.memberBusy.set(member.id);
+        try {
+          await this.league.withdrawMember(member.id, reason);
+        } finally {
+          this.memberBusy.set(null);
+        }
+      },
+      done: () => {
+        this.toast.show(
+          deleted ? `${member.name} was deleted.` : `${member.name} was removed from the team sheet.`,
+        );
+        // The row is gone; focus moves to the withdrawn group (or the heading) instead.
+        afterNextRender(
+          () =>
+            (
+              this.withdrawnGroup()?.nativeElement.querySelector('summary') ??
+              document.getElementById('members-heading')
+            )?.focus(),
+          { injector: this.injector },
+        );
+      },
+    });
+  }
+
+  async reinstate(member: LeagueMember): Promise<void> {
+    this.memberBusy.set(member.id);
+    this.withdrawError.set('');
+    try {
+      await this.league.reinstateMember(member.id);
+      this.toast.show(`${member.name} is back on the team sheet.`);
+    } catch (error) {
+      this.withdrawError.set(
+        error instanceof Error ? error.message : `${member.name} could not be reinstated.`,
+      );
+    } finally {
+      this.memberBusy.set(null);
+    }
+  }
+
+  removedOn(member: LeagueMember): string {
+    return this.time.formatDate(member.leftAt, '');
+  }
+
   async addMember(): Promise<void> {
     if (this.newMember.invalid || this.addingMember()) {
       this.newMember.markAllAsTouched();
@@ -164,7 +241,7 @@ export class CaptainPage {
 
   private completionInstant(review: ReviewView): string {
     const { evidence, duty } = review;
-    return formatLeagueTime(
+    return this.time.format(
       evidence.submitterId === duty.memberId ? evidence.submittedAt : evidence.claimedCompletedAt,
     );
   }

@@ -7,6 +7,9 @@ import {
   STALE_MS,
   scoringView,
 } from './scoring';
+import { competition } from '../../core/competition/registry';
+
+const URC = competition('urc-2026-27');
 
 const FIXTURE: Fixture = {
   id: '292584',
@@ -66,23 +69,23 @@ describe('scoring view', () => {
   const waiting = () => section({ state: 'scheduled', minute: null, events: [] });
 
   it('stays hidden until ten minutes before kickoff', () => {
-    expect(scoringView(FIXTURE, undefined, NOW)).toBeNull();
+    expect(scoringView(URC, FIXTURE, undefined, NOW)).toBeNull();
     expect(
-      scoringView(FIXTURE, { status: 'too_early', source: 'x', fetchedAt: null }, NOW),
+      scoringView(URC, FIXTURE, { status: 'too_early', source: 'x', fetchedAt: null }, NOW),
     ).toBeNull();
-    expect(scoringView(FIXTURE, waiting(), kickoff - SHOW_BEFORE_KICKOFF_MS - 1)).toBeNull();
-    const open = scoringView(FIXTURE, waiting(), kickoff - SHOW_BEFORE_KICKOFF_MS)!;
+    expect(scoringView(URC, FIXTURE, waiting(), kickoff - SHOW_BEFORE_KICKOFF_MS - 1)).toBeNull();
+    const open = scoringView(URC, FIXTURE, waiting(), kickoff - SHOW_BEFORE_KICKOFF_MS)!;
     expect(open.tag).toBe('awaiting kickoff');
     expect(open.home.score).toBe('–');
     expect(open.empty).toBe('Scores appear here from kickoff.');
     expect(open.lines.find((l) => l.kind === 'half')?.label).toBe(open.empty);
     // A moved kickoff from the match centre wins over the fixture list.
     const later = new Date(kickoff + 60 * 60_000).toISOString();
-    expect(scoringView(FIXTURE, waiting(), kickoff, later)).toBeNull();
+    expect(scoringView(URC, FIXTURE, waiting(), kickoff, later)).toBeNull();
   });
 
   it('places events by side and minute, with half time on the halfway line', () => {
-    const view = scoringView(FIXTURE, section(), NOW)!;
+    const view = scoringView(URC, FIXTURE, section(), NOW)!;
     expect(view.tag).toBe('live');
     expect(view.home.score).toBe('13');
     expect(view.away.score).toBe('7');
@@ -122,7 +125,12 @@ describe('scoring view', () => {
       event(3, '40+2', 'away', 'penalty_goal', 'first half', [0, 10]),
       event(4, '41', 'home', 'try', 'second half', [5, 10]),
     ];
-    const view = scoringView(FIXTURE, section({ state: 'full_time', minute: null, events }), NOW)!;
+    const view = scoringView(
+      URC,
+      FIXTURE,
+      section({ state: 'full_time', minute: null, events }),
+      NOW,
+    )!;
     const half = view.lines.find((l) => l.kind === 'half')!.top;
     const height = (r: { try: boolean }) => (r.try ? ROW_HEIGHT.try : ROW_HEIGHT.slim);
     const away = view.rows.filter((r) => r.side === 'away');
@@ -138,6 +146,7 @@ describe('scoring view', () => {
 
   it('marks half time, delayed data and failures', () => {
     const half = scoringView(
+      URC,
       FIXTURE,
       section({ state: 'half_time', events: section().events!.slice(0, 2) }),
       NOW,
@@ -146,8 +155,9 @@ describe('scoring view', () => {
     expect(half.marker).toBeNull();
     expect(half.lines.find((l) => l.kind === 'half')?.label).toBe('Half time 10–7');
     const old = new Date(NOW - STALE_MS - 1000).toISOString();
-    expect(scoringView(FIXTURE, section({ fetchedAt: old }), NOW)!.tag).toBe('delayed');
+    expect(scoringView(URC, FIXTURE, section({ fetchedAt: old }), NOW)!.tag).toBe('delayed');
     const fallback = scoringView(
+      URC,
       FIXTURE,
       section({ source: 'ESPN', timeline: false, events: [] }),
       NOW,
@@ -155,6 +165,7 @@ describe('scoring view', () => {
     expect(fallback.rows).toEqual([]);
     expect(fallback.empty).toContain('score comes from ESPN');
     const down = scoringView(
+      URC,
       FIXTURE,
       { status: 'unavailable', source: 'x', fetchedAt: null },
       NOW,

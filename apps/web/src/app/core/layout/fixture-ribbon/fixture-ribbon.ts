@@ -1,9 +1,10 @@
 import { ChangeDetectionStrategy, Component, effect, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { Fixture } from '../../competition/competition.models';
+import { CompetitionService } from '../../competition/competition.service';
 import { MatchArtwork } from '../../competition/match-artwork';
 import { ribbonStatus } from '../../competition/match-status';
-import { jersey } from '../../competition/teams';
+import { LeagueContext } from '../../league/league-context';
 import { RoundViewService } from '../../league/round-view.service';
 
 /**
@@ -43,13 +44,19 @@ import { RoundViewService } from '../../league/round-view.service';
 })
 export class FixtureRibbon {
   private readonly router = inject(Router);
+  private readonly context = inject(LeagueContext);
   private readonly artwork = inject(MatchArtwork);
+  private readonly competition = inject(CompetitionService);
   readonly view = inject(RoundViewService);
-  readonly jersey = jersey;
   readonly status = ribbonStatus;
 
   constructor() {
     effect(() => this.artwork.warm(this.view.fixtures()));
+  }
+
+  /** The club's jersey, or the placeholder for an unconfirmed side. */
+  jersey(teamId: string): string {
+    return this.competition.current().jersey(teamId);
   }
 
   /** Unconfirmed playoff teams read as TBC so two of them fit a ribbon card. */
@@ -63,8 +70,10 @@ export class FixtureRibbon {
   }
 
   choose(fixtureId: string): void {
-    if (this.router.url.split(/[?#]/)[0].startsWith('/match/')) {
-      void this.router.navigate(['/match', fixtureId], { queryParamsHandling: 'preserve' });
+    if (this.context.within(this.router.url).startsWith('/match/')) {
+      void this.router.navigate([this.context.url('/match'), fixtureId], {
+        queryParamsHandling: 'preserve',
+      });
       return;
     }
     this.view.feature(fixtureId);

@@ -1,7 +1,9 @@
 import { DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, inject, viewChild } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
-import { formatLeagueTime } from '../../core/competition/league-time';
+import { LeagueTime } from '../../core/competition/league-time';
+import { LeagueContext } from '../../core/league/league-context';
+import { LeaguePathPipe } from '../../core/league/league-path.pipe';
 import { RoundDutyView, RoundViewService } from '../../core/league/round-view.service';
 import { ProfileStore } from '../../core/profile/profile.store';
 import { NgIcon, provideIcons } from '@ng-icons/core';
@@ -18,11 +20,13 @@ import { MatchHero } from './match-hero/match-hero';
   templateUrl: './home.page.html',
   styleUrl: './home.page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, RouterLink, Icon, NgIcon, MatchHero, EvidenceDialog, Feed, MemberAvatar],
+  imports: [DecimalPipe, RouterLink, LeaguePathPipe, Icon, NgIcon, MatchHero, EvidenceDialog, Feed, MemberAvatar],
   viewProviders: [provideIcons({ lucideArrowRight })],
 })
 export class HomePage {
   private readonly router = inject(Router);
+  private readonly context = inject(LeagueContext);
+  private readonly time = inject(LeagueTime);
   private readonly profileStore = inject(ProfileStore);
   readonly view = inject(RoundViewService);
   readonly evidence = viewChild.required(EvidenceDialog);
@@ -30,10 +34,10 @@ export class HomePage {
   readonly favouriteTeam = this.profileStore.team;
 
   deadline(duty: RoundDutyView): string {
-    return formatLeagueTime(duty.deadlineAt, 'Deadline to be confirmed');
+    return this.time.format(duty.deadlineAt, 'Deadline to be confirmed');
   }
 
   go(path: string): void {
-    void this.router.navigate([path], { queryParamsHandling: 'preserve' });
+    void this.router.navigate([this.context.url(path)], { queryParamsHandling: 'preserve' });
   }
 }

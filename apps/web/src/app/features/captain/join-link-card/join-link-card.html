@@ -1,0 +1,56 @@
+<section class="join-link" aria-labelledby="join-link-heading">
+  <div class="section-title">
+    <h2 id="join-link-heading">The join link.</h2>
+    <span>LEAGUE</span>
+  </div>
+  @if (link(); as link) {
+    <p class="page-description">
+      Anyone with this link can sign in and claim an open name on the team sheet. Names reserved
+      for an email stay with that address.
+    </p>
+    <label class="field-label" for="join-link-url">Join link</label>
+    <div class="link-row">
+      <input id="join-link-url" type="text" readonly [value]="link" (focus)="select($event)" />
+      <button type="button" class="primary-button" (click)="copy()">
+        <ng-icon name="lucideCopy" aria-hidden="true" />Copy link
+      </button>
+    </div>
+    <p class="copy-status" aria-live="polite">
+      @if (copied()) {
+        <app-icon name="check" />Copied. Paste it to the members still to join.
+      }
+    </p>
+    @if (copyError()) {
+      <p class="error-message" role="alert">{{ copyError() }}</p>
+    }
+    <div class="link-actions">
+      <button type="button" class="text-button" (click)="rotate()">
+        <ng-icon class="link-icon" name="lucideRefreshCw" aria-hidden="true" />Rotate link
+      </button>
+      <button type="button" class="text-button" (click)="closeJoining()">Close joining</button>
+    </div>
+  } @else {
+    <div class="closed">
+      <h3>Joining is closed.</h3>
+      <p>
+        No join link works for {{ leagueName() }}. Open joining to make a new link; old links stay
+        closed.
+      </p>
+      <button
+        type="button"
+        class="primary-button"
+        [disabled]="opening()"
+        [attr.aria-busy]="opening()"
+        (click)="openJoining()"
+      >
+        @if (opening()) {
+          <app-loader [size]="16" aria-hidden="true" />
+        }
+        Open joining
+      </button>
+    </div>
+    @if (error()) {
+      <p class="error-message" role="alert">{{ error() }}</p>
+    }
+  }
+</section>

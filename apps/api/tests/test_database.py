@@ -4,6 +4,7 @@ database with supabase/migrations applied and connects as the piele_api runtime 
 
 import os
 from datetime import timedelta
+from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
@@ -38,6 +39,23 @@ def test_runtime_role_reads_and_writes_snapshots(settings: Settings) -> None:
     cache.put(Snapshot(key, "ok", {"n": 1}, moment, moment + timedelta(hours=1)))
     cache.put(Snapshot(key, "ok", {"n": 2}, moment, moment + timedelta(hours=1)))
     assert cache.get(key).payload == {"n": 2}
+
+
+def test_the_previous_apis_milestone_upsert_still_works(settings: Settings) -> None:
+    """The API deployed before 20260926150000 upserts on (fixture_id, kind); the legacy
+    unique index keeps that working until the new API is live."""
+    fixture_id = f"legacy-{uuid4().hex}"
+    legacy = text(
+        "insert into piele.fixture_milestones (fixture_id, kind) values (:f, 'full_time')"
+        " on conflict (fixture_id, kind) do nothing"
+    )
+    with get_engine(settings).begin() as connection:
+        connection.execute(legacy, {"f": fixture_id})
+        connection.execute(legacy, {"f": fixture_id})
+        count = connection.execute(
+            text("select count(*) from piele.fixture_milestones where fixture_id = :f"), {"f": fixture_id}
+        ).scalar_one()
+    assert count == 1
 
 
 def test_runtime_role_is_restricted(settings: Settings) -> None:

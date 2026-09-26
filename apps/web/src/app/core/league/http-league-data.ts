@@ -1,38 +1,62 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { firstValueFrom } from 'rxjs';
+import { Subject, firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { AuthService } from '../auth/auth.service';
 import { jpegBlob, jpegDataUrl } from '../profile/profile-photo';
 import type { Profile } from '../profile/profile.store';
 import { LeagueData } from './league-data';
 import {
+  AppearanceChange,
+  CompetitionRef,
   Duty,
   EvidenceSubmission,
   FeedItem,
+  LeagueAppearance,
   LeagueMember,
+  LeagueSummary,
   MemberMarks,
   NewDuty,
   NewMember,
   NotificationsRead,
   Poll,
-  UnclaimedName,
   RoundNote,
   RoundStanding,
 } from './league.models';
 
-interface Me {
-  readonly memberId: string;
-  readonly displayName: string;
-  readonly isCaptain: boolean;
+/** The league-scoped `GET /v1/leagues/{leagueId}/me` document. */
+export interface Me {
+  readonly leagueId: string;
+  readonly slug: string;
   readonly leagueName: string;
+  readonly timezone: string;
+  readonly emblemPreset?: string | null;
+  readonly emblemUrl: string | null;
+  readonly accentColour: string | null;
+  readonly competition: CompetitionRef;
   readonly seasonName: string;
   readonly inSeason: boolean;
+  /** Null when the admin views a league it holds no membership in. */
+  readonly memberId: string | null;
+  readonly displayName: string;
+  readonly isCaptain: boolean;
+  readonly isAdmin: boolean;
+  /** Captain or admin: may use the captain's desk. */
+  readonly administers: boolean;
   readonly favouriteTeamId: string | null;
   /** Short-lived signed Storage URL, downloaded straight away. */
   readonly photoUrl: string | null;
   readonly notificationsReadAt?: string | null;
   readonly notificationsReadKeys?: readonly string[];
+  /** Only for the steward; null for members or when joining is closed. */
+  readonly joinCode?: string | null;
+}
+
+/** Where to put an image in private Storage: the photo and emblem grants. */
+export interface ImageUploadGrant {
+  readonly bucket: string;
+  readonly path: string;
+  readonly token: string;
 }
 
 interface PhotoUploadGrant {
@@ -49,6 +73,8 @@ interface ApiMember {
   readonly claimed: boolean;
   readonly inSeason: boolean;
   readonly email: string | null;
+  readonly leftAt?: string | null;
+  readonly withdrawalReason?: string | null;
 }
 
 interface ApiDuty extends Omit<Duty, 'roundId'> {
@@ -73,14 +99,26 @@ interface UploadGrant {
 
 export type MembershipState = 'unknown' | 'loading' | 'member' | 'not_member' | 'error';
 
-/** League records from the Python API. Every call carries the member's access token. */
+/**
+ * One league's records from the Python API, under `/v1/leagues/{leagueId}`. `LeagueContext`
+ * chooses the league; choosing another clears these records and loads that league's. Every
+ * call carries the member's access token.
+ */
 @Injectable({ providedIn: 'root' })
 export class HttpLeagueData extends LeagueData {
   private readonly http = inject(HttpClient);
   private readonly auth = inject(AuthService);
-  private readonly base = `${environment.apiUrl}/v1`;
   readonly source = 'api';
+  /** Whether the chosen league's `me` loaded; `not_member` when the API refused it. */
   readonly membership = signal<MembershipState>('unknown');
+  private readonly league = signal<string | null>(null);
+  /** The league these records belong to. */
+  readonly leagueId = this.league.asReadonly();
+  /**
+   * Emits the league id when the API answers 403 `not_a_member` or 404 `unknown_league` for
+   * it, at load or later (a withdrawn membership, an archived league).
+   */
+  readonly refused = new Subject<string>();
   private readonly me = signal<Me | null>(null);
   readonly currentMemberId = computed(() => this.me()?.memberId ?? null);
   readonly currentMemberName = computed(() => this.me()?.displayName ?? null);
@@ -89,16 +127,23 @@ export class HttpLeagueData extends LeagueData {
     return me?.isCaptain ? me.memberId : null;
   });
   readonly leagueName = computed(() => this.me()?.leagueName ?? null);
+  readonly administers = computed(() => this.me()?.administers ?? false);
+  private readonly joinCodeState = signal<string | null>(null);
+  readonly joinCode = this.joinCodeState.asReadonly();
+  /** False for the admin in a league it holds no membership in. */
+  readonly isMember = computed(() => !!this.me()?.memberId);
   private readonly photo = signal<string | null>(null);
-  /** The member's saved profile; null until they have chosen a favourite team. */
+  /** The member's saved profile in this league; null until they have chosen a favourite team. */
   readonly profile = computed<Profile | null>(() => {
     const me = this.me();
-    return me?.favouriteTeamId
+    return me?.memberId && me.favouriteTeamId
       ? { displayName: me.displayName, teamId: me.favouriteTeamId, photo: this.photo() }
       : null;
   });
   private readonly memberRecords = signal<readonly LeagueMember[]>([]);
   readonly members = this.memberRecords.asReadonly();
+  private readonly withdrawnRecords = signal<readonly LeagueMember[]>([]);
+  readonly withdrawnMembers = this.withdrawnRecords.asReadonly();
   /** Superbru round points the captain records from the pool results. */
   private readonly standingRecords = signal<readonly RoundStanding[]>([]);
   readonly standings = this.standingRecords.asReadonly();
@@ -111,7 +156,7 @@ export class HttpLeagueData extends LeagueData {
   private readonly feedRecords = signal<readonly FeedItem[]>([]);
   readonly feed = this.feedRecords.asReadonly();
   private readonly read = signal<NotificationsRead>({ readAt: null, readKeys: [] });
-  /** Read state from the member's account, so it follows them between devices. */
+  /** Read state from the member's membership, so it follows them between devices. */
   readonly notificationsRead = this.read.asReadonly();
   private readonly loadingState = signal(false);
   readonly loading = this.loadingState.asReadonly();
@@ -119,13 +164,32 @@ export class HttpLeagueData extends LeagueData {
   readonly error = this.errorState.asReadonly();
   private pending: Promise<MembershipState> | null = null;
 
-  /** Resolves the membership state, loading league records on first success. */
+  selectLeague(league: LeagueSummary): void {
+    void this.load(league.id);
+  }
+
+  /**
+   * Loads a league's `me` and records, clearing another league's first. Resolves to the
+   * membership state; a second call for the same league shares the first one's request.
+   */
+  load(leagueId: string): Promise<MembershipState> {
+    if (this.league() === leagueId) return this.ensureLoaded();
+    this.clear();
+    this.league.set(leagueId);
+    return this.ensureLoaded();
+  }
+
+  /** Resolves the chosen league's membership state, loading its records on first success. */
   ensureLoaded(): Promise<MembershipState> {
+    const leagueId = this.league();
     const state = this.membership();
-    if (state === 'member') return Promise.resolve(state);
+    if (!leagueId || state === 'member' || state === 'not_member') return Promise.resolve(state);
     if (this.pending) return this.pending;
-    this.pending = this.load().finally(() => (this.pending = null));
-    return this.pending;
+    const pending = this.fetch(leagueId).finally(() => {
+      if (this.pending === pending) this.pending = null;
+    });
+    this.pending = pending;
+    return pending;
   }
 
   reload(): void {
@@ -133,18 +197,28 @@ export class HttpLeagueData extends LeagueData {
     else void this.ensureLoaded();
   }
 
-  /** Forgets everything member-specific, e.g. on sign-out. */
+  /** Forgets the league and everything member-specific, e.g. on sign-out. */
   clear(): void {
+    this.league.set(null);
+    this.pending = null;
     this.membership.set('unknown');
+    this.loadingState.set(false);
     this.me.set(null);
     this.photo.set(null);
     this.memberRecords.set([]);
+    this.withdrawnRecords.set([]);
+    this.joinCodeState.set(null);
     this.standingRecords.set([]);
     this.markRecords.set([]);
     this.dutyRecords.set([]);
     this.feedRecords.set([]);
     this.read.set({ readAt: null, readKeys: [] });
     this.errorState.set(null);
+  }
+
+  /** Records this league as the account's last used one, so `/` opens it next time. */
+  async markLastUsed(): Promise<void> {
+    await this.request('PUT', '/me/last');
   }
 
   /** The feed alone, for the notifications panel's periodic refresh. */
@@ -237,26 +311,94 @@ export class HttpLeagueData extends LeagueData {
     await this.refresh();
   }
 
-  /** Superbru names nobody has claimed yet, for a signed-in account without one. */
-  unclaimedNames(): Promise<UnclaimedName[]> {
-    return this.request<UnclaimedName[]>('GET', '/memberships/unclaimed');
-  }
-
-  /** Claims a name for this account, then loads the league as that member. */
-  async claim(memberId: string): Promise<void> {
-    const me = await this.request<Me>('POST', '/memberships/claim', { memberId });
-    this.adopt(me);
-    await Promise.all([this.refresh(), this.loadPhoto(me.photoUrl)]);
-    this.membership.set('member');
-  }
-
   castVote(): Promise<void> {
     return Promise.reject(new Error('Voting is not available yet.'));
   }
 
   /**
-   * Saves the favourite team and photo to the member's account. A new photo goes straight to
-   * private Storage with an API-issued grant; null removes the photo.
+   * The team sheet: `GET /members`, or with `include=withdrawn` for the steward, split into
+   * the active and withdrawn lists.
+   */
+  async loadMembers(includeWithdrawn = this.administers(), leagueId = this.league()): Promise<void> {
+    const members = await this.request<ApiMember[]>(
+      'GET',
+      includeWithdrawn ? '/members?include=withdrawn' : '/members',
+      undefined,
+      leagueId,
+    );
+    if (this.league() !== leagueId) return;
+    const withdrawn = (m: ApiMember) => m.status === 'withdrawn' || !!m.leftAt;
+    this.memberRecords.set(members.filter((m) => !withdrawn(m)).map(toMember));
+    this.withdrawnRecords.set(
+      members
+        .filter(withdrawn)
+        .map(toMember)
+        .sort((a, b) => (b.leftAt ?? '').localeCompare(a.leftAt ?? '')),
+    );
+  }
+
+  async withdrawMember(memberId: string, reason: string): Promise<void> {
+    await this.request('POST', `/members/${memberId}/withdraw`, { reason });
+    await this.refresh();
+  }
+
+  async reinstateMember(memberId: string): Promise<void> {
+    await this.request('POST', `/members/${memberId}/reinstate`);
+    await this.refresh();
+  }
+
+  async rotateJoinCode(): Promise<string> {
+    const { joinCode } = await this.request<{ joinCode: string }>('POST', '/join-code/rotate');
+    this.joinCodeState.set(joinCode);
+    return joinCode;
+  }
+
+  async closeJoinCode(): Promise<void> {
+    await this.request('DELETE', '/join-code');
+    this.joinCodeState.set(null);
+  }
+
+  /** Where to upload a new emblem: `emblems/{leagueId}/...` in private Storage. */
+  emblemUploadGrant(contentType: string, sizeBytes: number): Promise<ImageUploadGrant> {
+    return this.request<ImageUploadGrant>('POST', '/emblem/uploads', { contentType, sizeBytes });
+  }
+
+  /**
+   * Saves the emblem and accent colour through `PUT /appearance`. A new image goes straight
+   * to private Storage with an API-issued grant first. Removing the emblem clears whichever
+   * kind the league has, so one call never names both.
+   */
+  async saveAppearance(change: AppearanceChange): Promise<LeagueAppearance> {
+    const body: Record<string, string | null> = {};
+    const emblem = change.emblem;
+    if (emblem === null) {
+      if (this.me()?.emblemUrl && !this.me()?.emblemPreset) body['emblemPath'] = null;
+      else body['emblemPreset'] = null;
+    } else if (emblem && 'preset' in emblem) {
+      body['emblemPreset'] = emblem.preset;
+    } else if (emblem && 'image' in emblem) {
+      body['emblemPath'] = await this.uploadEmblem(emblem.image);
+    }
+    if (change.accentColour !== undefined) body['accentColour'] = change.accentColour;
+    const me = await this.request<Me>('PUT', '/appearance', body);
+    this.adopt(me);
+    return appearanceOf(me);
+  }
+
+  private async uploadEmblem(dataUrl: string): Promise<string> {
+    const image = jpegBlob(dataUrl);
+    const grant = await this.emblemUploadGrant(image.type, image.size);
+    const upload = await this.auth
+      .storage()
+      .from(grant.bucket)
+      .uploadToSignedUrl(grant.path, grant.token, image, { contentType: image.type });
+    if (upload.error) throw new Error('The emblem upload failed. Check your connection and try again.');
+    return grant.path;
+  }
+
+  /**
+   * Saves the favourite team to this league's membership and the photo to the account. A new
+   * photo goes straight to private Storage with an API-issued grant; null removes the photo.
    */
   async saveProfile(teamId: string, photo: string | null): Promise<void> {
     const current = this.photo();
@@ -299,49 +441,44 @@ export class HttpLeagueData extends LeagueData {
     }
   }
 
-  private async load(): Promise<MembershipState> {
+  private async fetch(leagueId: string): Promise<MembershipState> {
     this.membership.set('loading');
     this.loadingState.set(true);
+    let state: MembershipState;
     try {
-      const me = await this.request<Me>('GET', '/me');
+      const me = await this.request<Me>('GET', '/me', undefined, leagueId);
+      if (this.league() !== leagueId) return this.membership();
       this.adopt(me);
-      await Promise.all([this.refresh(), this.loadPhoto(me.photoUrl)]);
-      this.membership.set('member');
+      await Promise.all([this.refresh(leagueId), this.loadPhoto(me.photoUrl)]);
+      state = 'member';
     } catch (error) {
-      const status = error instanceof ApiError ? error.status : 0;
-      this.membership.set(status === 403 ? 'not_member' : 'error');
-      this.errorState.set(status === 403 ? null : describe(error));
-    } finally {
-      this.loadingState.set(false);
+      const refused = isRefusal(error);
+      state = refused ? 'not_member' : 'error';
+      if (this.league() === leagueId) this.errorState.set(refused ? null : describe(error));
     }
-    return this.membership();
+    // A newer league was chosen meanwhile; its own load owns the state.
+    if (this.league() !== leagueId) return state;
+    this.membership.set(state);
+    this.loadingState.set(false);
+    return state;
   }
 
   private adopt(me: Me): void {
     this.me.set(me);
+    this.joinCodeState.set(me.administers ? (me.joinCode ?? null) : null);
     this.read.set({ readAt: me.notificationsReadAt ?? null, readKeys: me.notificationsReadKeys ?? [] });
   }
 
-  private async refresh(): Promise<void> {
-    const [members, standings, duties, marks, feed] = await Promise.all([
-      this.request<ApiMember[]>('GET', '/members'),
-      this.request<ApiStanding[]>('GET', '/standings'),
-      this.request<ApiDuty[]>('GET', '/duties'),
-      this.request<MemberMarks[]>('GET', '/marks'),
-      this.request<ApiFeedItem[]>('GET', '/feed?limit=200'),
+  private async refresh(leagueId = this.league()): Promise<void> {
+    if (!leagueId) return;
+    const [, standings, duties, marks, feed] = await Promise.all([
+      this.loadMembers(this.administers(), leagueId),
+      this.request<ApiStanding[]>('GET', '/standings', undefined, leagueId),
+      this.request<ApiDuty[]>('GET', '/duties', undefined, leagueId),
+      this.request<MemberMarks[]>('GET', '/marks', undefined, leagueId),
+      this.request<ApiFeedItem[]>('GET', '/feed?limit=200', undefined, leagueId),
     ]);
-    this.memberRecords.set(
-      members.map((m) => ({
-        id: m.id,
-        name: m.displayName,
-        fullName: m.fullName,
-        initials: m.displayName.slice(0, 2).toUpperCase(),
-        teamId: '',
-        claimed: m.claimed,
-        inSeason: m.inSeason,
-        email: m.email,
-      })),
-    );
+    if (this.league() !== leagueId) return;
     this.standingRecords.set(
       standings.map(({ roundNumber, memberId, rank, points }) => ({
         roundId: roundNumber,
@@ -356,13 +493,21 @@ export class HttpLeagueData extends LeagueData {
     this.errorState.set(null);
   }
 
-  private async request<T>(method: 'GET' | 'POST' | 'PUT' | 'PATCH', path: string, body?: unknown): Promise<T> {
+  private async request<T>(
+    method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
+    path: string,
+    body?: unknown,
+    leagueId = this.league(),
+  ): Promise<T> {
+    if (!leagueId) throw new ApiError(0, 'no_league', 'Choose a league first.');
     try {
       return await firstValueFrom(
-        this.http.request<T>(method, `${this.base}${path}`, { body }),
+        this.http.request<T>(method, `${leagueBase(leagueId)}${path}`, { body }),
       );
     } catch (error) {
-      throw toApiError(error);
+      const failure = toApiError(error);
+      if (isRefusal(failure)) this.refused.next(leagueId);
+      throw failure;
     }
   }
 }
@@ -378,7 +523,45 @@ export class ApiError extends Error {
   }
 }
 
-function toApiError(error: unknown): ApiError {
+/** The emblem and accent colour from a league-scoped `me`. */
+export function appearanceOf(me: Me): LeagueAppearance {
+  return {
+    emblemPreset: me.emblemPreset ?? null,
+    emblemUrl: me.emblemUrl ?? null,
+    accentColour: me.accentColour ?? null,
+  };
+}
+
+function toMember(m: ApiMember): LeagueMember {
+  return {
+    id: m.id,
+    name: m.displayName,
+    fullName: m.fullName,
+    initials: m.displayName.slice(0, 2).toUpperCase(),
+    teamId: '',
+    claimed: m.claimed,
+    inSeason: m.inSeason,
+    email: m.email,
+    leftAt: m.leftAt ?? null,
+    withdrawalReason: m.withdrawalReason ?? null,
+  };
+}
+
+/** The base URL of one league's routes. */
+export function leagueBase(leagueId: string): string {
+  return `${environment.apiUrl}/v1/leagues/${encodeURIComponent(leagueId)}`;
+}
+
+/** The API does not let this account into the league, or the league is gone. */
+function isRefusal(error: unknown): boolean {
+  return (
+    error instanceof ApiError &&
+    ((error.status === 403 && error.code === 'not_a_member') ||
+      (error.status === 404 && error.code === 'unknown_league'))
+  );
+}
+
+export function toApiError(error: unknown): ApiError {
   if (error instanceof HttpErrorResponse) {
     const detail: unknown = error.error?.detail;
     if (detail && typeof detail === 'object' && 'message' in detail) {

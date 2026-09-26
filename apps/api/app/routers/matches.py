@@ -5,16 +5,26 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import Engine
 from pydantic import BaseModel, ConfigDict
 
+from app import competitions
 from app.agent import previews
 from app.agent.models import MatchPreview
+from app.dependencies import competition_centre
 from app.league.auth import Claims
-from app.league.context import Actor, actor_dependency, claims_dependency, engine_dependency, resolve_actor
+from app.league.context import (
+    Account,
+    account_dependency,
+    claims_dependency,
+    competition_member_dependency,
+    engine_dependency,
+    resolve_competition_member,
+)
 from app.matchcentre import service as service_module
 from app.matchcentre import updates
-from app.matchcentre.schedule import load_schedule
 from app.matchcentre.service import MatchCentreService
 
-router = APIRouter(tags=["matches"])
+# The competition registry (/v1/competitions) and competition data under
+# /v1/competitions/{competitionId}: the same for every league.
+router = APIRouter(tags=["competitions"])
 
 SectionStatus = Literal["ok", "not_published", "too_early", "past", "unavailable"]
 
@@ -95,24 +105,52 @@ class RoundUpdates(BaseModel):
     events: list[RoundEvent]
 
 
-def match_centre_service(request: Request) -> MatchCentreService:
-    return request.app.state.match_centre
+class CompetitionSummary(BaseModel):
+    id: str
+    name: str
+    shortName: str
+    # The competition's display time zone, the default for a new league on it.
+    timezone: str
+    regularRounds: int
+    lastRound: int
 
 
-@router.get("/matches/{fixture_id}", response_model=MatchCentre)
-def match_centre(fixture_id: str, request: Request) -> Any:
-    fixture = load_schedule().fixture(fixture_id)
+@router.get("/competitions", response_model=list[CompetitionSummary])
+def list_competitions(account: Account = Depends(account_dependency)) -> list[CompetitionSummary]:
+    """The competitions a league can play (the registry), for the management centre's form.
+    Any signed-in account may read it."""
+    return [
+        CompetitionSummary(
+            id=competition.id,
+            name=competition.name,
+            shortName=competition.short_name,
+            timezone=competition.timezone,
+            regularRounds=competition.regular_rounds,
+            lastRound=competition.last_round,
+        )
+        for competition in competitions.ALL.values()
+    ]
+
+
+@router.get("/competitions/{competitionId}/matches/{fixture_id}", response_model=MatchCentre)
+def match_centre(fixture_id: str, centre: MatchCentreService = Depends(competition_centre)) -> Any:
+    fixture = centre.competition.schedule().fixture(fixture_id)
     if fixture is None:
         raise HTTPException(status_code=404, detail="Unknown fixture.")
-    return match_centre_service(request).build(fixture)
+    return centre.build(fixture)
 
 
-@router.get("/matches/{fixture_id}/preview", response_model=MatchPreview)
-def match_preview(fixture_id: str, actor: Actor = Depends(actor_dependency)) -> Any:
-    """The latest Piele preview for members. Written by the preview agent before kickoff."""
-    if load_schedule().fixture(fixture_id) is None:
+@router.get("/competitions/{competitionId}/matches/{fixture_id}/preview", response_model=MatchPreview)
+def match_preview(
+    fixture_id: str,
+    centre: MatchCentreService = Depends(competition_centre),
+    account: Account = Depends(competition_member_dependency),
+) -> Any:
+    """The latest Pavilion preview for members. Written by the preview agent before kickoff."""
+    competition = centre.competition
+    if competition.schedule().fixture(fixture_id) is None:
         raise HTTPException(status_code=404, detail="Unknown fixture.")
-    row = previews.latest(actor.connection, fixture_id)
+    row = previews.latest(account.connection, competition.id, fixture_id)
     if row is None:
         return {"fixtureId": fixture_id, "preview": None}
     return {
@@ -128,29 +166,33 @@ def match_preview(fixture_id: str, actor: Actor = Depends(actor_dependency)) -> 
     }
 
 
-@router.get("/rounds/{round_number}/scores", response_model=RoundScores)
-def round_scores(round_number: int, request: Request) -> Any:
-    if not load_schedule().round(round_number):
+@router.get("/competitions/{competitionId}/rounds/{round_number}/scores", response_model=RoundScores)
+def round_scores(round_number: int, centre: MatchCentreService = Depends(competition_centre)) -> Any:
+    if not centre.competition.schedule().round(round_number):
         raise HTTPException(status_code=404, detail="Unknown round.")
-    return match_centre_service(request).round_scores(round_number)
+    return centre.round_scores(round_number)
 
 
-@router.get("/rounds/{round_number}/updates", response_model=RoundUpdates)
+@router.get("/competitions/{competitionId}/rounds/{round_number}/updates", response_model=RoundUpdates)
 def round_updates(
     round_number: int,
     request: Request,
+    centre: MatchCentreService = Depends(competition_centre),
     claims: Claims = Depends(claims_dependency),
     engine: Engine = Depends(engine_dependency),
 ) -> Any:
     """The round's teamsheets, previews, kick-offs and full-time results for the notifications
-    panel. Members only, because it reports the Piele previews. The member is resolved inside
-    the handler so no transaction is open while the match centre uses the pool."""
-    if not load_schedule().round(round_number):
+    panel. Members of a league on this competition (or the admin) only, because it reports
+    the Pavilion previews. The member is resolved inside the handler, with the same rule as
+    `competition_member_dependency`, so no transaction is open while the match centre uses
+    the pool."""
+    if not centre.competition.schedule().round(round_number):
         raise HTTPException(status_code=404, detail="Unknown round.")
+    competition_id = centre.competition.id
     return updates.round_updates(
         engine,
-        match_centre_service(request),
+        centre,
         round_number,
         service_module.now_utc(),
-        lambda connection: resolve_actor(connection, claims, request.state.request_id),
+        lambda connection: resolve_competition_member(connection, claims, request.state.request_id, competition_id),
     )

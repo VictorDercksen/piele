@@ -1,13 +1,22 @@
+<p class="league-line">
+  <strong>{{ view.leagueName() }}</strong>
+  @if (league(); as league) {
+    <span>{{ league.seasonName }}</span>
+  }
+  @if (view.captainName(); as captain) {
+    <span>Captain {{ captain }}</span>
+  }
+</p>
 <div class="more-links">
-  <a routerLink="/standings" queryParamsHandling="preserve">
+  <a [routerLink]="'/standings' | leaguePath" queryParamsHandling="preserve">
     <app-icon name="standings" /><span>{{ view.round().title }} standings</span
     ><app-icon name="arrow" />
   </a>
-  <a routerLink="/constitution" queryParamsHandling="preserve">
+  <a [routerLink]="'/constitution' | leaguePath" queryParamsHandling="preserve">
     <app-icon name="book" /><span>Season constitution</span><app-icon name="arrow" />
   </a>
-  @if (view.isCaptain()) {
-    <a routerLink="/captain" queryParamsHandling="preserve">
+  @if (view.administers()) {
+    <a [routerLink]="'/captain' | leaguePath" queryParamsHandling="preserve">
       <app-icon name="shield" /><span>{{ view.round().title }} captain's desk</span
       ><app-icon name="arrow" />
     </a>
@@ -15,10 +24,12 @@
 </div>
 <div class="schedule-source">
   <span
-    >{{ competition.season }} · {{ competition.fixtureCount }} league fixtures + 7 playoff slots ·
-    Times in SAST</span
+    >{{ competition.season }} · {{ competition.fixtureCount }} league fixtures +
+    {{ competition.playoffSlots }} playoff slots · Times in {{ zoneName() }}</span
   ><a [href]="competition.source" target="_blank" rel="noopener noreferrer"
-    >Official URC source<ng-icon class="link-icon" name="lucideExternalLink" /></a
+    >Official {{ competition.shortName }} source<ng-icon
+      class="link-icon"
+      name="lucideExternalLink" /></a
   ><small
     >Snapshot checked {{ competition.retrievedAt | date: 'd MMMM y' }}. Fixtures can change. Playoff
     kickoffs remain TBC.</small
@@ -32,3 +43,4 @@
     <app-loader [size]="20" label="Checking…" [showLabel]="true" />
   }
 </p>
+<p class="wordmark"><strong>THE PAVILION</strong> / the rugby clubhouse</p>

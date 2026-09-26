@@ -1,4 +1,4 @@
-"""Competition events of a round for the notifications panel: teamsheets published, Piele
+"""Competition events of a round for the notifications panel: teamsheets published, Pavilion
 preview published, kick-off and full time. Built from the match centre's cached provider
 snapshots, the stored previews and the fixture milestones, so one request per round covers
 every fixture. Nothing here calls a provider that the match centre would not call anyway.
@@ -20,7 +20,7 @@ from app.matchcentre import milestones
 from app.matchcentre.milestones import FULL_TIME, TEAMSHEETS_PUBLISHED, Milestone, MilestoneKey
 from app.matchcentre.providers import scores
 from app.matchcentre.providers.teamsheets import PUBLISH_WINDOW
-from app.matchcentre.schedule import Fixture, load_schedule
+from app.matchcentre.schedule import Fixture
 from app.matchcentre.service import MatchCentreService
 
 # Teamsheets are looked for from the publication window until this long after kickoff.
@@ -99,12 +99,13 @@ def round_updates(
 ) -> dict[str, Any]:
     """The round's events for a member. `authorise` resolves the caller inside the first
     transaction and raises when they are not a member."""
-    fixtures = load_schedule().round(round_number)
+    competition_id = centre.competition.id
+    fixtures = centre.competition.schedule().round(round_number)
     ids = [fixture.id for fixture in fixtures]
     with engine.begin() as connection:
         authorise(connection)
-        known = dict(milestones.by_fixture(connection, ids))
-        stored = previews.latest_by_fixture(connection, ids)
+        known = dict(milestones.by_fixture(connection, competition_id, ids))
+        stored = previews.latest_by_fixture(connection, competition_id, ids)
 
     # Provider work with no transaction open: the snapshot cache takes the pool's connection.
     pending = [f for f in fixtures if (f.id, TEAMSHEETS_PUBLISHED) not in known and teamsheets_due(f, now)]
@@ -130,7 +131,7 @@ def round_updates(
     if observed:
         with engine.begin() as connection:
             for fixture_id, kind, at, detail in observed:
-                known[(fixture_id, kind)] = milestones.record(connection, fixture_id, kind, at, detail)
+                known[(fixture_id, kind)] = milestones.record(connection, competition_id, fixture_id, kind, at, detail)
 
     return {
         "round": round_number,

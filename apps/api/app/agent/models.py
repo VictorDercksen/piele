@@ -11,6 +11,8 @@ from urllib.parse import urlsplit
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, model_validator
 
+from app.competitions import DEFAULT_COMPETITION_ID
+
 MAX_SOURCES = 20
 MAX_FACTORS = 6
 _CONTROL = re.compile(r"[\x00-\x09\x0b-\x1f\x7f]")
@@ -39,6 +41,8 @@ Summary = Annotated[str, Field(min_length=1, max_length=1500), AfterValidator(_p
 Line = Annotated[str, Field(min_length=1, max_length=300), AfterValidator(_plain)]
 Title = Annotated[str, Field(min_length=1, max_length=200), AfterValidator(_plain)]
 Name = Annotated[str, Field(min_length=1, max_length=100), AfterValidator(_plain)]
+# Optional on every agent request that names a fixture, so the deployed agent keeps working.
+CompetitionId = Annotated[str, Field(min_length=1, max_length=40)]
 
 
 class Strict(BaseModel):
@@ -85,6 +89,7 @@ class Usage(Strict):
 
 
 class PreviewSubmission(Strict):
+    competitionId: CompetitionId = DEFAULT_COMPETITION_ID
     fixtureId: str = Field(min_length=1, max_length=40)
     inputsHash: Hash
     teamsheetHash: Hash
@@ -122,8 +127,10 @@ class MatchPreview(BaseModel):
 
 
 class DispatchRequest(Strict):
-    """Optional body of POST /v1/agent/dispatches: one fixture, and whether to force it."""
+    """Optional body of POST /v1/agent/dispatches: the competition, one fixture, and whether
+    to force it."""
 
+    competitionId: CompetitionId = DEFAULT_COMPETITION_ID
     fixtureId: str | None = Field(default=None, pattern=r"^\d{1,12}$")
     force: bool = False
 

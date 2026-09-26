@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
+  <title>Lantern</title>
+  <!-- A preset league emblem. currentColor is the league's accent colour. -->
+  <g id="emblem" fill="currentColor">
+    <circle cx="48" cy="48" r="43"/>
+    <circle cx="48" cy="48" r="36" fill="#102024"/>
+    <circle cx="48" cy="48" r="31.5" fill="none" stroke="currentColor" stroke-opacity=".35" stroke-width="1.2"/>
+    <circle cx="48" cy="22" r="4.5" fill="none" stroke="currentColor" stroke-width="3"/>
+    <path d="M36 29h24l-4 6H40Z"/>
+    <rect x="38" y="36" width="20" height="26" rx="2"/>
+    <rect x="42" y="40" width="12" height="18" rx="1" fill="#102024"/>
+    <path d="M48 42.5c4 4.5 4 9 0 13-4-4-4-8.5 0-13Z"/>
+    <path d="M35 63h26l-3 7H38Z"/>
+  </g>
+</svg>

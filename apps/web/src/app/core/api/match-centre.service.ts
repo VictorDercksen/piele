@@ -2,11 +2,13 @@ import { HttpResourceRef, httpResource } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { environment } from '../../../environments/environment';
 import { AuthService } from '../auth/auth.service';
+import { CompetitionService } from '../competition/competition.service';
 import { MatchCentre, MatchPreviewResponse } from './match-centre.models';
 
-/** Loads teamsheets, the kickoff forecast and the Piele preview for one fixture. */
+/** Loads teamsheets, the kickoff forecast and the Pavilion preview for one fixture. */
 @Injectable({ providedIn: 'root' })
 export class MatchCentreService {
+  private readonly competition = inject(CompetitionService);
   readonly configured = !!environment.apiUrl;
   /** Previews are for signed-in members, so they also need Supabase sign-in. */
   readonly previewConfigured = this.configured && inject(AuthService).configured;
@@ -18,7 +20,7 @@ export class MatchCentreService {
   centre(fixtureId: () => string | null): HttpResourceRef<MatchCentre | undefined> {
     return httpResource<MatchCentre>(() => {
       const id = fixtureId();
-      return this.configured && id ? `${environment.apiUrl}/v1/matches/${id}` : undefined;
+      return this.configured && id ? this.matchUrl(id) : undefined;
     });
   }
 
@@ -26,9 +28,12 @@ export class MatchCentreService {
   preview(fixtureId: () => string | null): HttpResourceRef<MatchPreviewResponse | undefined> {
     return httpResource<MatchPreviewResponse>(() => {
       const id = fixtureId();
-      return this.previewConfigured && id
-        ? `${environment.apiUrl}/v1/matches/${id}/preview`
-        : undefined;
+      return this.previewConfigured && id ? `${this.matchUrl(id)}/preview` : undefined;
     });
+  }
+
+  /** `/v1/competitions/{competitionId}/matches/{fixtureId}` for the current competition. */
+  private matchUrl(fixtureId: string): string {
+    return `${environment.apiUrl}/v1/competitions/${this.competition.current().id}/matches/${fixtureId}`;
   }
 }

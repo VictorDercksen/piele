@@ -10,6 +10,10 @@ export interface LeagueMember {
   readonly inSeason: boolean;
   /** Invitation email. Only the captain receives it. */
   readonly email?: string | null;
+  /** When the captain removed the member; set only on the withdrawn list. */
+  readonly leftAt?: string | null;
+  /** Why the member was removed, shown to the captain beside the date. */
+  readonly withdrawalReason?: string | null;
 }
 
 /** Superbru points and house marks are separate measures with no exchange rate. */
@@ -115,6 +119,11 @@ export type FeedKind =
   | 'standings_recorded'
   | 'member_joined'
   | 'member_added'
+  | 'member_left'
+  | 'member_returned'
+  | 'emblem_updated'
+  | 'captain_appointed'
+  | 'league_restored'
   | 'duty_created'
   | 'duty_voided'
   | 'duty_clock_reset'
@@ -147,11 +156,10 @@ export interface EvidenceSubmission {
   readonly claimedCompletedAt?: string;
 }
 
-/** A Superbru name a signed-in account may claim. */
+/** A Superbru name a signed-in account may claim in one league. */
 export interface UnclaimedName {
   readonly id: string;
   readonly displayName: string;
-  readonly fullName: string;
 }
 
 export interface NewMember {
@@ -167,4 +175,77 @@ export interface NewMember {
 export interface NotificationsRead {
   readonly readAt: string | null;
   readonly readKeys: readonly string[];
+}
+
+/** The competition a league plays, as the API names it. */
+export interface CompetitionRef {
+  readonly id: string;
+  readonly name: string;
+  readonly shortName: string;
+}
+
+/** One league on the account document (`GET /v1/me`). */
+export interface LeagueSummary {
+  readonly id: string;
+  readonly slug: string;
+  readonly name: string;
+  /** IANA zone the league displays times in. */
+  readonly timezone: string;
+  /** A preset crest's key (`assets/images/emblems/{key}.svg`), or null. */
+  readonly emblemPreset: string | null;
+  /** A short-lived signed URL of an uploaded emblem, or null. */
+  readonly emblemUrl: string | null;
+  /** `#rrggbb`, tints the preset crest and the monogram. */
+  readonly accentColour: string | null;
+  readonly competition: CompetitionRef;
+  readonly seasonName: string;
+  readonly inSeason: boolean;
+  /** Null when the admin sees a league it holds no membership in. */
+  readonly memberId: string | null;
+  readonly displayName: string | null;
+  readonly isCaptain: boolean;
+  readonly favouriteTeamId: string | null;
+}
+
+/** The signed-in account and the leagues it can open (`GET /v1/me`). */
+export interface Account {
+  readonly userId: string;
+  readonly photoUrl: string | null;
+  readonly isAdmin: boolean;
+  readonly lastLeagueId: string | null;
+  readonly leagues: readonly LeagueSummary[];
+}
+
+/** What a join link shows before claiming a name (`GET /v1/join/{code}`). */
+export interface JoinPreview {
+  readonly league: Pick<
+    LeagueSummary,
+    | 'id'
+    | 'slug'
+    | 'name'
+    | 'timezone'
+    | 'emblemPreset'
+    | 'emblemUrl'
+    | 'accentColour'
+    | 'competition'
+    | 'seasonName'
+  >;
+  readonly alreadyMember: boolean;
+  readonly unclaimed: readonly UnclaimedName[];
+}
+
+/** How a league looks: its emblem and accent colour, as the API describes a league. */
+export interface LeagueAppearance {
+  readonly emblemPreset: string | null;
+  readonly emblemUrl: string | null;
+  readonly accentColour: string | null;
+}
+
+/**
+ * A change to the league's appearance. Fields left out stay as they are. `emblem` is a preset
+ * key, a prepared 512 px JPEG data URL to upload, or null to remove the emblem.
+ */
+export interface AppearanceChange {
+  readonly emblem?: { readonly preset: string } | { readonly image: string } | null;
+  readonly accentColour?: string | null;
 }
