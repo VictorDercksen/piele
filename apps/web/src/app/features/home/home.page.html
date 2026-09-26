@@ -125,11 +125,12 @@
         @for (member of view.standings().slice(0, 4); track member.memberId) {
           <li [class.you]="member.you">
             <span class="rank">{{ member.rank | number: '2.0-0' }}</span
-            ><span class="member-avatar"
-              ><img
-                [src]="member.photo ?? 'assets/images/teams/' + member.teamId + '.png'"
-                alt="" /></span
-            ><span class="member-name">{{ member.name }}</span
+            ><app-member-avatar
+              class="member-avatar"
+              [name]="member.name"
+              [photo]="member.photo"
+              [teamId]="member.teamId"
+            /><span class="member-name">{{ member.name }}</span
             ><strong>{{ member.points | number: '1.1-1' }}</strong>
           </li>
         }

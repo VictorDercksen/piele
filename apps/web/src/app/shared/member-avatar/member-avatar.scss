@@ -1,0 +1,46 @@
+// Brass and timber to match the honours board's plaque and gilt lettering.
+:host {
+  --size: var(--avatar-size, 32px);
+  display: inline-grid;
+  place-items: center;
+  width: var(--size);
+  height: var(--size);
+  flex-shrink: 0;
+}
+
+.photo {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 0 0 1.5px #c49a59;
+}
+
+.crest {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.monogram {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  // A bevelled brass ring around a dark timber face.
+  border: 1.5px solid #c49a59;
+  background: radial-gradient(circle at 50% 30%, #4a321d, #1d120a 72%), #1d120a;
+  box-shadow:
+    inset 0 1px 0 #ffe7ae40,
+    inset 0 -2px 4px #0009,
+    0 1px 3px #0008;
+  color: #f1d392;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: calc(var(--size) * 0.38);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  text-shadow: 0 1px 0 #000;
+  user-select: none;
+}
