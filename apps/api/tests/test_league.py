@@ -1265,7 +1265,7 @@ def test_an_uploaded_emblem_is_checked_signed_and_replaced(client: TestClient, s
     second = upload_emblem(client, storage, WEBP, "image/webp")
     assert appearance(client, {"emblemPath": second}).json()["emblemUrl"].startswith(f"https://storage.example/{second}")
     assert storage.deleted == [first]
-    assert appearance(client, {"emblemPreset": "crown"}).json()["emblemUrl"] is None
+    assert appearance(client, {"emblemPreset": "trophy"}).json()["emblemUrl"] is None
     assert storage.deleted == [first, second]
     third = upload_emblem(client, storage)
     assert appearance(client, {"emblemPath": third}).status_code == 200
