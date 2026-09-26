@@ -120,7 +120,7 @@ async function mockLiveApi(page: Page, stage: { current: Stage }) {
         away: { id: 'dragons-rfc', name: 'Dragons RFC', shortName: 'Dragons' },
         generatedAt: now,
         teamsheets: { status: 'not_published', source: 'URC match centre', fetchedAt: null },
-        weather: { status: 'past', source: 'Open-Meteo', fetchedAt: null },
+        weather: { status: 'unavailable', source: 'Open-Meteo', fetchedAt: null },
         score: score(stage.current, now),
       },
     });
@@ -155,6 +155,9 @@ test('a live match updates the ribbon, hero and scoring timeline', async ({ page
   await expect(hero.locator('.match-time small')).toHaveText("31'");
 
   // The scoring pitch starts closed under its summary row; a tap anywhere opens it.
+  // The kickoff forecast stays up while the match is on.
+  await expect(page.locator('.panel.weather')).toBeVisible();
+
   const panel = page.locator('app-scoring-panel');
   const summary = panel.getByRole('button', { name: /scoring pitch/ });
   await expect(panel.locator('.tag')).toHaveText('live');
@@ -205,6 +208,7 @@ test('a live match updates the ribbon, hero and scoring timeline', async ({ page
   await expect(ribbon).not.toHaveClass(/live/);
   await expect(panel.locator('.tag')).toHaveText('full time');
   await expect(panel.locator('.ingoal.bottom')).toHaveText('Full time · 10–12');
+  await expect(page.locator('.panel.weather')).toHaveCount(0);
   const result = hero.locator('.match-time strong');
   await expect(result).toHaveText('10–12');
   for (const width of [390, 320]) {

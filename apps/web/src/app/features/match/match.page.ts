@@ -122,6 +122,11 @@ export class MatchPage {
       centre?.kickoffUtc ?? fixture.kickoffUtc,
     );
   });
+  /** The kickoff forecast shows until the match has been played. */
+  readonly showForecast = computed(() => {
+    const centre = this.data();
+    return !!centre && centre.weather.status !== 'past' && centre.score?.state !== 'full_time';
+  });
   /** Sky backdrop for the kickoff forecast, when there is one. */
   readonly sky = computed(() => {
     const weather = this.data()?.weather;
@@ -202,7 +207,6 @@ const MESSAGES: Record<string, Partial<Record<SectionStatus, string>>> = {
   },
   weather: {
     too_early: 'The kickoff forecast opens seven days before the match.',
-    past: 'The match has been played.',
     unavailable: 'The forecast could not be loaded.',
   },
 };
