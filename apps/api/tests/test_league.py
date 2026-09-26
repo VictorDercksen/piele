@@ -452,6 +452,11 @@ def test_captain_records_round_standings_and_members_read_them(client: TestClien
     assert put_standings(client, 2, {ids["Ola"]: 3, mo_id: 1.5, ids["Captain"]: 1.5}).status_code == 200
     assert len(client.get(lp(client, "/feed"), headers=mo).json()) == before
 
+    # Superbru awards quarter points.
+    quarters = put_standings(client, 3, {mo_id: 5.75, ids["Captain"]: 4.25})
+    assert [(s["memberName"], s["points"]) for s in quarters.json()] == [("Mo", 5.75), ("Captain", 4.25)]
+    assert client.get(lp(client, "/feed"), headers=mo).json()[0]["detail"] == "Mo leads on 5.75 points."
+
 
 def test_round_standings_are_validated(client: TestClient) -> None:
     ids = {m["displayName"]: UUID(m["id"]) for m in client.get(lp(client, "/members"), headers=captain_headers(client)).json()}
@@ -463,7 +468,7 @@ def test_round_standings_are_validated(client: TestClient) -> None:
         headers=captain_headers(client),
     )
     assert duplicate.status_code == 422 and duplicate.json()["detail"]["code"] == "duplicate_member"
-    assert put_standings(client, 1, {ids["Mo"]: 1.25}).status_code == 422
+    assert put_standings(client, 1, {ids["Mo"]: 1.255}).status_code == 422
     assert put_standings(client, 1, {ids["Mo"]: -1}).status_code == 422
     assert put_standings(client, 22, {ids["Mo"]: 1}).status_code == 422
     assert client.get(lp(client, "/standings"), headers=captain_headers(client)).json() == []
