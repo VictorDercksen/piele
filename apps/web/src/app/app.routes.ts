@@ -7,6 +7,7 @@ import { profileMissing, profileRequired } from './core/profile/profile.guards';
 import { captainOnly } from './features/captain/captain.guard';
 
 const page = (data: PageData) => data;
+const MORE = { label: 'More', path: '/more' };
 
 /** A page from before leagues had slugs, sent on to the same page in the account's league. */
 const legacy = (path: string): Route => ({
@@ -81,13 +82,14 @@ export const routes: Routes = [
           {
             path: '',
             title: 'The Pavilion',
-            data: page({ eyebrow: 'OVERVIEW', title: 'Your clubhouse.' }),
+            data: page({ label: 'Home', eyebrow: 'OVERVIEW', title: 'Your clubhouse.' }),
             loadComponent: () => import('./features/home/home.page').then((m) => m.HomePage),
           },
           {
             path: 'match/:fixtureId',
             title: 'Match centre · The Pavilion',
             data: page({
+              label: 'Match centre',
               eyebrow: 'MATCH CENTRE',
               title: 'The match centre.',
               parent: { label: 'Home', path: '/' },
@@ -98,9 +100,11 @@ export const routes: Routes = [
             path: 'standings',
             title: 'Standings · The Pavilion',
             data: page({
+              label: 'Standings',
               eyebrow: 'STANDINGS',
               title: 'The pecking order.',
               underMore: true,
+              parent: MORE,
             }),
             loadComponent: () =>
               import('./features/standings/standings.page').then((m) => m.StandingsPage),
@@ -108,30 +112,32 @@ export const routes: Routes = [
           {
             path: 'duties',
             title: 'Duties · The Pavilion',
-            data: page({ eyebrow: 'DUTIES', title: 'The duty register.' }),
+            data: page({ label: 'Duties', eyebrow: 'DUTIES', title: 'The duty register.' }),
             loadComponent: () => import('./features/duties/duties.page').then((m) => m.DutiesPage),
           },
           {
             path: 'decisions',
             title: 'Decisions · The Pavilion',
-            data: page({ eyebrow: 'DECISIONS', title: 'Have your say.' }),
+            data: page({ label: 'Decisions', eyebrow: 'DECISIONS', title: 'Have your say.' }),
             loadComponent: () =>
               import('./features/decisions/decisions.page').then((m) => m.DecisionsPage),
           },
           {
             path: 'more',
             title: 'More · The Pavilion',
-            data: page({ eyebrow: 'MORE', title: 'Around the club.' }),
+            data: page({ label: 'More', eyebrow: 'MORE', title: 'Around the club.' }),
             loadComponent: () => import('./features/more/more.page').then((m) => m.MorePage),
           },
           {
             path: 'constitution',
             title: 'Constitution · The Pavilion',
             data: page({
+              label: 'Constitution',
               eyebrow: 'SEASON DOCUMENT',
               title: 'Same club. Shared rules.',
               seasonWide: true,
               underMore: true,
+              parent: MORE,
             }),
             loadComponent: () =>
               import('./features/constitution/constitution.page').then((m) => m.ConstitutionPage),
@@ -141,9 +147,11 @@ export const routes: Routes = [
             title: "Captain's desk · The Pavilion",
             canActivate: [captainOnly],
             data: page({
+              label: "Captain's desk",
               eyebrow: "CAPTAIN'S DESK",
               title: "The captain's desk.",
               underMore: true,
+              parent: MORE,
             }),
             loadComponent: () =>
               import('./features/captain/captain.page').then((m) => m.CaptainPage),

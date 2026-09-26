@@ -185,3 +185,43 @@ test('sections explain missing data and the page survives an API outage', async 
   await page.getByRole('button', { name: 'Try again' }).click();
   await expect(page.locator('.panel.weather')).toContainText('Light rain');
 });
+
+test('breadcrumbs lead back to the page that was opened before', async ({ page }) => {
+  await mockApi(page);
+  const breadcrumb = page.getByRole('navigation', { name: 'Breadcrumb' });
+  const crumbs = breadcrumb.getByRole('link');
+
+  await page.goto('/piele/more?round=1');
+  await expect(breadcrumb).toHaveCount(0);
+  await page
+    .locator('.more-links')
+    .getByRole('link', { name: /standings/ })
+    .click();
+  await expect(page).toHaveURL(/\/piele\/standings\?round=1$/);
+  await expect(crumbs).toHaveText(['MORE']);
+  await expect(breadcrumb).toContainText('ROUND 01 / STANDINGS');
+  await crumbs.click();
+  await expect(page).toHaveURL(/\/piele\/more\?round=1$/);
+  await expect(breadcrumb).toHaveCount(0);
+
+  // Another fixture keeps the trail; back and forward restore each entry's trail.
+  await page.locator('.desktop-nav').getByRole('link', { name: 'Home' }).click();
+  await page.getByRole('button', { name: 'Enter the match centre' }).click();
+  await expect(crumbs).toHaveText(['HOME']);
+  await page.locator('.fixture-ribbon button').filter({ hasText: 'Benetton' }).click();
+  await expect(page).toHaveURL(/\/piele\/match\/292584\?round=1/);
+  await expect(crumbs).toHaveText(['HOME']);
+  await page.goBack();
+  await page.goBack();
+  await expect(page).toHaveURL(/\/piele\?round=1$/);
+  await expect(breadcrumb).toHaveCount(0);
+  await page.goForward();
+  await expect(crumbs).toHaveText(['HOME']);
+
+  // The navigation bar's pages start afresh; a page opened directly leads to its parent.
+  await page.locator('.desktop-nav').getByRole('link', { name: 'Standings' }).click();
+  await expect(page).toHaveURL(/\/piele\/standings\?round=1$/);
+  await expect(breadcrumb).toHaveCount(0);
+  await page.goto('/piele/constitution?round=1');
+  await expect(crumbs).toHaveText(['MORE']);
+});
