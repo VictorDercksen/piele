@@ -2,13 +2,18 @@
 preview published, kick-off and full time. Built from the match centre's cached provider
 snapshots, the stored previews and the fixture milestones, so one request per round covers
 every fixture. Nothing here calls a provider that the match centre would not call anyway.
+
+The runtime pool holds one connection, and the match centre's snapshot cache needs it. So
+the database work happens in two short transactions, before and after the provider calls,
+and never while they run: a request that held its transaction through them starved the
+whole API for 30 seconds at a time (seen in production on 26 September 2026).
 """
 
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
-from typing import Any, Mapping, Protocol
+from typing import Any, Callable, Mapping, Protocol
 
-from sqlalchemy.engine import Connection
+from sqlalchemy.engine import Connection, Engine
 
 from app.agent import previews
 from app.matchcentre import milestones
@@ -22,6 +27,7 @@ from app.matchcentre.service import MatchCentreService
 # A fixture whose teamsheets were never seen by then gets no notification.
 TEAMSHEET_GRACE = timedelta(days=2)
 STARTED = frozenset({"live", "half_time", "full_time"})
+NOT_PLAYED = frozenset({"postponed", "cancelled"})
 
 
 class StoredPreview(Protocol):
@@ -41,8 +47,14 @@ def build_events(
     known: Mapping[MilestoneKey, Milestone],
     stored_previews: Mapping[str, StoredPreview],
     matches: Mapping[str, Mapping[str, Any]],
+    now: datetime,
 ) -> list[dict[str, Any]]:
-    """The round's events in time order. Pure: every input is already fetched."""
+    """The round's events in time order. Pure: every input is already fetched.
+
+    Kick-off follows the published time: once it has passed the match has kicked off unless
+    the score feed says postponed or cancelled. The feed confirms an earlier start but is
+    never required, so a feed outage does not hide a kick-off.
+    """
     events: list[dict[str, Any]] = []
     for fixture in fixtures:
         sheets = known.get((fixture.id, TEAMSHEETS_PUBLISHED))
@@ -60,7 +72,10 @@ def build_events(
             )
         final = known.get((fixture.id, FULL_TIME))
         state = (matches.get(fixture.id) or {}).get("state")
-        if fixture.kickoff_utc is not None and (state in STARTED or final is not None):
+        kicked_off = fixture.kickoff_utc is not None and (
+            state in STARTED or final is not None or (fixture.kickoff_utc <= now and state not in NOT_PLAYED)
+        )
+        if kicked_off:
             events.append({"kind": "kicked_off", "fixtureId": fixture.id, "occurredAt": fixture.kickoff_utc})
         if final is not None:
             events.append(
@@ -76,37 +91,49 @@ def build_events(
 
 
 def round_updates(
-    connection: Connection, centre: MatchCentreService, round_number: int, now: datetime
+    engine: Engine,
+    centre: MatchCentreService,
+    round_number: int,
+    now: datetime,
+    authorise: Callable[[Connection], Any],
 ) -> dict[str, Any]:
+    """The round's events for a member. `authorise` resolves the caller inside the first
+    transaction and raises when they are not a member."""
     fixtures = load_schedule().round(round_number)
     ids = [fixture.id for fixture in fixtures]
-    known = dict(milestones.by_fixture(connection, ids))
+    with engine.begin() as connection:
+        authorise(connection)
+        known = dict(milestones.by_fixture(connection, ids))
+        stored = previews.latest_by_fixture(connection, ids)
 
+    # Provider work with no transaction open: the snapshot cache takes the pool's connection.
     pending = [f for f in fixtures if (f.id, TEAMSHEETS_PUBLISHED) not in known and teamsheets_due(f, now)]
+    sections: list[dict[str, Any]] = []
     if pending:
         with ThreadPoolExecutor(max_workers=4) as pool:
             sections = list(pool.map(lambda f: centre.teamsheets(f, now), pending))
-        for fixture, section in zip(pending, sections):
-            if section.get("status") == "ok":
-                observed = section.get("fetchedAt") or now
-                known[(fixture.id, TEAMSHEETS_PUBLISHED)] = milestones.record(
-                    connection, fixture.id, TEAMSHEETS_PUBLISHED, observed, {}
-                )
-
     matches: dict[str, Mapping[str, Any]] = {}
     if any(scores.started(fixture, now) for fixture in fixtures):
         round_scores = centre.round_scores(round_number, now)
         if round_scores.get("status") == "ok":
             matches = {match["fixtureId"]: match for match in round_scores["matches"]}
+
+    observed: list[tuple[str, str, datetime, dict[str, Any]]] = []
+    for fixture, section in zip(pending, sections):
+        if section.get("status") == "ok":
+            observed.append((fixture.id, TEAMSHEETS_PUBLISHED, section.get("fetchedAt") or now, {}))
     for fixture in fixtures:
         match = matches.get(fixture.id)
         if match and match.get("state") == "full_time" and (fixture.id, FULL_TIME) not in known:
             detail = {"home": match["home"]["score"], "away": match["away"]["score"]}
-            known[(fixture.id, FULL_TIME)] = milestones.record(connection, fixture.id, FULL_TIME, now, detail)
+            observed.append((fixture.id, FULL_TIME, now, detail))
+    if observed:
+        with engine.begin() as connection:
+            for fixture_id, kind, at, detail in observed:
+                known[(fixture_id, kind)] = milestones.record(connection, fixture_id, kind, at, detail)
 
-    stored = previews.latest_by_fixture(connection, ids)
     return {
         "round": round_number,
         "generatedAt": now,
-        "events": build_events(fixtures, known, stored, matches),
+        "events": build_events(fixtures, known, stored, matches, now),
     }

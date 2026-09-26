@@ -2,11 +2,13 @@ from datetime import datetime
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy import Engine
 from pydantic import BaseModel, ConfigDict
 
 from app.agent import previews
 from app.agent.models import MatchPreview
-from app.league.context import Actor, actor_dependency
+from app.league.auth import Claims
+from app.league.context import Actor, actor_dependency, claims_dependency, engine_dependency, resolve_actor
 from app.matchcentre import service as service_module
 from app.matchcentre import updates
 from app.matchcentre.schedule import load_schedule
@@ -134,11 +136,21 @@ def round_scores(round_number: int, request: Request) -> Any:
 
 
 @router.get("/rounds/{round_number}/updates", response_model=RoundUpdates)
-def round_updates(round_number: int, request: Request, actor: Actor = Depends(actor_dependency)) -> Any:
+def round_updates(
+    round_number: int,
+    request: Request,
+    claims: Claims = Depends(claims_dependency),
+    engine: Engine = Depends(engine_dependency),
+) -> Any:
     """The round's teamsheets, previews, kick-offs and full-time results for the notifications
-    panel. Members only, because it reports the Piele previews."""
+    panel. Members only, because it reports the Piele previews. The member is resolved inside
+    the handler so no transaction is open while the match centre uses the pool."""
     if not load_schedule().round(round_number):
         raise HTTPException(status_code=404, detail="Unknown round.")
     return updates.round_updates(
-        actor.connection, match_centre_service(request), round_number, service_module.now_utc()
+        engine,
+        match_centre_service(request),
+        round_number,
+        service_module.now_utc(),
+        lambda connection: resolve_actor(connection, claims, request.state.request_id),
     )

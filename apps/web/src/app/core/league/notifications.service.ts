@@ -41,6 +41,8 @@ export class NotificationsService {
   private readonly now = signal(Date.now());
   private lastRefresh = 0;
   private refreshing: Promise<void> | null = null;
+  /** A read state the API did not accept, sent again with the next refresh. */
+  private unsaved: NotificationsRead | null = null;
 
   readonly currentRound = computed(() => this.competition.round(this.competition.currentRoundId)!);
   /**
@@ -129,13 +131,17 @@ export class NotificationsService {
       )
       .map((item) => feedNotice(item));
     const competition = competitionNotices(
-      this.updates.events().filter((event) => fixtures.has(event.fixtureId)),
+      withScheduledKickoffs(
+        this.updates.events().filter((event) => fixtures.has(event.fixtureId)),
+        fixtures,
+        now,
+      ),
       fixtures,
       this.highlighted(),
     );
     const read = this.read();
     return [...league, ...competition]
-      .sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))
+      .sort((a, b) => b.at - a.at)
       .slice(0, MAX_ITEMS)
       .map((notice) => ({
         ...notice,
@@ -178,18 +184,21 @@ export class NotificationsService {
 
   /** Moves the mark past everything shown. One write, and the exception keys can go. */
   markAllRead(): Promise<void> {
-    const newest = this.stream().reduce((max, n) => (n.occurredAt > max ? n.occurredAt : max), '');
-    const now = new Date(this.now()).toISOString();
-    return this.save({ readAt: newest > now ? newest : now, readKeys: [] });
+    const newest = this.stream().reduce((max, n) => Math.max(max, n.at), 0);
+    return this.save({
+      readAt: new Date(Math.max(this.now(), newest)).toISOString(),
+      readKeys: [],
+    });
   }
 
   /** Marks one item read without touching older ones. */
   markRead(key: string): Promise<void> {
     const read = this.read();
     if (!this.stream().some((n) => n.key === key && n.unread)) return Promise.resolve();
+    const mark = read.readAt ? Date.parse(read.readAt) : -Infinity;
     const above = new Set(
       this.stream()
-        .filter((n) => !read.readAt || n.occurredAt > read.readAt)
+        .filter((n) => n.at > mark)
         .map((n) => n.key),
     );
     const keys = [key, ...read.readKeys.filter((k) => k !== key && above.has(k))].slice(
@@ -203,9 +212,12 @@ export class NotificationsService {
   refresh(): Promise<void> {
     if (this.refreshing) return this.refreshing;
     this.lastRefresh = Date.now();
+    const unsaved = this.unsaved;
+    this.unsaved = null;
     this.refreshing = Promise.allSettled([
       this.member() ? this.league.refreshFeed() : Promise.resolve(),
       this.member() ? this.updates.load(this.roundIds()) : Promise.resolve(),
+      unsaved ? this.save(unsaved) : Promise.resolve(),
     ])
       .then(() => undefined)
       .finally(() => (this.refreshing = null));
@@ -230,6 +242,7 @@ export class NotificationsService {
     try {
       await this.league.saveNotificationsRead(read);
     } catch (error) {
+      this.unsaved = read;
       this.toast.show(
         error instanceof Error ? error.message : 'Your read notifications could not be saved.',
       );
@@ -261,6 +274,8 @@ export interface Notice {
   readonly title: string;
   readonly detail: string;
   readonly occurredAt: string;
+  /** `occurredAt` as epoch milliseconds, for ordering and read comparisons. */
+  readonly at: number;
   readonly path: string | null;
   /** The link's wording, when there is a link. */
   readonly action: string | null;
@@ -270,10 +285,32 @@ export interface Notice {
   readonly unread?: boolean;
 }
 
-/** Read when at or before the mark, or read on its own. */
+/** Read when at or before the mark, or read on its own. Times compare as instants. */
 export function isUnread(read: NotificationsRead, key: string, occurredAt: string): boolean {
   if (read.readKeys.includes(key)) return false;
-  return !read.readAt || occurredAt > read.readAt;
+  const mark = read.readAt ? Date.parse(read.readAt) : NaN;
+  return Number.isNaN(mark) || Date.parse(occurredAt) > mark;
+}
+
+/**
+ * A kick-off the API has not reported yet, for every followed fixture whose published time
+ * has passed. The panel then says a match has kicked off even when the API or the score
+ * feed is unreachable; the API's own event, when it arrives, carries the same key.
+ */
+export function withScheduledKickoffs(
+  events: readonly RoundEvent[],
+  fixtures: ReadonlyMap<string, LocatedFixture>,
+  now: number,
+): RoundEvent[] {
+  const reported = new Set(events.filter((e) => e.kind === 'kicked_off').map((e) => e.fixtureId));
+  const scheduled: RoundEvent[] = [];
+  for (const { fixture } of fixtures.values()) {
+    if (reported.has(fixture.id) || !fixture.kickoffUtc) continue;
+    if (Date.parse(fixture.kickoffUtc) > now) continue;
+    if (fixture.state === 'postponed' || fixture.state === 'cancelled') continue;
+    scheduled.push({ kind: 'kicked_off', fixtureId: fixture.id, occurredAt: fixture.kickoffUtc });
+  }
+  return [...events, ...scheduled];
 }
 
 const FEED_ACTIONS: Record<string, string> = {
@@ -292,6 +329,7 @@ export function feedNotice(item: FeedItem): Notice {
     title: item.title,
     detail: item.detail,
     occurredAt: item.occurredAt,
+    at: Date.parse(item.occurredAt),
     path,
     action: path ? (FEED_ACTIONS[path] ?? 'Open') : null,
     round: item.roundId,
@@ -343,10 +381,11 @@ export function competitionNotices(
     }
     const kind = grouped[0].kind;
     const ids = grouped.map((e) => e.fixtureId).sort();
-    const matches = grouped
+    const ordered = grouped
       .slice()
-      .sort((a, b) => a.occurredAt.localeCompare(b.occurredAt))
-      .map((e) => scoreline(e, fixtures.get(e.fixtureId)!.fixture));
+      .sort((a, b) => Date.parse(a.occurredAt) - Date.parse(b.occurredAt));
+    const latest = ordered[ordered.length - 1];
+    const matches = ordered.map((e) => scoreline(e, fixtures.get(e.fixtureId)!.fixture));
     const more = single.some((n) => n.kind === kind && n.round === round);
     notices.push({
       key: `round:${round}:${kind}:${ids.join('.')}`,
@@ -355,7 +394,8 @@ export function competitionNotices(
       label: EVENT_LABELS[kind],
       title: GROUP_TITLES[kind](grouped.length, more),
       detail: matches.join(' · '),
-      occurredAt: grouped.reduce((max, e) => (e.occurredAt > max ? e.occurredAt : max), ''),
+      occurredAt: latest.occurredAt,
+      at: Date.parse(latest.occurredAt),
       path: '/',
       action: 'View the round',
       round,
@@ -367,7 +407,7 @@ export function competitionNotices(
 const GROUP_TITLES: Record<RoundEvent['kind'], (n: number, more: boolean) => string> = {
   teamsheets_published: (n, more) => `Teamsheets are in for ${n} ${more ? 'more ' : ''}matches.`,
   preview_published: (n, more) => `${n} ${more ? 'more ' : ''}Piele previews are ready.`,
-  kicked_off: (n, more) => `${n} ${more ? 'more ' : ''}matches are under way.`,
+  kicked_off: (n, more) => `${n} ${more ? 'more ' : ''}matches kicked off.`,
   full_time: (n, more) => `Full time in ${n} ${more ? 'more ' : ''}matches.`,
 };
 
@@ -377,7 +417,7 @@ function fixtureNotice(event: RoundEvent, { fixture, round }: LocatedFixture): N
   const text: Record<RoundEvent['kind'], [string, string]> = {
     teamsheets_published: [`${pair}: teamsheets are in.`, `${when} · ${fixture.venue}`],
     preview_published: [`${pair}: the Piele preview is ready.`, `${when} · ${fixture.venue}`],
-    kicked_off: [`${pair} is under way.`, fixture.venue],
+    kicked_off: [`${pair} kicked off.`, `${when} · ${fixture.venue}`],
     full_time: [`${scoreline(event, fixture)}.`, `Full time at ${fixture.venue}`],
   };
   const [title, detail] = text[event.kind];
@@ -390,6 +430,7 @@ function fixtureNotice(event: RoundEvent, { fixture, round }: LocatedFixture): N
     title,
     detail,
     occurredAt: event.occurredAt,
+    at: Date.parse(event.occurredAt),
     path: `/match/${fixture.id}`,
     action: 'Open the match centre',
     round,

@@ -43,7 +43,7 @@ describe('NotificationsFlag', () => {
     const flag = await mount();
     const trigger = flag.querySelector<HTMLButtonElement>('.flag-trigger')!;
     expect(trigger.getAttribute('aria-expanded')).toBe('false');
-    expect(flag.querySelector('.badge')?.textContent).toBe('5');
+    expect(flag.querySelector('.badge')?.textContent).toBe('7');
     expect(flag.querySelector('.cloth')?.hasAttribute('inert')).toBe(true);
 
     trigger.click();
@@ -57,12 +57,16 @@ describe('NotificationsFlag', () => {
     ]);
     expect(pinned[0].classList.contains('spoon-duty')).toBe(true);
     const items = Array.from(flag.querySelectorAll('.notification-item:not(.pinned)'));
-    expect(items.length).toBe(5);
+    expect(items.length).toBe(7);
+    expect(items[1].querySelector('h3')?.textContent).toBe('7 more matches kicked off.');
     expect(items.every((item) => item.classList.contains('unread'))).toBe(true);
     expect(items[0].querySelector('.tag')?.textContent).toContain('EVIDENCE');
     expect(items[0].querySelector('h3')?.textContent).toContain('Liam submitted evidence');
     expect(flag.querySelector('.divider')?.textContent).toBe('New');
-    expect(flag.textContent).not.toContain('Open the match centre');
+    // The old round status card is gone; kick-offs link to the match centre instead.
+    expect(items.some((item) => item.querySelector('h3')?.textContent === 'Current')).toBe(false);
+    expect(items[5].textContent).toContain('Edinburgh v Stormers kicked off.');
+    expect(items[5].textContent).toContain('Open the match centre');
   });
 
   it('follows one item and reads only that one, then marks the rest read at once', async () => {
@@ -77,7 +81,7 @@ describe('NotificationsFlag', () => {
     last.click();
     await Promise.resolve();
     TestBed.tick();
-    expect(flag.querySelector('.badge')?.textContent).toBe('4');
+    expect(flag.querySelector('.badge')?.textContent).toBe('6');
     expect(flag.classList.contains('open')).toBe(false);
 
     flag.querySelector<HTMLButtonElement>('.flag-trigger')!.click();
