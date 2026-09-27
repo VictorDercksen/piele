@@ -10,40 +10,6 @@
   >
     <span class="tag" dropdownSide [class.provisional]="p.provisional">{{ tag() }}</span>
     <ng-container ngProjectAs="[dropdownLead]">
-      @if (showPool()) {
-        @if (sway(); as sway) {
-          @if (sides(); as sides) {
-            <div class="sway" role="img" [attr.aria-label]="sway.label">
-              <img class="sway-crest" [src]="sides.home.crest ?? sides.home.jersey" alt="" />
-              <div class="sway-bar">
-                @if (sway.home) {
-                  <span
-                    class="sway-part home"
-                    [style.flex-grow]="sway.home"
-                    [style.--club]="sides.home.banner"
-                    ><b>{{ sway.home }}%</b></span
-                  >
-                }
-                @if (sway.draw) {
-                  <span class="sway-part draw" [style.flex-grow]="sway.draw"
-                    ><b>{{ sway.draw }}%</b></span
-                  >
-                }
-                @if (sway.away) {
-                  <span
-                    class="sway-part away"
-                    [style.flex-grow]="sway.away"
-                    [style.--club]="sides.away.banner"
-                    ><b>{{ sway.away }}%</b></span
-                  >
-                }
-              </div>
-              <img class="sway-crest" [src]="sides.away.crest ?? sides.away.jersey" alt="" />
-            </div>
-          }
-        }
-      }
-
       @if (showForm()) {
         @if (sides(); as sides) {
           @let s = scale();
@@ -126,32 +92,62 @@
               </div>
             </div>
             <div class="scale-under">
-              <p class="reading" [class.empty]="s.side === null">
-                <span class="reading-label">Reads</span>{{ ' ' }}
-                <strong>{{ s.side === null ? s.hint : s.text }}</strong>
-              </p>
-              <div class="tweaks">
-                <button
-                  type="button"
-                  class="draw-pick"
-                  [attr.aria-pressed]="s.side === 'draw'"
-                  (click)="pickDraw()"
-                >
-                  Draw
-                </button>
-                <div class="field margin-field">
-                  <label for="pick-margin">Margin <span>(points)</span></label>
-                  <input
-                    #marginInput
-                    id="pick-margin"
-                    formControlName="margin"
-                    inputmode="numeric"
-                    autocomplete="off"
-                    maxlength="3"
-                    [attr.aria-invalid]="invalid('margin')"
-                    [attr.aria-describedby]="marginDisabled() ? 'pick-margin-hint' : null"
-                  />
-                </div>
+              <div
+                class="quick home"
+                role="group"
+                [attr.aria-label]="'Quick margins for ' + sides.home.name"
+              >
+                @for (m of homeQuick; track m; let first = $first) {
+                  <button
+                    type="button"
+                    class="quick-pick"
+                    [class.far]="first"
+                    [attr.aria-label]="sides.home.name + ' by ' + m"
+                    [attr.aria-pressed]="s.side === 'home' && s.margin === m"
+                    (click)="quick('home', m)"
+                  >
+                    {{ m }}
+                  </button>
+                }
+              </div>
+              <div
+                class="quick away"
+                role="group"
+                [attr.aria-label]="'Quick margins for ' + sides.away.name"
+              >
+                @for (m of awayQuick; track m; let last = $last) {
+                  <button
+                    type="button"
+                    class="quick-pick"
+                    [class.far]="last"
+                    [attr.aria-label]="sides.away.name + ' by ' + m"
+                    [attr.aria-pressed]="s.side === 'away' && s.margin === m"
+                    (click)="quick('away', m)"
+                  >
+                    {{ m }}
+                  </button>
+                }
+              </div>
+              <button
+                type="button"
+                class="draw-pick"
+                [attr.aria-pressed]="s.side === 'draw'"
+                (click)="pickDraw()"
+              >
+                Draw
+              </button>
+              <div class="field margin-field" [class.away]="marginSlot() === 'away'">
+                <label for="pick-margin">Margin <span>(points)</span></label>
+                <input
+                  #marginInput
+                  id="pick-margin"
+                  formControlName="margin"
+                  inputmode="numeric"
+                  autocomplete="off"
+                  maxlength="3"
+                  [attr.aria-invalid]="invalid('margin')"
+                  [attr.aria-describedby]="marginDisabled() ? 'pick-margin-hint' : null"
+                />
               </div>
             </div>
             @if (marginDisabled()) {
@@ -206,6 +202,37 @@
     </ng-container>
 
     @if (showPool()) {
+      @if (sway(); as sway) {
+        @if (sides(); as sides) {
+          <div class="sway" role="img" [attr.aria-label]="sway.label">
+            <img class="sway-crest" [src]="sides.home.crest ?? sides.home.jersey" alt="" />
+            <div class="sway-bar">
+              @if (sway.home) {
+                <span
+                  class="sway-part home"
+                  [style.flex-grow]="sway.home"
+                  [style.--club]="sides.home.banner"
+                  ><b>{{ sway.home }}%</b></span
+                >
+              }
+              @if (sway.draw) {
+                <span class="sway-part draw" [style.flex-grow]="sway.draw"
+                  ><b>{{ sway.draw }}%</b></span
+                >
+              }
+              @if (sway.away) {
+                <span
+                  class="sway-part away"
+                  [style.flex-grow]="sway.away"
+                  [style.--club]="sides.away.banner"
+                  ><b>{{ sway.away }}%</b></span
+                >
+              }
+            </div>
+            <img class="sway-crest" [src]="sides.away.crest ?? sides.away.jersey" alt="" />
+          </div>
+        }
+      }
       @if (rows().length) {
         <table class="pool" [class.locked]="p.locked">
           <caption class="visually-hidden">

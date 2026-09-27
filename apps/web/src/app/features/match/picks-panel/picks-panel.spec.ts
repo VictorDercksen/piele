@@ -197,7 +197,7 @@ describe('PicksPanel', () => {
     const { root, text, settle } = setup(picksView());
     await settle();
     expect(text('.tag')).toBe('open');
-    // The scale: a crest tab at each end, the marker unset in the middle, the reading a hint.
+    // The scale: a crest tab at each end, the marker unset in the middle.
     const marker = root.querySelector<HTMLInputElement>('#pick-scale')!;
     expect(marker.type).toBe('range');
     expect(root.querySelector(`#${marker.getAttribute('aria-labelledby')}`)?.textContent).toBe(
@@ -216,8 +216,27 @@ describe('PicksPanel', () => {
     expect(root.querySelectorAll('.end img')).toHaveLength(2);
     expect(text('.thumb')).toBe('Pick');
     expect(text('.tick-label.t50')).toBe('Draw');
-    expect(text('.reading')).toBe('Reads Drag the marker toward a side, or tap a crest.');
     expect(root.querySelector('.draw-pick')?.getAttribute('aria-pressed')).toBe('false');
+    // The margin field starts on the home side of the Draw chip.
+    expect(root.querySelector('.margin-field')?.classList).not.toContain('away');
+    // Quick margins run in toward the middle on the home side and out from it on the away side.
+    const quick = (side: string) =>
+      Array.from(root.querySelectorAll(`.quick.${side} .quick-pick`)).map((b) => [
+        b.textContent?.trim(),
+        b.getAttribute('aria-label'),
+      ]);
+    expect(quick('home')).toEqual([
+      ['21', 'Zebre by 21'],
+      ['14', 'Zebre by 14'],
+      ['7', 'Zebre by 7'],
+      ['3', 'Zebre by 3'],
+    ]);
+    expect(quick('away')).toEqual([
+      ['3', 'Bulls by 3'],
+      ['7', 'Bulls by 7'],
+      ['14', 'Bulls by 14'],
+      ['21', 'Bulls by 21'],
+    ]);
     expect(root.querySelector('#pick-margin')?.getAttribute('inputmode')).toBe('numeric');
     expect(text('.form-note')).toMatch(
       /^Make your pick to see the pool's picks\. Picks lock at kickoff, \d+ \w{3} \d{2}:\d{2} \S+\.$/,
@@ -252,9 +271,9 @@ describe('PicksPanel', () => {
 
     await choose('away');
     expect(strip().getAttribute('aria-invalid')).toBe('false');
-    expect(text('.reading')).toBe('Reads Bulls by 1');
+    expect(marker().getAttribute('aria-valuetext')).toBe('Bulls by 1');
     await typeMargin('151');
-    expect(text('.reading')).toBe('Reads Bulls, no margin yet');
+    expect(marker().getAttribute('aria-valuetext')).toBe('Bulls, no margin yet');
     expect(text('.thumb')).toBe('?');
     await submit();
     expect(saved).toEqual([]);
@@ -270,7 +289,7 @@ describe('PicksPanel', () => {
     expect(document.activeElement).not.toBe(margin());
 
     await typeMargin('20');
-    expect(text('.reading')).toBe('Reads Bulls by 20');
+    expect(marker().getAttribute('aria-valuetext')).toBe('Bulls by 20');
     await submit();
     expect(saved).toEqual([['292590', { side: 'away', margin: 20 }]]);
     // The warning is gone and a green card names the saved pick.
@@ -284,11 +303,13 @@ describe('PicksPanel', () => {
   });
 
   it('reads the marker as a margin toward a side, with the middle a draw', async () => {
-    const { root, text, slide, choose, typeMargin, marker, margin, strip } = setup(picksView());
-    // Left of the middle is the home side, by the distance.
+    const { root, text, slide, choose, typeMargin, marker, margin, strip, settle } =
+      setup(picksView());
+    const field = () => root.querySelector('.margin-field')!;
+    // Left of the middle is the home side, by the distance; the margin field sits left of Draw.
     await slide(-12);
-    expect(text('.reading')).toBe('Reads Zebre by 12');
     expect(marker().getAttribute('aria-valuetext')).toBe('Zebre by 12');
+    expect(field().classList).not.toContain('away');
     expect(margin().value).toBe('12');
     expect(text('.thumb')).toBe('12');
     expect(root.querySelector('.thumb')?.getAttribute('style')).toContain('left: 35%');
@@ -296,29 +317,52 @@ describe('PicksPanel', () => {
     expect(root.querySelector('.fill')?.getAttribute('style')).toContain('right: 50%');
     expect(root.querySelector('.end.home')?.classList).toContain('won');
     expect(root.querySelector('.end.away')?.classList).toContain('dim');
-    // Right of it is the away side.
+    // Right of it is the away side, and the field moves to the right of Draw.
     await slide(3);
-    expect(text('.reading')).toBe('Reads Bulls by 3');
+    expect(marker().getAttribute('aria-valuetext')).toBe('Bulls by 3');
+    expect(field().classList).toContain('away');
     expect(root.querySelector('.fill')?.getAttribute('style')).toContain('right: 46.25%');
     // A typed margin beyond the scale's reach parks the marker at the end.
     await typeMargin('55');
-    expect(text('.reading')).toBe('Reads Bulls by 55');
+    expect(marker().getAttribute('aria-valuetext')).toBe('Bulls by 55');
     expect(marker().value).toBe('40');
     expect(text('.thumb')).toBe('55');
     // A crest nudges one point toward that side, through the middle to a draw and beyond.
     await typeMargin('1');
     await choose('home');
-    expect(text('.reading')).toBe('Reads A draw');
+    expect(marker().getAttribute('aria-valuetext')).toBe('A draw');
     expect(marker().value).toBe('0');
     expect(root.querySelector('.draw-pick')?.getAttribute('aria-pressed')).toBe('true');
+    // The disabled field stays on the last club's side of Draw.
+    expect(field().classList).toContain('away');
     await choose('home');
-    expect(text('.reading')).toBe('Reads Zebre by 1');
+    expect(marker().getAttribute('aria-valuetext')).toBe('Zebre by 1');
     expect(root.querySelector('.draw-pick')?.getAttribute('aria-pressed')).toBe('false');
+    expect(field().classList).not.toContain('away');
     // The middle of the range is a draw too.
     await slide(0);
     expect(marker().getAttribute('aria-valuetext')).toBe('A draw');
     expect(text('.thumb')).toBe('Draw');
     expect(strip().classList).toContain('picked');
+    // A quick margin sets that side by that many and shows pressed while it matches.
+    const pressed = () =>
+      Array.from(root.querySelectorAll('.quick-pick[aria-pressed="true"]')).map((b) =>
+        b.getAttribute('aria-label'),
+      );
+    root.querySelector<HTMLButtonElement>('.quick.away .quick-pick:nth-child(2)')!.click();
+    await settle();
+    expect(marker().getAttribute('aria-valuetext')).toBe('Bulls by 7');
+    expect(margin().value).toBe('7');
+    expect(field().classList).toContain('away');
+    expect(pressed()).toEqual(['Bulls by 7']);
+    await typeMargin('8');
+    expect(pressed()).toEqual([]);
+    root.querySelector<HTMLButtonElement>('.quick.home .quick-pick:first-child')!.click();
+    await settle();
+    expect(marker().getAttribute('aria-valuetext')).toBe('Zebre by 21');
+    expect(marker().value).toBe('-21');
+    expect(field().classList).not.toContain('away');
+    expect(pressed()).toEqual(['Zebre by 21']);
   });
 
   it('disables and clears the margin on a draw and saves a draw as margin 0', async () => {
@@ -379,7 +423,9 @@ describe('PicksPanel', () => {
     expect(root.querySelector('form')).toBeNull();
     expect(root.querySelector('.mine')?.classList).toContain('you');
     expect(text('.mine .chip')).toBe('Bulls by 20');
-    expect(root.querySelector('.sway')?.getAttribute('aria-label')).toBe(
+    // The split heads the pool's drawer, so it shows only with the table.
+    expect(root.querySelector('.dropdown-lead .sway')).toBeNull();
+    expect(root.querySelector('#picks-pool .sway')?.getAttribute('aria-label')).toBe(
       "The pool's split: Zebre 50%, Bulls 50%.",
     );
     expect(root.querySelectorAll('.sway-part b')).toHaveLength(2);
@@ -395,6 +441,7 @@ describe('PicksPanel', () => {
     expect(marker().value).toBe('20');
     expect(marker().getAttribute('aria-valuetext')).toBe('Bulls by 20');
     expect(root.querySelector('.end.away')?.classList).toContain('won');
+    expect(root.querySelector('.margin-field')?.classList).toContain('away');
     expect(margin().value).toBe('20');
     expect(text('.form-note')).toMatch(/^Picks lock at kickoff/);
     // The pool stays below the form while editing.
@@ -407,13 +454,13 @@ describe('PicksPanel', () => {
     const section = root.querySelector('section.panel')!;
     const chevron = root.querySelector<HTMLButtonElement>('.section-title .chevron')!;
     const drawer = root.querySelector('#picks-pool')!;
-    // Closed: the split and the member's pick show; the table sits inert in the drawer.
+    // Closed: the member's pick shows; the split and the table sit inert in the drawer.
     expect(section.classList).not.toContain('open');
     expect(chevron.getAttribute('aria-expanded')).toBe('false');
     expect(chevron.getAttribute('aria-label')).toBe("Show the pool's picks");
     expect(chevron.getAttribute('aria-controls')).toBe('picks-pool');
     expect(drawer.hasAttribute('inert')).toBe(true);
-    expect(root.querySelector('.sway')).not.toBeNull();
+    expect(drawer.querySelector('.sway')).not.toBeNull();
     expect(root.querySelector('.mine')).not.toBeNull();
     expect(drawer.querySelector('table')).not.toBeNull();
     expect(drawer.querySelector('.panel-source')).not.toBeNull();

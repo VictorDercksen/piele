@@ -37,7 +37,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 }
 .sway-crest {
   flex-shrink: 0;
@@ -330,50 +330,69 @@
   opacity: 0;
 }
 
-/* Under the scale: the pick in words, then the draw and the exact margin. */
+/*
+ * Under the scale: the Draw chip fixed under the middle tick (the ends are equal, so the strip's
+ * centre is the track's), with the margin field beside it on the chosen club's side.
+ */
 .scale-under {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 12px 20px;
-}
-.reading {
   display: grid;
-  gap: 2px;
-  min-width: 0;
-  margin: 0;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: end;
+  gap: 10px 12px;
 }
-.reading-label {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 1.5px;
-  color: var(--accent);
-  text-transform: uppercase;
-}
-.reading strong {
-  font-size: 20px;
-  font-weight: 900;
-  font-style: italic;
-  letter-spacing: -0.3px;
-  line-height: 1.2;
-  color: var(--chalk);
-  text-wrap: balance;
-}
-.reading.empty strong {
-  font-size: 14px;
-  font-weight: 600;
-  font-style: normal;
-  letter-spacing: 0;
-  color: var(--muted);
-}
-.tweaks {
+/* The quick margins run in toward the middle on each side, mirroring the track above. */
+.quick {
+  grid-row: 1;
   display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 12px 16px;
+  gap: 4px;
+  min-width: 0;
+}
+.quick.home {
+  grid-column: 1;
+  justify-self: end;
+}
+.quick.away {
+  grid-column: 3;
+}
+.quick-pick {
+  min-width: 36px;
+  min-height: 36px;
+  padding: 0 6px;
+  border: 1px solid #f2efdf40;
+  background: none;
+  color: var(--chalk);
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.quick-pick:hover {
+  background: #ffffff10;
+}
+.quick-pick[aria-pressed='true'] {
+  background: var(--chalk);
+  border-color: var(--chalk);
+  color: var(--paper);
+}
+.quick-pick:focus-visible {
+  outline: 3px solid #e77935;
+  outline-offset: 2px;
+}
+/* The Draw chip and the margin field share the second row; the chip comes first in the flow. */
+.scale-under .margin-field {
+  grid-row: 2;
+  grid-column: 1;
+  justify-self: end;
+  width: 100%;
+  max-width: 104px;
+}
+.scale-under .margin-field.away {
+  grid-column: 3;
+  justify-self: start;
 }
 .draw-pick {
+  grid-row: 2;
+  grid-column: 2;
   min-height: 44px;
   padding: 0 16px;
   border: 1px solid #f2efdf66;
@@ -617,8 +636,19 @@ app-member-avatar {
   .tick-label.quarter {
     display: none;
   }
-  .reading strong {
-    font-size: 18px;
+  /* Three chips a side must fit beside the Draw chip on a 320 px phone. */
+  .quick {
+    gap: 3px;
+  }
+  .quick-pick {
+    min-width: 30px;
+    padding: 0 4px;
+  }
+  .quick-pick.far {
+    display: none;
+  }
+  .draw-pick {
+    padding: 0 12px;
   }
   .pool {
     font-size: 13px;
