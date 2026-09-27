@@ -44,6 +44,9 @@ import { PickChip, PickChipView } from './pick-chip';
 /** The widest margin the scale reaches; beyond it the marker sits at the end. */
 export const SCALE_REACH = 40;
 
+/** The quick margins under the scale: a penalty, a converted try, two and three of them. */
+export const QUICK_MARGINS: readonly number[] = [3, 7, 14, 21];
+
 /** A typed margin as a number, or null unless it is digits from 1 to 150. */
 export function parseMargin(value: string): number | null {
   const trimmed = value.trim();
@@ -63,13 +66,14 @@ function marginValidator(control: AbstractControl<string>): ValidationErrors | n
  * The match centre's "Pool picks." panel. Before kickoff a member without a pick sees only
  * their own pick form: the margin scale, a strip in the scoring panel's shape with a crest at
  * each end and a range between them, where the marker's distance from the middle is the margin
- * toward that side and the middle is a draw (`slide`, `nudge` from either crest, `pickDraw`,
- * and the typed margin, all writing the same two form controls). Once their pick is in they see
- * the pool's split and their own pick, and can edit theirs until kickoff. After kickoff their line carries their points and place. The
- * pool table itself (every pick with its outcome, margin and bonus marks and points, as the
- * view scores them) is the body of the panel's dropdown (`#picks-pool`), closed by default and
- * for every new fixture; the form, split and pick above it are the dropdown's lead. The admin
- * viewing a league it is not in sees the pool without a form.
+ * toward that side and the middle is a draw (`slide`, `nudge` from either crest, `pickDraw`, the
+ * `quick` margins and the typed margin, all writing the same two form controls). Once their
+ * pick is in they see their own pick, and can edit theirs until kickoff. After kickoff their
+ * line carries their points and place. The pool's split and the pool table itself (every pick
+ * with its outcome, margin and bonus marks and points, as the view scores them) are the body of
+ * the panel's dropdown (`#picks-pool`), closed by default and for every new fixture; the form
+ * or the pick above it is the dropdown's lead. The admin viewing a league it is not in sees the
+ * pool without a form.
  */
 @Component({
   selector: 'app-picks-panel',
@@ -140,6 +144,9 @@ export class PicksPanel {
 
   /** How far the scale runs each way; the template draws its ticks from it. */
   protected readonly reach = SCALE_REACH;
+  /** The quick margins each side of the Draw chip, the home side's running in toward it. */
+  protected readonly homeQuick: readonly number[] = [...QUICK_MARGINS].reverse();
+  protected readonly awayQuick = QUICK_MARGINS;
 
   /**
    * The scale as drawn from the form: the range's value (home is left, so negative), the marker's
@@ -158,6 +165,7 @@ export class PicksPanel {
     const pct = 50 + (range * 50) / SCALE_REACH;
     return {
       side,
+      margin: parsed,
       range,
       pct,
       fillLeft: club === 'home' ? pct : 50,
@@ -363,6 +371,11 @@ export class PicksPanel {
     this.form.controls.side.setValue('draw');
   }
 
+  /** A quick margin tapped: that side by that many. */
+  quick(side: 'home' | 'away', margin: number): void {
+    this.setSigned(side === 'home' ? -margin : margin);
+  }
+
   /** A signed margin, negative toward home, zero a draw, onto the side and margin controls. */
   private setSigned(signed: number): void {
     if (signed === 0) {
@@ -485,6 +498,8 @@ export interface SideLook {
 /** The margin scale as the template draws it. */
 export interface ScaleView {
   readonly side: PickChoice | null;
+  /** The typed margin, or null while it is empty or invalid. */
+  readonly margin: number | null;
   /** The range input's value: the margin toward away, negative toward home, 0 a draw. */
   readonly range: number;
   /** The marker's position along the track, 0 at home, 100 at away. */

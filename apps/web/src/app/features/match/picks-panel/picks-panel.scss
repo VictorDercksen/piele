@@ -37,7 +37,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 }
 .sway-crest {
   flex-shrink: 0;
@@ -338,11 +338,49 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: end;
-  column-gap: 12px;
+  gap: 10px 12px;
 }
-/* Both sit in the one row: the chip comes first in the flow, so the field's row is pinned too. */
-.scale-under .margin-field {
+/* The quick margins run in toward the middle on each side, mirroring the track above. */
+.quick {
   grid-row: 1;
+  display: flex;
+  gap: 4px;
+  min-width: 0;
+}
+.quick.home {
+  grid-column: 1;
+  justify-self: end;
+}
+.quick.away {
+  grid-column: 3;
+}
+.quick-pick {
+  min-width: 36px;
+  min-height: 36px;
+  padding: 0 6px;
+  border: 1px solid #f2efdf40;
+  background: none;
+  color: var(--chalk);
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.quick-pick:hover {
+  background: #ffffff10;
+}
+.quick-pick[aria-pressed='true'] {
+  background: var(--chalk);
+  border-color: var(--chalk);
+  color: var(--paper);
+}
+.quick-pick:focus-visible {
+  outline: 3px solid #e77935;
+  outline-offset: 2px;
+}
+/* The Draw chip and the margin field share the second row; the chip comes first in the flow. */
+.scale-under .margin-field {
+  grid-row: 2;
   grid-column: 1;
   justify-self: end;
 }
@@ -351,7 +389,7 @@
   justify-self: start;
 }
 .draw-pick {
-  grid-row: 1;
+  grid-row: 2;
   grid-column: 2;
   min-height: 44px;
   padding: 0 16px;
@@ -594,6 +632,9 @@ app-member-avatar {
     margin-inline: 8px;
   }
   .tick-label.quarter {
+    display: none;
+  }
+  .quick-pick.far {
     display: none;
   }
   .pool {

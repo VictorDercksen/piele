@@ -64,22 +64,34 @@ test('before kickoff a member sees only the pick form; saving the pick reveals t
   await panel.getByRole('button', { name: 'One point toward Sharks' }).click();
   await expect(marker).toHaveAttribute('aria-valuetext', 'Sharks by 1');
   expect((await marginBox.boundingBox())!.x).toBeGreaterThan((await draw.boundingBox())!.x);
-  await panel.getByRole('button', { name: 'One point toward Stormers' }).click();
-  await panel.getByRole('button', { name: 'One point toward Stormers' }).click();
-  await expect(marker).toHaveAttribute('aria-valuetext', 'Stormers by 1');
+  // A quick margin under the strip sets the side and the margin in one tap.
+  await panel.getByRole('button', { name: 'Stormers by 7', exact: true }).click();
+  await expect(marker).toHaveAttribute('aria-valuetext', 'Stormers by 7');
+  await expect(marker).toHaveValue('-7');
+  await expect(marginBox).toHaveValue('7');
+  await expect(panel.getByRole('button', { name: 'Stormers by 7', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  expect((await marginBox.boundingBox())!.x).toBeLessThan((await draw.boundingBox())!.x);
   await panel.getByLabel('Margin (points)').fill('200');
   await panel.getByRole('button', { name: 'Save pick' }).click();
-  // The new attempt replaces the card rather than stacking another.
+  // The new attempt replaces the card rather than stacking another. The old card, whose detail
+  // line named the margin too, is still leaving for a moment, so wait for the new one first.
+  await expect(
+    warning
+      .filter({ hasText: 'Enter a margin from 1 to 150.' })
+      .filter({ hasNotText: 'Choose a side or a draw.' }),
+  ).toBeVisible();
   await expect(warning).toHaveCount(1);
-  await expect(warning).toContainText('Enter a margin from 1 to 150.');
   await expect(panel.getByLabel('Margin (points)')).toHaveAttribute('aria-invalid', 'true');
   await expect(panel.getByLabel('Margin (points)')).toHaveClass(/problem-flag/);
   await expect(panel.getByLabel('Margin (points)')).not.toBeFocused();
   await panel.getByLabel('Margin (points)').fill('7');
   await panel.getByRole('button', { name: 'Save pick' }).click();
 
-  // The pick is in: a green card names it, then the member's strip, the pool's split and the
-  // pool table.
+  // The pick is in: a green card names it, then the member's strip; the pool's split and the
+  // pool table wait behind the chevron.
   await expect(
     page.getByRole('status').filter({ hasText: 'Pick saved: Stormers by 7.' }),
   ).toBeVisible();
@@ -89,9 +101,8 @@ test('before kickoff a member sees only the pick form; saving the pick reveals t
   await expect(mine).toContainText('Your pick');
   await expect(mine.locator('app-pick-chip')).toContainText('Stormers');
   await expect(mine.locator('app-pick-chip')).toContainText('7');
-  await expect(
-    panel.getByRole('img', { name: "The pool's split: Stormers 100%, Sharks 0%." }),
-  ).toBeVisible();
+  const split = panel.getByRole('img', { name: "The pool's split: Stormers 100%, Sharks 0%." });
+  await expect(split).toBeHidden();
   // The pool table waits behind the chevron, closed by default.
   const pool = panel.getByRole('table', { name: 'Picks for Stormers v Sharks' });
   await expect(pool).toBeHidden();
@@ -103,6 +114,7 @@ test('before kickoff a member sees only the pick form; saving the pick reveals t
     'true',
   );
   await expect(pool).toBeVisible();
+  await expect(split).toBeVisible();
   await expect(pool.locator('tbody tr')).toHaveCount(1);
   await expect(pool.locator('tbody tr.you')).toContainText('Victor Dercksen');
   // No marks or points before kickoff.
@@ -138,9 +150,10 @@ test('a kicked-off fixture shows every pick with its marks, points and the membe
   await expect(mine.locator('.mine-points')).toHaveText('0 pts');
   await expect(mine.locator('.mine-place')).toHaveText('4th of 6 in this match');
 
-  // Closed by default: the split and the member's line only; the chevron opens the pool.
+  // Closed by default: the member's line only; the chevron opens the split and the pool.
   const pool = panel.getByRole('table', { name: 'Picks for Connacht v Stormers' });
   await expect(pool).toBeHidden();
+  await expect(panel.getByRole('img', { name: /The pool's split/ })).toBeHidden();
   await expect(panel.locator('.panel-source')).toBeHidden();
   await panel.getByRole('button', { name: "Show the pool's picks" }).click();
   await expect(pool).toBeVisible();
