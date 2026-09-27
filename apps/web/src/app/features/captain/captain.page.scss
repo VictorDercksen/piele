@@ -118,6 +118,10 @@ app-rules-card {
   flex: 1;
   min-width: 200px;
 }
+.member-edit input[aria-invalid='true'],
+.add-grid input[aria-invalid='true'] {
+  border-color: var(--accent);
+}
 .add-member {
   margin-top: 26px;
   padding: 22px;

@@ -37,9 +37,12 @@
           }
           {{ preparing() ? 'Preparing image…' : 'Upload an image'
           }}<input
+            #fileInput
+            id="emblem-file"
             type="file"
             accept="image/jpeg,image/png,image/webp"
             [disabled]="busy()"
+            [attr.aria-invalid]="fileRefused()"
             (change)="chooseFile($event)"
         /></label>
         <button
@@ -70,9 +73,6 @@
       </div>
     </div>
   </div>
-  @if (error()) {
-    <p class="error-message" role="alert">{{ error() }}</p>
-  }
   <div class="save-row">
     <button
       type="button"

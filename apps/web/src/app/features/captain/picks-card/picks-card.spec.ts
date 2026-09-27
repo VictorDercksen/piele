@@ -2,6 +2,8 @@ import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Subject } from 'rxjs';
 import { competition } from '../../../core/competition/registry';
+import { AlertService } from '../../../core/feedback/alert.service';
+import { ApiError } from '../../../core/league/http-league-data';
 import {
   FixtureResult,
   LeagueMember,
@@ -44,7 +46,7 @@ async function settle() {
   TestBed.tick();
 }
 
-function setup(options: { locked?: boolean; result?: FixtureResult | null } = {}) {
+function setup(options: { locked?: boolean; result?: FixtureResult | null; refusal?: Error } = {}) {
   const locked = signal(options.locked ?? true);
   const result = signal<FixtureResult | null>(options.result ?? null);
   const rows = signal<Row[]>([
@@ -98,7 +100,7 @@ function setup(options: { locked?: boolean; result?: FixtureResult | null } = {}
     },
     recordPicks: (fixtureId: string, picks: readonly StewardPick[]) => {
       recorded.push({ fixtureId, picks });
-      return Promise.resolve();
+      return options.refusal ? Promise.reject(options.refusal) : Promise.resolve();
     },
     removePick: (fixtureId: string, memberId: string) => {
       removed.push(`${fixtureId}/${memberId}`);
@@ -115,6 +117,9 @@ function setup(options: { locked?: boolean; result?: FixtureResult | null } = {}
   fixture.componentRef.setInput('dialog', { open: () => undefined });
   fixture.componentRef.setInput('dutyDialog', { open: () => undefined });
   const root = fixture.nativeElement as HTMLElement;
+  const alerts = TestBed.inject(AlertService);
+  const warn = vi.spyOn(alerts, 'warn');
+  const error = vi.spyOn(alerts, 'error');
   const radio = (memberId: string, side: string) =>
     root.querySelector<HTMLInputElement>(`input[name="pick-${FID}-${memberId}"][value="${side}"]`)!;
   const margin = (memberId: string) =>
@@ -148,10 +153,15 @@ function setup(options: { locked?: boolean; result?: FixtureResult | null } = {}
     recorded,
     removed,
     standings,
+    alerts,
+    warn,
+    error,
   };
 }
 
 describe('PicksCard', () => {
+  afterEach(() => TestBed.inject(AlertService).clear());
+
   it('prefills the grid from the saved picks', async () => {
     const { radio, margin } = setup();
     await settle();
@@ -237,14 +247,55 @@ describe('PicksCard', () => {
   });
 
   it('asks for a margin before saving a side without one', async () => {
-    const { radio, save, margin, recorded, root } = setup();
+    const { radio, type, save, margin, recorded, root, warn, alerts } = setup();
     await settle();
     radio('c', 'home').click();
+    type('a', '');
     await settle();
     await save();
     expect(recorded).toEqual([]);
+    expect(margin('a').getAttribute('aria-invalid')).toBe('true');
     expect(margin('c').getAttribute('aria-invalid')).toBe('true');
-    expect(root.querySelector('#picks-error')?.textContent).toContain('margin from 1 to 150');
+    expect(warn).toHaveBeenCalledOnce();
+    expect(warn).toHaveBeenCalledWith('Enter a margin from 1 to 150 for each home or away pick.', {
+      key: 'picks-grid',
+      details: ['Annas needs a margin.', 'Pierre needs a margin.'],
+    });
+    expect(document.activeElement).toBe(margin('a'));
+    expect(root.querySelector('#picks-error, [role="alert"]')).toBeNull();
+
+    // A valid attempt drops the warning.
+    type('a', '7');
+    type('c', '3');
+    await save();
+    expect(recorded).toHaveLength(1);
+    expect(alerts.alerts().some((a) => a.key === 'picks-grid')).toBe(false);
+  });
+
+  it('shows a locked refusal as a warning and any other refusal as an error', async () => {
+    const locked = setup({
+      refusal: new ApiError(422, 'picks_locked', 'Picks for this match closed at kickoff.'),
+    });
+    await settle();
+    locked.radio('c', 'draw').click();
+    await settle();
+    await locked.save();
+    expect(locked.warn).toHaveBeenCalledWith('Picks for this match closed at kickoff.', {
+      key: 'picks-grid',
+    });
+    expect(locked.error).not.toHaveBeenCalled();
+    TestBed.resetTestingModule();
+
+    const refused = setup({ refusal: new ApiError(403, 'captain_only', 'Captains only.') });
+    await settle();
+    refused.radio('c', 'draw').click();
+    await settle();
+    await refused.save();
+    expect(refused.error).toHaveBeenCalledOnce();
+    expect(refused.error).toHaveBeenCalledWith('Only the captain or the admin can record picks.', {
+      key: 'picks-grid',
+    });
+    expect(refused.warn).not.toHaveBeenCalled();
   });
 
   it('removes the pick of a row that was emptied and skips rows left empty', async () => {
@@ -307,5 +358,27 @@ describe('PicksCard', () => {
         ],
       },
     ]);
+  });
+
+  it('points out an override total out of range', async () => {
+    const { root, standings, warn } = setup();
+    await settle();
+    root.querySelector<HTMLButtonElement>('#override-button-a')!.click();
+    await settle();
+    const input = root.querySelector<HTMLInputElement>('#override-a')!;
+    input.value = '-2';
+    input.dispatchEvent(new Event('input'));
+    input.blur();
+    expect(document.activeElement).not.toBe(input);
+    input.closest('form')!.dispatchEvent(new Event('submit'));
+    await settle();
+    expect(standings).toEqual([]);
+    expect(warn).toHaveBeenCalledOnce();
+    expect(warn).toHaveBeenCalledWith('Enter a total from 0 to 99999.99.', {
+      key: 'picks-override',
+    });
+    expect(input.getAttribute('aria-invalid')).toBe('true');
+    expect(document.activeElement).toBe(input);
+    expect(root.querySelector('.override-form [role="alert"]')).toBeNull();
   });
 });

@@ -1,4 +1,14 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  Injector,
+  afterNextRender,
+  computed,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { AlertService } from '../../../core/feedback/alert.service';
 import { LeagueContext } from '../../../core/league/league-context';
 import { DEFAULT_ACCENT, isAccentColour } from '../../../core/league/emblems';
@@ -8,6 +18,9 @@ import { Dropdown } from '../../../shared/dropdown/dropdown';
 import { EmblemPicker } from '../../../shared/emblem-picker/emblem-picker';
 import { LeagueCrest } from '../../../shared/league-crest/league-crest';
 import { Loader } from '../../../shared/loader/loader';
+
+/** The key of this card's alerts, so a new attempt replaces the last one's. */
+const ALERT_KEY = 'captain-appearance';
 
 /**
  * The captain's desk card for how the league looks: a preset crest or an uploaded image
@@ -24,6 +37,8 @@ import { Loader } from '../../../shared/loader/loader';
 export class AppearanceCard {
   private readonly context = inject(LeagueContext);
   private readonly alerts = inject(AlertService);
+  private readonly injector = inject(Injector);
+  private readonly fileInput = viewChild.required<ElementRef<HTMLInputElement>>('fileInput');
   readonly league = this.context.current;
   /** The emblem the steward picked but has not saved; undefined keeps the saved one. */
   private readonly emblem = signal<AppearanceChange['emblem']>(undefined);
@@ -31,7 +46,8 @@ export class AppearanceCard {
   private readonly accent = signal<string | null | undefined>(undefined);
   readonly preparing = signal(false);
   readonly saving = signal(false);
-  readonly error = signal('');
+  /** Whether the last chosen file failed its checks (type, size, decoding). */
+  readonly fileRefused = signal(false);
 
   /** How the league will look once saved. */
   readonly preview = computed(() => {
@@ -62,7 +78,7 @@ export class AppearanceCard {
   readonly busy = computed(() => this.preparing() || this.saving());
 
   choosePreset(key: string): void {
-    this.error.set('');
+    this.settle();
     this.emblem.set({ preset: key });
   }
 
@@ -71,11 +87,16 @@ export class AppearanceCard {
     const file = input?.files?.[0];
     if (!input || !file) return;
     this.preparing.set(true);
-    this.error.set('');
+    this.settle();
     try {
       this.emblem.set({ image: await prepareEmblem(file) });
     } catch (error) {
-      this.error.set(error instanceof Error ? error.message : 'This image could not be used.');
+      // The file itself failed a check: an input problem, pointed at the upload control.
+      this.fileRefused.set(true);
+      this.alerts.warn(error instanceof Error ? error.message : 'This image could not be used.', {
+        key: ALERT_KEY,
+      });
+      afterNextRender(() => this.fileInput().nativeElement.focus(), { injector: this.injector });
     } finally {
       this.preparing.set(false);
       input.value = '';
@@ -83,7 +104,7 @@ export class AppearanceCard {
   }
 
   removeEmblem(): void {
-    this.error.set('');
+    this.settle();
     this.emblem.set(null);
   }
 
@@ -99,7 +120,7 @@ export class AppearanceCard {
   discard(): void {
     this.emblem.set(undefined);
     this.accent.set(undefined);
-    this.error.set('');
+    this.settle();
   }
 
   async save(): Promise<void> {
@@ -113,16 +134,25 @@ export class AppearanceCard {
         : {}),
     };
     this.saving.set(true);
-    this.error.set('');
+    this.settle();
     try {
       if (change.emblem !== undefined || change.accentColour !== undefined)
         await this.context.saveAppearance(change);
       this.discard();
-      this.alerts.success(`${league?.name ?? 'The league'} has its new look.`);
+      this.alerts.success(`${league?.name ?? 'The league'} has its new look.`, { key: ALERT_KEY });
     } catch (error) {
-      this.error.set(error instanceof Error ? error.message : 'The appearance could not be saved.');
+      this.alerts.error(
+        error instanceof Error ? error.message : 'The appearance could not be saved.',
+        { key: ALERT_KEY },
+      );
     } finally {
       this.saving.set(false);
     }
+  }
+
+  /** A new attempt: the last one's card and the refused file's mark go. */
+  private settle(): void {
+    this.fileRefused.set(false);
+    this.alerts.dismissKey(ALERT_KEY);
   }
 }

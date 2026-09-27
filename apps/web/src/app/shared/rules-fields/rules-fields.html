@@ -35,13 +35,7 @@
         step="1"
         formControlName="startingRound"
         [attr.aria-invalid]="shows(start)"
-        [attr.aria-describedby]="shows(start) ? p + '-startingRound-error' : null"
       />
-      @if (shows(start)) {
-        <p [id]="p + '-startingRound-error'" class="field-error">
-          Choose a round from 1 to {{ lastRound() }}.
-        </p>
-      }
     </div>
     <ng-container formGroupName="winPoints">
       @for (item of winPoints; track item.key) {
@@ -57,13 +51,7 @@
             step="any"
             [formControlName]="item.key"
             [attr.aria-invalid]="shows(control)"
-            [attr.aria-describedby]="shows(control) ? p + '-win-' + item.key + '-error' : null"
           />
-          @if (shows(control)) {
-            <p [id]="p + '-win-' + item.key + '-error'" class="field-error">
-              Enter a number from 0 to {{ max }}.
-            </p>
-          }
         </div>
       }
     </ng-container>
@@ -80,13 +68,7 @@
           step="any"
           [formControlName]="item.key"
           [attr.aria-invalid]="shows(control)"
-          [attr.aria-describedby]="shows(control) ? p + '-' + item.key + '-error' : null"
         />
-        @if (shows(control)) {
-          <p [id]="p + '-' + item.key + '-error'" class="field-error">
-            Enter a number from 0 to {{ max }}.
-          </p>
-        }
       </div>
     }
     @if (champions(); as members) {

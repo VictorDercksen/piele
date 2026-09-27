@@ -211,7 +211,9 @@ test('removing a member moves them to Withdrawn and reinstating brings them back
   await expect(dialog).toContainText('open duties are voided');
   await expect(dialog).not.toContainText('will be deleted');
   await dialog.getByRole('button', { name: 'Remove' }).click();
-  await expect(dialog.getByRole('alert')).toContainText('Give a reason');
+  await expect(page.getByRole('status').filter({ hasText: 'Give a reason' })).toBeVisible();
+  await expect(dialog.getByLabel('Reason')).toHaveAttribute('aria-invalid', 'true');
+  await expect(dialog.getByLabel('Reason')).toBeFocused();
   await dialog.getByLabel('Reason').fill('Moved to Perth');
   await dialog.getByRole('button', { name: 'Remove' }).click();
   await expect(dialog).toBeHidden();

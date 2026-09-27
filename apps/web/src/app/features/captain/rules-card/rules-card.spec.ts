@@ -1,5 +1,6 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { AlertService } from '../../../core/feedback/alert.service';
 import { ApiError } from '../../../core/league/http-league-data';
 import { LeagueMember, LeagueRules } from '../../../core/league/league.models';
 import { RoundViewService } from '../../../core/league/round-view.service';
@@ -33,6 +34,8 @@ const MEMBERS: LeagueMember[] = [
 ];
 
 describe('RulesCard', () => {
+  afterEach(() => TestBed.inject(AlertService).clear());
+
   function setup(refusal: ApiError | null = null) {
     const rules = signal<LeagueRules>({ ...DEFAULT_RULES, previousChampionMemberId: 'm-annas' });
     const saved: Partial<LeagueRules>[] = [];
@@ -49,6 +52,9 @@ describe('RulesCard', () => {
     };
     TestBed.configureTestingModule({ providers: [{ provide: RoundViewService, useValue: view }] });
     const fixture = TestBed.createComponent(RulesCard);
+    const alerts = TestBed.inject(AlertService);
+    const warn = vi.spyOn(alerts, 'warn');
+    const error = vi.spyOn(alerts, 'error');
     const root = fixture.nativeElement as HTMLElement;
     const field = <T extends HTMLElement>(id: string) => root.querySelector<T>(`#rules-${id}`)!;
     const type = (id: string, value: string) => {
@@ -60,7 +66,7 @@ describe('RulesCard', () => {
       root.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }));
       await settle();
     };
-    return { fixture, root, field, type, submit, saved, rules };
+    return { fixture, root, field, type, submit, saved, rules, alerts, warn, error };
   }
 
   it('shows the saved rules, with the champion among the members', async () => {
@@ -139,7 +145,7 @@ describe('RulesCard', () => {
   });
 
   it('refuses a negative number or a starting round outside the competition', async () => {
-    const { field, type, submit, saved, root } = setup();
+    const { field, type, submit, saved, root, warn } = setup();
     await settle();
     type('bonusRange', '-1');
     type('startingRound', '40');
@@ -147,19 +153,45 @@ describe('RulesCard', () => {
     expect(saved).toEqual([]);
     expect(field('bonusRange').getAttribute('aria-invalid')).toBe('true');
     expect(field('startingRound').getAttribute('aria-invalid')).toBe('true');
-    expect(root.querySelector('#rules-startingRound-error')?.textContent).toContain(
-      'Choose a round from 1 to 18.',
-    );
+    expect(field('startingRound').hasAttribute('aria-describedby')).toBe(false);
+    // One warning for the attempt, the first problem as its message, the rest as details.
+    expect(warn).toHaveBeenCalledOnce();
+    expect(warn).toHaveBeenCalledWith('Starting round: choose a round from 1 to 18.', {
+      key: 'captain-rules',
+      details: ['Bonus range: enter a number from 0 to 1000.'],
+    });
+    expect(root.querySelector('.field-error, [role="alert"]')).toBeNull();
     expect(document.activeElement).toBe(field('startingRound'));
   });
 
-  it('shows a refusal by its code', async () => {
-    const { type, submit, root } = setup(new ApiError(404, 'unknown_member', 'Unknown member.'));
+  it('replaces the warning on a resubmit and drops it once the rules are valid', async () => {
+    const { type, submit, saved, alerts, warn } = setup();
+    await settle();
+    type('bonusRange', '-1');
+    await submit();
+    await submit();
+    expect(warn).toHaveBeenCalledTimes(2);
+    expect(alerts.alerts().filter((a) => a.key === 'captain-rules')).toHaveLength(1);
+    type('bonusRange', '4');
+    await submit();
+    expect(saved).toEqual([{ bonusRange: 4 }]);
+    expect(alerts.alerts().map((a) => [a.severity, a.message])).toEqual([
+      ['success', 'Superbru rules saved.'],
+    ]);
+  });
+
+  it('shows a refusal by its code as an error card', async () => {
+    const { type, submit, root, error } = setup(
+      new ApiError(404, 'unknown_member', 'Unknown member.'),
+    );
     await settle();
     type('grandSlamPoints', '3');
     await submit();
-    expect(root.querySelector('[role="alert"]')?.textContent).toContain(
+    expect(error).toHaveBeenCalledOnce();
+    expect(error).toHaveBeenCalledWith(
       "The previous season's champion must be a member of this league.",
+      { key: 'captain-rules' },
     );
+    expect(root.querySelector('[role="alert"]')).toBeNull();
   });
 });
