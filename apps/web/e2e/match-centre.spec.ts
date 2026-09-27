@@ -1,5 +1,5 @@
 import { expect, test, Page, Route } from '@playwright/test';
-import { seedProfile } from './support';
+import { expectPinnedHeading, openSection, seedProfile } from './support';
 
 // Round 1: Connacht v Stormers (292585) and Benetton v Dragons (292584).
 const STORMERS = '292585';
@@ -90,7 +90,11 @@ test('hero opens the featured fixture with teamsheets and forecast', async ({ pa
   await expect(header.getByRole('img', { name: 'Ireland' })).toBeVisible();
   await expect(header.getByRole('button', { name: 'Enter the match centre' })).toHaveCount(0);
 
-  const sheets = page.locator('.panel.teamsheets');
+  // The teamsheets wait behind their chevron, closed by default.
+  const sheets = page.locator('app-dropdown.teamsheets');
+  await expect(sheets.locator('.tag')).toBeVisible();
+  await expect(sheets.getByRole('list').first()).toBeHidden();
+  await openSection(page, 'Teamsheets.');
   await expect(sheets.locator('.players li')).toHaveCount(46);
   await expect(sheets.locator('.players .name i')).toHaveCount(2);
   await expect(sheets).toContainText('Stormers Player 8');
@@ -123,6 +127,8 @@ test('hero opens the featured fixture with teamsheets and forecast', async ({ pa
   }
   await page.setViewportSize({ width: 390, height: 950 });
   await page.screenshot({ path: testInfo.outputPath('match-centre-mobile.png'), fullPage: true });
+  // The open teamsheets keep their heading pinned under the round header on a phone.
+  await expectPinnedHeading(page, 'Teamsheets.');
 
   const breadcrumb = page.getByRole('navigation', { name: 'Breadcrumb' });
   await breadcrumb.getByRole('link', { name: 'HOME' }).click();
@@ -169,8 +175,8 @@ test('sections explain missing data and the page survives an API outage', async 
     });
   });
   await page.goto(`/piele/match/${STORMERS}?round=1`);
-  await expect(page.locator('.panel.teamsheets')).toContainText('usually published about 48 hours');
-  await expect(page.locator('.panel.teamsheets .tag')).toHaveText('not published');
+  await expect(page.locator('app-dropdown.teamsheets')).toContainText('usually published about 48 hours');
+  await expect(page.locator('app-dropdown.teamsheets .tag')).toHaveText('not published');
   await expect(page.locator('.panel.weather')).toContainText('forecast could not be loaded');
 
   await page.unroute('**/v1/competitions/*/matches/*');

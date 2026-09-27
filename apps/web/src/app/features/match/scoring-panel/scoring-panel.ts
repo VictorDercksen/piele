@@ -1,50 +1,29 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  ElementRef,
-  computed,
-  input,
-  signal,
-  viewChild,
-} from '@angular/core';
-import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideChevronDown } from '@ng-icons/lucide';
+import { ChangeDetectionStrategy, Component, computed, input, viewChild } from '@angular/core';
+import { Dropdown } from '../../../shared/dropdown/dropdown';
 import { ScoringView } from '../scoring';
-
-/** Height of the pitch left showing while the panel is closed. */
-const PEEK_PX = 30;
-const OPEN_MS = 520;
-const CLOSE_MS = 420;
-const EASING = 'cubic-bezier(0.22, 1, 0.36, 1)';
 
 /**
  * The scoring panel: a summary row with the score and a timeline of the match, over a
- * to-scale pitch that opens from it. Closed by default; the chevron in the heading opens and
- * closes it, a tap anywhere on the closed panel opens it, and the heading or summary closes it
- * again.
+ * to-scale pitch that opens from it. A panel dropdown, closed by default with the top of the
+ * pitch peeking out: the chevron in the heading opens and closes it, a tap anywhere on the
+ * closed panel opens it, and the heading or summary (also by keyboard) closes it again.
  */
 @Component({
   selector: 'app-scoring-panel',
   templateUrl: './scoring-panel.html',
   styleUrl: './scoring-panel.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [NgIcon],
-  viewProviders: [provideIcons({ lucideChevronDown })],
+  imports: [Dropdown],
   host: {
     '[class.open]': 'open()',
-    '(click)': 'onClick($event)',
+    '[class.live]': 'view().live',
   },
 })
 export class ScoringPanel {
   readonly view = input.required<ScoringView>();
-  readonly open = signal(false);
-
-  private readonly body = viewChild.required<ElementRef<HTMLElement>>('body');
-  private animation: Animation | null = null;
-
-  protected readonly chevronLabel = computed(
-    () => `${this.open() ? 'Hide' : 'Show'} the scoring pitch`,
-  );
+  private readonly dropdown = viewChild(Dropdown);
+  /** The dropdown's state, for the summary and the host's styles. */
+  readonly open = computed(() => this.dropdown()?.open() ?? false);
 
   protected readonly summaryLabel = computed(() => {
     const { home, away, empty } = this.view();
@@ -53,30 +32,7 @@ export class ScoringPanel {
   });
 
   toggle(): void {
-    const element = this.body().nativeElement;
-    const opening = !this.open();
-    const from = element.getBoundingClientRect().height;
-    const to = opening ? element.scrollHeight : PEEK_PX;
-    this.open.set(opening);
-    const reduced = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    if (reduced || typeof element.animate !== 'function') return;
-    // Animate between measured heights; the open class then leaves the height to its content.
-    this.animation?.cancel();
-    this.animation = element.animate([{ height: `${from}px` }, { height: `${to}px` }], {
-      duration: opening ? OPEN_MS : CLOSE_MS,
-      easing: EASING,
-    });
-  }
-
-  /** The chevron toggles on its own; the host's open-on-any-tap must not toggle it back. */
-  protected onChevron(event: Event): void {
-    event.stopPropagation();
-    this.toggle();
-  }
-
-  protected onClick(event: MouseEvent): void {
-    const target = event.target instanceof Element ? event.target : null;
-    if (!this.open() || target?.closest('.head')) this.toggle();
+    this.dropdown()?.toggle();
   }
 
   protected onKey(event: Event): void {

@@ -104,7 +104,7 @@
       }
       @if (previewConfigured) {
         <app-match-preview
-          class="panel preview"
+          class="preview"
           [fixtureId]="fixture.id"
           [home]="fixture.home"
           [away]="fixture.away"
@@ -112,11 +112,14 @@
           [awayClub]="fixture.awayAsset"
         />
       }
-      <section class="panel teamsheets" aria-labelledby="teamsheets-title">
-        <div class="section-title">
-          <h2 id="teamsheets-title">Teamsheets.</h2>
-          <span class="tag">{{ centre.teamsheets.status.replace('_', ' ') }}</span>
-        </div>
+      <app-dropdown
+        class="teamsheets"
+        appearance="panel"
+        heading="Teamsheets."
+        headingId="teamsheets-title"
+        [resetKey]="fixture.id"
+      >
+        <span class="tag" dropdownSide>{{ centre.teamsheets.status.replace('_', ' ') }}</span>
         @if (sheets(); as sheets) {
           <div class="sheets">
             @for (side of sheets; track side.label) {
@@ -224,7 +227,7 @@
             · checked {{ at | leagueTime: 'd MMM HH:mm z' : zone() }}
           }
         </p>
-      </section>
+      </app-dropdown>
     </div>
   }
   <p class="context-note">

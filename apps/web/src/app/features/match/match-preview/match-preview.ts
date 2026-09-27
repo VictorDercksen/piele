@@ -5,12 +5,13 @@ import { MatchCentreService } from '../../../core/api/match-centre.service';
 import { CompetitionService } from '../../../core/competition/competition.service';
 import { LeagueTime } from '../../../core/competition/league-time';
 import { LeagueTimePipe } from '../../../core/competition/league-time.pipe';
+import { Dropdown } from '../../../shared/dropdown/dropdown';
 import { previewView } from './preview-view';
 
 /**
  * The Pavilion preview for one fixture: summary, key factors and mood per side, and the
- * sources they cite, on a floodlit poster washed in both clubs' colours. Agent text is
- * bound as plain text only.
+ * sources they cite, on a floodlit poster washed in both clubs' colours, in a panel dropdown
+ * that is closed by default and for every new fixture. Agent text is bound as plain text only.
  */
 @Component({
   selector: 'app-match-preview',
@@ -18,12 +19,10 @@ import { previewView } from './preview-view';
   styleUrl: './match-preview.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
-    role: 'region',
-    'aria-labelledby': 'preview-title',
     '[style.--home-accent]': 'view()?.sides?.[0]?.accent',
     '[style.--away-accent]': 'view()?.sides?.[1]?.accent',
   },
-  imports: [LeagueTimePipe, NgIcon],
+  imports: [Dropdown, LeagueTimePipe, NgIcon],
   viewProviders: [provideIcons({ lucideChevronDown, lucideExternalLink, lucideRotateCcw })],
 })
 export class MatchPreview {

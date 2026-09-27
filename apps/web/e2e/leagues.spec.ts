@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { openSection, seedProfile } from './support';
+import { expectPinnedHeading, openSection, seedProfile } from './support';
 
 // The sample build's leagues: Piele (the sample member captains it), the Pofadder Bowl
 // (Doempie captains it; the sample member plays) and the Sample Third XV (the sample account
@@ -197,7 +197,7 @@ test('removing a member moves them to Withdrawn and reinstating brings them back
   await seedProfile(page);
   await page.goto('/piele/captain');
   await openSection(page, 'The team sheet.');
-  const sheet = page.locator('.members .body > .member-list');
+  const sheet = page.locator('.members .dropdown-inner > .member-list');
   await expect(sheet.locator('li')).toHaveCount(6);
   // The captain's own row has no Remove button.
   await expect(sheet.locator('li').filter({ hasText: 'You' }).getByRole('button', { name: /Remove/ })).toHaveCount(0);
@@ -257,4 +257,21 @@ test('the admin sees a league it is not in with the admin-view ribbon', async ({
   await page.goto('/sample-third/captain');
   await expect(page).toHaveURL(/\/sample-third\/captain$/);
   await expect(page.locator('.admin-ribbon')).toBeVisible();
+});
+
+test('an open desk section keeps its heading pinned under the round header', async ({ page }) => {
+  await seedProfile(page);
+  for (const [width, height] of [
+    [1280, 800],
+    [390, 700],
+  ]) {
+    await page.setViewportSize({ width, height });
+    await page.goto('/piele/captain');
+    await openSection(page, 'The team sheet.');
+    await expectPinnedHeading(page, 'The team sheet.');
+    // The pinned chevron closes the section again.
+    const chevron = page.getByRole('button', { name: 'The team sheet.', exact: true });
+    await chevron.click();
+    await expect(chevron).toHaveAttribute('aria-expanded', 'false');
+  }
 });

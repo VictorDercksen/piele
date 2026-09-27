@@ -17,73 +17,6 @@
   clip-path: inset(50%);
   white-space: nowrap;
 }
-/* The scoring and teamsheet panels' language: grain surface, chalk top rule. */
-.panel {
-  min-width: 0;
-  padding: 22px 24px;
-  background: var(--surface-grain), var(--surface);
-  border: 1px solid var(--line);
-  border-top: 3px solid #d4d9c4;
-  box-shadow: 0 8px 24px #0003;
-}
-.panel .section-title {
-  align-items: center;
-  margin-bottom: 16px;
-}
-/* The fixture's state tag and the drawer's chevron, top right. */
-.title-side {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-left: auto;
-}
-.title-side .tag {
-  display: inline-block;
-}
-.chevron {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border: 1px solid var(--line);
-  border-radius: 50%;
-  background: #ffffff0a;
-  color: var(--ink);
-  cursor: pointer;
-  transition:
-    transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
-    background 0.2s,
-    border-color 0.2s;
-}
-.chevron ng-icon {
-  font-size: 18px;
-}
-.chevron:hover {
-  background: #ffffff1a;
-  border-color: var(--muted);
-}
-.chevron:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-.open .chevron {
-  transform: rotate(180deg);
-}
-/* The pool table's drawer: closed to nothing, open to its content. */
-.drawer {
-  height: 0;
-  overflow: hidden;
-  visibility: hidden;
-}
-.open .drawer,
-.animating .drawer {
-  visibility: visible;
-}
-.open .drawer {
-  height: auto;
-}
 .tag.provisional {
   background: #5a211a;
   color: var(--live-ink);
@@ -492,15 +425,7 @@ app-member-avatar {
   color: var(--accent);
 }
 
-@container (max-width: 600px) {
-  .panel {
-    padding: 18px 16px;
-  }
-}
 @container (max-width: 480px) {
-  .panel {
-    padding: 18px 14px;
-  }
   .pool {
     font-size: 13px;
   }

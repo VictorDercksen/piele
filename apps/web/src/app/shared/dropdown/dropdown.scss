@@ -1,0 +1,173 @@
+:host {
+  --dropdown-pad-x: 24px;
+  display: block;
+  min-width: 0;
+}
+/* A linked section lands below the sticky top bar and round header. */
+:host([id]) {
+  scroll-margin-top: calc(var(--sticky-offset, 0px) + 12px);
+}
+
+/* Panel: the match centre's grain card with a chalk top rule. */
+.dropdown.panel {
+  padding: 22px var(--dropdown-pad-x);
+  background: var(--surface-grain), var(--surface);
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--dropdown-rule, #d4d9c4);
+  box-shadow: 0 8px 24px #0003;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+.tap-to-open:not(.open) {
+  cursor: pointer;
+}
+.panel.tap-to-open:not(.open):hover {
+  border-top-color: var(--dropdown-rule-hover, var(--accent));
+  box-shadow: 0 10px 28px #0006;
+}
+.tap-to-open.open .dropdown-head,
+.tap-to-open.open .dropdown-lead {
+  cursor: pointer;
+}
+
+/*
+ * The heading row. It carries a little padding of its own (cancelled by a negative margin) so
+ * that, pinned, it reads as a bar; a panel's bar runs to the card's edges.
+ */
+.dropdown-head {
+  position: relative;
+  margin: -10px 0 0;
+  padding: 10px 0 0;
+}
+.panel .dropdown-head {
+  margin-inline: calc(-1 * var(--dropdown-pad-x));
+  padding-inline: var(--dropdown-pad-x);
+}
+.open > .dropdown-head {
+  position: sticky;
+  top: var(--sticky-offset, 0px);
+  z-index: 2;
+}
+.dropdown-head.stuck {
+  background: var(--dropdown-stuck-bg, var(--surface-grain), var(--paper));
+  box-shadow: 0 12px 20px -10px #000a;
+}
+.panel .dropdown-head.stuck {
+  background: var(--dropdown-stuck-bg, var(--surface-grain), var(--surface));
+}
+.dropdown-head .section-title {
+  align-items: center;
+  margin-bottom: 0;
+}
+.section-title h2 {
+  min-width: 0;
+}
+.title-side {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+.chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: #ffffff0a;
+  color: var(--ink);
+  cursor: pointer;
+  transition:
+    transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+    background 0.2s,
+    border-color 0.2s;
+}
+/* The whole heading row opens and closes the dropdown. */
+.chevron::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+.chevron ng-icon {
+  font-size: 18px;
+}
+.dropdown-head:hover .chevron {
+  background: #ffffff1a;
+  border-color: var(--muted);
+}
+.chevron:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.open .chevron {
+  transform: rotate(180deg);
+}
+
+.dropdown-lead:not(:empty) {
+  margin-top: 16px;
+}
+
+/* Closed to nothing (or to the peek), open to its content. */
+.dropdown-body {
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
+}
+.dropdown-inner {
+  padding-top: 16px;
+}
+.open .dropdown-body,
+.animating .dropdown-body {
+  visibility: visible;
+}
+.open .dropdown-body {
+  height: auto;
+}
+/* Settled open, focus rings and wide content are not clipped. */
+.open:not(.animating) .dropdown-body {
+  overflow: visible;
+}
+.peeks .dropdown-body {
+  position: relative;
+  height: var(--peek);
+  margin-top: 14px;
+  visibility: visible;
+}
+.peeks .dropdown-inner {
+  padding-top: 0;
+}
+/* A peeking body fades out at the bottom so there is visibly more below. */
+.peeks .dropdown-body::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0;
+  height: 36px;
+  background: linear-gradient(180deg, #0000, var(--surface));
+  pointer-events: none;
+  transition: opacity 0.35s;
+}
+.peeks.open .dropdown-body::after {
+  opacity: 0;
+}
+.peeks.open .dropdown-body {
+  height: auto;
+}
+
+@container (max-width: 600px) {
+  :host {
+    --dropdown-pad-x: 16px;
+  }
+  .dropdown.panel {
+    padding-block: 18px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chevron {
+    transition: none;
+  }
+}

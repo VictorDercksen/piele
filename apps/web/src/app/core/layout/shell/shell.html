@@ -17,7 +17,7 @@
       (choose)="selectRound($event)"
     />
   </aside>
-  <header class="top-bar">
+  <header class="top-bar" #topBar>
     <app-league-switcher class="club-brand" />
     <nav class="desktop-nav" aria-label="League navigation">
       @for (item of nav; track item.path) {
@@ -67,14 +67,14 @@
       </a>
     </div>
   </header>
-  <main id="main-content" class="main-content">
+  <main id="main-content" class="main-content" #main>
     <app-stadium-backdrop class="page-backdrop" [src]="pageBackground()" />
     @if (adminView()) {
       <p class="admin-ribbon" role="note">
         <app-icon name="shield" />Admin view. You are not a member of this league.
       </p>
     }
-    <div class="round-bar">
+    <div class="round-bar" #roundBar>
       <section class="round-context" aria-label="Selected round" aria-live="polite">
         <div>
           <strong

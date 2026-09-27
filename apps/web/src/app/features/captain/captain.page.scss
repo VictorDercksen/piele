@@ -1,4 +1,4 @@
-app-collapsible-section,
+app-dropdown,
 app-picks-card,
 app-join-link-card,
 app-appearance-card,
@@ -6,20 +6,8 @@ app-rules-card {
   display: block;
 }
 /* The desk's sections, each closed to its heading. */
-:is(
-    app-collapsible-section,
-    app-picks-card,
-    app-join-link-card,
-    app-appearance-card,
-    app-rules-card
-  )
-  + :is(
-    app-collapsible-section,
-    app-picks-card,
-    app-join-link-card,
-    app-appearance-card,
-    app-rules-card
-  ) {
+:is(app-dropdown, app-picks-card, app-join-link-card, app-appearance-card, app-rules-card)
+  + :is(app-dropdown, app-picks-card, app-join-link-card, app-appearance-card, app-rules-card) {
   margin-top: 28px;
 }
 .review-row {
