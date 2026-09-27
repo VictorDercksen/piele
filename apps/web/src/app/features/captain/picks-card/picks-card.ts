@@ -12,8 +12,8 @@ import {
   signal,
   untracked,
 } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormArray, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Subscription } from 'rxjs';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideArrowRight } from '@ng-icons/lucide';
 import { ClubTeam, Fixture } from '../../../core/competition/competition.models';
@@ -67,6 +67,8 @@ export class PicksCard {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly injector = inject(Injector);
   private readonly destroyRef = inject(DestroyRef);
+  /** The current rows' side and missed listeners, dropped whenever the grid is rebuilt. */
+  private rowListeners = new Subscription();
   /** The desk's confirmation dialog. */
   readonly dialog = input.required<ReasonDialog>();
   /** The desk's duty form, for proposing a spoon duty. */
@@ -197,6 +199,7 @@ export class PicksCard {
   );
 
   constructor() {
+    this.destroyRef.onDestroy(() => this.rowListeners.unsubscribe());
     effect(() => {
       const baseline = this.baseline();
       untracked(() => this.build(baseline));
@@ -364,6 +367,8 @@ export class PicksCard {
 
   /** Rebuilds the grid from the saved picks of the chosen fixture. */
   private build(baseline: Baseline): void {
+    this.rowListeners.unsubscribe();
+    this.rowListeners = new Subscription();
     this.form.clear({ emitEvent: false });
     this.invalidRows.set(new Set());
     this.error.set('');
@@ -387,24 +392,28 @@ export class PicksCard {
   /** A draw clears and locks the margin; missed clears the side and margin; a side clears missed. */
   private wire(group: PickRow): void {
     const c = group.controls;
-    c.side.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: (side) => {
-        if (side) c.missed.setValue(false, { emitEvent: false });
-        if (side === 'draw') c.margin.setValue('', { emitEvent: false });
-        if (side === 'draw') c.isDefault.setValue(false, { emitEvent: false });
-        settle(group);
-      },
-    });
-    c.missed.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: (missed) => {
-        if (missed) {
-          c.side.setValue('', { emitEvent: false });
-          c.margin.setValue('', { emitEvent: false });
-          c.isDefault.setValue(false, { emitEvent: false });
-        }
-        settle(group);
-      },
-    });
+    this.rowListeners.add(
+      c.side.valueChanges.subscribe({
+        next: (side) => {
+          if (side) c.missed.setValue(false, { emitEvent: false });
+          if (side === 'draw') c.margin.setValue('', { emitEvent: false });
+          if (side === 'draw') c.isDefault.setValue(false, { emitEvent: false });
+          settle(group);
+        },
+      }),
+    );
+    this.rowListeners.add(
+      c.missed.valueChanges.subscribe({
+        next: (missed) => {
+          if (missed) {
+            c.side.setValue('', { emitEvent: false });
+            c.margin.setValue('', { emitEvent: false });
+            c.isDefault.setValue(false, { emitEvent: false });
+          }
+          settle(group);
+        },
+      }),
+    );
   }
 
   private focus(selector: string): void {

@@ -302,6 +302,14 @@ describe('sample league data', () => {
       expect(fixture(data, '292584').picks.find((p) => p.memberId === 'member-as')).toEqual(
         expect.objectContaining({ side: 'away', margin: 4, isDefault: true, dutyId: 'duty-4' }),
       );
+      const link = () => fixture(data, '292584').picks.find((p) => p.memberId === 'member-as')?.dutyId;
+      // Like the API: an omitted dutyId keeps the link, an explicit null clears it.
+      await data.recordPicks('292584', [{ memberId: 'member-as', side: 'away', margin: 6, isDefault: true }]);
+      expect(link()).toBe('duty-4');
+      await data.recordPicks('292584', [
+        { memberId: 'member-as', side: 'away', margin: 6, isDefault: true, dutyId: null },
+      ]);
+      expect(link()).toBeNull();
       await expect(
         data.recordPicks('292584', [
           { memberId: 'member-as', side: 'home', margin: 1 },

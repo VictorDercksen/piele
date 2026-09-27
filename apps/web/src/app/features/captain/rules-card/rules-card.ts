@@ -12,6 +12,7 @@ import {
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { map } from 'rxjs';
+import { LeagueRules } from '../../../core/league/league.models';
 import { CompetitionService } from '../../../core/competition/competition.service';
 import { ToastService } from '../../../core/feedback/toast.service';
 import { ApiError } from '../../../core/league/http-league-data';
@@ -52,10 +53,22 @@ export class RulesCard {
 
   readonly lastRound = computed(() => this.competition.current().regularRounds);
   readonly form = rulesGroup(this.view.rules(), this.lastRound());
-  /** Whether the form differs from the saved rules. */
-  readonly dirty = toSignal(this.form.valueChanges.pipe(map(() => this.form.dirty)), {
+  /** Whether the form differs from the saved rules; also follows `markAsPristine`. */
+  readonly dirty = toSignal(this.form.events.pipe(map(() => this.form.dirty)), {
     initialValue: false,
   });
+  /**
+   * The saved rules and round bound the form starts from, compared by value: the league's
+   * `me` is re-adopted after an appearance or profile save with an equal but new rules object,
+   * which must not wipe the steward's unsaved edits.
+   */
+  private readonly baseline = computed<RulesBaseline>(
+    () => ({ rules: this.view.rules(), lastRound: this.lastRound() }),
+    {
+      equal: (a, b) =>
+        a.lastRound === b.lastRound && !Object.keys(rulesChange(a.rules, b.rules)).length,
+    },
+  );
   /** Active members, and a withdrawn champion by name so the choice still shows. */
   readonly champions = computed<readonly RuleChampion[]>(() => {
     const members = this.view.members().map((m) => ({ id: m.id, name: m.name }));
@@ -74,8 +87,7 @@ export class RulesCard {
   constructor() {
     // Saved or reloaded rules (or another league) replace what the form shows.
     effect(() => {
-      const rules = this.view.rules();
-      const lastRound = this.lastRound();
+      const { rules, lastRound } = this.baseline();
       untracked(() => {
         setLastRound(this.form, lastRound);
         resetRules(this.form, rules);
@@ -137,4 +149,9 @@ export class RulesCard {
       { injector: this.injector },
     );
   }
+}
+
+interface RulesBaseline {
+  readonly rules: LeagueRules;
+  readonly lastRound: number;
 }

@@ -236,6 +236,18 @@ describe('RoundViewService', () => {
     expect(row('member-fb').points).toBe(1);
   });
 
+  it('leaves members outside the season off the override rows', async () => {
+    const { view, data } = await setup(1, 'sample-third');
+    const before = view.derivedVsRecorded().map((d) => d.memberId);
+    expect(before.length).toBeGreaterThan(0);
+    const league = (data as SampleLeagueData)
+      .sampleLeagues()
+      .find((l) => l.seed.summary.slug === 'sample-third')!;
+    expect(league.addAdmin('Admin')).toBe(true);
+    expect(data.members().some((m) => !m.inSeason)).toBe(true);
+    expect(view.derivedVsRecorded().map((d) => d.memberId)).toEqual(before);
+  });
+
   it('shows a round with only recorded totals', async () => {
     const { view } = await setup(2, 'pofadder-bowl');
     expect(view.standings().map((s) => [s.name, s.points])).toEqual([

@@ -64,9 +64,6 @@ const FIELD_ORDER = [
 /** Blank rows the team sheet starts with. */
 const STARTING_ROWS = 3;
 
-/** The starting round's bound until the competition is known (the URC's regular rounds). */
-const FALLBACK_LAST_ROUND = 18;
-
 /**
  * The management centre's new-league form: name and slug (derived from the name until
  * edited), competition, time zone (chosen from the browser's IANA zones) and season name
@@ -118,7 +115,8 @@ export class CreateLeagueForm {
     addMe: new FormControl(false, { nonNullable: true }),
     emblemPreset: new FormControl<string | null>(null),
     accentColour: new FormControl<string | null>(null),
-    rules: rulesGroup(DEFAULT_RULES, FALLBACK_LAST_ROUND),
+    // Bounded by the default starting round until the competition list arrives.
+    rules: rulesGroup(DEFAULT_RULES, DEFAULT_RULES.startingRound),
   });
   readonly controls = this.form.controls;
   /** The form's whole value, as a signal for the template's conditions and previews. */
@@ -153,8 +151,15 @@ export class CreateLeagueForm {
     return isEmblemPreset(preset) ? EMBLEM_LABELS[preset] : null;
   });
 
-  /** The latest starting round the chosen competition allows. */
-  readonly lastRound = signal(FALLBACK_LAST_ROUND);
+  /**
+   * The latest starting round the chosen competition allows, from `AdminService.competitions()`;
+   * the default starting round until the list arrives.
+   */
+  readonly lastRound = computed(
+    () =>
+      this.competitions()?.find((c) => c.id === this.value().competitionId)?.regularRounds ??
+      DEFAULT_RULES.startingRound,
+  );
   /** The collapsed "Superbru rules" group is open. */
   readonly rulesOpen = signal(false);
 
@@ -339,7 +344,6 @@ export class CreateLeagueForm {
   private applyCompetition(id: string): void {
     const option = this.competitions()?.find((c) => c.id === id);
     if (!option) return;
-    this.lastRound.set(option.regularRounds);
     setLastRound(this.controls.rules, option.regularRounds);
     if (!this.zoneEdited) this.controls.timezone.setValue(option.timezone);
     if (!this.seasonEdited) this.controls.seasonName.setValue(defaultSeasonName(option));

@@ -798,6 +798,10 @@ export class SampleLeague {
       )
     )
       return refuse(404, 'unknown_duty', 'That pick confirmation duty is not this member’s.');
+    const records = this.pickRecords();
+    // Like the API: an omitted dutyId keeps the existing link, an explicit null unlinks it.
+    const kept = (memberId: string) =>
+      records.find((r) => r.fixtureId === fixtureId && r.memberId === memberId)?.dutyId ?? null;
     this.upsertPicks(
       fixtureId,
       picks.map((p) => ({
@@ -805,7 +809,7 @@ export class SampleLeague {
         side: p.side,
         margin: p.margin,
         isDefault: p.isDefault ?? false,
-        dutyId: p.dutyId ?? null,
+        dutyId: p.dutyId !== undefined ? p.dutyId : kept(p.memberId),
       })),
     );
     return Promise.resolve();

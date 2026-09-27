@@ -1,5 +1,6 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { Subject } from 'rxjs';
 import { competition } from '../../../core/competition/registry';
 import {
   FixtureResult,
@@ -193,6 +194,25 @@ describe('PicksCard', () => {
     expect(['home', 'draw', 'away'].some((side) => radio('a', side).checked)).toBe(false);
     expect(margin('a').value).toBe('');
     expect(margin('a').disabled).toBe(true);
+  });
+
+  it('drops the old rows’ listeners when the grid is rebuilt', async () => {
+    const { fixture, rows, radio, margin } = setup();
+    await settle();
+    const listened = (control: { valueChanges: unknown }) =>
+      (control.valueChanges as Subject<unknown>).observed;
+    const old = fixture.componentInstance.grid()[0].group.controls;
+    expect(listened(old.side) && listened(old.missed)).toBe(true);
+    rows.update((list) => [{ ...list[0], margin: 9 }, list[1]]);
+    await settle();
+    const now = fixture.componentInstance.grid()[0].group.controls;
+    expect(now).not.toBe(old);
+    expect(listened(old.side) || listened(old.missed)).toBe(false);
+    expect(listened(now.side) && listened(now.missed)).toBe(true);
+    // The new rows still react: a draw clears the margin.
+    radio('a', 'draw').click();
+    await settle();
+    expect(margin('a').value).toBe('');
   });
 
   it('sends only the rows that changed', async () => {

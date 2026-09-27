@@ -7,10 +7,12 @@ import {
   Injector,
   afterNextRender,
   computed,
+  effect,
   inject,
   input,
   output,
   signal,
+  untracked,
   viewChild,
 } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -23,7 +25,6 @@ import {
   lucideCopy,
   lucideCrown,
 } from '@ng-icons/lucide';
-import { COMPETITIONS } from '../../../core/competition/registry';
 import { AdminLeague, CaptainCandidate, LeagueUpdate } from '../../../core/league/admin.models';
 import { AdminService } from '../../../core/league/admin.service';
 import { LeagueCrest } from '../../../shared/league-crest/league-crest';
@@ -40,9 +41,6 @@ import {
 import { ReasonDialog } from '../../duties/reason-dialog/reason-dialog';
 import { notBlank, zoneValidator } from '../manage-validators';
 import { timeZoneGroups } from '../time-zones';
-
-/** The starting round's bound for a competition the web registry does not know. */
-const FALLBACK_LAST_ROUND = 18;
 
 /** The eyebrow of the management centre's confirmation dialogs. */
 const EYEBROW = 'THE PAVILION / MANAGEMENT CENTRE';
@@ -97,10 +95,16 @@ export class LeagueCard {
   });
 
   readonly zoneGroups = computed(() => timeZoneGroups(this.league().timezone));
-  /** The latest round the season may start scoring from: the competition's regular rounds. */
-  readonly lastRound = computed(
-    () => COMPETITIONS.get(this.league().competition.id)?.regularRounds ?? FALLBACK_LAST_ROUND,
-  );
+  /** Regular rounds per competition id, from `AdminService.competitions()` once loaded. */
+  private readonly regularRounds = signal<ReadonlyMap<string, number> | null>(null);
+  /**
+   * The latest round the season may start scoring from: the competition's regular rounds, or
+   * the league's saved starting round until the competition list arrives (never looser).
+   */
+  readonly lastRound = computed(() => {
+    const league = this.league();
+    return this.regularRounds()?.get(league.competition.id) ?? league.rules.startingRound;
+  });
 
   readonly expanded = signal(false);
   readonly busy = signal(false);
@@ -121,7 +125,7 @@ export class LeagueCard {
       nonNullable: true,
       validators: [Validators.required, zoneValidator, Validators.maxLength(64)],
     }),
-    rules: rulesGroup(withDefaultRules(null), FALLBACK_LAST_ROUND),
+    rules: rulesGroup(withDefaultRules(null), withDefaultRules(null).startingRound),
   });
 
   readonly candidates = signal<readonly CaptainCandidate[] | null>(null);
@@ -135,6 +139,11 @@ export class LeagueCard {
 
   constructor() {
     inject(DestroyRef).onDestroy(() => clearTimeout(this.copiedTimer));
+    // The bound follows the competition list when it arrives after the form opened.
+    effect(() => {
+      const lastRound = this.lastRound();
+      untracked(() => setLastRound(this.renameForm.controls.rules, lastRound));
+    });
   }
 
   toggle(): void {
@@ -201,10 +210,21 @@ export class LeagueCard {
     });
   }
 
+  /** The competitions' regular rounds (one request for every card); the fallback stays on failure. */
+  private async loadRegularRounds(): Promise<void> {
+    if (this.regularRounds()) return;
+    try {
+      const list = await this.admin.competitions();
+      this.regularRounds.set(new Map(list.map((c) => [c.id, c.regularRounds])));
+    } catch {
+      // Keep the league's own starting round as the bound; the API validates the rest.
+    }
+  }
+
   startRename(): void {
     const league = this.league();
     this.renameForm.reset({ name: league.name, timezone: league.timezone });
-    setLastRound(this.renameForm.controls.rules, this.lastRound());
+    void this.loadRegularRounds();
     resetRules(this.renameForm.controls.rules, withDefaultRules(league.rules));
     this.rulesOpen.set(false);
     this.renameSubmitted.set(false);

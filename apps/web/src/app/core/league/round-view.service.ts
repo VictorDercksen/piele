@@ -171,8 +171,9 @@ export class RoundViewService {
     })),
   );
   /**
-   * For the captain's desk: each active member's derived total for the selected round beside
-   * the recorded one, and whether they differ (a real override).
+   * For the captain's desk: each active member in the season (the only ones the API records
+   * totals for) with their derived total for the selected round beside the recorded one, and
+   * whether they differ (a real override).
    */
   readonly derivedVsRecorded = computed<readonly DerivedVsRecorded[]>(() => {
     const roundId = this.round().id;
@@ -180,6 +181,7 @@ export class RoundViewService {
     const recorded = this.league.standings().filter((s) => s.roundId === roundId);
     return this.league
       .members()
+      .filter((member) => member.inSeason)
       .map((member) => {
         const row = rows.find((r) => r.memberId === member.id);
         const stored = recorded.find((s) => s.memberId === member.id)?.points ?? null;

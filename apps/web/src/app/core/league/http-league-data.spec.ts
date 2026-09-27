@@ -529,15 +529,19 @@ describe('HttpLeagueData', () => {
     const recording = league.recordPicks('292584', [
       { memberId: 'm-2', side: 'home', margin: 5, isDefault: true, dutyId: 'd-1' },
       { memberId: 'm-3', side: 'missed', margin: null },
+      { memberId: 'm-4', side: 'away', margin: 2, dutyId: null },
     ]);
     const put = http.expectOne(`${API}/matches/292584/picks`);
     expect(put.request.method).toBe('PUT');
+    // An omitted dutyId keeps the existing link; an explicit null unlinks it.
     expect(put.request.body).toEqual({
       picks: [
         { memberId: 'm-2', side: 'home', margin: 5, isDefault: true, dutyId: 'd-1' },
-        { memberId: 'm-3', side: 'missed', margin: null, isDefault: false, dutyId: null },
+        { memberId: 'm-3', side: 'missed', margin: null, isDefault: false },
+        { memberId: 'm-4', side: 'away', margin: 2, isDefault: false, dutyId: null },
       ],
     });
+    expect(put.request.body.picks[1]).not.toHaveProperty('dutyId');
     put.flush(apiFixture('292584'));
     await recording;
     expect(league.picks().length).toBe(1);
@@ -568,6 +572,20 @@ describe('HttpLeagueData', () => {
     await saving;
     expect(league.rules().bonusPoint).toBe(false);
     expect(league.feed()[0].kind).toBe('rules_updated');
+    http.verify();
+  });
+
+  it('reloads the picks when the starting round changes', async () => {
+    const { league, http } = setup();
+    await loadSteward(http, league);
+    const saving = league.saveRules({ startingRound: 1 });
+    http.expectOne(`${API}/rules`).flush({ ...DEFAULT_RULES, startingRound: 1 });
+    await settle();
+    http.expectOne(`${API}/feed?limit=200`).flush([]);
+    http.expectOne(`${API}/picks`).flush([apiFixture('292584'), apiFixture('292590')]);
+    await saving;
+    expect(league.rules().startingRound).toBe(1);
+    expect(league.picks().map((f) => f.fixtureId)).toEqual(['292584', '292590']);
     http.verify();
   });
 

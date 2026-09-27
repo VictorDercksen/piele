@@ -108,6 +108,36 @@ describe('RulesCard', () => {
     expect(saved).toEqual([]);
   });
 
+  it('keeps unsaved edits when the same rules arrive as a new object', async () => {
+    const { field, type, rules } = setup();
+    await settle();
+    type('marginWindow', '7');
+    await settle();
+    rules.set({ ...rules(), winPoints: { ...rules().winPoints } });
+    await settle();
+    expect(field<HTMLInputElement>('marginWindow').value).toBe('7');
+    rules.set({ ...rules(), grandSlamPoints: 4 });
+    await settle();
+    expect(field<HTMLInputElement>('marginWindow').value).toBe('5');
+    expect(field<HTMLInputElement>('grandSlamPoints').value).toBe('4');
+  });
+
+  it('drops Undo changes once an unchanged save finds nothing to send', async () => {
+    const { type, submit, saved, root } = setup();
+    await settle();
+    const undo = () =>
+      Array.from(root.querySelectorAll('button')).some((b) =>
+        b.textContent?.includes('Undo changes'),
+      );
+    type('marginWindow', '7');
+    await settle();
+    expect(undo()).toBe(true);
+    type('marginWindow', String(DEFAULT_RULES.marginWindow));
+    await submit();
+    expect(saved).toEqual([]);
+    expect(undo()).toBe(false);
+  });
+
   it('refuses a negative number or a starting round outside the competition', async () => {
     const { field, type, submit, saved, root } = setup();
     await settle();

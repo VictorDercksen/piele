@@ -23,11 +23,11 @@ describe('CreateLeagueForm', () => {
   let sent: NewLeague[];
   let refusal: ApiError | null;
 
-  function setup() {
+  function setup(competitions: readonly (typeof URC)[] = [URC]) {
     sent = [];
     refusal = null;
     const admin = {
-      competitions: () => Promise.resolve([URC]),
+      competitions: () => Promise.resolve(competitions),
       create: (body: NewLeague) => {
         sent.push(body);
         return refusal ? Promise.reject(refusal) : Promise.resolve({ slug: body.slug });
@@ -227,6 +227,25 @@ describe('CreateLeagueForm', () => {
     expect(root.querySelector<HTMLDetailsElement>('#new-league-rules')!.open).toBe(true);
     expect(field('rules-startingRound').getAttribute('aria-invalid')).toBe('true');
     expect(document.activeElement).toBe(field('rules-startingRound'));
+  });
+
+  it("bounds the starting round by the chosen competition's regular rounds", async () => {
+    const short = { ...URC, id: 'short-cup-2027', name: 'Short Cup 2027', shortName: 'SC', regularRounds: 10 };
+    const { type, choose, member, submit, field, fixture } = setup([short, URC]);
+    await settle();
+    expect(fixture.componentInstance.lastRound()).toBe(10);
+    type('name', 'Die Ou Manne');
+    await member(0, 'Doempie', 'Steyn', 'Doempie');
+    choose('captain', 'Doempie');
+    type('rules-startingRound', '11');
+    await submit();
+    expect(sent).toEqual([]);
+    expect(field('rules-startingRound').getAttribute('aria-invalid')).toBe('true');
+    choose('competitionId', URC.id);
+    await settle();
+    expect(fixture.componentInstance.lastRound()).toBe(18);
+    await submit();
+    expect(sent[0].rules).toEqual({ startingRound: 11 });
   });
 
   it('names the default season from the registry or the competition name', () => {

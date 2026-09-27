@@ -400,7 +400,8 @@ export class HttpLeagueData extends LeagueData {
           side: p.side,
           margin: p.margin,
           isDefault: p.isDefault ?? false,
-          dutyId: p.dutyId ?? null,
+          // Omitted keeps the existing duty link; an explicit null unlinks it.
+          ...(p.dutyId !== undefined ? { dutyId: p.dutyId } : {}),
         })),
       },
     );
@@ -416,11 +417,17 @@ export class HttpLeagueData extends LeagueData {
     await this.loadPicks();
   }
 
-  /** Steward: `PUT /rules` with the changed keys; the feed gains `rules_updated`. */
+  /**
+   * Steward: `PUT /rules` with the changed keys; the feed gains `rules_updated`. `GET /picks`
+   * starts at the rules' starting round, so a new one reloads the picks.
+   */
   async saveRules(change: Partial<LeagueRules>): Promise<void> {
     const rules = await this.request<Partial<LeagueRules>>('PUT', '/rules', change);
     this.rulesState.set(withDefaultRules(rules));
-    await this.refreshFeed();
+    await Promise.all([
+      this.refreshFeed(),
+      ...(change.startingRound !== undefined ? [this.loadPicks()] : []),
+    ]);
   }
 
   /** Steward: replaces a round's recorded totals (`PUT /rounds/{n}/standings`). */
