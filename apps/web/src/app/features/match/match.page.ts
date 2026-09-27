@@ -194,6 +194,9 @@ export class MatchPage {
       return;
     }
     const roundChanged = this.lastFixtureId === id;
+    // Another fixture from the ribbon starts at the top: its panels close again (their dropdowns
+    // reset per fixture), so the old scroll position would land somewhere in the page's end.
+    if (this.lastFixtureId !== null && this.lastFixtureId !== id && scrollY > 0) scrollTo(0, 0);
     this.lastFixtureId = id;
     if (located.round.id === this.selected.id()) {
       this.view.feature(id);

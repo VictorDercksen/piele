@@ -97,7 +97,10 @@ export class Dropdown {
     if (!this.collapsible()) return;
     const element = this.body().nativeElement;
     const opening = !this.open();
-    if (!opening) this.returnToHeading();
+    // Closing from inside a long body scrolls the page back first; the body then goes at once.
+    // Animating the layout straight after a programmatic scroll leaves iOS Safari drawing the
+    // shell's sticky bars out of place (the page shows through them) until the animation ends.
+    const scrolledBack = !opening && this.returnToHeading();
     let from = element.getBoundingClientRect().height;
     // Closing, only the part of the body on screen needs to fold away; below the fold it can go
     // at once.
@@ -109,7 +112,10 @@ export class Dropdown {
     this.open.set(opening);
     if (!opening) this.stuck.set(false);
     const reduced = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    if (reduced || typeof element.animate !== 'function') return;
+    if (reduced || scrolledBack || typeof element.animate !== 'function') {
+      this.animation?.cancel();
+      return;
+    }
     // The open class leaves the height to the content once the animation ends.
     this.animation?.cancel();
     const animation = element.animate([{ height: `${from}px` }, { height: `${to}px` }], {
@@ -119,7 +125,10 @@ export class Dropdown {
     this.animation = animation;
     this.animating.set(true);
     const settle = () => {
-      if (this.animation === animation) this.animating.set(false);
+      if (this.animation !== animation) return;
+      this.animating.set(false);
+      // The page changed height without a scroll; the heading may have become (un)pinned.
+      this.measureStuck();
     };
     animation.addEventListener('finish', settle);
     animation.addEventListener('cancel', settle);
@@ -128,18 +137,20 @@ export class Dropdown {
   /**
    * Closing from inside a long body would leave the reader wherever the page shrinks to, with the
    * heading gone far above. Instead the page scrolls back to where the heading pins, so the
-   * heading stays where it is on screen and the body folds up under it.
+   * heading stays where it is on screen and the body goes from under it. True when it scrolled.
    */
-  private returnToHeading(): void {
+  private returnToHeading(): boolean {
     const head = this.head().nativeElement;
-    if (typeof scrollBy !== 'function') return;
+    if (typeof scrollBy !== 'function') return false;
     const pin = parseFloat(getComputedStyle(head).top) || 0;
     // Where the heading sits in the page's flow, not where it is pinned.
     const sticky = head.style.position;
     head.style.position = 'static';
     const home = head.getBoundingClientRect().top;
     head.style.position = sticky;
-    if (home < pin - 1) scrollBy({ top: home - pin, behavior: 'instant' });
+    if (home >= pin - 1) return false;
+    scrollBy(0, home - pin);
+    return true;
   }
 
   /** With `tapToOpen`, a tap on the closed dropdown opens it and the open heading or lead close it. */

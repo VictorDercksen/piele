@@ -18,11 +18,21 @@ export function seedProfile(
   );
 }
 
-/** Opens a dropdown (`shared/dropdown`), closed by default, from the chevron named by its heading. */
+/** A dropdown (`shared/dropdown`) found by its heading, with its heading row and chevron. */
+export function dropdown(page: Page, heading: string) {
+  const section = page
+    .locator('section.dropdown')
+    .filter({ has: page.getByRole('heading', { name: heading, exact: true }) });
+  const head = section.locator('.dropdown-head').first();
+  return { section, head, chevron: head.locator('.chevron') };
+}
+
+/** Opens a dropdown, closed by default, from its chevron. */
 export async function openSection(page: Page, heading: string): Promise<void> {
-  const chevron = page.getByRole('button', { name: heading, exact: true });
+  const { section, chevron } = dropdown(page, heading);
   await chevron.click();
   await expect(chevron).toHaveAttribute('aria-expanded', 'true');
+  await expect(section).not.toHaveClass(/animating/);
 }
 
 /**
@@ -30,8 +40,7 @@ export async function openSection(page: Page, heading: string): Promise<void> {
  * pinned just below the round header, drawn as a bar.
  */
 export async function expectPinnedHeading(page: Page, heading: string): Promise<void> {
-  const chevron = page.getByRole('button', { name: heading, exact: true });
-  const head = page.locator('.dropdown-head', { has: chevron });
+  const { head, chevron } = dropdown(page, heading);
   await head.evaluate((element) => {
     const top = element.getBoundingClientRect().top + scrollY;
     scrollTo(0, top + 400);
@@ -46,23 +55,44 @@ export async function expectPinnedHeading(page: Page, heading: string): Promise<
 }
 
 /**
- * Closes a pinned dropdown from the middle of its body: once the body has folded away the heading
- * is where it was on screen, under the round header, unless the page has run out below it (the
- * last dropdown on a page), when the page rests at its end with the heading still in view.
+ * Closes a pinned dropdown from the middle of its body and watches every frame until it settles:
+ * the top bar and round header never move, and the heading stays where it was on screen, under
+ * the round header, unless the page has run out below it (the last dropdown on a page), when the
+ * page rests at its end with the heading still in view.
  */
 export async function expectClosesInPlace(page: Page, heading: string): Promise<void> {
-  const chevron = page.getByRole('button', { name: heading, exact: true });
-  const head = page.locator('.dropdown-head', { has: chevron });
-  const section = page.locator('section.dropdown', { has: head });
-  const before = await head.evaluate((element) => element.getBoundingClientRect().top);
+  const { section, head, chevron } = dropdown(page, heading);
+  await head.evaluate((element) => {
+    const bars = [document.querySelector('.top-bar')!, document.querySelector('.round-bar')!];
+    const frames: { bars: number[]; head: number }[] = [];
+    const sample = () =>
+      frames.push({
+        bars: bars.map((bar) => bar.getBoundingClientRect().top),
+        head: element.getBoundingClientRect().top,
+      });
+    sample();
+    const started = performance.now();
+    const tick = () => {
+      sample();
+      if (performance.now() - started < 800) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+    (window as unknown as { dropdownFrames: typeof frames }).dropdownFrames = frames;
+  });
   await chevron.click();
   await expect(chevron).toHaveAttribute('aria-expanded', 'false');
   await expect(section).not.toHaveClass(/animating/);
   await expect(head).not.toHaveClass(/stuck/);
-  const { after, atEnd } = await head.evaluate((element) => ({
-    after: element.getBoundingClientRect().top,
+  await page.waitForTimeout(850);
+  const { frames, atEnd } = await page.evaluate(() => ({
+    frames: (window as unknown as { dropdownFrames: { bars: number[]; head: number }[] })
+      .dropdownFrames,
     atEnd: scrollY + innerHeight >= document.documentElement.scrollHeight - 1,
   }));
-  if (!atEnd) expect(Math.abs(after - before)).toBeLessThan(2);
+  const [first] = frames;
+  for (const frame of frames) {
+    frame.bars.forEach((top, index) => expect(Math.abs(top - first.bars[index])).toBeLessThan(1));
+    if (!atEnd) expect(Math.abs(frame.head - first.head)).toBeLessThan(2);
+  }
   await expect(chevron).toBeInViewport();
 }

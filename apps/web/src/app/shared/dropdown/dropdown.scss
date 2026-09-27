@@ -48,6 +48,8 @@
   position: sticky;
   top: var(--sticky-offset, 0px);
   z-index: 2;
+  /* Its own layer, so iOS Safari keeps it pinned while the page scrolls or reflows under it. */
+  transform: translateZ(0);
 }
 .dropdown-head.stuck {
   background: var(--dropdown-stuck-bg, var(--surface-grain), var(--paper));

@@ -1,5 +1,11 @@
 import { expect, test, Page, Route } from '@playwright/test';
-import { expectClosesInPlace, expectPinnedHeading, openSection, seedProfile } from './support';
+import {
+  dropdown,
+  expectClosesInPlace,
+  expectPinnedHeading,
+  openSection,
+  seedProfile,
+} from './support';
 
 // Round 1: Connacht v Stormers (292585) and Benetton v Dragons (292584).
 const STORMERS = '292585';
@@ -73,6 +79,53 @@ async function mockApi(page: Page, handler?: (id: string, route: Route) => Promi
 test.beforeEach(async ({ page }) => {
   await seedProfile(page);
 });
+
+/** A finished match with a scoring timeline, so the scoring panel shows. */
+function fullTime() {
+  const event = (
+    id: number,
+    minute: number,
+    side: string,
+    kind: string,
+    points: number,
+    score: number[],
+  ) => ({
+    id,
+    minute,
+    time: String(minute),
+    period: minute > 40 ? 'second half' : 'first half',
+    side,
+    kind,
+    points,
+    player: `Player ${id}`,
+    score,
+  });
+  return {
+    status: 'ok',
+    source: 'URC match centre',
+    fetchedAt: '2026-09-25T20:40:00Z',
+    state: 'full_time',
+    period: 'post match',
+    minute: null,
+    clockRunning: false,
+    home: { score: 15, halfTime: 3 },
+    away: { score: 29, halfTime: 12 },
+    events: [
+      event(1, 8, 'away', 'penalty_goal', 3, [0, 3]),
+      event(2, 19, 'home', 'penalty_goal', 3, [3, 3]),
+      event(3, 27, 'away', 'try', 5, [3, 8]),
+      event(4, 37, 'away', 'try', 5, [3, 13]),
+      event(5, 48, 'home', 'try', 5, [8, 13]),
+      event(6, 49, 'home', 'conversion', 2, [10, 13]),
+      event(7, 58, 'away', 'try', 5, [10, 18]),
+      event(8, 59, 'away', 'conversion', 2, [10, 20]),
+      event(9, 66, 'away', 'penalty_goal', 3, [10, 23]),
+      event(10, 72, 'home', 'try', 5, [15, 23]),
+      event(11, 78, 'away', 'try', 5, [15, 28]),
+      event(12, 80, 'away', 'conversion', 2, [15, 30]),
+    ],
+  };
+}
 
 test('hero opens the featured fixture with teamsheets and forecast', async ({ page }, testInfo) => {
   await mockApi(page);
@@ -176,7 +229,9 @@ test('sections explain missing data and the page survives an API outage', async 
     });
   });
   await page.goto(`/piele/match/${STORMERS}?round=1`);
-  await expect(page.locator('app-dropdown.teamsheets')).toContainText('usually published about 48 hours');
+  await expect(page.locator('app-dropdown.teamsheets')).toContainText(
+    'usually published about 48 hours',
+  );
   await expect(page.locator('app-dropdown.teamsheets .tag')).toHaveText('not published');
   await expect(page.locator('.panel.weather')).toContainText('forecast could not be loaded');
 
@@ -231,4 +286,25 @@ test('breadcrumbs lead back to the page that was opened before', async ({ page }
   await expect(breadcrumb).toHaveCount(0);
   await page.goto('/piele/constitution?round=1');
   await expect(crumbs).toHaveText(['MORE']);
+});
+
+test('every match centre dropdown closes in place under steady bars on a phone', async ({
+  page,
+}) => {
+  await mockApi(page, (id, route) => route.fulfill({ json: centre(id, { score: fullTime() }) }));
+  await page.setViewportSize({ width: 390, height: 700 });
+  await page.goto(`/piele/match/${STORMERS}?round=1`);
+  for (const heading of ['Scoring.', 'Pool picks.', 'Teamsheets.']) {
+    await openSection(page, heading);
+    await expectPinnedHeading(page, heading);
+    await expectClosesInPlace(page, heading);
+  }
+
+  // Another fixture from the ribbon opens at its top, its panels closed again.
+  await openSection(page, 'Teamsheets.');
+  await expectPinnedHeading(page, 'Teamsheets.');
+  await page.locator('.fixture-ribbon button', { hasText: 'Benetton' }).click();
+  await expect(page).toHaveURL(/\/piele\/match\/292584/);
+  await expect.poll(() => page.evaluate(() => scrollY)).toBe(0);
+  await expect(dropdown(page, 'Teamsheets.').chevron).toHaveAttribute('aria-expanded', 'false');
 });
