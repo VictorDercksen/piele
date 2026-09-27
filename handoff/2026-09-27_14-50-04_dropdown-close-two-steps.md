@@ -44,9 +44,12 @@ be. Check the parent components and anything else that could cause it.
 
 - `npm test -- --watch=false`: 43 files, 286 tests passed.
 - `npm run build`: passed, no warnings.
-- Playwright (Chromium): `match-centre.spec.ts` 5 passed, `leagues.spec.ts` 13 passed. The full
-  suite and a WPE WebKit run of the new code were still running when this was written; see the
-  follow-up note below.
+- Playwright (Chromium): the full suite, 53 passed.
+- WPE WebKit (Linux, iPhone 13 emulation, a throwaway spec outside the repo): the old build does
+  not show the iOS glitch there, so it cannot prove the fix; on the new code both Scoring and
+  Teamsheets close in two steps (the page scrolls back through the body, then the body folds)
+  with the bars intact throughout. The Scoring run overran the spec's 90 s timeout on its last
+  screenshot (the pitch's SVG filters render slowly in WPE), not a functional failure.
 
 ## Open
 
