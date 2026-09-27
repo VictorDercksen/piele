@@ -1,4 +1,11 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ViewContainerRef,
+  afterNextRender,
+  inject,
+  viewChild,
+} from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import {
   NavigationCancel,
@@ -31,7 +38,8 @@ import { filter, map, take } from 'rxjs';
         </div>
       </div>
     }
-    <router-outlet />`,
+    <router-outlet />
+    <ng-container #alertSnack />`,
   styleUrl: './app.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [RouterOutlet],
@@ -58,4 +66,16 @@ export class App {
     ),
     { initialValue: true },
   );
+
+  private readonly alertSnack = viewChild.required('alertSnack', { read: ViewContainerRef });
+
+  constructor() {
+    // The alert cards (`app-alert-snack`) load after the first render, outside the initial
+    // bundle. Alerts raised before then wait in AlertService and show once it is in.
+    afterNextRender(() => {
+      void import('./core/feedback/alert-snack/alert-snack').then(({ AlertSnack }) =>
+        this.alertSnack().createComponent(AlertSnack),
+      );
+    });
+  }
 }

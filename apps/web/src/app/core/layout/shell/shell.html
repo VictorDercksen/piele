@@ -145,20 +145,6 @@
         }}</span>
       }
     </div>
-    @if (view.error(); as message) {
-      <div class="toast error" role="alert">
-        <app-icon name="close" />{{ message
-        }}<button type="button" (click)="view.reload()">Retry</button>
-      </div>
-    }
-    @if (toast.message(); as message) {
-      <div class="toast" role="status">
-        <app-icon name="check" />{{ message
-        }}<button type="button" aria-label="Dismiss message" (click)="toast.clear()">
-          <app-icon name="close" />
-        </button>
-      </div>
-    }
     @if (pageLoading()) {
       <div class="page-loading"><app-ball-loader [size]="64" label="Loading page" /></div>
     }

@@ -12,7 +12,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { LeagueTime } from '../../core/competition/league-time';
-import { ToastService } from '../../core/feedback/toast.service';
+import { AlertService } from '../../core/feedback/alert.service';
 import { LeagueData } from '../../core/league/league-data';
 import { LeagueMember } from '../../core/league/league.models';
 import { ReviewView, RoundViewService } from '../../core/league/round-view.service';
@@ -57,7 +57,7 @@ import { RulesCard } from './rules-card/rules-card';
 export class CaptainPage {
   private readonly league = inject(LeagueData);
   private readonly time = inject(LeagueTime);
-  private readonly toast = inject(ToastService);
+  private readonly alerts = inject(AlertService);
   readonly view = inject(RoundViewService);
   private readonly injector = inject(Injector);
   readonly reasonDialog = viewChild.required(ReasonDialog);
@@ -103,7 +103,7 @@ export class CaptainPage {
   }
 
   dutyCreated(duty: { title: string; memberName: string; deadlineAt: string | null }): void {
-    this.toast.show(
+    this.alerts.success(
       `${duty.title} created for ${duty.memberName}. Due ${this.time.format(duty.deadlineAt)}.`,
     );
   }
@@ -133,7 +133,7 @@ export class CaptainPage {
       spoon: duty.spoon,
       action: (reason) => this.league.decideEvidence(evidence.id, decision, reason),
       done: () =>
-        this.toast.show(
+        this.alerts.success(
           decision === 'accepted'
             ? `${duty.title} completed for ${duty.memberName}.`
             : `Evidence for ${duty.title} rejected.`,
@@ -170,7 +170,7 @@ export class CaptainPage {
     try {
       await this.league.updateMember(member.id, this.emailControl.value.trim() || null);
       this.editing.set(null);
-      this.toast.show(
+      this.alerts.success(
         this.emailControl.value.trim()
           ? `${member.name} is reserved for ${this.emailControl.value.trim()}.`
           : `${member.name} is open for any member to claim.`,
@@ -191,7 +191,7 @@ export class CaptainPage {
       submitLabel: 'Release name',
       required: false,
       action: () => this.league.releaseMember(member.id),
-      done: () => this.toast.show(`${member.name} can be claimed again.`),
+      done: () => this.alerts.success(`${member.name} can be claimed again.`),
     });
   }
 
@@ -219,7 +219,7 @@ export class CaptainPage {
         }
       },
       done: () => {
-        this.toast.show(
+        this.alerts.success(
           deleted
             ? `${member.name} was deleted.`
             : `${member.name} was removed from the team sheet.`,
@@ -242,7 +242,7 @@ export class CaptainPage {
     this.withdrawError.set('');
     try {
       await this.league.reinstateMember(member.id);
-      this.toast.show(`${member.name} is back on the team sheet.`);
+      this.alerts.success(`${member.name} is back on the team sheet.`);
     } catch (error) {
       this.withdrawError.set(
         error instanceof Error ? error.message : `${member.name} could not be reinstated.`,
@@ -272,7 +272,7 @@ export class CaptainPage {
         email: email.trim() || null,
       });
       this.newMember.reset();
-      this.toast.show(`${name.trim()} added to the league.`);
+      this.alerts.success(`${name.trim()} added to the league.`);
     } catch (error) {
       this.memberError.set(
         error instanceof Error ? error.message : 'The member could not be added.',

@@ -3,7 +3,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { map } from 'rxjs';
 import { LeagueTime } from '../../core/competition/league-time';
-import { ToastService } from '../../core/feedback/toast.service';
+import { AlertService } from '../../core/feedback/alert.service';
 import { RoundDutyView, RoundViewService } from '../../core/league/round-view.service';
 import { Icon } from '../../shared/icon/icon';
 import { CreateDutyDialog } from './create-duty-dialog/create-duty-dialog';
@@ -20,7 +20,7 @@ import { ReasonDialog } from './reason-dialog/reason-dialog';
   imports: [RouterLink, Icon, DutyCard, EvidenceDialog, CreateDutyDialog, ReasonDialog],
 })
 export class DutiesPage {
-  private readonly toast = inject(ToastService);
+  private readonly alerts = inject(AlertService);
   private readonly time = inject(LeagueTime);
   readonly view = inject(RoundViewService);
   readonly evidence = viewChild.required(EvidenceDialog);
@@ -43,7 +43,7 @@ export class DutiesPage {
       submitLabel: 'Void duty',
       required: true,
       action: (reason) => this.view.voidDuty(duty.id, reason),
-      done: () => this.toast.show(`${duty.title} voided.`),
+      done: () => this.alerts.success(`${duty.title} voided.`),
     });
   }
 
@@ -55,12 +55,12 @@ export class DutiesPage {
       required: true,
       spoon: duty.spoon,
       action: (reason) => this.view.resetClock(duty.id, reason),
-      done: () => this.toast.show(`${duty.title} clock reset for ${duty.memberName}.`),
+      done: () => this.alerts.success(`${duty.title} clock reset for ${duty.memberName}.`),
     });
   }
 
   created(duty: { title: string; memberName: string; deadlineAt: string | null }): void {
-    this.toast.show(
+    this.alerts.success(
       `${duty.title} created for ${duty.memberName}. Due ${this.time.format(duty.deadlineAt)}.`,
     );
   }

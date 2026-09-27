@@ -10,7 +10,7 @@ import {
 } from '@angular/core';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideCopy, lucideRefreshCw } from '@ng-icons/lucide';
-import { ToastService } from '../../../core/feedback/toast.service';
+import { AlertService } from '../../../core/feedback/alert.service';
 import { LeagueContext } from '../../../core/league/league-context';
 import { LeagueData } from '../../../core/league/league-data';
 import { Dropdown } from '../../../shared/dropdown/dropdown';
@@ -32,7 +32,7 @@ import { ReasonDialog } from '../../duties/reason-dialog/reason-dialog';
 })
 export class JoinLinkCard {
   private readonly league = inject(LeagueData);
-  private readonly toast = inject(ToastService);
+  private readonly alerts = inject(AlertService);
   private readonly origin = inject(DOCUMENT).location.origin;
   readonly leagueName = inject(LeagueContext).name;
   /** The captain's desk's confirmation dialog. */
@@ -84,7 +84,7 @@ export class JoinLinkCard {
         this.copied.set(false);
         await this.league.rotateJoinCode();
       },
-      done: () => this.toast.show('A new join link is ready. The old one no longer works.'),
+      done: () => this.alerts.success('A new join link is ready. The old one no longer works.'),
     });
   }
 
@@ -99,7 +99,7 @@ export class JoinLinkCard {
         this.copied.set(false);
         await this.league.closeJoinCode();
       },
-      done: () => this.toast.show('Joining is closed.'),
+      done: () => this.alerts.success('Joining is closed.'),
     });
   }
 
@@ -109,7 +109,7 @@ export class JoinLinkCard {
     this.error.set('');
     try {
       await this.league.rotateJoinCode();
-      this.toast.show('Joining is open with a new link.');
+      this.alerts.success('Joining is open with a new link.');
     } catch (error) {
       this.error.set(error instanceof Error ? error.message : 'Joining could not be opened.');
     } finally {

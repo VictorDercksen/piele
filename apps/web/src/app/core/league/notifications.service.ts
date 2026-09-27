@@ -5,7 +5,7 @@ import { RoundUpdatesService } from '../api/round-updates.service';
 import { CompetitionRound, Fixture } from '../competition/competition.models';
 import { CompetitionService } from '../competition/competition.service';
 import { DEFAULT_ZONE, LeagueTime, zoneAbbreviation } from '../competition/league-time';
-import { ToastService } from '../feedback/toast.service';
+import { AlertService } from '../feedback/alert.service';
 import { ProfileStore } from '../profile/profile.store';
 import { feedIcon, feedLabel, feedPath } from './feed-presentation';
 import { LeagueContext } from './league-context';
@@ -38,7 +38,7 @@ export class NotificationsService {
   private readonly profile = inject(ProfileStore);
   private readonly view = inject(RoundViewService);
   private readonly updates = inject(RoundUpdatesService);
-  private readonly toast = inject(ToastService);
+  private readonly alerts = inject(AlertService);
 
   /** Advances every minute so windows open and relative times move. */
   private readonly now = signal(Date.now());
@@ -251,7 +251,7 @@ export class NotificationsService {
       await this.league.saveNotificationsRead(read);
     } catch (error) {
       this.unsaved = { read, league: this.context.slug() };
-      this.toast.show(
+      this.alerts.error(
         error instanceof Error ? error.message : 'Your read notifications could not be saved.',
       );
     }

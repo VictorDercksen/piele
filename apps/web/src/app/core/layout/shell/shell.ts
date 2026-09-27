@@ -5,7 +5,9 @@ import {
   ElementRef,
   afterNextRender,
   computed,
+  effect,
   inject,
+  untracked,
   viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
@@ -24,7 +26,8 @@ import {
 import { debounce, filter, map, of, timer } from 'rxjs';
 import { CompetitionService, shortSeason } from '../../competition/competition.service';
 import { SelectedRoundService } from '../../competition/selected-round.service';
-import { ToastService } from '../../feedback/toast.service';
+import { AlertService } from '../../feedback/alert.service';
+import { LayoutInsets } from '../../feedback/layout-insets';
 import { LeagueContext } from '../../league/league-context';
 import { LeaguePathPipe } from '../../league/league-path.pipe';
 import { RoundViewService } from '../../league/round-view.service';
@@ -38,6 +41,9 @@ import { NotificationsFlag } from '../notifications-flag/notifications-flag';
 import { SeasonTimeline } from '../season-timeline/season-timeline';
 import { Breadcrumbs, FROM_NAV_BAR } from './breadcrumbs';
 import { PageData } from './page-data';
+
+/** The key of the red card shown while the league's records fail to load. */
+const LEAGUE_LOAD_ALERT = 'league-load';
 
 /** Application frame: brand bar, navigation, season timeline and the selected round context. */
 @Component({
@@ -65,8 +71,9 @@ export class Shell {
   private readonly selectedRound = inject(SelectedRoundService);
   private readonly profileStore = inject(ProfileStore);
   private readonly context = inject(LeagueContext);
+  private readonly alerts = inject(AlertService);
+  private readonly insets = inject(LayoutInsets);
   readonly view = inject(RoundViewService);
-  readonly toast = inject(ToastService);
 
   readonly profile = this.profileStore.profile;
   readonly favouriteTeam = this.profileStore.team;
@@ -146,9 +153,28 @@ export class Shell {
         const offset = bars.reduce((sum, bar) => sum + bar.offsetHeight, 0);
         main.style.setProperty('--sticky-offset', `${offset}px`);
         league.style.setProperty('--nav-height', `${nav.offsetHeight}px`);
+        this.insets.bottom.set(nav.offsetHeight);
       });
       [...bars, nav].forEach((element) => observer.observe(element));
       destroyRef.onDestroy(() => observer.disconnect());
+    });
+    // The league's records failed to load: a red card with a retry until they arrive.
+    effect(() => {
+      const message = this.view.error();
+      untracked(() => {
+        if (message) {
+          this.alerts.error(message, {
+            key: LEAGUE_LOAD_ALERT,
+            action: { label: 'Retry', run: () => this.view.reload() },
+          });
+        } else {
+          this.alerts.dismissKey(LEAGUE_LOAD_ALERT);
+        }
+      });
+    });
+    destroyRef.onDestroy(() => {
+      this.insets.bottom.set(0);
+      this.alerts.dismissKey(LEAGUE_LOAD_ALERT);
     });
     // Another page starts at the top. The scroll happens now, while the page that is leaving
     // still fills the document: scrolling once a shorter page is in would leave the document
@@ -189,7 +215,6 @@ export class Shell {
   );
 
   selectRound(id: number): void {
-    this.toast.clear();
     this.selectedRound.select(id);
   }
 

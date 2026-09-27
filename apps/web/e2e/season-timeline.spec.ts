@@ -330,7 +330,9 @@ test('captain creates, records and decides duties; the feed follows', async ({ p
   await dialog.getByLabel('Member').selectOption({ label: 'Johan' });
   await dialog.getByLabel('Reason').fill('Last place in Round 02.');
   await dialog.getByRole('button', { name: 'Create duty' }).click();
-  await expect(page.getByRole('status')).toContainText('Round 02 Spoon duty created for Johan');
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Round 02 Spoon duty created for Johan' }),
+  ).toBeVisible();
   const card = page.locator('.register-card').filter({ hasText: 'Johan' });
   await expect(card).toContainText('09 Oct 2026 · 20:45 SAST');
   await expect(card).toContainText('0 marks');
@@ -346,7 +348,9 @@ test('captain creates, records and decides duties; the feed follows', async ({ p
   await expect(evidence.getByRole('alert')).toContainText('Record when the duty was completed');
   await evidence.getByLabel('Completed at (SAST)').fill('2026-09-20T09:00');
   await evidence.getByRole('button', { name: 'Record evidence' }).click();
-  await expect(page.getByRole('status')).toContainText('Evidence recorded for Johan');
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Evidence recorded for Johan' }),
+  ).toBeVisible();
   await expect(card).toContainText('Under review');
 
   await card.getByRole('button', { name: 'Void duty' }).click();
@@ -369,7 +373,7 @@ test('captain creates, records and decides duties; the feed follows', async ({ p
   const accept = page.getByRole('dialog').filter({ hasText: 'Accept this evidence?' });
   await expect(accept).toContainText('04 Oct 2026 · 12:30 SAST');
   await accept.getByRole('button', { name: 'Accept evidence' }).click();
-  await expect(page.getByRole('status')).toContainText('completed for Liam');
+  await expect(page.getByRole('status').filter({ hasText: 'completed for Liam' })).toBeVisible();
   await expect(page.locator('.round-empty')).toContainText('Nothing needs your decision');
 
   await nav.getByRole('link', { name: 'Home', exact: true }).click();

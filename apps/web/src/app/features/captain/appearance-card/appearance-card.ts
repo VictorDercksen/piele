@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { ToastService } from '../../../core/feedback/toast.service';
+import { AlertService } from '../../../core/feedback/alert.service';
 import { LeagueContext } from '../../../core/league/league-context';
 import { DEFAULT_ACCENT, isAccentColour } from '../../../core/league/emblems';
 import { AppearanceChange } from '../../../core/league/league.models';
@@ -23,7 +23,7 @@ import { Loader } from '../../../shared/loader/loader';
 })
 export class AppearanceCard {
   private readonly context = inject(LeagueContext);
-  private readonly toast = inject(ToastService);
+  private readonly alerts = inject(AlertService);
   readonly league = this.context.current;
   /** The emblem the steward picked but has not saved; undefined keeps the saved one. */
   private readonly emblem = signal<AppearanceChange['emblem']>(undefined);
@@ -118,7 +118,7 @@ export class AppearanceCard {
       if (change.emblem !== undefined || change.accentColour !== undefined)
         await this.context.saveAppearance(change);
       this.discard();
-      this.toast.show(`${league?.name ?? 'The league'} has its new look.`);
+      this.alerts.success(`${league?.name ?? 'The league'} has its new look.`);
     } catch (error) {
       this.error.set(error instanceof Error ? error.message : 'The appearance could not be saved.');
     } finally {

@@ -8,7 +8,7 @@ import {
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
-import { ToastService } from '../../../core/feedback/toast.service';
+import { AlertService } from '../../../core/feedback/alert.service';
 import { Poll } from '../../../core/league/league.models';
 import { RoundViewService } from '../../../core/league/round-view.service';
 import { Icon } from '../../../shared/icon/icon';
@@ -23,7 +23,7 @@ import { Loader } from '../../../shared/loader/loader';
   imports: [ReactiveFormsModule, Icon, Loader],
 })
 export class VoteDialog {
-  private readonly toast = inject(ToastService);
+  private readonly alerts = inject(AlertService);
   readonly view = inject(RoundViewService);
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
   readonly poll = signal<Poll | null>(null);
@@ -51,7 +51,7 @@ export class VoteDialog {
     try {
       await this.view.castVote(poll.id, this.choice.value);
       this.close();
-      this.toast.show(
+      this.alerts.success(
         this.view.sample
           ? 'Your sample vote is recorded. It resets when you reload.'
           : 'Your vote is recorded. You can change it until the poll closes.',

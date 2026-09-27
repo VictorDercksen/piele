@@ -14,7 +14,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { map } from 'rxjs';
 import { LeagueRules } from '../../../core/league/league.models';
 import { CompetitionService } from '../../../core/competition/competition.service';
-import { ToastService } from '../../../core/feedback/toast.service';
+import { AlertService } from '../../../core/feedback/alert.service';
 import { ApiError } from '../../../core/league/http-league-data';
 import { RoundViewService } from '../../../core/league/round-view.service';
 import { Dropdown } from '../../../shared/dropdown/dropdown';
@@ -48,7 +48,7 @@ const REFUSALS: Readonly<Record<string, string>> = {
 export class RulesCard {
   private readonly view = inject(RoundViewService);
   private readonly competition = inject(CompetitionService);
-  private readonly toast = inject(ToastService);
+  private readonly alerts = inject(AlertService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly injector = inject(Injector);
 
@@ -120,7 +120,7 @@ export class RulesCard {
     const change = rulesChange(rulesFrom(this.form), this.view.rules());
     if (!Object.keys(change).length) {
       this.form.markAsPristine();
-      this.toast.show('The rules are unchanged.');
+      this.alerts.info('The rules are unchanged.');
       return;
     }
     this.busy.set(true);
@@ -128,7 +128,7 @@ export class RulesCard {
     try {
       await this.view.saveRules(change);
       this.form.markAsPristine();
-      this.toast.show('Superbru rules saved.');
+      this.alerts.success('Superbru rules saved.');
     } catch (error) {
       const code = error instanceof ApiError ? error.code : '';
       this.error.set(

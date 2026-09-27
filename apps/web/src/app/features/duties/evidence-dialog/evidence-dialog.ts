@@ -9,7 +9,7 @@ import {
 } from '@angular/core';
 import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { LeagueTime } from '../../../core/competition/league-time';
-import { ToastService } from '../../../core/feedback/toast.service';
+import { AlertService } from '../../../core/feedback/alert.service';
 import { LeagueData } from '../../../core/league/league-data';
 import { RoundDutyView, RoundViewService } from '../../../core/league/round-view.service';
 import { Icon } from '../../../shared/icon/icon';
@@ -30,7 +30,7 @@ const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
   imports: [ReactiveFormsModule, Icon, Loader],
 })
 export class EvidenceDialog {
-  private readonly toast = inject(ToastService);
+  private readonly alerts = inject(AlertService);
   private readonly league = inject(LeagueData);
   private readonly time = inject(LeagueTime);
   /** The display zone's abbreviation, for the completion time label. */
@@ -111,7 +111,9 @@ export class EvidenceDialog {
       const outcome = this.onBehalf()
         ? `Evidence recorded for ${duty.memberName}. Accept it from the captain's desk.`
         : 'Evidence submitted for review.';
-      this.toast.show(this.view.sample ? `Sample only: ${outcome} No file was uploaded.` : outcome);
+      this.alerts.success(
+        this.view.sample ? `Sample only: ${outcome} No file was uploaded.` : outcome,
+      );
     } catch (error) {
       this.error.set(error instanceof Error ? error.message : 'Unable to submit evidence.');
     } finally {

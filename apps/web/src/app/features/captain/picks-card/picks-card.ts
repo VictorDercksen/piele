@@ -19,7 +19,7 @@ import { lucideArrowRight } from '@ng-icons/lucide';
 import { ClubTeam, Fixture } from '../../../core/competition/competition.models';
 import { CompetitionService } from '../../../core/competition/competition.service';
 import { LeagueTime } from '../../../core/competition/league-time';
-import { ToastService } from '../../../core/feedback/toast.service';
+import { AlertService } from '../../../core/feedback/alert.service';
 import { BADGES } from '../../../core/league/badges';
 import { ApiError } from '../../../core/league/http-league-data';
 import { MemberPick, StewardPick } from '../../../core/league/league.models';
@@ -64,7 +64,7 @@ export class PicksCard {
   readonly view = inject(RoundViewService);
   private readonly competition = inject(CompetitionService);
   private readonly time = inject(LeagueTime);
-  private readonly toast = inject(ToastService);
+  private readonly alerts = inject(AlertService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly injector = inject(Injector);
   private readonly destroyRef = inject(DestroyRef);
@@ -259,7 +259,7 @@ export class PicksCard {
       record.push({ memberId, ...wanted, ...(saved?.dutyId ? { dutyId: saved.dutyId } : {}) });
     }
     if (!record.length && !remove.length) {
-      this.toast.show('No picks changed.');
+      this.alerts.info('No picks changed.');
       return;
     }
     const chosen = this.chosen();
@@ -268,7 +268,7 @@ export class PicksCard {
     try {
       if (record.length) await this.view.recordPicks(fixtureId, record);
       for (const memberId of remove) await this.view.removePick(fixtureId, memberId);
-      this.toast.show(
+      this.alerts.success(
         chosen ? `Picks saved for ${chosen.homeName} v ${chosen.awayName}.` : 'Picks saved.',
       );
     } catch (error) {
@@ -322,7 +322,7 @@ export class PicksCard {
     this.overrideError.set('');
     try {
       await this.view.recordStandings(round.id, entries);
-      this.toast.show(`${row.name}'s ${round.title} total is recorded as ${points}.`);
+      this.alerts.success(`${row.name}'s ${round.title} total is recorded as ${points}.`);
       this.cancelOverride();
     } catch (error) {
       this.overrideError.set(
@@ -346,7 +346,7 @@ export class PicksCard {
         this.overriding.set(null);
       },
       done: () => {
-        this.toast.show(`${row.name}'s ${round.title} total follows the picks again.`);
+        this.alerts.success(`${row.name}'s ${round.title} total follows the picks again.`);
         this.focus(`#override-button-${row.memberId}`);
       },
     });
