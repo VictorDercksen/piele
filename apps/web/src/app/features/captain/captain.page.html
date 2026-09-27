@@ -1,6 +1,6 @@
-<app-collapsible-section heading="Evidence to decide." headingId="review-heading">
+<app-dropdown heading="Evidence to decide." headingId="review-heading">
   @if (view.reviewCount()) {
-    <span class="tag" sectionSide>{{ view.reviewCount() }} PENDING</span>
+    <span class="tag" dropdownSide>{{ view.reviewCount() }} PENDING</span>
   }
   <p class="page-description">
     {{ view.reviewCount() }} {{ view.reviewCount() === 1 ? 'item' : 'items' }} for
@@ -41,11 +41,11 @@
   @if (playbackError()) {
     <p class="error-message" role="alert">{{ playbackError() }}</p>
   }
-</app-collapsible-section>
+</app-dropdown>
 
 <app-picks-card [dialog]="reasonDialog()" [dutyDialog]="dutyDialog()" />
 
-<app-collapsible-section class="members" heading="The team sheet." headingId="members-heading">
+<app-dropdown class="members" heading="The team sheet." headingId="members-heading">
   <p class="page-description">
     Members sign in with Google or a password and claim their own name. Reserving a name for an
     email is optional: only a sign-in with that address can then take it. Release a name if the
@@ -203,7 +203,7 @@
       Add member
     </button>
   </form>
-</app-collapsible-section>
+</app-dropdown>
 
 <app-join-link-card [dialog]="reasonDialog()" />
 

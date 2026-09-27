@@ -118,7 +118,7 @@ describe('MatchPreview', () => {
     http.expectOne(URL).flush('down', { status: 503, statusText: 'Unavailable' });
     await settle(fixture);
     expect(fixture.nativeElement.textContent).toContain('The preview could not be loaded.');
-    (fixture.nativeElement.querySelector('button') as HTMLButtonElement).click();
+    (fixture.nativeElement.querySelector('.preview-empty button') as HTMLButtonElement).click();
     fixture.detectChanges();
     http.expectOne(URL).flush({ fixtureId: '292605', preview: PREVIEW });
     await settle(fixture);

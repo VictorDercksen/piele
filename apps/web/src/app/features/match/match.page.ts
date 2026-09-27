@@ -35,6 +35,7 @@ import {
   lucideRotateCcw,
   lucideSun,
 } from '@ng-icons/lucide';
+import { Dropdown } from '../../shared/dropdown/dropdown';
 import { Icon } from '../../shared/icon/icon';
 import { BallLoader } from '../../shared/ball-loader/ball-loader';
 import { MatchHero } from '../home/match-hero/match-hero';
@@ -54,6 +55,7 @@ import { weatherSky } from './weather-sky';
   imports: [
     LeagueTimePipe,
     DecimalPipe,
+    Dropdown,
     Icon,
     NgIcon,
     BallLoader,

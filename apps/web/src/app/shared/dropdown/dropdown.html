@@ -1,0 +1,38 @@
+<section
+  class="dropdown"
+  [class.panel]="appearance() === 'panel'"
+  [class.open]="open()"
+  [class.animating]="animating()"
+  [class.peeks]="peek() > 0"
+  [class.tap-to-open]="tapToOpen() && collapsible()"
+  [style.--peek.px]="peek()"
+  [attr.aria-labelledby]="headingId()"
+  (click)="onClick($event)"
+>
+  <div class="dropdown-head" #head [class.stuck]="stuck()">
+    <div class="section-title">
+      <h2 [id]="headingId()">{{ heading() }}</h2>
+      <div class="title-side">
+        <ng-content select="[dropdownSide]" />
+        @if (collapsible()) {
+          <button
+            type="button"
+            class="chevron"
+            [attr.aria-labelledby]="toggleLabel() ? null : headingId()"
+            [attr.aria-label]="toggleLabel()"
+            [attr.aria-controls]="contentId()"
+            [attr.aria-expanded]="open()"
+            (click)="toggle()"
+          >
+            <ng-icon name="lucideChevronDown" aria-hidden="true" />
+          </button>
+        }
+      </div>
+    </div>
+  </div>
+  <div class="dropdown-lead"><ng-content select="[dropdownLead]" /></div>
+  <div class="dropdown-body" #body [id]="contentId()" [attr.inert]="open() ? null : ''">
+    <div class="dropdown-inner"><ng-content /></div>
+  </div>
+  <ng-content select="[dropdownFoot]" />
+</section>

@@ -33,25 +33,17 @@
 </svg>
 
 @let v = view();
-<section class="panel" [class.live]="v.live" aria-labelledby="scoring-title">
-  <div class="head">
-    <div class="section-title">
-      <h2 id="scoring-title">Scoring.</h2>
-      <div class="title-side">
-        <span class="tag" [class.live]="v.live && !v.stale">{{ v.tag }}</span>
-        <button
-          type="button"
-          class="chevron"
-          aria-controls="scoring-pitch"
-          [attr.aria-expanded]="open()"
-          [attr.aria-label]="chevronLabel()"
-          (click)="onChevron($event)"
-        >
-          <ng-icon name="lucideChevronDown" aria-hidden="true" />
-        </button>
-      </div>
-    </div>
-
+<app-dropdown
+  appearance="panel"
+  heading="Scoring."
+  headingId="scoring-title"
+  toggleName="the scoring pitch"
+  bodyId="scoring-pitch"
+  [peek]="30"
+  [tapToOpen]="true"
+>
+  <span class="tag" dropdownSide [class.live]="v.live && !v.stale">{{ v.tag }}</span>
+  <ng-container ngProjectAs="[dropdownLead]">
     <div
       class="summary"
       role="button"
@@ -109,107 +101,105 @@
         >
       }
     </div>
-  </div>
+  </ng-container>
 
-  <div class="drawer" id="scoring-pitch" #body [attr.inert]="open() ? null : ''">
-    <div class="pitch">
-      <div class="frame">
-        <div class="chalk-lines" aria-hidden="true">
-          <i class="ln v l"></i><i class="ln v r"></i> <i class="ln v dash m5 l"></i
-          ><i class="ln v dash m5 r"></i> <i class="ln v dash m15 l"></i
-          ><i class="ln v dash m15 r"></i> <i class="ln h top"></i><i class="ln h bottom"></i>
-        </div>
-        <div class="ingoal top">
-          Kick-off<span class="posts" aria-hidden="true"><i></i><i></i></span>
-        </div>
-        <div class="field" [style.height.px]="v.fieldHeight">
-          @for (line of v.lines; track line.key) {
-            <div
-              class="mark"
-              [class]="line.kind"
-              [class.future]="line.future"
-              [style.top.px]="line.top"
-              [attr.aria-hidden]="line.label ? null : true"
+  <div class="pitch">
+    <div class="frame">
+      <div class="chalk-lines" aria-hidden="true">
+        <i class="ln v l"></i><i class="ln v r"></i> <i class="ln v dash m5 l"></i
+        ><i class="ln v dash m5 r"></i> <i class="ln v dash m15 l"></i
+        ><i class="ln v dash m15 r"></i> <i class="ln h top"></i><i class="ln h bottom"></i>
+      </div>
+      <div class="ingoal top">
+        Kick-off<span class="posts" aria-hidden="true"><i></i><i></i></span>
+      </div>
+      <div class="field" [style.height.px]="v.fieldHeight">
+        @for (line of v.lines; track line.key) {
+          <div
+            class="mark"
+            [class]="line.kind"
+            [class.future]="line.future"
+            [style.top.px]="line.top"
+            [attr.aria-hidden]="line.label ? null : true"
+          >
+            @if (line.paint) {
+              <span class="paint l" aria-hidden="true">{{ line.paint }}</span>
+              <span class="paint r" aria-hidden="true">{{ line.paint }}</span>
+            }
+            @if (line.label) {
+              <span class="chip" [class.message]="line.message">{{ line.label }}</span>
+            }
+          </div>
+        }
+        @if (v.marker; as marker) {
+          <div class="unplayed" [style.top.px]="marker.top" aria-hidden="true"></div>
+          <div class="mark now" [style.top.px]="marker.top">
+            <span class="chip now">{{ marker.label }}</span>
+          </div>
+        }
+        <ol class="rows">
+          @for (row of v.rows; track row.key) {
+            <li
+              class="row"
+              [class]="row.side"
+              [class.big]="row.try"
+              [class.slim]="!row.try"
+              [style.top.px]="row.top"
+              [style.--club]="row.colour"
+              [style.--club-accent]="row.accent"
             >
-              @if (line.paint) {
-                <span class="paint l" aria-hidden="true">{{ line.paint }}</span>
-                <span class="paint r" aria-hidden="true">{{ line.paint }}</span>
-              }
-              @if (line.label) {
-                <span class="chip" [class.message]="line.message">{{ line.label }}</span>
-              }
-            </div>
-          }
-          @if (v.marker; as marker) {
-            <div class="unplayed" [style.top.px]="marker.top" aria-hidden="true"></div>
-            <div class="mark now" [style.top.px]="marker.top">
-              <span class="chip now">{{ marker.label }}</span>
-            </div>
-          }
-          <ol class="rows">
-            @for (row of v.rows; track row.key) {
-              <li
-                class="row"
-                [class]="row.side"
-                [class.big]="row.try"
-                [class.slim]="!row.try"
-                [style.top.px]="row.top"
-                [style.--club]="row.colour"
-                [style.--club-accent]="row.accent"
-              >
-                <span class="meta">
-                  <span class="min">{{ row.time }}'</span>
-                  @if (row.score; as score) {
-                    <span class="score" [attr.aria-label]="'score ' + score[0] + '–' + score[1]">
-                      @if (row.side === 'home') {
-                        <b>{{ score[0] }}</b
-                        >–{{ score[1] }}
-                      } @else {
-                        {{ score[0] }}–<b>{{ score[1] }}</b>
-                      }
-                    </span>
-                  }
-                </span>
-                @if (row.try) {
-                  <div class="txt">
-                    <strong
-                      ><span class="full">{{ row.label }}</span
-                      ><span class="short">{{ row.short }}</span></strong
-                    >
-                    @if (row.player) {
-                      <span class="player">{{ row.player }}</span>
-                    }
-                  </div>
-                } @else {
-                  <span class="line">
-                    <b
-                      ><span class="full">{{ row.label }}</span
-                      ><span class="short">{{ row.short }}</span></b
-                    >
-                    @if (row.surname) {
-                      <span class="who"> {{ row.surname }}</span>
+              <span class="meta">
+                <span class="min">{{ row.time }}'</span>
+                @if (row.score; as score) {
+                  <span class="score" [attr.aria-label]="'score ' + score[0] + '–' + score[1]">
+                    @if (row.side === 'home') {
+                      <b>{{ score[0] }}</b
+                      >–{{ score[1] }}
+                    } @else {
+                      {{ score[0] }}–<b>{{ score[1] }}</b>
                     }
                   </span>
                 }
-                <span class="visually-hidden">{{ row.team }}</span>
-                <span class="pts">
-                  @if (row.card) {
-                    <i class="card" [class]="row.card" aria-hidden="true"></i>
-                  } @else {
-                    <span aria-hidden="true">+{{ row.points }}</span>
-                    <span class="visually-hidden">{{ row.points }} points</span>
+              </span>
+              @if (row.try) {
+                <div class="txt">
+                  <strong
+                    ><span class="full">{{ row.label }}</span
+                    ><span class="short">{{ row.short }}</span></strong
+                  >
+                  @if (row.player) {
+                    <span class="player">{{ row.player }}</span>
+                  }
+                </div>
+              } @else {
+                <span class="line">
+                  <b
+                    ><span class="full">{{ row.label }}</span
+                    ><span class="short">{{ row.short }}</span></b
+                  >
+                  @if (row.surname) {
+                    <span class="who"> {{ row.surname }}</span>
                   }
                 </span>
-              </li>
-            }
-          </ol>
-        </div>
-        <div class="ingoal bottom" [class.dim]="!v.finished">
-          <span class="posts" aria-hidden="true"><i></i><i></i></span>{{ v.result }}
-        </div>
+              }
+              <span class="visually-hidden">{{ row.team }}</span>
+              <span class="pts">
+                @if (row.card) {
+                  <i class="card" [class]="row.card" aria-hidden="true"></i>
+                } @else {
+                  <span aria-hidden="true">+{{ row.points }}</span>
+                  <span class="visually-hidden">{{ row.points }} points</span>
+                }
+              </span>
+            </li>
+          }
+        </ol>
+      </div>
+      <div class="ingoal bottom" [class.dim]="!v.finished">
+        <span class="posts" aria-hidden="true"><i></i><i></i></span>{{ v.result }}
       </div>
     </div>
   </div>
 
-  <ng-content />
-</section>
+  <ng-content ngProjectAs="[dropdownFoot]" />
+</app-dropdown>

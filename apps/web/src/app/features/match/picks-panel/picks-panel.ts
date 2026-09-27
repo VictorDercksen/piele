@@ -25,7 +25,7 @@ import {
 } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideArrowRight, lucideChevronDown, lucidePencil } from '@ng-icons/lucide';
+import { lucideArrowRight, lucidePencil } from '@ng-icons/lucide';
 import { map } from 'rxjs';
 import { CompetitionService } from '../../../core/competition/competition.service';
 import { LeagueTime } from '../../../core/competition/league-time';
@@ -35,6 +35,7 @@ import { LeaguePathPipe } from '../../../core/league/league-path.pipe';
 import { MemberPick, NewPick } from '../../../core/league/league.models';
 import { PickRowView, RoundViewService } from '../../../core/league/round-view.service';
 import { roundType, sameTotal } from '../../../core/league/superbru';
+import { Dropdown } from '../../../shared/dropdown/dropdown';
 import { MemberAvatar } from '../../../shared/member-avatar/member-avatar';
 import { PickChip, PickChipView } from './pick-chip';
 
@@ -46,17 +47,14 @@ function marginValidator(control: AbstractControl<string>): ValidationErrors | n
   return /^\d+$/.test(value) && margin >= 1 && margin <= 150 ? null : { margin: true };
 }
 
-const OPEN_MS = 460;
-const CLOSE_MS = 360;
-const EASING = 'cubic-bezier(0.22, 1, 0.36, 1)';
-
 /**
  * The match centre's "Pool picks." panel. Before kickoff a member without a pick sees only
  * their own pick form; once their pick is in they see the pool's split and their own pick, and
  * can edit theirs until kickoff. After kickoff their line carries their points and place. The
  * pool table itself (every pick with its outcome, margin and bonus marks and points, as the
- * view scores them) sits in a drawer that is closed by default and opens from the chevron in
- * the heading. The admin viewing a league it is not in sees the pool without a form.
+ * view scores them) is the body of the panel's dropdown (`#picks-pool`), closed by default and
+ * for every new fixture; the form, split and pick above it are the dropdown's lead. The admin
+ * viewing a league it is not in sees the pool without a form.
  */
 @Component({
   selector: 'app-picks-panel',
@@ -65,6 +63,7 @@ const EASING = 'cubic-bezier(0.22, 1, 0.36, 1)';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     DecimalPipe,
+    Dropdown,
     ReactiveFormsModule,
     RouterLink,
     LeaguePathPipe,
@@ -73,7 +72,7 @@ const EASING = 'cubic-bezier(0.22, 1, 0.36, 1)';
     NgIcon,
     PickChip,
   ],
-  viewProviders: [provideIcons({ lucideArrowRight, lucideChevronDown, lucidePencil })],
+  viewProviders: [provideIcons({ lucideArrowRight, lucidePencil })],
 })
 export class PicksPanel {
   private readonly competition = inject(CompetitionService);
@@ -89,11 +88,6 @@ export class PicksPanel {
   readonly picks = computed(() => this.view.picksFor(this.fixtureId()));
   /** The member reopened the form to change a pick that is in. */
   readonly editing = linkedSignal({ source: this.fixtureId, computation: () => false });
-  /** The pool table's drawer; closed by default and for every new fixture. */
-  readonly open = linkedSignal({ source: this.fixtureId, computation: () => false });
-  readonly chevronLabel = computed(() => `${this.open() ? 'Hide' : 'Show'} the pool's picks`);
-  /** True while the drawer's height animates, so a closing drawer stays visible until the end. */
-  readonly animating = signal(false);
   readonly submitted = signal(false);
   readonly saving = signal(false);
   readonly error = signal('');
@@ -123,8 +117,6 @@ export class PicksPanel {
   private readonly firstSide = viewChild<ElementRef<HTMLInputElement>>('firstSide');
   private readonly marginInput = viewChild<ElementRef<HTMLInputElement>>('marginInput');
   private readonly mineStrip = viewChild<ElementRef<HTMLElement>>('mineStrip');
-  private readonly drawer = viewChild.required<ElementRef<HTMLElement>>('drawer');
-  private animation: Animation | null = null;
 
   /** The member's own form: before kickoff, for a member, until the pick is in or while editing. */
   readonly showForm = computed(() => {
@@ -295,30 +287,6 @@ export class PicksPanel {
   marginDisabled(): boolean {
     this.status();
     return this.value().side === 'draw';
-  }
-
-  /** Opens or closes the pool table, animating between its measured heights. */
-  toggle(): void {
-    const element = this.drawer().nativeElement;
-    const opening = !this.open();
-    const from = element.getBoundingClientRect().height;
-    const to = opening ? element.scrollHeight : 0;
-    this.open.set(opening);
-    const reduced = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    if (reduced || typeof element.animate !== 'function') return;
-    // The open class leaves the height to the content once the animation ends.
-    this.animation?.cancel();
-    const animation = element.animate([{ height: `${from}px` }, { height: `${to}px` }], {
-      duration: opening ? OPEN_MS : CLOSE_MS,
-      easing: EASING,
-    });
-    this.animation = animation;
-    this.animating.set(true);
-    const settle = () => {
-      if (this.animation === animation) this.animating.set(false);
-    };
-    animation.addEventListener('finish', settle);
-    animation.addEventListener('cancel', settle);
   }
 
   /** Reopens the form with the member's pick, until kickoff. */

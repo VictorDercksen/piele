@@ -1,4 +1,13 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  ElementRef,
+  afterNextRender,
+  computed,
+  inject,
+  viewChild,
+} from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import {
   ActivatedRouteSnapshot,
@@ -115,6 +124,27 @@ export class Shell {
     while (route.firstChild) route = route.firstChild;
     return route.data as PageData;
   });
+
+  private readonly topBar = viewChild.required<ElementRef<HTMLElement>>('topBar');
+  private readonly roundBar = viewChild.required<ElementRef<HTMLElement>>('roundBar');
+  private readonly main = viewChild.required<ElementRef<HTMLElement>>('main');
+
+  constructor() {
+    // Open dropdowns pin their heading under the top bar and the round header; both change
+    // height (the breakpoint, the fixture ribbon sliding), so the offset follows them.
+    const destroyRef = inject(DestroyRef);
+    afterNextRender(() => {
+      if (typeof ResizeObserver === 'undefined') return;
+      const bars = [this.topBar().nativeElement, this.roundBar().nativeElement];
+      const main = this.main().nativeElement;
+      const observer = new ResizeObserver(() => {
+        const offset = bars.reduce((sum, bar) => sum + bar.offsetHeight, 0);
+        main.style.setProperty('--sticky-offset', `${offset}px`);
+      });
+      bars.forEach((bar) => observer.observe(bar));
+      destroyRef.onDestroy(() => observer.disconnect());
+    });
+  }
 
   /** A page change that is still loading after 150 ms. Round changes only update the query. */
   readonly pageLoading = toSignal(

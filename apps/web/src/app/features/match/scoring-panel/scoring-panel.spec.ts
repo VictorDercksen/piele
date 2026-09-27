@@ -69,18 +69,18 @@ describe('ScoringPanel', () => {
     const { fixture, host } = render();
     const summary = host.querySelector<HTMLElement>('.summary')!;
     expect(summary.getAttribute('aria-expanded')).toBe('false');
-    expect(host.querySelector('.drawer')?.hasAttribute('inert')).toBe(true);
+    expect(host.querySelector('.dropdown-body')?.hasAttribute('inert')).toBe(true);
     expect(host.querySelector('.hint')).toBeNull();
     const chevron = host.querySelector<HTMLButtonElement>('.section-title .chevron')!;
     expect(chevron.getAttribute('aria-expanded')).toBe('false');
     expect(chevron.getAttribute('aria-controls')).toBe('scoring-pitch');
     expect(chevron.getAttribute('aria-label')).toBe('Show the scoring pitch');
 
-    host.querySelector<HTMLElement>('.drawer')!.click();
+    host.querySelector<HTMLElement>('.dropdown-body')!.click();
     await fixture.whenStable();
     expect(summary.getAttribute('aria-expanded')).toBe('true');
     expect(host.classList).toContain('open');
-    expect(host.querySelector('.drawer')?.hasAttribute('inert')).toBe(false);
+    expect(host.querySelector('.dropdown-body')?.hasAttribute('inert')).toBe(false);
     expect(host.querySelectorAll('.row')).toHaveLength(2);
     expect(host.querySelector('.row.big .pts')?.textContent).toContain('+5');
     expect(host.querySelector('.row.slim .who')?.textContent?.trim()).toBe('Albornoz');

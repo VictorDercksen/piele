@@ -17,7 +17,7 @@ import { CompetitionService } from '../../../core/competition/competition.servic
 import { ToastService } from '../../../core/feedback/toast.service';
 import { ApiError } from '../../../core/league/http-league-data';
 import { RoundViewService } from '../../../core/league/round-view.service';
-import { CollapsibleSection } from '../../../shared/collapsible-section/collapsible-section';
+import { Dropdown } from '../../../shared/dropdown/dropdown';
 import { Loader } from '../../../shared/loader/loader';
 import { RuleChampion, RulesFields } from '../../../shared/rules-fields/rules-fields';
 import {
@@ -43,7 +43,7 @@ const REFUSALS: Readonly<Record<string, string>> = {
   templateUrl: './rules-card.html',
   styleUrl: './rules-card.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CollapsibleSection, RulesFields, Loader],
+  imports: [Dropdown, RulesFields, Loader],
 })
 export class RulesCard {
   private readonly view = inject(RoundViewService);

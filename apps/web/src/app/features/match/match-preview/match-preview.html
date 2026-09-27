@@ -1,78 +1,82 @@
-<div class="section-title">
-  <h2 id="preview-title">Pavilion preview.</h2>
-</div>
-@if (failed()) {
-  <p class="preview-empty" role="alert">
-    The preview could not be loaded.
-    <button type="button" class="text-button" (click)="reload()">
-      Try again<ng-icon class="link-icon" name="lucideRotateCcw" />
-    </button>
-  </p>
-} @else if (loading()) {
-  <p class="preview-empty">Loading the preview.</p>
-} @else if (view(); as preview) {
-  <div class="poster">
-    <p class="poster-title">The Pavilion's<br />read.</p>
-    <p class="summary">{{ preview.summary }}</p>
-    <div class="sides">
-      @for (side of preview.sides; track side.label) {
-        <div class="side" [style.--club-accent]="side.accent">
-          <div class="side-head">
-            <h3>{{ side.label }}</h3>
-            <span class="mood" [attr.data-tone]="side.mood.tone">{{ side.mood.label }}</span>
+<app-dropdown
+  appearance="panel"
+  heading="Pavilion preview."
+  headingId="preview-title"
+  [resetKey]="fixtureId()"
+>
+  @if (failed()) {
+    <p class="preview-empty" role="alert">
+      The preview could not be loaded.
+      <button type="button" class="text-button" (click)="reload()">
+        Try again<ng-icon class="link-icon" name="lucideRotateCcw" />
+      </button>
+    </p>
+  } @else if (loading()) {
+    <p class="preview-empty">Loading the preview.</p>
+  } @else if (view(); as preview) {
+    <div class="poster">
+      <p class="poster-title">The Pavilion's<br />read.</p>
+      <p class="summary">{{ preview.summary }}</p>
+      <div class="sides">
+        @for (side of preview.sides; track side.label) {
+          <div class="side" [style.--club-accent]="side.accent">
+            <div class="side-head">
+              <h3>{{ side.label }}</h3>
+              <span class="mood" [attr.data-tone]="side.mood.tone">{{ side.mood.label }}</span>
+            </div>
+            <span class="meter" [attr.data-tone]="side.mood.tone" aria-hidden="true">
+              @for (step of steps; track step) {
+                <i [class.on]="step <= side.mood.step"></i>
+              }
+            </span>
+            <p class="mood-note">
+              {{ side.mood.note }}
+              <sup class="cite" [title]="'Sources ' + side.mood.cites">{{ side.mood.cites }}</sup>
+            </p>
+            <ol class="factors">
+              @for (factor of side.factors; track $index) {
+                <li>
+                  <span class="num">{{ $index + 1 }}</span>
+                  <p>
+                    {{ factor.text }}
+                    <sup class="cite" [title]="'Sources ' + factor.cites">{{ factor.cites }}</sup>
+                  </p>
+                </li>
+              }
+            </ol>
           </div>
-          <span class="meter" [attr.data-tone]="side.mood.tone" aria-hidden="true">
-            @for (step of steps; track step) {
-              <i [class.on]="step <= side.mood.step"></i>
-            }
-          </span>
-          <p class="mood-note">
-            {{ side.mood.note }}
-            <sup class="cite" [title]="'Sources ' + side.mood.cites">{{ side.mood.cites }}</sup>
-          </p>
-          <ol class="factors">
-            @for (factor of side.factors; track $index) {
-              <li>
-                <span class="num">{{ $index + 1 }}</span>
-                <p>
-                  {{ factor.text }}
-                  <sup class="cite" [title]="'Sources ' + factor.cites">{{ factor.cites }}</sup>
-                </p>
-              </li>
-            }
-          </ol>
-        </div>
-      }
+        }
+      </div>
     </div>
-  </div>
 
-  <details class="sources-drawer">
-    <summary>
-      <span>Sources</span>
-      <span class="count">{{ preview.sources.length }}</span>
-      <ng-icon class="chevron" name="lucideChevronDown" aria-hidden="true" />
-    </summary>
-    <ol class="sources">
-      @for (source of preview.sources; track source.number) {
-        <li>
-          <span class="source-number">{{ source.number }}</span>
-          <a [href]="source.url" target="_blank" rel="noopener noreferrer nofollow"
-            >{{ source.title }}<ng-icon class="link-icon" name="lucideExternalLink"
-          /></a>
-          @if (source.origin) {
-            <small>{{ source.origin }}</small>
-          }
-        </li>
-      }
-    </ol>
-  </details>
-  <p class="preview-note">
-    As of {{ preview.generatedAt | leagueTime: 'd MMM HH:mm z' : zone() }}. Written by the Pavilion
-    agent from public sources and the published teamsheets. It can be wrong.
-  </p>
-} @else {
-  <p class="preview-empty">
-    No preview yet. Previews are written once teamsheets are published, about 48 hours before
-    kickoff.
-  </p>
-}
+    <details class="sources-drawer">
+      <summary>
+        <span>Sources</span>
+        <span class="count">{{ preview.sources.length }}</span>
+        <ng-icon class="chevron" name="lucideChevronDown" aria-hidden="true" />
+      </summary>
+      <ol class="sources">
+        @for (source of preview.sources; track source.number) {
+          <li>
+            <span class="source-number">{{ source.number }}</span>
+            <a [href]="source.url" target="_blank" rel="noopener noreferrer nofollow"
+              >{{ source.title }}<ng-icon class="link-icon" name="lucideExternalLink"
+            /></a>
+            @if (source.origin) {
+              <small>{{ source.origin }}</small>
+            }
+          </li>
+        }
+      </ol>
+    </details>
+    <p class="preview-note">
+      As of {{ preview.generatedAt | leagueTime: 'd MMM HH:mm z' : zone() }}. Written by the
+      Pavilion agent from public sources and the published teamsheets. It can be wrong.
+    </p>
+  } @else {
+    <p class="preview-empty">
+      No preview yet. Previews are written once teamsheets are published, about 48 hours before
+      kickoff.
+    </p>
+  }
+</app-dropdown>

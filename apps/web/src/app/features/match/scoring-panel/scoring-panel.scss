@@ -28,78 +28,10 @@
   white-space: nowrap;
 }
 
-/* The whole section opens the pitch; once open, the heading and summary close it. */
-.panel {
-  padding: 22px 24px;
-  background: var(--surface-grain), var(--surface);
-  border: 1px solid var(--line);
-  border-top: 3px solid #d4d9c4;
-  box-shadow: 0 8px 24px #0003;
-  cursor: pointer;
-  transition:
-    border-color 0.2s,
-    box-shadow 0.2s;
-}
-.panel.live {
-  border-top-color: var(--live);
-}
-:host(:not(.open)) .panel:hover {
-  border-top-color: var(--accent);
-  box-shadow: 0 10px 28px #0006;
-}
-:host(:not(.open)) .panel.live:hover {
-  border-top-color: var(--live-ink);
-}
-:host(.open) .panel {
-  cursor: default;
-}
-:host(.open) .head {
-  cursor: pointer;
-}
-.section-title {
-  align-items: center;
-  margin-bottom: 14px;
-}
-/* The match's state tag and the drawer's chevron, top right, as on the pool picks panel. */
-.title-side {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-left: auto;
-}
-.title-side .tag {
-  display: inline-block;
-}
-.chevron {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border: 1px solid var(--line);
-  border-radius: 50%;
-  background: #ffffff0a;
-  color: var(--ink);
-  cursor: pointer;
-  transition:
-    transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
-    background 0.2s,
-    border-color 0.2s;
-}
-.chevron ng-icon {
-  font-size: 18px;
-}
-.chevron:hover {
-  background: #ffffff1a;
-  border-color: var(--muted);
-}
-.chevron:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-:host(.open) .chevron {
-  transform: rotate(180deg);
+/* A live match takes the live colour on the panel's top rule. */
+:host(.live) app-dropdown {
+  --dropdown-rule: var(--live);
+  --dropdown-rule-hover: var(--live-ink);
 }
 .tag.live {
   background: #5a211a;
@@ -120,8 +52,8 @@
 .summary:focus-visible {
   outline-offset: 3px;
 }
-:host(:not(.open)) .panel:hover .summary,
-:host(.open) .head:hover .summary {
+:host(:not(.open)) app-dropdown:hover .summary,
+.summary:hover {
   transform: translateY(-1px);
   box-shadow: 0 6px 14px #0007;
 }
@@ -256,34 +188,6 @@
 .summary-line strong {
   color: var(--ink);
   font-weight: 700;
-}
-
-/*
- * Closed, the top of the pitch peeks out under a fade so there is visibly more below.
- * The component animates the height between this peek and the full pitch.
- */
-.drawer {
-  position: relative;
-  height: 30px;
-  margin-top: 14px;
-  overflow: hidden;
-}
-.drawer::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 36px;
-  background: linear-gradient(180deg, #0000, var(--surface));
-  pointer-events: none;
-  transition: opacity 0.35s;
-}
-:host(.open) .drawer {
-  height: auto;
-}
-:host(.open) .drawer::after {
-  opacity: 0;
 }
 
 /* The pitch */
@@ -701,9 +605,6 @@
 }
 
 @container (max-width: 480px) {
-  .panel {
-    padding: 18px 14px;
-  }
   .summary {
     height: 58px;
   }

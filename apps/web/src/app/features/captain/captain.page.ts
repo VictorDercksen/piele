@@ -18,7 +18,7 @@ import { LeagueMember } from '../../core/league/league.models';
 import { ReviewView, RoundViewService } from '../../core/league/round-view.service';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucidePlay } from '@ng-icons/lucide';
-import { CollapsibleSection } from '../../shared/collapsible-section/collapsible-section';
+import { Dropdown } from '../../shared/dropdown/dropdown';
 import { Icon } from '../../shared/icon/icon';
 import { Loader } from '../../shared/loader/loader';
 import { CreateDutyDialog } from '../duties/create-duty-dialog/create-duty-dialog';
@@ -41,7 +41,7 @@ import { RulesCard } from './rules-card/rules-card';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     ReactiveFormsModule,
-    CollapsibleSection,
+    Dropdown,
     Icon,
     NgIcon,
     Loader,
