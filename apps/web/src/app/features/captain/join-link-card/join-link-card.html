@@ -16,9 +16,6 @@
         <app-icon name="check" />Copied. Paste it to the members still to join.
       }
     </p>
-    @if (copyError()) {
-      <p class="error-message" role="alert">{{ copyError() }}</p>
-    }
     <div class="link-actions">
       <button type="button" class="text-button" (click)="rotate()">
         <ng-icon class="link-icon" name="lucideRefreshCw" aria-hidden="true" />Rotate link
@@ -45,8 +42,5 @@
         Open joining
       </button>
     </div>
-    @if (error()) {
-      <p class="error-message" role="alert">{{ error() }}</p>
-    }
   }
 </app-dropdown>

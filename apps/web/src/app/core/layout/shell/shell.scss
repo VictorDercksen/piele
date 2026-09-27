@@ -393,32 +393,6 @@ app-season-timeline {
   place-items: center;
   min-height: 320px;
 }
-.toast {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 15px;
-  margin-bottom: 20px;
-  border: 1px solid var(--line);
-  border-left: 3px solid var(--orange);
-  background: var(--surface);
-  font-size: 13px;
-}
-.toast button {
-  min-width: 44px;
-  min-height: 44px;
-  margin-left: auto;
-  border: 0;
-  background: var(--rugby-surface), var(--rugby-white);
-  color: var(--rugby-ink);
-}
-.toast.error {
-  border-left-color: #ff795e;
-}
-.toast.error button {
-  padding: 0 14px;
-  font-weight: 700;
-}
 .club-footer {
   padding-bottom: 24px;
   margin-top: 33px;

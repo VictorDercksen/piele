@@ -12,7 +12,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { LeagueTime } from '../../core/competition/league-time';
-import { ToastService } from '../../core/feedback/toast.service';
+import { AlertService } from '../../core/feedback/alert.service';
 import { LeagueData } from '../../core/league/league-data';
 import { LeagueMember } from '../../core/league/league.models';
 import { ReviewView, RoundViewService } from '../../core/league/round-view.service';
@@ -27,6 +27,14 @@ import { AppearanceCard } from './appearance-card/appearance-card';
 import { JoinLinkCard } from './join-link-card/join-link-card';
 import { PicksCard } from './picks-card/picks-card';
 import { RulesCard } from './rules-card/rules-card';
+
+/** The desk's cards by form, so a new attempt replaces the last one's. */
+const ALERT_KEYS = {
+  playback: 'captain-playback',
+  email: 'captain-member-email',
+  reinstate: 'captain-reinstate',
+  addMember: 'captain-add-member',
+} as const;
 
 /**
  * The steward's desk (the captain, or the admin): evidence awaiting a decision in the selected
@@ -57,15 +65,17 @@ import { RulesCard } from './rules-card/rules-card';
 export class CaptainPage {
   private readonly league = inject(LeagueData);
   private readonly time = inject(LeagueTime);
-  private readonly toast = inject(ToastService);
+  private readonly alerts = inject(AlertService);
   readonly view = inject(RoundViewService);
   private readonly injector = inject(Injector);
   readonly reasonDialog = viewChild.required(ReasonDialog);
   readonly dutyDialog = viewChild.required(CreateDutyDialog);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly withdrawnGroup = viewChild<ElementRef<HTMLDetailsElement>>('withdrawnGroup');
-  readonly withdrawError = signal('');
-  readonly playbackError = signal('');
-  readonly memberError = signal('');
+  /** Whether the add-member form's last attempt was refused, so its bad fields show. */
+  readonly addAttempted = signal(false);
+  /** Whether the email being edited was refused, so its input shows it. */
+  readonly emailAttempted = signal(false);
   readonly memberBusy = signal<string | null>(null);
   readonly editing = signal<string | null>(null);
   readonly emailControl = new FormControl('', {
@@ -103,7 +113,7 @@ export class CaptainPage {
   }
 
   dutyCreated(duty: { title: string; memberName: string; deadlineAt: string | null }): void {
-    this.toast.show(
+    this.alerts.success(
       `${duty.title} created for ${duty.memberName}. Due ${this.time.format(duty.deadlineAt)}.`,
     );
   }
@@ -133,7 +143,7 @@ export class CaptainPage {
       spoon: duty.spoon,
       action: (reason) => this.league.decideEvidence(evidence.id, decision, reason),
       done: () =>
-        this.toast.show(
+        this.alerts.success(
           decision === 'accepted'
             ? `${duty.title} completed for ${duty.memberName}.`
             : `Evidence for ${duty.title} rejected.`,
@@ -142,43 +152,50 @@ export class CaptainPage {
   }
 
   async watch(review: ReviewView): Promise<void> {
-    this.playbackError.set('');
     try {
       window.open(await this.league.playbackUrl(review.evidence.assetId), '_blank', 'noopener');
+      this.alerts.dismissKey(ALERT_KEYS.playback);
     } catch (error) {
-      this.playbackError.set(error instanceof Error ? error.message : 'The video is unavailable.');
+      this.alerts.error(error instanceof Error ? error.message : 'The video is unavailable.', {
+        key: ALERT_KEYS.playback,
+      });
     }
   }
 
   edit(member: LeagueMember): void {
-    this.memberError.set('');
+    this.alerts.dismissKey(ALERT_KEYS.email);
+    this.emailAttempted.set(false);
     this.editing.set(member.id);
     this.emailControl.setValue(member.email ?? '');
   }
 
   cancelEdit(): void {
+    this.alerts.dismissKey(ALERT_KEYS.email);
     this.editing.set(null);
   }
 
   async saveEmail(member: LeagueMember): Promise<void> {
     if (this.emailControl.invalid) {
-      this.memberError.set('Enter a valid email address.');
+      this.emailAttempted.set(true);
+      this.alerts.warn('Enter a valid email address.', { key: ALERT_KEYS.email });
+      this.focus(`email-${member.id}`);
       return;
     }
+    this.emailAttempted.set(false);
+    this.alerts.dismissKey(ALERT_KEYS.email);
     this.memberBusy.set(member.id);
-    this.memberError.set('');
     try {
       await this.league.updateMember(member.id, this.emailControl.value.trim() || null);
       this.editing.set(null);
-      this.toast.show(
+      this.alerts.success(
         this.emailControl.value.trim()
           ? `${member.name} is reserved for ${this.emailControl.value.trim()}.`
           : `${member.name} is open for any member to claim.`,
       );
     } catch (error) {
-      this.memberError.set(
-        error instanceof Error ? error.message : 'The email could not be saved.',
-      );
+      this.alerts.error(error instanceof Error ? error.message : 'The email could not be saved.', {
+        key: ALERT_KEYS.email,
+      });
     } finally {
       this.memberBusy.set(null);
     }
@@ -191,7 +208,7 @@ export class CaptainPage {
       submitLabel: 'Release name',
       required: false,
       action: () => this.league.releaseMember(member.id),
-      done: () => this.toast.show(`${member.name} can be claimed again.`),
+      done: () => this.alerts.success(`${member.name} can be claimed again.`),
     });
   }
 
@@ -202,7 +219,6 @@ export class CaptainPage {
 
   remove(member: LeagueMember): void {
     const deleted = !member.claimed && !this.view.hasRecords(member.id);
-    this.withdrawError.set('');
     this.reasonDialog().open({
       title: `Remove ${member.name}?`,
       description: deleted
@@ -219,7 +235,7 @@ export class CaptainPage {
         }
       },
       done: () => {
-        this.toast.show(
+        this.alerts.success(
           deleted
             ? `${member.name} was deleted.`
             : `${member.name} was removed from the team sheet.`,
@@ -239,13 +255,15 @@ export class CaptainPage {
 
   async reinstate(member: LeagueMember): Promise<void> {
     this.memberBusy.set(member.id);
-    this.withdrawError.set('');
     try {
       await this.league.reinstateMember(member.id);
-      this.toast.show(`${member.name} is back on the team sheet.`);
+      this.alerts.success(`${member.name} is back on the team sheet.`, {
+        key: ALERT_KEYS.reinstate,
+      });
     } catch (error) {
-      this.withdrawError.set(
+      this.alerts.error(
         error instanceof Error ? error.message : `${member.name} could not be reinstated.`,
+        { key: ALERT_KEYS.reinstate },
       );
     } finally {
       this.memberBusy.set(null);
@@ -257,14 +275,35 @@ export class CaptainPage {
   }
 
   async addMember(): Promise<void> {
-    if (this.newMember.invalid || this.addingMember()) {
-      this.newMember.markAllAsTouched();
-      this.memberError.set('Give the member a nickname and full name.');
+    if (this.addingMember()) return;
+    const { controls } = this.newMember;
+    const problems = [
+      ...(controls.name.invalid || controls.fullName.invalid
+        ? [
+            {
+              field: controls.name.invalid ? 'name' : 'fullName',
+              message: 'Give the member a nickname and full name.',
+            },
+          ]
+        : []),
+      ...(controls.email.invalid
+        ? [{ field: 'email', message: 'Enter a valid email address.' }]
+        : []),
+    ];
+    if (problems.length) {
+      const [first, ...rest] = problems;
+      this.addAttempted.set(true);
+      this.alerts.warn(first.message, {
+        key: ALERT_KEYS.addMember,
+        details: rest.map((problem) => problem.message),
+      });
+      this.focus(`new-member-${first.field}`);
       return;
     }
+    this.addAttempted.set(false);
+    this.alerts.dismissKey(ALERT_KEYS.addMember);
     const { name, fullName, email } = this.newMember.getRawValue();
     this.addingMember.set(true);
-    this.memberError.set('');
     try {
       await this.league.addMember({
         name: name.trim(),
@@ -272,14 +311,22 @@ export class CaptainPage {
         email: email.trim() || null,
       });
       this.newMember.reset();
-      this.toast.show(`${name.trim()} added to the league.`);
+      this.alerts.success(`${name.trim()} added to the league.`, { key: ALERT_KEYS.addMember });
     } catch (error) {
-      this.memberError.set(
-        error instanceof Error ? error.message : 'The member could not be added.',
-      );
+      this.alerts.error(error instanceof Error ? error.message : 'The member could not be added.', {
+        key: ALERT_KEYS.addMember,
+      });
     } finally {
       this.addingMember.set(false);
     }
+  }
+
+  /** Moves focus to an input by id once its `aria-invalid` has rendered. */
+  private focus(id: string): void {
+    afterNextRender(
+      () => this.host.nativeElement.querySelector<HTMLElement>(`[id="${id}"]`)?.focus(),
+      { injector: this.injector },
+    );
   }
 
   private completionInstant(review: ReviewView): string {

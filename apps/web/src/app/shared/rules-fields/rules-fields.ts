@@ -23,7 +23,7 @@ export class RulesFields {
   readonly lastRound = input.required<number>();
   /** Members who can be last season's champion; null leaves the field out. */
   readonly champions = input<readonly RuleChampion[] | null>(null);
-  /** Show every problem, as after a save attempt. */
+  /** Mark every invalid field (`aria-invalid`), as after a save attempt. */
   readonly submitted = input(false);
   /** The largest number a rule may hold. */
   readonly max = MAX_RULE_NUMBER;
@@ -68,7 +68,7 @@ export class RulesFields {
     { key: 'grandSlamPoints', label: 'Grand slam points' },
   ] as const;
 
-  /** Whether a control's problem shows: after a save attempt, or once it was edited. */
+  /** Whether a control is marked invalid: after a save attempt, or once it was edited. */
   shows(control: { invalid: boolean; dirty: boolean }): boolean {
     return control.invalid && (this.submitted() || control.dirty);
   }

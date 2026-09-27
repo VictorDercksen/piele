@@ -1,10 +1,4 @@
 <form class="create-form" [formGroup]="form" (ngSubmit)="submit()" novalidate>
-  @if (apiError()?.field === 'top') {
-    <p id="new-league-error" class="error-message top-error" role="alert" tabindex="-1">
-      {{ apiError()?.message }}
-    </p>
-  }
-
   <fieldset class="group">
     <legend>The league</legend>
     <div class="grid two">
@@ -17,11 +11,7 @@
           autocomplete="off"
           placeholder="Sample Name"
           [attr.aria-invalid]="invalid('name')"
-          [attr.aria-describedby]="invalid('name') ? 'new-league-name-error' : null"
         />
-        @if (invalid('name')) {
-          <p id="new-league-name-error" class="field-error">Give the league a name.</p>
-        }
       </div>
       <div class="field">
         <label for="new-league-slug">Slug <span>(its address)</span></label>
@@ -33,17 +23,12 @@
           autocapitalize="off"
           spellcheck="false"
           [attr.aria-invalid]="invalid('slug')"
-          aria-describedby="new-league-slug-hint new-league-slug-error"
+          aria-describedby="new-league-slug-hint"
           (input)="slugTyped($event)"
         />
         <p id="new-league-slug-hint" class="hint">
           Members open it at /{{ value().slug || 'slug' }}. Lower-case letters, digits and hyphens.
         </p>
-        @if (fieldApiError('slug'); as message) {
-          <p id="new-league-slug-error" class="field-error" role="alert">{{ message }}</p>
-        } @else if (invalid('slug')) {
-          <p id="new-league-slug-error" class="field-error">{{ slugMessage() }}</p>
-        }
       </div>
     </div>
   </fieldset>
@@ -69,9 +54,6 @@
         } @else {
           <p class="hint"><app-loader [size]="16" aria-hidden="true" /> Loading competitions…</p>
         }
-        @if (invalid('competitionId') && competitions()) {
-          <p class="field-error">Choose a competition.</p>
-        }
       </div>
       <div class="field">
         <label for="new-league-timezone">Time zone</label>
@@ -94,9 +76,6 @@
           }
         </select>
         <p id="new-league-timezone-hint" class="hint">Kick-offs show in this zone.</p>
-        @if (invalid('timezone')) {
-          <p class="field-error">Choose the league's time zone.</p>
-        }
       </div>
       <div class="field">
         <label for="new-league-seasonName">Season name</label>
@@ -108,9 +87,6 @@
           [attr.aria-invalid]="invalid('seasonName')"
           (input)="seasonTyped()"
         />
-        @if (invalid('seasonName')) {
-          <p class="field-error">Name the season.</p>
-        }
       </div>
     </div>
   </fieldset>
@@ -137,7 +113,6 @@
                 maxlength="120"
                 autocomplete="off"
                 [attr.aria-invalid]="rowInvalid(i, 'name')"
-                [attr.aria-describedby]="rowErrors().has(i) ? rowId + '-error' : null"
               />
             </div>
             <div class="field">
@@ -151,7 +126,6 @@
                 maxlength="120"
                 autocomplete="off"
                 [attr.aria-invalid]="rowInvalid(i, 'surname')"
-                [attr.aria-describedby]="rowErrors().has(i) ? rowId + '-error' : null"
               />
             </div>
             <div class="field">
@@ -165,7 +139,6 @@
                 autocomplete="off"
                 spellcheck="false"
                 [attr.aria-invalid]="rowInvalid(i, 'superbru')"
-                [attr.aria-describedby]="rowErrors().has(i) ? rowId + '-error' : null"
               />
             </div>
             <button
@@ -177,9 +150,6 @@
             >
               <ng-icon name="lucideX" aria-hidden="true" />
             </button>
-            @if (rowErrors().get(i); as error) {
-              <p [id]="rowId + '-error'" class="field-error row-error">{{ error.message }}</p>
-            }
           </li>
         }
       </ol>
@@ -192,13 +162,6 @@
       <p class="hint">
         The Superbru name is how the league shows each member. Blank rows are skipped.
       </p>
-      @if (fieldApiError('members'); as message) {
-        <p id="new-league-members-error" class="field-error" role="alert" tabindex="-1">
-          {{ message }}
-        </p>
-      } @else if (invalid('members') && !checked().errors.length) {
-        <p class="field-error">Add at least one member.</p>
-      }
     </div>
   </fieldset>
 
@@ -221,9 +184,6 @@
           }
         </select>
         <p id="new-league-captain-hint" class="hint">One of the members above.</p>
-        @if (invalid('captain')) {
-          <p class="field-error">Choose the captain from the members.</p>
-        }
       </div>
       <div class="field">
         <label class="check">
@@ -245,9 +205,6 @@
           <p id="new-league-captainEmail-hint" class="hint">
             The captain's name is kept for this address until they sign in with it.
           </p>
-          @if (invalid('captainEmail')) {
-            <p class="field-error">Give the captain's email address.</p>
-          }
           <label class="check">
             <input type="checkbox" formControlName="addMe" />
             <span>Also add me as a member <small>(outside the season)</small></span>

@@ -1,0 +1,34 @@
+<div class="snack" #stack popover="manual" [style.--snack-inset]="inset()">
+  @for (alert of alerts(); track alert.id) {
+    <div
+      class="card"
+      [class]="alert.severity"
+      [attr.role]="alert.severity === 'error' ? 'alert' : 'status'"
+      [attr.aria-live]="alert.severity === 'error' ? 'assertive' : 'polite'"
+      aria-atomic="true"
+      animate.leave="leaving"
+      (mouseenter)="hold(alert.id, 'pointer', true)"
+      (mouseleave)="hold(alert.id, 'pointer', false)"
+      (focusin)="hold(alert.id, 'focus', true)"
+      (focusout)="focusLeft(alert.id, $event)"
+    >
+      <div class="card-body">
+        <p class="eyebrow">{{ eyebrows[alert.severity] }}</p>
+        <p class="message">{{ alert.message }}</p>
+        @if (alert.details.length) {
+          <ul class="details">
+            @for (line of alert.details; track $index) {
+              <li>{{ line }}</li>
+            }
+          </ul>
+        }
+        @if (alert.action; as action) {
+          <button type="button" class="action" (click)="act(alert)">{{ action.label }}</button>
+        }
+      </div>
+      <button type="button" class="dismiss" aria-label="Dismiss" (click)="dismiss(alert.id)">
+        <app-icon name="close" />
+      </button>
+    </div>
+  }
+</div>

@@ -2,6 +2,7 @@ import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { competition } from '../../../core/competition/registry';
+import { AlertService } from '../../../core/feedback/alert.service';
 import { ApiError } from '../../../core/league/http-league-data';
 import { LeagueContext } from '../../../core/league/league-context';
 import { LeagueMember, MemberPick, NewPick, PickSide } from '../../../core/league/league.models';
@@ -159,7 +160,23 @@ describe('PicksPanel', () => {
       root.querySelector('form')!.dispatchEvent(new Event('submit'));
       await settle();
     };
-    return { fixture, root, current, text, choose, margin, typeMargin, submit, settle };
+    const alerts = TestBed.inject(AlertService);
+    const warn = vi.spyOn(alerts, 'warn');
+    const error = vi.spyOn(alerts, 'error');
+    return {
+      fixture,
+      root,
+      current,
+      text,
+      choose,
+      margin,
+      typeMargin,
+      submit,
+      settle,
+      alerts,
+      warn,
+      error,
+    };
   }
 
   it('shows only the pick form before kickoff until the member has picked', async () => {
@@ -182,23 +199,44 @@ describe('PicksPanel', () => {
     expect(root.querySelector('.mine')).toBeNull();
   });
 
-  it('shows errors only after a submit attempt and saves the pick', async () => {
-    const { root, text, choose, typeMargin, submit } = setup(picksView());
-    expect(root.querySelector('.field-error')).toBeNull();
+  it('warns once per attempt, marks and focuses the field, and saves the pick', async () => {
+    const { root, text, choose, typeMargin, submit, margin, alerts, warn } = setup(picksView());
+    const group = () => root.querySelector('[role="radiogroup"]')!;
+    expect(warn).not.toHaveBeenCalled();
+    expect(group().getAttribute('aria-invalid')).toBe('false');
     await submit();
     expect(saved).toEqual([]);
-    expect(text('#pick-side-error')).toBe('Choose a side or a draw.');
-    expect(text('#pick-margin-error')).toBe('Enter a margin from 1 to 150.');
+    expect(warn).toHaveBeenCalledOnce();
+    expect(warn).toHaveBeenCalledWith('Choose a side or a draw.', {
+      key: 'pick-292590',
+      details: ['Enter a margin from 1 to 150.'],
+    });
+    expect(group().getAttribute('aria-invalid')).toBe('true');
+    expect(margin().getAttribute('aria-invalid')).toBe('true');
+    expect(document.activeElement).toBe(root.querySelector('input[value="home"]'));
+    // No inline problem text remains; the hint is the only line under the margin.
+    expect(root.querySelector('.field-error, .form-error, [role="alert"]')).toBeNull();
+    expect(margin().hasAttribute('aria-describedby')).toBe(false);
 
     await choose('away');
+    expect(group().getAttribute('aria-invalid')).toBe('false');
     await typeMargin('151');
     await submit();
     expect(saved).toEqual([]);
-    expect(root.querySelector('#pick-margin')?.getAttribute('aria-invalid')).toBe('true');
+    expect(warn).toHaveBeenCalledTimes(2);
+    expect(warn).toHaveBeenLastCalledWith('Enter a margin from 1 to 150.', {
+      key: 'pick-292590',
+      details: [],
+    });
+    // The resubmit replaced the first card rather than stacking another.
+    expect(alerts.alerts().filter((a) => a.key === 'pick-292590')).toHaveLength(1);
+    expect(margin().getAttribute('aria-invalid')).toBe('true');
+    expect(document.activeElement).toBe(margin());
 
     await typeMargin('20');
     await submit();
     expect(saved).toEqual([['292590', { side: 'away', margin: 20 }]]);
+    expect(alerts.alerts()).toEqual([]);
     // The data layer adopted the pick: the panel shows the member's strip and the pool.
     expect(root.querySelector('form')).toBeNull();
     expect(text('.mine .chip')).toBe('Bulls by 20');
@@ -220,16 +258,37 @@ describe('PicksPanel', () => {
     expect(saved).toEqual([['292590', { side: 'draw', margin: 0 }]]);
   });
 
-  it('names the kickoff when the API says picks are locked', async () => {
-    const { choose, typeMargin, submit, text, root } = setup(picksView());
+  it('warns with the kickoff when the API says picks are locked', async () => {
+    const { choose, typeMargin, submit, root, warn, error } = setup(picksView());
     refusal = new ApiError(422, 'picks_locked', 'Picks for this match closed at kickoff.');
     await choose('home');
     await typeMargin('3');
     await submit();
-    expect(text('.form-error')).toMatch(
+    expect(error).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledOnce();
+    expect(warn.mock.calls[0][0]).toMatch(
       /^Picks for this match closed at kickoff, \d+ \w{3} \d{2}:\d{2} \S+\.$/,
     );
+    expect(warn.mock.calls[0][1]).toEqual({ key: 'pick-292590' });
     expect(root.querySelector('form')).not.toBeNull();
+  });
+
+  it('shows any other refusal as an error card that a later save clears', async () => {
+    const { choose, typeMargin, submit, warn, error, alerts } = setup(picksView());
+    refusal = new Error('The league API could not be reached.');
+    await choose('home');
+    await typeMargin('3');
+    await submit();
+    expect(warn).not.toHaveBeenCalled();
+    expect(error).toHaveBeenCalledOnce();
+    expect(error).toHaveBeenCalledWith('The league API could not be reached.', {
+      key: 'pick-failed-292590',
+    });
+    expect(alerts.alerts().map((a) => a.severity)).toEqual(['error']);
+    refusal = null;
+    await submit();
+    expect(saved).toHaveLength(2);
+    expect(alerts.alerts()).toEqual([]);
   });
 
   it('shows the pool, the sway bar and an Edit button once the member has picked', async () => {

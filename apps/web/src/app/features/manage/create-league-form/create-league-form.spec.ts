@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
+import { AlertService } from '../../../core/feedback/alert.service';
 import { NewLeague } from '../../../core/league/admin.models';
 import { AdminService } from '../../../core/league/admin.service';
 import { ApiError } from '../../../core/league/http-league-data';
@@ -38,6 +39,9 @@ describe('CreateLeagueForm', () => {
     });
     const router = TestBed.inject(Router);
     const navigate = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
+    const alerts = TestBed.inject(AlertService);
+    const warn = vi.spyOn(alerts, 'warn');
+    const error = vi.spyOn(alerts, 'error');
     const fixture = TestBed.createComponent(CreateLeagueForm);
     const root = fixture.nativeElement as HTMLElement;
     const field = <T extends HTMLElement>(id: string) => root.querySelector<T>(`#new-league-${id}`)!;
@@ -66,8 +70,10 @@ describe('CreateLeagueForm', () => {
       root.querySelector('form')!.dispatchEvent(new Event('submit'));
       await settle();
     };
-    return { fixture, root, field, type, choose, member, submit, navigate };
+    return { fixture, root, field, type, choose, member, submit, navigate, warn, error };
   }
+
+  afterEach(() => TestBed.inject(AlertService).clear());
 
   it('fills the slug from the name until it is edited, and the season from the competition', async () => {
     const { field, type, fixture } = setup();
@@ -86,7 +92,7 @@ describe('CreateLeagueForm', () => {
   });
 
   it('starts with three rows, adds one with "Add member" and offers the members as captain', async () => {
-    const { root, member, field, submit } = setup();
+    const { root, member, field, submit, type, choose, warn } = setup();
     await settle();
     expect(root.querySelectorAll('.member-row').length).toBe(3);
     await member(0, 'Doempie', 'Steyn', 'Doempie');
@@ -99,11 +105,64 @@ describe('CreateLeagueForm', () => {
     expect(options).toEqual(['', 'Doempie', 'Thabo']);
 
     // An unfinished row is pointed out once the admin tries to submit.
+    type('name', 'Die Ou Manne');
+    choose('captain', 'Thabo');
     await submit();
     expect(sent).toEqual([]);
     expect(root.querySelector('.preview-count')?.textContent).toBe('2 members ready, 1 row to fix.');
-    expect(root.querySelector('#new-league-member-1-error')?.textContent).toBe('Add the Superbru name.');
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith('Member 2: Add the Superbru name.', {
+      key: 'create-league',
+      details: [],
+    });
     expect(field('member-1-superbru').getAttribute('aria-invalid')).toBe('true');
+    expect(document.activeElement).toBe(field('member-1-superbru'));
+  });
+
+  it('gathers every problem into one warning and focuses the first', async () => {
+    const { root, member, field, submit, warn } = setup();
+    await settle();
+    await member(1, 'Kallie', '', '');
+    await member(2, '', '', 'Sanet');
+    await submit();
+    expect(sent).toEqual([]);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith('Give the league a name.', {
+      key: 'create-league',
+      details: [
+        'Give the league a slug for its address.',
+        'Member 2: Add the Superbru name.',
+        'and 2 more.',
+      ],
+    });
+    expect(document.activeElement).toBe(field('name'));
+    for (const id of ['name', 'slug', 'member-1-superbru', 'captain'])
+      expect(field(id).getAttribute('aria-invalid')).toBe('true');
+    expect(root.querySelector('.field-error')).toBeNull();
+
+    // The next attempt replaces the card rather than adding one.
+    await submit();
+    expect(warn).toHaveBeenCalledTimes(2);
+    expect(TestBed.inject(AlertService).alerts().length).toBe(1);
+  });
+
+  it('warns once when a repeated Superbru name first appears', async () => {
+    const { member, type, field, warn } = setup();
+    await settle();
+    await member(0, 'Doempie', 'Steyn', 'Thabo');
+    await member(1, 'Thabo', 'Nkosi', 'Thab');
+    expect(warn).not.toHaveBeenCalled();
+    type('member-1-superbru', 'Thabo');
+    await settle();
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith('Member 2: Thabo is already member 1.', {
+      key: 'create-league',
+    });
+    expect(field('member-1-superbru').getAttribute('aria-invalid')).toBe('true');
+    // Typing on in another input of the row does not warn again.
+    type('member-1-surname', 'Nkosi Jr');
+    await settle();
+    expect(warn).toHaveBeenCalledTimes(1);
   });
 
   it('removes a row and drops a captain whose row went', async () => {
@@ -168,8 +227,8 @@ describe('CreateLeagueForm', () => {
     expect(sent[0]).toMatchObject({ captainEmail: 'doempie@example.test', addMe: true });
   });
 
-  it('shows slug and member refusals beside their fields and others at the top', async () => {
-    const { type, choose, member, submit, root, field, navigate } = setup();
+  it('warns about field refusals at their field and shows others as an error', async () => {
+    const { type, choose, member, submit, field, navigate, warn, error } = setup();
     await settle();
     type('name', 'Die Ou Manne');
     await member(0, 'Doempie', 'Steyn', 'Doempie');
@@ -177,19 +236,32 @@ describe('CreateLeagueForm', () => {
 
     refusal = new ApiError(409, 'slug_taken', 'Another league already uses die-ou-manne.');
     await submit();
+    expect(warn).toHaveBeenLastCalledWith('Another league already uses die-ou-manne.', {
+      key: 'create-league',
+      details: [],
+    });
     expect(field('slug').getAttribute('aria-invalid')).toBe('true');
-    expect(root.querySelector('#new-league-slug-error')?.textContent).toContain('already uses');
     expect(document.activeElement).toBe(field('slug'));
 
     refusal = new ApiError(422, 'unknown_captain', 'The captain must be one of the members.');
     await submit();
     expect(field('slug').getAttribute('aria-invalid')).toBe('false');
-    expect(root.querySelector('#new-league-members-error')?.textContent).toContain('captain must be');
-    expect(document.activeElement).toBe(root.querySelector('#new-league-members-error'));
+    expect(warn).toHaveBeenLastCalledWith('The captain must be one of the members.', {
+      key: 'create-league',
+      details: [],
+    });
+    expect(field('captain').getAttribute('aria-invalid')).toBe('true');
+    expect(document.activeElement).toBe(field('captain'));
+
+    refusal = new ApiError(409, 'duplicate_member', 'Doempie is on the team sheet twice.');
+    await submit();
+    expect(field('member-0-superbru').getAttribute('aria-invalid')).toBe('true');
+    expect(document.activeElement).toBe(field('member-0-superbru'));
 
     refusal = new ApiError(422, 'invalid_timezone', 'Unknown time zone.');
     await submit();
-    expect(root.querySelector('#new-league-error')?.textContent).toContain('Unknown time zone.');
+    expect(error).toHaveBeenCalledWith('Unknown time zone.', { key: 'create-league' });
+    expect(warn).toHaveBeenCalledTimes(3);
     expect(navigate).not.toHaveBeenCalled();
   });
 
@@ -216,7 +288,7 @@ describe('CreateLeagueForm', () => {
   });
 
   it('opens the rules and focuses a rule to fix', async () => {
-    const { type, choose, member, submit, root, field } = setup();
+    const { type, choose, member, submit, root, field, warn } = setup();
     await settle();
     type('name', 'Die Ou Manne');
     await member(0, 'Doempie', 'Steyn', 'Doempie');
@@ -224,6 +296,10 @@ describe('CreateLeagueForm', () => {
     type('rules-startingRound', '19');
     await submit();
     expect(sent).toEqual([]);
+    expect(warn).toHaveBeenCalledWith('Starting round: choose a round from 1 to 18.', {
+      key: 'create-league',
+      details: [],
+    });
     expect(root.querySelector<HTMLDetailsElement>('#new-league-rules')!.open).toBe(true);
     expect(field('rules-startingRound').getAttribute('aria-invalid')).toBe('true');
     expect(document.activeElement).toBe(field('rules-startingRound'));

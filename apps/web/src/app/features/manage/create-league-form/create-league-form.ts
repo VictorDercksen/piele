@@ -15,6 +15,7 @@ import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideArrowRight, lucidePlus, lucideX } from '@ng-icons/lucide';
 import { map } from 'rxjs';
 import { COMPETITIONS } from '../../../core/competition/registry';
+import { AlertService } from '../../../core/feedback/alert.service';
 import { CompetitionOption, NewLeague } from '../../../core/league/admin.models';
 import { AdminService } from '../../../core/league/admin.service';
 import { DEFAULT_ACCENT, EMBLEM_LABELS, isAccentColour, isEmblemPreset } from '../../../core/league/emblems';
@@ -26,11 +27,13 @@ import { LeagueCrest } from '../../../shared/league-crest/league-crest';
 import { Loader } from '../../../shared/loader/loader';
 import { RulesFields } from '../../../shared/rules-fields/rules-fields';
 import {
+  ruleProblems,
   rulesChange,
   rulesFrom,
   rulesGroup,
   setLastRound,
 } from '../../../shared/rules-fields/rules-form';
+import { FormProblem, problemDetails } from '../form-problems';
 import {
   membersValidator,
   notBlank,
@@ -40,26 +43,16 @@ import {
 import { MAX_MEMBERS, MemberRow, MemberRowError, checkMembers } from '../member-rows';
 import { timeZoneGroups } from '../time-zones';
 
-/** API refusals shown beside the field they concern; every other code shows at the top. */
-const FIELD_OF_CODE: Readonly<Partial<Record<string, 'slug' | 'members'>>> = {
+/** API refusals that concern one field (a warning that focuses it); any other code is an error. */
+const FIELD_OF_CODE: Readonly<Partial<Record<string, ApiField>>> = {
   slug_taken: 'slug',
   invalid_slug: 'slug',
   duplicate_member: 'members',
-  unknown_captain: 'members',
+  unknown_captain: 'captain',
 };
 
-/** The order fields are checked in, for moving focus to the first one to fix. */
-const FIELD_ORDER = [
-  'name',
-  'slug',
-  'competitionId',
-  'timezone',
-  'seasonName',
-  'members',
-  'captain',
-  'captainEmail',
-  'rules',
-] as const;
+/** The key of the form's alert card: a new attempt replaces the last one's. */
+const ALERT_KEY = 'create-league';
 
 /** Blank rows the team sheet starts with. */
 const STARTING_ROWS = 3;
@@ -83,6 +76,7 @@ const STARTING_ROWS = 3;
 })
 export class CreateLeagueForm {
   private readonly admin = inject(AdminService);
+  private readonly alerts = inject(AlertService);
   private readonly router = inject(Router);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly injector = inject(Injector);
@@ -128,7 +122,7 @@ export class CreateLeagueForm {
 
   readonly checked = computed(() => checkMembers(this.value().members));
   readonly captainOptions = computed(() => this.checked().members.map((m) => m.displayName));
-  /** Each row's problem, shown once the admin has tried to submit (a repeat shows at once). */
+  /** Each row's problem, marked once the admin has tried to submit (a repeat at once). */
   readonly rowErrors = computed(() => {
     const shown = new Map<number, MemberRowError>();
     for (const error of this.checked().errors)
@@ -167,10 +161,10 @@ export class CreateLeagueForm {
   readonly competitionsError = signal('');
   readonly submitted = signal(false);
   readonly busy = signal(false);
-  /** API refusals: beside the slug, beside the members, or at the top. */
-  readonly apiError = signal<{ readonly field: 'slug' | 'members' | 'top'; readonly message: string } | null>(
-    null,
-  );
+  /** The field an API refusal concerns, marked invalid until it changes. */
+  readonly apiField = signal<ApiField | null>(null);
+  /** The repeated Superbru names already warned about while typing, as `row:name`. */
+  private warnedRepeats = new Set<string>();
 
   /** The user typed a slug, chose a time zone or typed a season name: stop filling it in. */
   private slugEdited = false;
@@ -192,9 +186,14 @@ export class CreateLeagueForm {
         this.clearApiError('members');
         // A captain whose row was removed or renamed is no longer a choice. Read the rows
         // directly: the form's value signal updates after this array's event.
-        const names = checkMembers(c.members.getRawValue()).members.map((m) => m.displayName);
+        const checked = checkMembers(c.members.getRawValue());
+        const names = checked.members.map((m) => m.displayName);
         if (c.captain.value && !names.includes(c.captain.value)) c.captain.setValue('');
+        this.warnRepeats(checked.errors);
       },
+    });
+    c.captain.valueChanges.pipe(takeUntilDestroyed()).subscribe({
+      next: () => this.clearApiError('captain'),
     });
     c.competitionId.valueChanges.pipe(takeUntilDestroyed()).subscribe({
       next: (id) => this.applyCompetition(id),
@@ -260,9 +259,14 @@ export class CreateLeagueForm {
     this.focus(`new-league-member-${Math.min(index, rows.length - 1)}-name`);
   }
 
-  /** Whether this input of the row is the one to fix. */
+  /** Whether this input of the row is the one to fix (or holds the API's duplicate). */
   rowInvalid(index: number, field: keyof MemberRow): boolean {
-    return this.rowErrors().get(index)?.field === field;
+    if (this.rowErrors().get(index)?.field === field) return true;
+    return (
+      field === 'superbru' &&
+      this.apiField() === 'members' &&
+      this.checked().members[0]?.row === index
+    );
   }
 
   choosePreset(key: string): void {
@@ -282,20 +286,14 @@ export class CreateLeagueForm {
     this.controls.accentColour.setValue(null);
   }
 
-  /** Shows a field's problem once the admin has tried to submit, or an API refusal for it. */
-  invalid(field: (typeof FIELD_ORDER)[number]): boolean {
+  /** Marks a field invalid once the admin has tried to submit, or after an API refusal for it. */
+  invalid(field: MarkedField): boolean {
     this.status();
-    const api = this.apiError();
-    if (api && api.field === field) return true;
+    if (this.apiField() === field) return true;
     return this.submitted() && this.controls[field].invalid;
   }
 
-  fieldApiError(field: 'slug' | 'members'): string | null {
-    const api = this.apiError();
-    return api?.field === field ? api.message : null;
-  }
-
-  slugMessage(): string {
+  private slugMessage(): string {
     const errors = this.controls.slug.errors;
     return typeof errors?.['slug'] === 'string' ? errors['slug'] : 'Check the slug.';
   }
@@ -303,12 +301,14 @@ export class CreateLeagueForm {
   async submit(): Promise<void> {
     if (this.busy()) return;
     this.submitted.set(true);
-    this.apiError.set(null);
+    this.apiField.set(null);
     this.form.markAllAsTouched();
-    if (this.form.invalid) {
-      this.focusFirstInvalid();
+    const problems = this.problems();
+    if (problems.length || this.form.invalid) {
+      this.warn(problems);
       return;
     }
+    this.alerts.dismissKey(ALERT_KEY);
     const v = this.form.getRawValue();
     const rules = rulesChange(rulesFrom(this.controls.rules), DEFAULT_RULES, { champion: false });
     const body: NewLeague = {
@@ -332,9 +332,15 @@ export class CreateLeagueForm {
     } catch (error) {
       const code = error instanceof ApiError ? error.code : 'error';
       const message = error instanceof Error ? error.message : 'The league could not be created.';
-      const field = FIELD_OF_CODE[code] ?? 'top';
-      this.apiError.set({ field, message });
-      this.focus(field === 'top' ? 'new-league-error' : field === 'members' ? 'new-league-members-error' : `new-league-${field}`);
+      const field = FIELD_OF_CODE[code];
+      if (!field) {
+        this.alerts.error(message, { key: ALERT_KEY });
+        return;
+      }
+      this.apiField.set(field);
+      const row = this.checked().members[0]?.row ?? 0;
+      const id = field === 'members' ? `new-league-member-${row}-superbru` : `new-league-${field}`;
+      this.warn([{ id, message }]);
     } finally {
       this.busy.set(false);
     }
@@ -349,30 +355,52 @@ export class CreateLeagueForm {
     if (!this.seasonEdited) this.controls.seasonName.setValue(defaultSeasonName(option));
   }
 
-  private clearApiError(field: 'slug' | 'members'): void {
-    if (this.apiError()?.field === field) this.apiError.set(null);
+  private clearApiError(field: ApiField): void {
+    if (this.apiField() === field) this.apiField.set(null);
   }
 
-  private focusFirstInvalid(): void {
-    const field = FIELD_ORDER.find((name) => this.controls[name].invalid);
-    if (field === 'rules') {
-      // Open the collapsed group so its first problem can take focus.
+  /** Everything the form cannot be sent with, in the order the form shows it. */
+  private problems(): readonly FormProblem[] {
+    const c = this.controls;
+    const problems: FormProblem[] = [];
+    const add = (id: string, message: string) => problems.push({ id: `new-league-${id}`, message });
+    if (c.name.invalid) add('name', 'Give the league a name.');
+    if (c.slug.invalid) add('slug', this.slugMessage());
+    if (c.competitionId.invalid) add('competitionId', 'Choose a competition.');
+    if (c.timezone.invalid) add('timezone', "Choose the league's time zone.");
+    if (c.seasonName.invalid) add('seasonName', 'Name the season.');
+    const checked = checkMembers(c.members.getRawValue());
+    for (const error of checked.errors)
+      add(`member-${error.row}-${error.field}`, `Member ${error.row + 1}: ${error.message}`);
+    if (!checked.errors.length && !checked.members.length)
+      add('member-0-name', 'Add at least one member.');
+    if (c.captain.invalid) add('captain', 'Choose the captain from the members.');
+    if (c.captainEmail.invalid) add('captainEmail', "Give the captain's email address.");
+    for (const rule of ruleProblems(c.rules, this.lastRound())) add(`rules-${rule.field}`, rule.message);
+    return problems;
+  }
+
+  /** One warning card for the attempt and focus on the first problem; a rule opens the rules. */
+  private warn(problems: readonly FormProblem[]): void {
+    if (!problems.length) return;
+    const [first] = problems;
+    if (problems.some((problem) => problem.id.startsWith('new-league-rules-')))
       this.rulesOpen.set(true);
-      afterNextRender(
-        () =>
-          this.host.nativeElement
-            .querySelector<HTMLElement>('#new-league-rules input.ng-invalid')
-            ?.focus(),
-        { injector: this.injector },
-      );
-      return;
-    }
-    if (field !== 'members') {
-      if (field) this.focus(`new-league-${field}`);
-      return;
-    }
-    const error = this.checked().errors[0];
-    this.focus(error ? `new-league-member-${error.row}-${error.field}` : 'new-league-member-0-name');
+    this.focus(first.id);
+    this.alerts.warn(first.message, { key: ALERT_KEY, details: problemDetails(problems) });
+  }
+
+  /**
+   * A repeated Superbru name is worth saying while typing, once: a warning when the repeat
+   * first appears, none for the keystrokes after it.
+   */
+  private warnRepeats(errors: readonly MemberRowError[]): void {
+    const repeats = errors.filter((error) => error.duplicate);
+    const seen = new Set(repeats.map((error) => `${error.row}:${error.message}`));
+    const fresh = repeats.find((error) => !this.warnedRepeats.has(`${error.row}:${error.message}`));
+    this.warnedRepeats = seen;
+    if (fresh)
+      this.alerts.warn(`Member ${fresh.row + 1}: ${fresh.message}`, { key: ALERT_KEY });
   }
 
   private focus(id: string): void {
@@ -382,6 +410,19 @@ export class CreateLeagueForm {
     );
   }
 }
+
+/** A field an API refusal concerns. */
+type ApiField = 'slug' | 'members' | 'captain';
+
+/** The single controls the template marks invalid. */
+type MarkedField =
+  | 'name'
+  | 'slug'
+  | 'competitionId'
+  | 'timezone'
+  | 'seasonName'
+  | 'captain'
+  | 'captainEmail';
 
 function memberRow() {
   return new FormGroup({

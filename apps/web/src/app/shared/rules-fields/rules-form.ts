@@ -126,6 +126,45 @@ export function rulesFrom(group: RulesGroup): LeagueRules {
   };
 }
 
+/** One rule field the form cannot save: `field` is the id suffix under the fields' `idPrefix`. */
+export interface RuleProblem {
+  readonly field: string;
+  readonly message: string;
+}
+
+/**
+ * The rule fields with invalid values, in the order the form shows them, for the parent's
+ * alert: the first problem's field is `${idPrefix}-${field}` to focus.
+ */
+export function ruleProblems(group: RulesGroup, lastRound: number): readonly RuleProblem[] {
+  const problems: RuleProblem[] = [];
+  if (group.controls.startingRound.invalid)
+    problems.push({
+      field: 'startingRound',
+      message: `Starting round: choose a round from 1 to ${Math.max(1, lastRound)}.`,
+    });
+  const labels: Record<(typeof WIN_POINT_KEYS)[number] | RuleNumber, string> = {
+    regular: 'Win points, regular round',
+    quarterFinal: 'Win points, quarter-final',
+    semiFinal: 'Win points, semi-final',
+    final: 'Win points, final',
+    marginPoint: 'Margin point',
+    marginWindow: 'Margin window',
+    bonusPointValue: 'Bonus point value',
+    bonusPointMinimumShare: 'Bonus point minimum share',
+    bonusRange: 'Bonus range',
+    grandSlamPoints: 'Grand slam points',
+  };
+  const range = `enter a number from 0 to ${MAX_RULE_NUMBER}.`;
+  for (const key of WIN_POINT_KEYS)
+    if (group.controls.winPoints.controls[key].invalid)
+      problems.push({ field: `win-${key}`, message: `${labels[key]}: ${range}` });
+  for (const key of RULE_NUMBERS as readonly RuleNumber[])
+    if (group.controls[key].invalid)
+      problems.push({ field: key, message: `${labels[key]}: ${range}` });
+  return problems;
+}
+
 /**
  * The keys of `next` that differ from `base`. `winPoints` goes whole when any round type
  * changed. The champion is compared only with `champion` (the new-league form has none).

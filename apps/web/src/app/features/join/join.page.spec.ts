@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
+import { AlertService } from '../../core/feedback/alert.service';
 import { ApiError } from '../../core/league/http-league-data';
 import { JoinService, joinCodeFrom } from '../../core/league/join.service';
 import { LeagueContext } from '../../core/league/league-context';
@@ -83,12 +84,18 @@ describe('JoinPage', () => {
     expect(navigate).toHaveBeenCalledWith('/pofadder-bowl');
   });
 
-  it('shows the API reason when the name was taken meanwhile', async () => {
+  it('shows the API reason as a red card when the name was taken meanwhile', async () => {
+    let previews = 0;
     const { fixture, root } = setup({
-      preview: () => Promise.resolve({ league: LEAGUE, alreadyMember: false, unclaimed: NAMES }),
+      preview: () => {
+        previews++;
+        return Promise.resolve({ league: LEAGUE, alreadyMember: false, unclaimed: NAMES });
+      },
       claim: () =>
         Promise.reject(new ApiError(409, 'name_taken', 'That name is no longer available.')),
     });
+    const alerts = TestBed.inject(AlertService);
+    const error = vi.spyOn(alerts, 'error');
     await fixture.whenStable();
     root.querySelectorAll<HTMLButtonElement>('.name')[0].click();
     await fixture.whenStable();
@@ -97,7 +104,15 @@ describe('JoinPage', () => {
     await fixture.whenStable();
     submit.click();
     await fixture.whenStable();
-    expect(root.querySelector('[role=alert]')?.textContent).toContain('no longer available');
+    expect(error).toHaveBeenCalledOnce();
+    expect(error).toHaveBeenCalledWith('That name is no longer available.', { key: 'join' });
+    // The names were read again, and nothing inline repeats the card.
+    expect(previews).toBe(2);
+    expect(root.querySelector('[role=alert]')).toBeNull();
+    expect(root.querySelector('h1')?.textContent).toContain('Which one is you?');
+
+    fixture.destroy();
+    expect(alerts.alerts()).toEqual([]);
   });
 
   it('opens the league for an account that is already in it', async () => {

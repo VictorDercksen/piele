@@ -34,10 +34,13 @@ test('before kickoff a member sees only the pick form; saving the pick reveals t
   await expect(panel.getByRole('table')).toHaveCount(0);
   await expect(panel.getByRole('img', { name: /The pool's split/ })).toHaveCount(0);
 
-  // An empty submit points at the side; a draw has no margin.
+  // An empty submit raises one warning card and points at the side; a draw has no margin.
   const side = panel.getByRole('radiogroup', { name: 'Your pick' });
   await panel.getByRole('button', { name: 'Save pick' }).click();
-  await expect(panel.getByText('Choose a side or a draw.')).toBeVisible();
+  const warning = page.getByRole('status').filter({ hasText: 'Yellow card' });
+  await expect(warning.filter({ hasText: 'Choose a side or a draw.' })).toBeVisible();
+  await expect(warning).toHaveCount(1);
+  await expect(side).toHaveAttribute('aria-invalid', 'true');
   await expect(side.getByRole('radio', { name: 'Stormers' })).toBeFocused();
   await side.locator('label', { hasText: 'Draw' }).click();
   await expect(side.getByRole('radio', { name: 'Draw' })).toBeChecked();
@@ -48,7 +51,10 @@ test('before kickoff a member sees only the pick form; saving the pick reveals t
   await side.locator('label', { hasText: 'Stormers' }).click();
   await panel.getByLabel('Margin (points)').fill('200');
   await panel.getByRole('button', { name: 'Save pick' }).click();
-  await expect(panel.getByText('Enter a margin from 1 to 150.')).toBeVisible();
+  // The new attempt replaces the card rather than stacking another.
+  await expect(warning).toHaveCount(1);
+  await expect(warning).toContainText('Enter a margin from 1 to 150.');
+  await expect(panel.getByLabel('Margin (points)')).toHaveAttribute('aria-invalid', 'true');
   await expect(panel.getByLabel('Margin (points)')).toBeFocused();
   await panel.getByLabel('Margin (points)').fill('7');
   await panel.getByRole('button', { name: 'Save pick' }).click();
@@ -333,7 +339,10 @@ test('a new league takes its Superbru rules from the form', async ({ page }) => 
   await expect(defaults).not.toBeChecked();
   await rules.getByLabel('Starting round').fill('40');
   await form.getByRole('button', { name: 'Create league' }).click();
-  await expect(rules.getByText('Choose a round from 1 to 18.')).toBeVisible();
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Starting round: choose a round from 1 to 18.' }),
+  ).toBeVisible();
+  await expect(rules.getByLabel('Starting round')).toHaveAttribute('aria-invalid', 'true');
   await expect(rules.getByLabel('Starting round')).toBeFocused();
   await rules.getByLabel('Starting round').fill('3');
   await form.getByRole('button', { name: 'Create league' }).click();

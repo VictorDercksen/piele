@@ -47,11 +47,6 @@
           Members make their own picks until kickoff. You can correct picks from kickoff.
         </p>
       }
-      @if (error()) {
-        <p id="picks-error" class="error-message grid-error" role="alert" tabindex="-1">
-          {{ error() }}
-        </p>
-      }
       <div class="grid-head" aria-hidden="true">
         <span class="member">Member</span><span class="pick-head">Pick</span
         ><span class="margin">Margin</span>
@@ -286,12 +281,6 @@
                   >
                     Cancel
                   </button>
-                  @if (overrideSubmitted() && overrideControl.invalid) {
-                    <p class="error-message" role="alert">Enter a total from 0 to 99999.99.</p>
-                  }
-                  @if (overrideError()) {
-                    <p class="error-message" role="alert">{{ overrideError() }}</p>
-                  }
                 </form>
               </td>
             </tr>

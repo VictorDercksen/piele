@@ -129,11 +129,6 @@
 .rule-field :disabled {
   opacity: 0.6;
 }
-.field-error {
-  margin: 0;
-  color: var(--accent);
-  font-size: 12px;
-}
 @media (prefers-reduced-motion: reduce) {
   .track,
   .track::after {

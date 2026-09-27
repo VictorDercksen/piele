@@ -3,6 +3,7 @@
   class="detail-dialog compact-dialog"
   [class.spoon-duty]="type() === 'spoon'"
   aria-labelledby="create-duty-title"
+  (close)="closed()"
 >
   <form [formGroup]="form" (ngSubmit)="submit()">
     <div class="dialog-top">
@@ -15,7 +16,11 @@
     <div class="field-grid">
       <label class="field wide">
         <span>Member</span>
-        <select formControlName="memberId" [attr.aria-invalid]="submitted() && form.controls.memberId.invalid">
+        <select
+          #memberSelect
+          formControlName="memberId"
+          [attr.aria-invalid]="invalid().has('memberId')"
+        >
           <option value="" disabled>Choose a member</option>
           @for (member of members(); track member.id) {
             <option [value]="member.id">{{ member.name }}</option>
@@ -39,12 +44,14 @@
       </label>
       <label class="field wide">
         <span>Deadline ({{ zoneName() }})</span>
-        <input type="datetime-local" formControlName="deadline" />
+        <input
+          #deadlineInput
+          type="datetime-local"
+          formControlName="deadline"
+          [attr.aria-invalid]="invalid().has('deadline')"
+        />
       </label>
     </div>
-    @if (submitted() && form.controls.memberId.invalid) {
-      <p class="error-message" role="alert">Choose the member who owes the duty.</p>
-    }
     <p class="deadline-note">
       @if (type() === 'spoon' && !deadlineOverridden()) {
         Due when the next round kicks off: <strong>{{ defaultDeadlineLabel() }}</strong
@@ -90,9 +97,6 @@
       formControlName="reason"
       placeholder="Last place in the round, missing picks…"
     ></textarea>
-    @if (error()) {
-      <p class="error-message" role="alert">{{ error() }}</p>
-    }
     <button type="submit" class="primary-button wide" [disabled]="busy()" [attr.aria-busy]="busy()">
       Create duty
       @if (busy()) {

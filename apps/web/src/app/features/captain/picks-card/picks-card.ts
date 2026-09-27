@@ -19,7 +19,7 @@ import { lucideArrowRight } from '@ng-icons/lucide';
 import { ClubTeam, Fixture } from '../../../core/competition/competition.models';
 import { CompetitionService } from '../../../core/competition/competition.service';
 import { LeagueTime } from '../../../core/competition/league-time';
-import { ToastService } from '../../../core/feedback/toast.service';
+import { AlertService } from '../../../core/feedback/alert.service';
 import { BADGES } from '../../../core/league/badges';
 import { ApiError } from '../../../core/league/http-league-data';
 import { MemberPick, StewardPick } from '../../../core/league/league.models';
@@ -33,6 +33,13 @@ import { Loader } from '../../../shared/loader/loader';
 import { MemberAvatar } from '../../../shared/member-avatar/member-avatar';
 import { CreateDutyDialog } from '../../duties/create-duty-dialog/create-duty-dialog';
 import { ReasonDialog } from '../../duties/reason-dialog/reason-dialog';
+import { capDetails } from '../alert-details';
+
+/** The keys of this card's alerts, one per form, so a new attempt replaces the last one's. */
+const ALERT_KEYS = { grid: 'picks-grid', override: 'picks-override' } as const;
+
+/** Refusals that are about the picks rather than a failure: warnings, not errors. */
+const WARNINGS: ReadonlySet<string> = new Set(['picks_locked']);
 
 /** Refusals worth their own words; any other code shows the API's message. */
 const REFUSALS: Readonly<Record<string, string>> = {
@@ -64,7 +71,7 @@ export class PicksCard {
   readonly view = inject(RoundViewService);
   private readonly competition = inject(CompetitionService);
   private readonly time = inject(LeagueTime);
-  private readonly toast = inject(ToastService);
+  private readonly alerts = inject(AlertService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly injector = inject(Injector);
   private readonly destroyRef = inject(DestroyRef);
@@ -174,7 +181,8 @@ export class PicksCard {
   /** Members whose margin needs fixing, after a save attempt. */
   readonly invalidRows = signal<ReadonlySet<string>>(new Set());
   readonly busy = signal(false);
-  readonly error = signal('');
+  /** The fixture the grid was last built for, so a new fixture drops the last one's card. */
+  private builtFixtureId: string | null = null;
 
   /** The member whose recorded total is being edited. */
   readonly overriding = signal<string | null>(null);
@@ -183,7 +191,6 @@ export class PicksCard {
   });
   readonly overrideSubmitted = signal(false);
   readonly overrideBusy = signal(false);
-  readonly overrideError = signal('');
 
   /** The selected round's spoon holders, once the round is complete. */
   readonly spoon = computed(() => {
@@ -227,19 +234,21 @@ export class PicksCard {
     const baseline = this.baseline();
     const fixtureId = baseline.fixtureId;
     if (!fixtureId || baseline.readOnly || this.busy()) return;
-    this.error.set('');
-    const invalid = this.grid()
-      .filter(({ group }) => {
-        const { side, margin } = group.getRawValue();
-        return (side === 'home' || side === 'away') && parseMargin(margin) === null;
-      })
-      .map(({ memberId }) => memberId);
-    this.invalidRows.set(new Set(invalid));
+    const invalid = this.grid().filter(({ group }) => {
+      const { side, margin } = group.getRawValue();
+      return (side === 'home' || side === 'away') && parseMargin(margin) === null;
+    });
+    this.invalidRows.set(new Set(invalid.map(({ memberId }) => memberId)));
     if (invalid.length) {
-      this.error.set('Enter a margin from 1 to 150 for each home or away pick.');
-      this.focus(`#pick-${fixtureId}-${invalid[0]}-margin`);
+      // The rows stay flagged (aria-invalid); the card names who needs a margin.
+      this.alerts.warn('Enter a margin from 1 to 150 for each home or away pick.', {
+        key: ALERT_KEYS.grid,
+        details: capDetails(invalid.map(({ name }) => `${name} needs a margin.`)),
+      });
+      this.focus(`#pick-${fixtureId}-${invalid[0].memberId}-margin`);
       return;
     }
+    this.alerts.dismissKey(ALERT_KEYS.grid);
     const record: StewardPick[] = [];
     const remove: string[] = [];
     for (const { memberId, group } of this.grid()) {
@@ -259,7 +268,7 @@ export class PicksCard {
       record.push({ memberId, ...wanted, ...(saved?.dutyId ? { dutyId: saved.dutyId } : {}) });
     }
     if (!record.length && !remove.length) {
-      this.toast.show('No picks changed.');
+      this.alerts.info('No picks changed.');
       return;
     }
     const chosen = this.chosen();
@@ -268,16 +277,16 @@ export class PicksCard {
     try {
       if (record.length) await this.view.recordPicks(fixtureId, record);
       for (const memberId of remove) await this.view.removePick(fixtureId, memberId);
-      this.toast.show(
+      this.alerts.success(
         chosen ? `Picks saved for ${chosen.homeName} v ${chosen.awayName}.` : 'Picks saved.',
       );
     } catch (error) {
       const code = error instanceof ApiError ? error.code : '';
-      this.error.set(
+      const message =
         REFUSALS[code] ??
-          (error instanceof Error ? error.message : 'The picks could not be saved.'),
-      );
-      this.focus('#picks-error');
+        (error instanceof Error ? error.message : 'The picks could not be saved.');
+      if (WARNINGS.has(code)) this.alerts.warn(message, { key: ALERT_KEYS.grid });
+      else this.alerts.error(message, { key: ALERT_KEYS.grid });
     } finally {
       this.busy.set(false);
       // A successful save rebuilds the grid from the saved picks; otherwise keep the edits.
@@ -286,7 +295,7 @@ export class PicksCard {
   }
 
   startOverride(row: DerivedVsRecorded): void {
-    this.overrideError.set('');
+    this.alerts.dismissKey(ALERT_KEYS.override);
     this.overrideSubmitted.set(false);
     this.overrideControl.reset(row.recorded ?? row.derived);
     this.overriding.set(row.memberId);
@@ -296,7 +305,7 @@ export class PicksCard {
   cancelOverride(): void {
     const memberId = this.overriding();
     this.overriding.set(null);
-    this.overrideError.set('');
+    this.alerts.dismissKey(ALERT_KEYS.override);
     if (memberId) this.focus(`#override-button-${memberId}`);
   }
 
@@ -306,8 +315,14 @@ export class PicksCard {
   }
 
   async saveOverride(row: DerivedVsRecorded): Promise<void> {
+    if (this.overrideBusy()) return;
     this.overrideSubmitted.set(true);
-    if (this.overrideControl.invalid || this.overrideBusy()) return;
+    if (this.overrideControl.invalid) {
+      this.alerts.warn('Enter a total from 0 to 99999.99.', { key: ALERT_KEYS.override });
+      this.focus(`#override-${row.memberId}`);
+      return;
+    }
+    this.alerts.dismissKey(ALERT_KEYS.override);
     const points = Number(this.overrideControl.value);
     const round = this.view.round();
     // A round's recorded totals are replaced as a whole: keep everyone else's.
@@ -319,14 +334,16 @@ export class PicksCard {
       { memberId: row.memberId, points },
     ];
     this.overrideBusy.set(true);
-    this.overrideError.set('');
     try {
       await this.view.recordStandings(round.id, entries);
-      this.toast.show(`${row.name}'s ${round.title} total is recorded as ${points}.`);
+      this.alerts.success(`${row.name}'s ${round.title} total is recorded as ${points}.`);
       this.cancelOverride();
     } catch (error) {
-      this.overrideError.set(
+      this.alerts.error(
         error instanceof Error ? error.message : 'The total could not be recorded.',
+        {
+          key: ALERT_KEYS.override,
+        },
       );
     } finally {
       this.overrideBusy.set(false);
@@ -346,7 +363,7 @@ export class PicksCard {
         this.overriding.set(null);
       },
       done: () => {
-        this.toast.show(`${row.name}'s ${round.title} total follows the picks again.`);
+        this.alerts.success(`${row.name}'s ${round.title} total follows the picks again.`);
         this.focus(`#override-button-${row.memberId}`);
       },
     });
@@ -372,7 +389,8 @@ export class PicksCard {
     this.rowListeners = new Subscription();
     this.form.clear({ emitEvent: false });
     this.invalidRows.set(new Set());
-    this.error.set('');
+    if (baseline.fixtureId !== this.builtFixtureId) this.alerts.dismissKey(ALERT_KEYS.grid);
+    this.builtFixtureId = baseline.fixtureId;
     const rows = baseline.members.map((member) => {
       const group = pickRow(baseline.saved.get(member.id));
       this.wire(group);

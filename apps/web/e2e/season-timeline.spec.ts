@@ -85,7 +85,8 @@ test('sample league duties, evidence, votes and round scoping', async ({ page })
     mimeType: 'text/plain',
     buffer: Buffer.from('x'),
   });
-  await expect(page.getByRole('alert')).toContainText('Choose a video file');
+  await expect(page.getByRole('status').filter({ hasText: 'Choose a video file' })).toBeVisible();
+  await expect(upload).toHaveAttribute('aria-invalid', 'true');
   await upload.setInputFiles({
     name: 'demo.mp4',
     mimeType: 'video/mp4',
@@ -93,7 +94,9 @@ test('sample league duties, evidence, votes and round scoping', async ({ page })
   });
   await page.getByRole('button', { name: 'Submit evidence' }).click();
   await expect(page.getByRole('heading', { name: 'Over to the captain.' })).toBeVisible();
-  await expect(page.getByRole('status')).toContainText('No file was uploaded');
+  await expect(page.getByRole('status').filter({ hasText: 'No file was uploaded' })).toBeVisible();
+  // The dialog's warning left with the problem it named.
+  await expect(page.getByRole('status').filter({ hasText: 'Choose a video file' })).toHaveCount(0);
 
   await nav.getByRole('link', { name: 'Duties', exact: true }).click();
   await expect(page).toHaveURL(/\/piele\/duties\?round=2/);
@@ -330,7 +333,9 @@ test('captain creates, records and decides duties; the feed follows', async ({ p
   await dialog.getByLabel('Member').selectOption({ label: 'Johan' });
   await dialog.getByLabel('Reason').fill('Last place in Round 02.');
   await dialog.getByRole('button', { name: 'Create duty' }).click();
-  await expect(page.getByRole('status')).toContainText('Round 02 Spoon duty created for Johan');
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Round 02 Spoon duty created for Johan' }),
+  ).toBeVisible();
   const card = page.locator('.register-card').filter({ hasText: 'Johan' });
   await expect(card).toContainText('09 Oct 2026 · 20:45 SAST');
   await expect(card).toContainText('0 marks');
@@ -343,16 +348,23 @@ test('captain creates, records and decides duties; the feed follows', async ({ p
     buffer: Buffer.from('demo'),
   });
   await evidence.getByRole('button', { name: 'Record evidence' }).click();
-  await expect(evidence.getByRole('alert')).toContainText('Record when the duty was completed');
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Record when the duty was completed' }),
+  ).toBeVisible();
+  await expect(evidence.getByLabel('Completed at (SAST)')).toBeFocused();
   await evidence.getByLabel('Completed at (SAST)').fill('2026-09-20T09:00');
   await evidence.getByRole('button', { name: 'Record evidence' }).click();
-  await expect(page.getByRole('status')).toContainText('Evidence recorded for Johan');
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Evidence recorded for Johan' }),
+  ).toBeVisible();
   await expect(card).toContainText('Under review');
 
   await card.getByRole('button', { name: 'Void duty' }).click();
   const reason = page.getByRole('dialog').filter({ hasText: 'Void this duty?' });
   await reason.getByRole('button', { name: 'Void duty' }).click();
-  await expect(reason.getByRole('alert')).toContainText('Give a reason');
+  await expect(page.getByRole('status').filter({ hasText: 'Give a reason' })).toBeVisible();
+  await expect(reason.getByLabel('Reason')).toHaveAttribute('aria-invalid', 'true');
+  await expect(reason.getByLabel('Reason')).toBeFocused();
   await reason.getByLabel('Reason').fill('Created by mistake');
   await reason.getByRole('button', { name: 'Void duty' }).click();
   await expect(card).toContainText('Voided');
@@ -369,7 +381,7 @@ test('captain creates, records and decides duties; the feed follows', async ({ p
   const accept = page.getByRole('dialog').filter({ hasText: 'Accept this evidence?' });
   await expect(accept).toContainText('04 Oct 2026 · 12:30 SAST');
   await accept.getByRole('button', { name: 'Accept evidence' }).click();
-  await expect(page.getByRole('status')).toContainText('completed for Liam');
+  await expect(page.getByRole('status').filter({ hasText: 'completed for Liam' })).toBeVisible();
   await expect(page.locator('.round-empty')).toContainText('Nothing needs your decision');
 
   await nav.getByRole('link', { name: 'Home', exact: true }).click();

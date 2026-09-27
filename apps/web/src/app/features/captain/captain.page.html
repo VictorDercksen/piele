@@ -38,9 +38,6 @@
   } @empty {
     <div class="round-empty"><h3>Nothing needs your decision in this round.</h3></div>
   }
-  @if (playbackError()) {
-    <p class="error-message" role="alert">{{ playbackError() }}</p>
-  }
 </app-dropdown>
 
 <app-picks-card [dialog]="reasonDialog()" [dutyDialog]="dutyDialog()" />
@@ -68,6 +65,7 @@
               type="email"
               [formControl]="emailControl"
               placeholder="name@example.com"
+              [attr.aria-invalid]="emailAttempted() && emailControl.invalid"
             />
             <button
               type="button"
@@ -174,28 +172,41 @@
       </ul>
     </details>
   }
-  @if (withdrawError()) {
-    <p class="error-message" role="alert">{{ withdrawError() }}</p>
-  }
   <form class="add-member" [formGroup]="newMember" (ngSubmit)="addMember()">
     <h3>Add a member</h3>
     <div class="add-grid">
+      @let controls = newMember.controls;
       <label>
         <span>Nickname</span>
-        <input formControlName="name" maxlength="50" placeholder="As shown on Superbru" />
+        <input
+          id="new-member-name"
+          formControlName="name"
+          maxlength="50"
+          placeholder="As shown on Superbru"
+          [attr.aria-invalid]="addAttempted() && controls.name.invalid"
+        />
       </label>
       <label>
         <span>Full name</span>
-        <input formControlName="fullName" maxlength="120" placeholder="Surname, First name" />
+        <input
+          id="new-member-fullName"
+          formControlName="fullName"
+          maxlength="120"
+          placeholder="Surname, First name"
+          [attr.aria-invalid]="addAttempted() && controls.fullName.invalid"
+        />
       </label>
       <label>
         <span>Email <em>(optional)</em></span>
-        <input formControlName="email" type="email" maxlength="320" />
+        <input
+          id="new-member-email"
+          formControlName="email"
+          type="email"
+          maxlength="320"
+          [attr.aria-invalid]="addAttempted() && controls.email.invalid"
+        />
       </label>
     </div>
-    @if (memberError()) {
-      <p class="error-message" role="alert">{{ memberError() }}</p>
-    }
     <button type="submit" class="primary-button" [disabled]="addingMember()">
       @if (addingMember()) {
         <app-loader [size]="16" aria-hidden="true" />

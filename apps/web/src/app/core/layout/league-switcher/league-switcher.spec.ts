@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { routes } from '../../../app.routes';
+import { AlertService } from '../../feedback/alert.service';
 import { LeagueContext } from '../../league/league-context';
 import { LeagueData } from '../../league/league-data';
 import { SampleLeagueData } from '../../league/sample-league-data';
@@ -115,17 +116,36 @@ describe('LeagueSwitcher', () => {
     expect(label.htmlFor).toBe(input.id);
     const form = switcher.querySelector<HTMLFormElement>('form.join')!;
 
+    const alerts = TestBed.inject(AlertService);
+    const warn = vi.spyOn(alerts, 'warn');
     input.value = 'not a code';
     form.dispatchEvent(new Event('submit', { cancelable: true }));
     TestBed.tick();
-    expect(switcher.querySelector('[role="alert"]')?.textContent).toContain(
-      'not a join link or code',
-    );
+    expect(warn).toHaveBeenCalledOnce();
+    expect(warn.mock.calls[0][0]).toContain('not a join link or code');
+    expect(warn.mock.calls[0][1]).toEqual({ key: 'join-code' });
+    expect(switcher.querySelector('[role="alert"]')).toBeNull();
     expect(input.getAttribute('aria-invalid')).toBe('true');
+    expect(input.hasAttribute('aria-describedby')).toBe(false);
+    expect(document.activeElement).toBe(input);
+
+    // Dismissing the card does not close the switcher.
+    const snack = document.createElement('app-alert-snack');
+    document.body.append(snack);
+    snack.dispatchEvent(new Event('pointerdown', { bubbles: true, composed: true }));
+    TestBed.tick();
+    expect(trigger.getAttribute('aria-expanded')).toBe('true');
+    snack.remove();
+
+    input.value = 'still not';
+    input.dispatchEvent(new Event('input'));
+    TestBed.tick();
+    expect(input.getAttribute('aria-invalid')).toBe('false');
 
     input.value = 'https://pavilion.example/join/b0e1d2c3a4f5';
     form.dispatchEvent(new Event('submit', { cancelable: true }));
     await until(() => router.url.startsWith('/join'));
     expect(router.url).toBe('/join/b0e1d2c3a4f5');
+    expect(alerts.alerts().some((alert) => alert.key === 'join-code')).toBe(false);
   });
 });

@@ -488,7 +488,6 @@
 }
 .league .icon-button,
 .league .context-pager button,
-.league .toast button,
 .profile-editor .close-profile,
 .league button.text-button,
 .profile-editor button.remove-photo {
@@ -506,7 +505,6 @@
 // The white buttons carry the same stitched edge as the main actions.
 .league .icon-button,
 .league .context-pager button,
-.league .toast button,
 .profile-editor .close-profile,
 .league button.text-button,
 .profile-editor button.remove-photo,
@@ -515,7 +513,6 @@
 }
 .league .icon-button::after,
 .league .context-pager button::after,
-.league .toast button::after,
 .profile-editor .close-profile::after,
 .league button.text-button::after,
 .profile-editor button.remove-photo::after,
@@ -529,13 +526,11 @@
 }
 .league .icon-button:enabled:hover,
 .league .context-pager button:enabled:hover,
-.league .toast button:enabled:hover,
 .profile-editor .close-profile:enabled:hover {
   filter: brightness(1.18);
 }
 .league .icon-button:enabled:active,
 .league .context-pager button:enabled:active,
-.league .toast button:enabled:active,
 .profile-editor .close-profile:enabled:active {
   box-shadow: inset 0 2px 5px #0006;
 }

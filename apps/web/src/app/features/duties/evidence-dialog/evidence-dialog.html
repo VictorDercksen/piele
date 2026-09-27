@@ -3,6 +3,7 @@
   class="detail-dialog compact-dialog evidence"
   [class.spoon-duty]="duty()?.spoon"
   aria-labelledby="evidence-title"
+  (close)="closed()"
 >
   <div class="dialog-top">
     <span class="eyebrow">ROUND {{ view.round().code }} / {{ duty()?.memberName }}</span
@@ -12,19 +13,27 @@
   </div>
   <h2 id="evidence-title">{{ onBehalf() ? 'Record the evidence.' : 'The proof is in the video.' }}</h2>
   <p>{{ duty()?.title }}</p>
-  <label class="file-field" [class.filled]="file()">
+  <label class="file-field" [class.filled]="file()" [class.invalid]="invalid() === 'file'">
     <app-icon name="upload" />
     <strong>{{ file() ? 'Video chosen' : 'Choose the video' }}</strong>
     <span>{{ file()?.name || 'Up to 50 MB · visible to league members only' }}</span>
-    <input type="file" accept="video/*" (change)="pickFile($event)" />
+    <input
+      #fileInput
+      type="file"
+      accept="video/*"
+      [attr.aria-invalid]="invalid() === 'file'"
+      (change)="pickFile($event)"
+    />
   </label>
   @if (onBehalf()) {
     <label class="field-label" for="evidence-completed">Completed at ({{ zoneName() }})</label>
     <input
+      #completedInput
       id="evidence-completed"
       class="text-input"
       type="datetime-local"
       [formControl]="completedAt"
+      [attr.aria-invalid]="invalid() === 'completed'"
     />
   }
   <label class="field-label" for="evidence-note">Note <span>(optional)</span></label>
@@ -35,9 +44,6 @@
     placeholder="Anything the reviewer should know?"
     [formControl]="note"
   ></textarea>
-  @if (error()) {
-    <p class="error-message" role="alert">{{ error() }}</p>
-  }
   @if (view.sample) {
     <p class="context-note">Sample league. Your file is never uploaded or stored.</p>
   }

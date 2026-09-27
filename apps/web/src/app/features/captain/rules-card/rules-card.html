@@ -10,9 +10,6 @@
       [champions]="champions()"
       [submitted]="submitted()"
     />
-    @if (error()) {
-      <p class="error-message" role="alert">{{ error() }}</p>
-    }
     <div class="rules-actions">
       <button type="submit" class="primary-button" [disabled]="busy()" [attr.aria-busy]="busy()">
         @if (busy()) {

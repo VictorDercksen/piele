@@ -12,6 +12,7 @@ import {
 import { RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideArrowRight, lucideChevronDown, lucidePlus } from '@ng-icons/lucide';
+import { AlertService } from '../../core/feedback/alert.service';
 import { AdminService } from '../../core/league/admin.service';
 import { BallLoader } from '../../shared/ball-loader/ball-loader';
 import { ReasonDialog } from '../duties/reason-dialog/reason-dialog';
@@ -34,6 +35,7 @@ import { LeagueCard, LeagueChange } from './league-card/league-card';
 })
 export class ManagePage {
   private readonly admin = inject(AdminService);
+  private readonly alerts = inject(AlertService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly injector = inject(Injector);
   private readonly archivedGroup = viewChild<ElementRef<HTMLDetailsElement>>('archivedGroup');
@@ -44,8 +46,6 @@ export class ManagePage {
   readonly error = this.admin.error;
   readonly active = computed(() => this.leagues().filter((l) => l.status === 'active'));
   readonly archived = computed(() => this.leagues().filter((l) => l.status === 'archived'));
-  /** The last change, announced politely. */
-  readonly status = signal('');
   /** Whether the new-league form is open. */
   readonly creating = signal(false);
 
@@ -61,9 +61,9 @@ export class ManagePage {
     void this.admin.load();
   }
 
-  /** Announces a change; a league that moved group keeps the focus with it. */
+  /** Announces a change on a success card; a league that moved group keeps the focus with it. */
   onChanged(change: LeagueChange): void {
-    this.status.set(change.message);
+    this.alerts.success(change.message);
     if (!change.moved) return;
     afterNextRender(
       () => {

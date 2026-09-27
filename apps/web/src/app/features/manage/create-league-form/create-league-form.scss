@@ -40,16 +40,6 @@ select,
 textarea {
   background: #0f1b1e;
 }
-.top-error {
-  padding: 12px 14px;
-  border-left: 2px solid var(--accent);
-  background: var(--tint);
-  font-size: 13px;
-}
-.top-error:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
 .members {
   display: grid;
   gap: 10px;
@@ -99,9 +89,6 @@ textarea {
 .remove-row:disabled {
   opacity: 0.35;
   cursor: default;
-}
-.row-error {
-  grid-column: 2 / -1;
 }
 .members-foot {
   display: flex;
@@ -230,8 +217,7 @@ input[type='color']:focus-visible {
     border: 1px solid var(--line);
     background: #ffffff05;
   }
-  .member-row .field,
-  .row-error {
+  .member-row .field {
     grid-column: 1 / -1;
   }
   .remove-row {

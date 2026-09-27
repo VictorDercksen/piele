@@ -140,13 +140,6 @@
   gap: 12px;
   margin-bottom: 18px;
 }
-.form-error {
-  margin: 0 !important;
-  padding: 10px 12px;
-  border-left: 2px solid var(--accent);
-  background: var(--tint);
-  font-size: 13px;
-}
 .choice {
   min-width: 0;
   margin: 0;
@@ -194,6 +187,9 @@
 .segment:has(input:focus-visible) {
   outline: 3px solid #e77935;
   outline-offset: -3px;
+}
+.choice[aria-invalid='true'] .segment {
+  border-color: var(--accent);
 }
 .segment.selected {
   color: #fff;
@@ -273,16 +269,9 @@
   align-items: center;
   gap: 8px 16px;
 }
-.field-error,
 .hint {
   margin: 0;
   font-size: 12px;
-}
-.field-error {
-  color: var(--accent);
-}
-.choice .field-error {
-  margin-top: 8px;
 }
 .hint,
 .form-note {

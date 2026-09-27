@@ -14,7 +14,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { map } from 'rxjs';
 import { LeagueRules } from '../../../core/league/league.models';
 import { CompetitionService } from '../../../core/competition/competition.service';
-import { ToastService } from '../../../core/feedback/toast.service';
+import { AlertService } from '../../../core/feedback/alert.service';
 import { ApiError } from '../../../core/league/http-league-data';
 import { RoundViewService } from '../../../core/league/round-view.service';
 import { Dropdown } from '../../../shared/dropdown/dropdown';
@@ -22,11 +22,16 @@ import { Loader } from '../../../shared/loader/loader';
 import { RuleChampion, RulesFields } from '../../../shared/rules-fields/rules-fields';
 import {
   resetRules,
+  ruleProblems,
   rulesChange,
   rulesFrom,
   rulesGroup,
   setLastRound,
 } from '../../../shared/rules-fields/rules-form';
+import { alertDetails } from '../alert-details';
+
+/** The key of the rules form's card, so a new attempt replaces the last one's. */
+const ALERT_KEY = 'captain-rules';
 
 /** Refusals worth their own words; any other code shows the API's message. */
 const REFUSALS: Readonly<Record<string, string>> = {
@@ -48,7 +53,7 @@ const REFUSALS: Readonly<Record<string, string>> = {
 export class RulesCard {
   private readonly view = inject(RoundViewService);
   private readonly competition = inject(CompetitionService);
-  private readonly toast = inject(ToastService);
+  private readonly alerts = inject(AlertService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly injector = inject(Injector);
 
@@ -83,7 +88,6 @@ export class RulesCard {
   });
   readonly submitted = signal(false);
   readonly busy = signal(false);
-  readonly error = signal('');
 
   constructor() {
     // Saved or reloaded rules (or another league) replace what the form shows.
@@ -106,21 +110,27 @@ export class RulesCard {
   undo(): void {
     resetRules(this.form, this.view.rules());
     this.submitted.set(false);
-    this.error.set('');
+    this.alerts.dismissKey(ALERT_KEY);
   }
 
   async save(): Promise<void> {
     if (this.busy()) return;
     this.submitted.set(true);
-    this.error.set('');
-    if (this.form.invalid) {
-      this.focusFirstInvalid();
+    const problems = ruleProblems(this.form, this.lastRound());
+    if (problems.length) {
+      const [first] = problems;
+      this.alerts.warn(first.message, {
+        key: ALERT_KEY,
+        details: alertDetails(problems.map((problem) => problem.message)),
+      });
+      this.focusField(first.field);
       return;
     }
+    this.alerts.dismissKey(ALERT_KEY);
     const change = rulesChange(rulesFrom(this.form), this.view.rules());
     if (!Object.keys(change).length) {
       this.form.markAsPristine();
-      this.toast.show('The rules are unchanged.');
+      this.alerts.info('The rules are unchanged.', { key: ALERT_KEY });
       return;
     }
     this.busy.set(true);
@@ -128,12 +138,13 @@ export class RulesCard {
     try {
       await this.view.saveRules(change);
       this.form.markAsPristine();
-      this.toast.show('Superbru rules saved.');
+      this.alerts.success('Superbru rules saved.', { key: ALERT_KEY });
     } catch (error) {
       const code = error instanceof ApiError ? error.code : '';
-      this.error.set(
+      this.alerts.error(
         REFUSALS[code] ??
           (error instanceof Error ? error.message : 'The rules could not be saved.'),
+        { key: ALERT_KEY },
       );
     } finally {
       this.form.enable({ emitEvent: false });
@@ -141,12 +152,10 @@ export class RulesCard {
     }
   }
 
-  private focusFirstInvalid(): void {
+  /** Focuses a rule field by its id suffix, once `aria-invalid` has rendered. */
+  private focusField(field: string): void {
     afterNextRender(
-      () =>
-        this.host.nativeElement
-          .querySelector<HTMLElement>('input.ng-invalid, select.ng-invalid')
-          ?.focus(),
+      () => this.host.nativeElement.querySelector<HTMLElement>(`#rules-${field}`)?.focus(),
       { injector: this.injector },
     );
   }

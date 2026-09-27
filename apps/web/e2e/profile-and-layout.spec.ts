@@ -16,8 +16,15 @@ test('first visit requires a favourite team and saves a personal identity', asyn
   await expect(page).toHaveURL(/\/piele\/welcome\?returnUrl=%2Fpiele$/);
   await expect(page.getByRole('radio')).toHaveCount(16);
   await page.getByRole('button', { name: 'Enter the clubhouse' }).click();
-  await expect(page.getByText('Choose the team you support.')).toBeVisible();
-  await expect(page.getByText('Enter your name to continue.')).toBeVisible();
+  // One warning card names both problems; focus goes to the first field to fix.
+  const warning = page.getByRole('status').filter({ hasText: 'Enter your name to continue.' });
+  await expect(warning).toBeVisible();
+  await expect(warning).toContainText('Choose the team you support.');
+  await expect(page.getByLabel('Your name', { exact: true })).toBeFocused();
+  await expect(page.getByLabel('Your name', { exact: true })).toHaveAttribute(
+    'aria-invalid',
+    'true',
+  );
   await page.getByLabel('Your name', { exact: true }).fill('Victor Dercksen');
   await page.getByRole('radio', { name: 'DHL Stormers', exact: true }).check();
   await page.evaluate(() => document.fonts.ready);
@@ -65,19 +72,21 @@ test('profile photo, replacement, removal and team changes persist', async ({ pa
     mimeType: 'image/svg+xml',
     buffer: Buffer.from('<svg/>'),
   });
-  await expect(page.getByRole('alert')).toContainText('JPG, PNG or WebP');
+  // A file it cannot use is a warning card (role=status) and marks the field.
+  await expect(page.getByRole('status').filter({ hasText: 'JPG, PNG or WebP' })).toBeVisible();
+  await expect(upload).toHaveAttribute('aria-invalid', 'true');
   await upload.setInputFiles({
     name: 'bad.png',
     mimeType: 'image/png',
     buffer: Buffer.from('not an image'),
   });
-  await expect(page.getByRole('alert')).toContainText('could not be opened');
+  await expect(page.getByRole('status').filter({ hasText: 'could not be opened' })).toBeVisible();
   await upload.setInputFiles({
     name: 'large.jpg',
     mimeType: 'image/jpeg',
     buffer: Buffer.alloc(5 * 1024 * 1024 + 1),
   });
-  await expect(page.getByRole('alert')).toContainText('smaller than 5 MB');
+  await expect(page.getByRole('status').filter({ hasText: 'smaller than 5 MB' })).toBeVisible();
   await upload.setInputFiles('public/assets/images/piele-crest.png');
   await expect(page.getByAltText('Your selected profile photo')).toHaveAttribute(
     'src',
@@ -121,7 +130,7 @@ test('cancel preserves profile and failed storage reports a visible error', asyn
     };
   });
   await page.getByRole('button', { name: 'Save profile', exact: true }).click();
-  await expect(page.getByRole('alert')).toContainText('could not save');
+  await expect(page.getByRole('alert').filter({ hasText: 'could not save' })).toBeVisible();
 });
 
 test('Floodlights layouts and club assets work from desktop to 320px', async ({

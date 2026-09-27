@@ -10,13 +10,16 @@ import {
 } from '@angular/core';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideCopy, lucideRefreshCw } from '@ng-icons/lucide';
-import { ToastService } from '../../../core/feedback/toast.service';
+import { AlertService } from '../../../core/feedback/alert.service';
 import { LeagueContext } from '../../../core/league/league-context';
 import { LeagueData } from '../../../core/league/league-data';
 import { Dropdown } from '../../../shared/dropdown/dropdown';
 import { Icon } from '../../../shared/icon/icon';
 import { Loader } from '../../../shared/loader/loader';
 import { ReasonDialog } from '../../duties/reason-dialog/reason-dialog';
+
+/** The key of this card's alerts, so a new attempt replaces the last one's. */
+const ALERT_KEY = 'captain-join-link';
 
 /**
  * The league's join link on the captain's desk: copy it, rotate it (the old link stops
@@ -32,7 +35,7 @@ import { ReasonDialog } from '../../duties/reason-dialog/reason-dialog';
 })
 export class JoinLinkCard {
   private readonly league = inject(LeagueData);
-  private readonly toast = inject(ToastService);
+  private readonly alerts = inject(AlertService);
   private readonly origin = inject(DOCUMENT).location.origin;
   readonly leagueName = inject(LeagueContext).name;
   /** The captain's desk's confirmation dialog. */
@@ -43,9 +46,7 @@ export class JoinLinkCard {
     return code ? `${this.origin}/join/${code}` : null;
   });
   readonly copied = signal(false);
-  readonly copyError = signal('');
   readonly opening = signal(false);
-  readonly error = signal('');
   private copiedTimer: ReturnType<typeof setTimeout> | undefined;
 
   constructor() {
@@ -55,15 +56,21 @@ export class JoinLinkCard {
   async copy(): Promise<void> {
     const link = this.link();
     if (!link) return;
-    this.copyError.set('');
     try {
       await navigator.clipboard.writeText(link);
+      this.alerts.dismissKey(ALERT_KEY);
       this.copied.set(true);
       clearTimeout(this.copiedTimer);
       this.copiedTimer = setTimeout(() => this.copied.set(false), 4000);
     } catch {
       this.copied.set(false);
-      this.copyError.set('This browser did not allow copying. Select the link and copy it.');
+      // The card keeps the link, so it can still be copied by hand from here.
+      this.alerts.error(
+        `This browser did not allow copying. Select the link and copy it: ${link}`,
+        {
+          key: ALERT_KEY,
+        },
+      );
     }
   }
 
@@ -84,7 +91,7 @@ export class JoinLinkCard {
         this.copied.set(false);
         await this.league.rotateJoinCode();
       },
-      done: () => this.toast.show('A new join link is ready. The old one no longer works.'),
+      done: () => this.alerts.success('A new join link is ready. The old one no longer works.'),
     });
   }
 
@@ -99,19 +106,20 @@ export class JoinLinkCard {
         this.copied.set(false);
         await this.league.closeJoinCode();
       },
-      done: () => this.toast.show('Joining is closed.'),
+      done: () => this.alerts.success('Joining is closed.'),
     });
   }
 
   /** Joining reopens with a new link; the old one stays dead. */
   async openJoining(): Promise<void> {
     this.opening.set(true);
-    this.error.set('');
     try {
       await this.league.rotateJoinCode();
-      this.toast.show('Joining is open with a new link.');
+      this.alerts.success('Joining is open with a new link.', { key: ALERT_KEY });
     } catch (error) {
-      this.error.set(error instanceof Error ? error.message : 'Joining could not be opened.');
+      this.alerts.error(error instanceof Error ? error.message : 'Joining could not be opened.', {
+        key: ALERT_KEY,
+      });
     } finally {
       this.opening.set(false);
     }
