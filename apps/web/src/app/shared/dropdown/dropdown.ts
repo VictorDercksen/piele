@@ -20,6 +20,8 @@ const CLOSE_MS = 360;
 const EASING = 'cubic-bezier(0.22, 1, 0.36, 1)';
 /** The longest a scroll back to the heading may take before the body folds regardless. */
 const SCROLL_TIMEOUT_MS = 1500;
+/** Without `scrollend`, how long the page must hold still after moving to count as at rest. */
+const SCROLL_STILL_MS = 250;
 
 const now = () => (typeof performance === 'undefined' ? Date.now() : performance.now());
 const nextFrame = (callback: () => void) =>
@@ -136,40 +138,52 @@ export class Dropdown {
     return pin - natural;
   }
 
-  /** Scrolls the page by `gap` (smoothly unless motion is reduced), then folds the body at rest. */
+  /**
+   * Scrolls the page by `gap` (smoothly unless motion is reduced), then folds the body at rest:
+   * on `scrollend` where the browser has it, else once the page has moved and then held still
+   * for a while (a smooth scroll can stall for frames on a busy machine), or at the cap.
+   */
   private closeAfterScroll(gap: number): void {
     const token = ++this.closeToken;
     this.closing = true;
     const target = Math.max(0, Math.round(scrollY - gap));
     const reduced = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    scrollTo({ top: target, behavior: reduced ? 'instant' : 'smooth' });
     const started = now();
-    let last = scrollY;
-    let still = 0;
+    const from = scrollY;
+    let last = from;
+    let lastMove = started;
     let frames = 0;
-    const tick = () => {
+    let finished = false;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      removeEventListener('scrollend', finish);
       if (token !== this.closeToken) return;
-      if (!this.open()) {
+      this.closing = false;
+      if (this.open()) this.animateBody(false);
+    };
+    const tick = () => {
+      if (finished) return;
+      if (token !== this.closeToken || !this.open()) {
         // Closed meanwhile (a new reset key).
+        finished = true;
+        removeEventListener('scrollend', finish);
         this.closing = false;
         return;
       }
       frames++;
-      if (scrollY === last) still++;
-      else {
-        still = 0;
+      if (scrollY !== last) {
         last = scrollY;
+        lastMove = now();
       }
-      // Arrived, or at rest short of the target (the page ran out), or given up waiting.
+      const moved = last !== from;
       const arrived = frames >= 2 && Math.abs(scrollY - target) <= 1;
-      const settled = still >= 3 && now() - started >= 150;
-      if (arrived || settled || now() - started > SCROLL_TIMEOUT_MS) {
-        this.closing = false;
-        this.animateBody(false);
-        return;
-      }
-      nextFrame(tick);
+      const held = moved && now() - lastMove >= SCROLL_STILL_MS;
+      if (arrived || held || now() - started > SCROLL_TIMEOUT_MS) finish();
+      else nextFrame(tick);
     };
+    if ('onscrollend' in window) addEventListener('scrollend', finish);
+    scrollTo({ top: target, behavior: reduced ? 'instant' : 'smooth' });
     nextFrame(tick);
   }
 

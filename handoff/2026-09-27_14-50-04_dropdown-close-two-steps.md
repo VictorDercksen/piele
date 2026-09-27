@@ -27,9 +27,12 @@ be. Check the parent components and anything else that could cause it.
 - `shared/dropdown/dropdown.ts`: closing a pinned dropdown is now two steps that never share a
   frame. `pinGap()` measures the heading's place in the flow from the lead (which never moves;
   no more `position: static` toggling); `closeAfterScroll()` scrolls the window there with
-  `scrollTo({ behavior: 'smooth' })` (instant under reduced motion), polls `scrollY` each frame
-  until it arrives or settles (150 ms + 3 still frames, 1.5 s cap), then `animateBody(false)`
-  folds the body with no scroll in flight. The scroll-back only runs while the heading is
+  `scrollTo({ behavior: 'smooth' })` (instant under reduced motion) and folds the body with no
+  scroll in flight (`animateBody(false)`) on `scrollend` where the browser has it, else once the
+  page arrives or has moved and then held still for 250 ms (1.5 s cap). The first version
+  counted three still frames after 150 ms, which CI's loaded runner hit while Chrome's smooth
+  scroll was only stalling, so the fold started mid-scroll and the close-in-place check failed
+  in both the desk and the match centre tests. The scroll-back only runs while the heading is
   actually `stuck`; a second tap on the way is ignored; a reset key mid-scroll cancels it.
 - `features/match/match.page.ts`: the scroll to the top for another fixture waits for the frame
   after the new fixture has rendered (`afterNextRender` + `requestAnimationFrame`).
