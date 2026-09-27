@@ -172,17 +172,21 @@ export class Dropdown {
         return;
       }
       frames++;
-      if (scrollY !== last) {
+      const still = scrollY === last;
+      if (!still) {
         last = scrollY;
         lastMove = now();
       }
+      // Where the browser says when a scroll ends, only that (or the cap) finishes: a smooth
+      // scroll can sit within a pixel of its target for several frames while still moving.
       const moved = last !== from;
-      const arrived = frames >= 2 && Math.abs(scrollY - target) <= 1;
-      const held = moved && now() - lastMove >= SCROLL_STILL_MS;
+      const arrived = !hasScrollEnd && frames >= 2 && still && Math.abs(scrollY - target) < 0.5;
+      const held = !hasScrollEnd && moved && now() - lastMove >= SCROLL_STILL_MS;
       if (arrived || held || now() - started > SCROLL_TIMEOUT_MS) finish();
       else nextFrame(tick);
     };
-    if ('onscrollend' in window) addEventListener('scrollend', finish);
+    const hasScrollEnd = 'onscrollend' in window;
+    if (hasScrollEnd) addEventListener('scrollend', finish);
     scrollTo({ top: target, behavior: reduced ? 'instant' : 'smooth' });
     nextFrame(tick);
   }

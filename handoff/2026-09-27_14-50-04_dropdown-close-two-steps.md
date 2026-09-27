@@ -28,8 +28,15 @@ be. Check the parent components and anything else that could cause it.
   frame. `pinGap()` measures the heading's place in the flow from the lead (which never moves;
   no more `position: static` toggling); `closeAfterScroll()` scrolls the window there with
   `scrollTo({ behavior: 'smooth' })` (instant under reduced motion) and folds the body with no
-  scroll in flight (`animateBody(false)`) on `scrollend` where the browser has it, else once the
-  page arrives or has moved and then held still for 250 ms (1.5 s cap). The first version
+  scroll in flight (`animateBody(false)`) on `scrollend` alone where the browser has it, else
+  once the position stopped changing at the target or held still for 250 ms after moving (1.5 s
+  cap). A second CI failure came from an `arrived` shortcut that also ran with `scrollend`:
+  Chrome 153 (Playwright's headless shell, which CI runs and which the local full Chromium build
+  does not match) lets a smooth scroll sit within a pixel of its target for several frames while
+  still moving, so the fold began 40–80 ms before `scrollend`. Reproduced locally by installing
+  `chromium-headless-shell` 1243 into a scratch `PLAYWRIGHT_BROWSERS_PATH`; the close-in-place
+  check now also requires `scrollend` before the fold and only counts a real single frame
+  (< 25 ms apart) that both scrolls and folds. The first version
   counted three still frames after 150 ms, which CI's loaded runner hit while Chrome's smooth
   scroll was only stalling, so the fold started mid-scroll and the close-in-place check failed
   in both the desk and the match centre tests. The scroll-back only runs while the heading is

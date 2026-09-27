@@ -151,10 +151,12 @@ describe('Dropdown', () => {
     window.dispatchEvent(new Event('scroll'));
     await settle();
     expect(head.classList).toContain('stuck');
+    // A browser that reports the end of a scroll.
+    if (!('onscrollend' in window)) Object.defineProperty(window, 'onscrollend', { value: null });
     const scrolls: ScrollToOptions[] = [];
     vi.spyOn(window, 'scrollTo').mockImplementation(((options: ScrollToOptions) => {
       scrolls.push(options);
-      // The page arrives where it was asked to.
+      // The page arrives where it was asked to, but has not reported the end yet.
       window.scrollY = options.top!;
     }) as typeof window.scrollTo);
 
@@ -163,11 +165,15 @@ describe('Dropdown', () => {
     // Still open: the page is on its way back to the heading.
     expect(scrolls).toEqual([{ top: 394, behavior: 'smooth' }]);
     expect(section().classList).toContain('open');
-    // A second tap while on the way is ignored.
+    // A second tap while on the way is ignored, and sitting at the target is not the end.
     chevron()!.click();
+    await new Promise((resolve) => setTimeout(resolve, 80));
     await settle();
     expect(scrolls).toHaveLength(1);
-    await vi.waitFor(() => expect(section().classList).not.toContain('open'));
+    expect(section().classList).toContain('open');
+    window.dispatchEvent(new Event('scrollend'));
+    await settle();
+    expect(section().classList).not.toContain('open');
     expect(chevron()!.getAttribute('aria-expanded')).toBe('false');
 
     // Closing while not pinned scrolls nothing.
