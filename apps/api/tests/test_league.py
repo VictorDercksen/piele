@@ -1458,8 +1458,9 @@ def test_the_admin_lists_every_league_including_archived(client: TestClient) -> 
     captain_id = client.get(lp(client, "/me"), headers=captain).json()["memberId"]
     assert set(entry) == {
         "id", "slug", "name", "timezone", "status", "emblemPreset", "emblemUrl", "accentColour", "joinCode",
-        "competition", "season", "captain", "counts", "myMemberId", "createdAt",
+        "competition", "season", "captain", "counts", "myMemberId", "createdAt", "rules",
     }
+    assert entry["rules"] == DEFAULT_RULES
     assert (entry["name"], entry["timezone"], entry["joinCode"]) == ("Test league", "Africa/Johannesburg", join_code(client))
     assert entry["slug"].startswith("test-") and entry["emblemPreset"] is None and entry["emblemUrl"] is None
     assert entry["competition"] == {"id": "urc-2026-27", "name": "United Rugby Championship 2026/27", "shortName": "URC"}
@@ -1971,3 +1972,470 @@ def test_the_admin_acting_as_a_member_is_labelled_admin_in_the_audit(client: Tes
         ("Vee", "Vic (admin)", admin_member),
         ("Zee", "Captain", client.get(lp(client, "/me"), headers=captain_headers(client)).json()["memberId"]),
     ]
+
+
+# Superbru picks, rules and overrides ----------------------------------------------------
+
+# The API's defaults (service.DEFAULT_RULES), as the web receives them.
+DEFAULT_RULES = {
+    "defaultPicks": True,
+    "picksHiddenBeforeKickoff": False,
+    "bonusPoint": True,
+    "bonusPointSplit": True,
+    "bonusPointRangeCapped": True,
+    "startingRound": 1,
+    "winPoints": {"regular": 1, "quarterFinal": 1.5, "semiFinal": 2, "final": 3},
+    "marginPoint": 0.5,
+    "marginWindow": 5,
+    "bonusPointValue": 1,
+    "bonusPointMinimumShare": 0.25,
+    "bonusRange": 15,
+    "grandSlamPoints": 2,
+    "previousChampionMemberId": None,
+}
+# Round 1 has kicked off by then; round 2 starts on 2 October.
+PICKS_NOW = datetime(2026, 10, 1, 12, 0, tzinfo=timezone.utc)
+PLAYED = "292584"  # Benetton v Dragons, round 1
+OPEN = "292592"  # Cardiff v Zebre, round 2
+LATE = "292720"  # round 18, kicks off 14 May 2027
+
+
+@pytest.fixture
+def clock(monkeypatch: pytest.MonkeyPatch) -> Callable[[datetime], None]:
+    """Freezes the service clock (pick locks, results) at PICKS_NOW, or at the time given."""
+    from app.league import service
+
+    def set_now(moment: datetime) -> None:
+        monkeypatch.setattr(service, "now_utc", lambda: moment)
+
+    set_now(PICKS_NOW)
+    return set_now
+
+
+def member_ids(client: TestClient, headers: dict | None = None) -> dict[str, str]:
+    return {m["displayName"]: m["id"] for m in client.get(lp(client, "/members"), headers=headers or captain_headers(client)).json()}
+
+
+def own_pick(client: TestClient, fixture_id: str, side: str, margin: int | None, headers: dict, league_id: str | None = None):
+    return client.put(lp(client, f"/matches/{fixture_id}/picks/me", league_id), json={"side": side, "margin": margin}, headers=headers)
+
+
+def steward_picks(client: TestClient, fixture_id: str, picks: list[dict], headers: dict | None = None, league_id: str | None = None):
+    return client.put(
+        lp(client, f"/matches/{fixture_id}/picks", league_id), json={"picks": picks}, headers=headers or captain_headers(client)
+    )
+
+
+def fixture_view(client: TestClient, fixture_id: str, headers: dict) -> dict:
+    listed = client.get(lp(client, "/picks"), headers=headers)
+    assert listed.status_code == 200, listed.text
+    return next(view for view in listed.json() if view["fixtureId"] == fixture_id)
+
+
+def pool(view: dict) -> list[tuple]:
+    return [(p["memberName"], p["side"], p["margin"], p["isDefault"]) for p in view["picks"]]
+
+
+def test_members_pick_before_kickoff_and_see_the_pool_once_locked_in(client: TestClient, clock) -> None:
+    captain, mo = captain_headers(client), mo_headers(client)
+    round_two = client.get(lp(client, "/picks"), params={"round": 2}, headers=mo)
+    assert round_two.status_code == 200, round_two.text
+    views = round_two.json()
+    assert [v["fixtureId"] for v in views] == ["292592", "292593", "292594", "292595", "292596", "292597", "292599", "292598"]
+    first = views[0]
+    assert first == {
+        "fixtureId": OPEN,
+        "roundNumber": 2,
+        "kickoffUtc": "2026-10-02T18:45:00Z",
+        "locked": False,
+        "result": None,
+        "myPick": None,
+        "picks": [],
+    }
+    # Every fixture with a known kickoff, in kickoff order (the play-offs are not scheduled yet).
+    everything = client.get(lp(client, "/picks"), headers=mo).json()
+    assert len(everything) == 144 and everything[0]["fixtureId"] == PLAYED and everything[-1]["roundNumber"] == 18
+    assert all(view["locked"] for view in everything if view["roundNumber"] == 1)
+
+    # The captain locks in first and sees the pool (just their own pick so far).
+    saved = own_pick(client, OPEN, "home", 7, captain)
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["myPick"]["side"] == "home" and saved.json()["myPick"]["margin"] == 7
+    assert pool(saved.json()) == [("Captain", "home", 7, False)]
+    # Mo has no pick yet: only the pick form.
+    before = fixture_view(client, OPEN, mo)
+    assert before["picks"] == [] and before["myPick"] is None
+    # Once Mo's pick is in, the pool shows.
+    saved = own_pick(client, OPEN, "away", 3, mo)
+    assert saved.status_code == 200, saved.text
+    assert pool(saved.json()) == [("Captain", "home", 7, False), ("Mo", "away", 3, False)]
+    mine = saved.json()["myPick"]
+    assert (mine["memberName"], mine["side"], mine["margin"], mine["isDefault"], mine["dutyId"]) == ("Mo", "away", 3, False, None)
+    # A draw is stored with margin 0, and the member may change their mind until kickoff.
+    changed = own_pick(client, OPEN, "draw", None, mo)
+    assert changed.status_code == 200 and changed.json()["myPick"]["margin"] == 0
+    assert own_pick(client, OPEN, "draw", 0, mo).status_code == 200
+
+    # After kickoff the pick is locked.
+    locked = own_pick(client, PLAYED, "home", 5, mo)
+    assert locked.status_code == 422 and locked.json()["detail"]["code"] == "picks_locked"
+    clock(datetime(2026, 10, 2, 18, 45, tzinfo=timezone.utc))
+    at_kickoff = own_pick(client, OPEN, "home", 1, mo)
+    assert at_kickoff.status_code == 422 and at_kickoff.json()["detail"]["code"] == "picks_locked"
+    assert fixture_view(client, OPEN, mo)["locked"] is True
+
+    # One audit event per saved change, none for a repeat.
+    events = audit_rows(client, "picks.recorded")
+    assert [(e.after["fixtureId"], e.before["picks"], e.after["picks"]) for e in events] == [
+        (OPEN, {"Captain": None}, {"Captain": "home 7"}),
+        (OPEN, {"Mo": None}, {"Mo": "away 3"}),
+        (OPEN, {"Mo": "away 3"}, {"Mo": "draw"}),
+    ]
+
+
+def test_impossible_picks_are_refused(client: TestClient, clock) -> None:
+    mo = mo_headers(client)
+    ids = member_ids(client)
+    for side, margin in (("home", None), ("away", 0), ("home", 151), ("draw", 5), ("missed", None)):
+        response = own_pick(client, OPEN, side, margin, mo)
+        assert response.status_code == 422, (side, margin, response.text)
+        assert response.json()["detail"]["code"] == "invalid_pick", (side, margin)
+    assert own_pick(client, OPEN, "sideways", 3, mo).status_code == 422
+    unknown = own_pick(client, "999999", "home", 3, mo)
+    assert unknown.status_code == 404 and unknown.json()["detail"]["code"] == "unknown_fixture"
+    for pick in (
+        {"memberId": ids["Mo"], "side": "draw", "margin": 0, "isDefault": True},
+        {"memberId": ids["Mo"], "side": "missed", "margin": None, "isDefault": True},
+        {"memberId": ids["Mo"], "side": "home", "margin": None},
+        {"memberId": ids["Mo"], "side": "draw", "margin": 3},
+        {"memberId": ids["Mo"], "side": "missed", "margin": 2},
+    ):
+        response = steward_picks(client, PLAYED, [pick])
+        assert response.status_code == 422, (pick, response.text)
+        assert response.json()["detail"]["code"] == "invalid_pick", pick
+    assert client.get(lp(client, "/picks"), params={"round": 22}, headers=mo).status_code == 422
+    assert fixture_view(client, PLAYED, mo)["picks"] == []
+
+
+def test_the_steward_records_any_pick_at_any_time(client: TestClient, clock) -> None:
+    mo = mo_headers(client)
+    ids = member_ids(client)
+    recorded = steward_picks(
+        client,
+        PLAYED,
+        [
+            {"memberId": ids["Mo"], "side": "home", "margin": 10, "isDefault": True},
+            {"memberId": ids["Ola"], "side": "missed", "margin": None},
+        ],
+    )
+    assert recorded.status_code == 200, recorded.text
+    view = recorded.json()
+    assert view["locked"] is True and view["myPick"] is None
+    assert pool(view) == [("Mo", "home", 10, True), ("Ola", "missed", None, False)]
+    # Members left out keep their picks; a correction replaces the pick and its default mark.
+    corrected = steward_picks(client, PLAYED, [{"memberId": ids["Mo"], "side": "away", "margin": 4}])
+    assert pool(corrected.json()) == [("Mo", "away", 4, False), ("Ola", "missed", None, False)]
+    # Before kickoff too.
+    assert steward_picks(client, OPEN, [{"memberId": ids["Ola"], "side": "draw", "margin": 0}]).status_code == 200
+    assert fixture_view(client, OPEN, mo)["picks"] == []  # Mo has no pick of it yet
+    # A pick the steward records is the member's own pick.
+    assert fixture_view(client, PLAYED, mo)["myPick"]["side"] == "away"
+
+    for picks, status, code in (
+        ([{"memberId": ids["Mo"], "side": "home", "margin": 2}, {"memberId": ids["Mo"], "side": "home", "margin": 3}], 422, "duplicate_member"),
+        ([{"memberId": str(uuid4()), "side": "home", "margin": 2}], 404, "unknown_member"),
+    ):
+        response = steward_picks(client, PLAYED, picks)
+        assert response.status_code == status and response.json()["detail"]["code"] == code, response.text
+    unknown = steward_picks(client, "999999", [{"memberId": ids["Mo"], "side": "home", "margin": 2}])
+    assert unknown.status_code == 404 and unknown.json()["detail"]["code"] == "unknown_fixture"
+    refused = steward_picks(client, PLAYED, [{"memberId": ids["Mo"], "side": "home", "margin": 2}], headers=mo)
+    assert refused.status_code == 403 and refused.json()["detail"]["code"] == "captain_only"
+
+    # Removing a pick.
+    assert client.delete(lp(client, f"/matches/{PLAYED}/picks/{ids['Ola']}"), headers=mo).status_code == 403
+    assert client.delete(lp(client, f"/matches/{PLAYED}/picks/{ids['Ola']}"), headers=captain_headers(client)).status_code == 204
+    assert pool(fixture_view(client, PLAYED, mo)) == [("Mo", "away", 4, False)]
+    assert client.delete(lp(client, f"/matches/{PLAYED}/picks/{ids['Ola']}"), headers=captain_headers(client)).status_code == 204
+    gone = client.delete(lp(client, f"/matches/{PLAYED}/picks/{uuid4()}"), headers=captain_headers(client))
+    assert gone.status_code == 404 and gone.json()["detail"]["code"] == "unknown_member"
+
+    events = audit_rows(client, "picks.recorded", "picks.deleted")
+    assert [(e.action, e.before["picks"], e.after["picks"]) for e in events] == [
+        ("picks.recorded", {"Mo": None, "Ola": None}, {"Mo": "home 10 (default)", "Ola": "missed"}),
+        ("picks.recorded", {"Mo": "home 10 (default)"}, {"Mo": "away 4"}),
+        ("picks.recorded", {"Ola": None}, {"Ola": "draw"}),
+        ("picks.deleted", {"Ola": "missed"}, {"Ola": None}),
+    ]
+
+
+def test_pick_visibility_for_the_admin_and_withdrawn_members(client: TestClient, clock) -> None:
+    mo = mo_headers(client)
+    ids = member_ids(client)
+    assert own_pick(client, OPEN, "home", 12, mo).status_code == 200
+    assert steward_picks(client, OPEN, [{"memberId": ids["Ola"], "side": "away", "margin": 2}]).status_code == 200
+    # The captain has no pick of this open fixture, so the pool stays hidden from them.
+    assert fixture_view(client, OPEN, captain_headers(client))["picks"] == []
+
+    # The admin without a membership sees every pick, and has none of their own.
+    admin = admin_headers(client)
+    view = fixture_view(client, OPEN, admin)
+    assert view["locked"] is False and view["myPick"] is None
+    assert pool(view) == [("Mo", "home", 12, False), ("Ola", "away", 2, False)]
+    refused = own_pick(client, OPEN, "home", 3, admin)
+    assert refused.status_code == 409 and refused.json()["detail"]["code"] == "admin_not_a_member"
+    refused = steward_picks(client, OPEN, [{"memberId": ids["Mo"], "side": "home", "margin": 3}], headers=admin)
+    assert refused.status_code == 409 and refused.json()["detail"]["code"] == "admin_not_a_member"
+
+    # A withdrawn member's picks leave the pool and come back on reinstatement, where a new
+    # pick replaces the old one rather than adding a second.
+    assert withdraw(client, ids["Mo"]).status_code == 204
+    assert pool(fixture_view(client, OPEN, admin)) == [("Ola", "away", 2, False)]
+    assert steward_picks(client, OPEN, [{"memberId": ids["Mo"], "side": "home", "margin": 1}]).json()["detail"]["code"] == "unknown_member"
+    assert client.post(lp(client, f"/members/{ids['Mo']}/reinstate"), headers=captain_headers(client)).status_code == 204
+    assert fixture_view(client, OPEN, mo)["myPick"]["margin"] == 12
+    assert own_pick(client, OPEN, "away", 6, mo).status_code == 200
+    assert pool(fixture_view(client, OPEN, admin)) == [("Mo", "away", 6, False), ("Ola", "away", 2, False)]
+    with migration_engine().begin() as connection:
+        count = connection.execute(
+            text("select count(*) from piele.picks where league_id = :l and fixture_id = :f"), {"l": client.league_id, "f": OPEN}  # type: ignore[attr-defined]
+        ).scalar_one()
+    assert count == 2
+
+    # The admin as an out-of-season member picks nothing, and sees the pool like a member.
+    assert client.post(f"/v1/admin/leagues/{client.league_id}/members/me", json={"displayName": "Vic"}, headers=admin).status_code == 201
+    out = own_pick(client, OPEN, "home", 3, admin)
+    assert out.status_code == 403 and out.json()["detail"]["code"] == "not_in_season"
+    assert fixture_view(client, OPEN, admin)["picks"] == []
+
+
+def test_stored_results_come_from_the_full_time_milestone_or_the_score_snapshot(client: TestClient, clock) -> None:
+    """Round 18 is not used by the round-updates tests, whose milestones must start empty."""
+    from app.matchcentre import milestones
+    from app.matchcentre.cache import external_snapshots
+
+    mo = mo_headers(client)
+    engine = get_engine(client.app.state.settings)
+    key = "urc-2026-27:scores:round:18"
+    snapshot = {
+        "matches": {
+            "292721": {"state": "live", "home": {"score": 10}, "away": {"score": 7}},
+            "292722": {"state": "postponed", "home": {"score": None}, "away": {"score": None}},
+            "292723": {"state": "scheduled", "home": {"score": None}, "away": {"score": None}},
+        }
+    }
+    with engine.begin() as connection:
+        stored = milestones.record(
+            connection, "urc-2026-27", LATE, milestones.FULL_TIME, datetime(2027, 5, 14, 21, 0, tzinfo=timezone.utc), {"home": 20, "away": 26}
+        )
+        connection.execute(external_snapshots.delete().where(external_snapshots.c.key == key))
+        connection.execute(
+            external_snapshots.insert().values(
+                key=key, status="ok", payload=snapshot, fetched_at=PICKS_NOW, expires_at=PICKS_NOW + timedelta(days=400)
+            )
+        )
+    try:
+        clock(datetime(2027, 5, 15, 12, 0, tzinfo=timezone.utc))
+        views = {v["fixtureId"]: v for v in client.get(lp(client, "/picks"), params={"round": 18}, headers=mo).json()}
+        assert views[LATE]["result"] == {"homeScore": stored.detail["home"], "awayScore": stored.detail["away"], "state": "full_time"}
+        assert views["292721"]["result"] == {"homeScore": 10, "awayScore": 7, "state": "live"}
+        assert views["292722"]["result"] == {"homeScore": 0, "awayScore": 0, "state": "postponed"}
+        assert views["292723"]["result"] is None and views["292727"]["result"] is None
+    finally:
+        with engine.begin() as connection:
+            connection.execute(external_snapshots.delete().where(external_snapshots.c.key == key))
+        with migration_engine().begin() as connection:
+            connection.execute(
+                text("delete from piele.fixture_milestones where competition_id = 'urc-2026-27' and fixture_id = :f"), {"f": LATE}
+            )
+
+
+def test_superbru_rules_default_and_the_steward_changes_them(client: TestClient, clock) -> None:
+    captain, mo = captain_headers(client), mo_headers(client)
+    ids = member_ids(client)
+    assert client.get(lp(client, "/rules"), headers=mo).json() == DEFAULT_RULES
+    assert client.get(lp(client, "/me"), headers=mo).json()["rules"] == DEFAULT_RULES
+    summary = next(league for league in client.get("/v1/me", headers=mo).json()["leagues"] if league["id"] == client.league_id)
+    assert summary["rules"] == DEFAULT_RULES
+
+    change = {"startingRound": 2, "winPoints": {"final": 4}, "bonusPointSplit": False, "previousChampionMemberId": ids["Ola"]}
+    refused = client.put(lp(client, "/rules"), json=change, headers=mo)
+    assert refused.status_code == 403 and refused.json()["detail"]["code"] == "captain_only"
+    saved = client.put(lp(client, "/rules"), json=change, headers=captain)
+    assert saved.status_code == 200, saved.text
+    expected = {
+        **DEFAULT_RULES,
+        "startingRound": 2,
+        "winPoints": {**DEFAULT_RULES["winPoints"], "final": 4},
+        "bonusPointSplit": False,
+        "previousChampionMemberId": ids["Ola"],
+    }
+    assert saved.json() == expected
+    assert client.get(lp(client, "/rules"), headers=mo).json() == expected
+    assert client.get(lp(client, "/me"), headers=mo).json()["rules"] == expected
+    # Only the differences are stored.
+    with migration_engine().begin() as connection:
+        season = connection.execute(
+            text("select rules, previous_champion_membership_id from piele.seasons where league_id = :l and status = 'active'"),
+            {"l": client.league_id},  # type: ignore[attr-defined]
+        ).one()
+    assert season.rules == {"startingRound": 2, "winPoints": {"final": 4.0}, "bonusPointSplit": False}
+    assert str(season.previous_champion_membership_id) == ids["Ola"]
+    feed = client.get(lp(client, "/feed"), headers=mo).json()
+    assert (feed[0]["kind"], feed[0]["title"], feed[0]["actorName"]) == ("rules_updated", "Superbru rules updated.", "Captain")
+    [event] = audit_rows(client, "rules.updated")
+    assert event.before == {"startingRound": 1, "winPoints": DEFAULT_RULES["winPoints"], "bonusPointSplit": True, "previousChampionMemberId": None}
+    assert event.after["startingRound"] == 2 and event.after["previousChampionMemberId"] == ids["Ola"]
+    # Rounds before the starting round are not listed.
+    assert client.get(lp(client, "/picks"), params={"round": 1}, headers=mo).json() == []
+    assert client.get(lp(client, "/picks"), headers=mo).json()[0]["roundNumber"] == 2
+
+    # Saving the same values changes nothing and posts nothing; back to a default drops the key.
+    assert client.put(lp(client, "/rules"), json={"startingRound": 2}, headers=captain).status_code == 200
+    assert len(client.get(lp(client, "/feed"), headers=mo).json()) == len(feed)
+    reset = client.put(lp(client, "/rules"), json={"winPoints": {"final": 3}, "previousChampionMemberId": None}, headers=captain)
+    assert reset.json()["winPoints"] == DEFAULT_RULES["winPoints"] and reset.json()["previousChampionMemberId"] is None
+
+    for body, status, code in (
+        ({"startingRound": 22}, 422, "invalid_rules"),
+        ({"marginPoint": None}, 422, "invalid_rules"),
+        ({"winPoints": None}, 422, "invalid_rules"),
+        ({"previousChampionMemberId": str(uuid4())}, 404, "unknown_member"),
+    ):
+        response = client.put(lp(client, "/rules"), json=body, headers=captain)
+        assert response.status_code == status, (body, response.text)
+        assert response.json()["detail"]["code"] == code, body
+    for body in ({"marginPoint": -0.5}, {"bonusRange": 1001}, {"startingRound": 0}, {"winPoints": {"playoff": 2}}, {"surprise": True}, {"defaultPicks": "maybe"}):
+        assert client.put(lp(client, "/rules"), json=body, headers=captain).status_code == 422, body
+
+    # With default picks off, the steward cannot mark a default.
+    assert client.put(lp(client, "/rules"), json={"defaultPicks": False}, headers=captain).status_code == 200
+    refused = steward_picks(client, OPEN, [{"memberId": ids["Mo"], "side": "home", "margin": 3, "isDefault": True}])
+    assert refused.status_code == 422 and refused.json()["detail"]["code"] == "invalid_pick"
+
+
+def test_the_steward_clears_a_standings_override(client: TestClient) -> None:
+    mo = mo_headers(client)
+    ids = member_ids(client)
+    assert put_standings(client, 1, {UUID(ids["Mo"]): 5, UUID(ids["Ola"]): 3}).status_code == 200
+    refused = client.delete(lp(client, f"/rounds/1/standings/{ids['Mo']}"), headers=mo)
+    assert refused.status_code == 403 and refused.json()["detail"]["code"] == "captain_only"
+    assert client.delete(lp(client, f"/rounds/1/standings/{ids['Mo']}"), headers=captain_headers(client)).status_code == 204
+    assert [(s["memberName"], s["points"]) for s in client.get(lp(client, "/standings"), headers=mo).json()] == [("Ola", 3.0)]
+    assert client.delete(lp(client, f"/rounds/1/standings/{ids['Mo']}"), headers=captain_headers(client)).status_code == 204
+    unknown = client.delete(lp(client, f"/rounds/1/standings/{uuid4()}"), headers=captain_headers(client))
+    assert unknown.status_code == 404 and unknown.json()["detail"]["code"] == "unknown_member"
+    assert client.delete(lp(client, f"/rounds/22/standings/{ids['Mo']}"), headers=captain_headers(client)).status_code == 422
+    [event] = audit_rows(client, "standings.cleared")
+    assert (event.before, event.after) == ({"roundNumber": 1, "points": {"Mo": 5.0}}, {"roundNumber": 1, "points": {}})
+
+
+def test_pick_confirmation_duties_link_the_picks_they_cover(client: TestClient, clock) -> None:
+    mo = mo_headers(client)
+    ids = member_ids(client)
+    assert steward_picks(client, PLAYED, [{"memberId": ids["Mo"], "side": "home", "margin": 5}]).status_code == 200
+    body = {"memberId": ids["Mo"], "type": "pick_confirmation", "roundNumber": 1, "deadlineAt": "2026-10-02T18:45:00Z"}
+    duty = open_duty(client, UUID(ids["Mo"]), 1, "pick_confirmation", deadlineAt=body["deadlineAt"], pickFixtureIds=["292585", PLAYED, PLAYED])
+    assert duty["pickFixtureIds"] == [PLAYED, "292585"]
+    views = {v["fixtureId"]: v for v in client.get(lp(client, "/picks"), params={"round": 1}, headers=mo).json()}
+    assert (views[PLAYED]["myPick"]["side"], views[PLAYED]["myPick"]["dutyId"]) == ("home", duty["id"])
+    assert (views["292585"]["myPick"]["side"], views["292585"]["myPick"]["margin"], views["292585"]["myPick"]["dutyId"]) == ("missed", None, duty["id"])
+    listed = next(d for d in client.get(lp(client, "/duties"), headers=mo).json() if d["id"] == duty["id"])
+    assert listed["pickFixtureIds"] == [PLAYED, "292585"]
+
+    # A correction keeps the link unless it names another duty or null.
+    steward_picks(client, "292585", [{"memberId": ids["Mo"], "side": "away", "margin": 9}])
+    assert fixture_view(client, "292585", mo)["myPick"]["dutyId"] == duty["id"]
+    steward_picks(client, "292585", [{"memberId": ids["Mo"], "side": "away", "margin": 9, "dutyId": None}])
+    assert fixture_view(client, "292585", mo)["myPick"]["dutyId"] is None
+    relinked = steward_picks(client, "292585", [{"memberId": ids["Mo"], "side": "away", "margin": 9, "dutyId": duty["id"]}])
+    assert relinked.json()["myPick"] is None  # the captain's own pick
+    assert [p["dutyId"] for p in relinked.json()["picks"]] == [duty["id"]]
+
+    # A duty link must be a pick confirmation duty of that member.
+    spoon = open_duty(client, UUID(ids["Mo"]), 2)
+    for pick in (
+        {"memberId": ids["Ola"], "side": "home", "margin": 1, "dutyId": duty["id"]},
+        {"memberId": ids["Mo"], "side": "home", "margin": 1, "dutyId": spoon["id"]},
+        {"memberId": ids["Mo"], "side": "home", "margin": 1, "dutyId": str(uuid4())},
+    ):
+        response = steward_picks(client, PLAYED, [pick])
+        assert response.status_code == 404 and response.json()["detail"]["code"] == "unknown_duty", pick
+    assert spoon["pickFixtureIds"] == []
+    wrong_type = client.post(
+        lp(client, "/duties"), json={**body, "type": "spoon", "roundNumber": 3, "pickFixtureIds": [PLAYED]}, headers=captain_headers(client)
+    )
+    assert wrong_type.status_code == 422 and wrong_type.json()["detail"]["code"] == "invalid_pick_links"
+    unknown = client.post(lp(client, "/duties"), json={**body, "roundNumber": 2, "pickFixtureIds": ["999999"]}, headers=captain_headers(client))
+    assert unknown.status_code == 404 and unknown.json()["detail"]["code"] == "unknown_fixture"
+    [event] = [e for e in audit_rows(client, "duty.created") if e.entity_id == UUID(duty["id"])]
+    assert event.after["pickFixtureIds"] == ["292585", PLAYED]
+
+
+def test_the_admin_sets_rules_when_creating_and_editing_a_league(client: TestClient) -> None:
+    admin = admin_headers(client)
+    body = new_league_body(rules={"startingRound": 3, "defaultPicks": False, "winPoints": {"semiFinal": 2.5}})
+    created = client.post("/v1/admin/leagues", json=body, headers=admin)
+    assert created.status_code == 201, created.text
+    league = created.json()
+    expected = {**DEFAULT_RULES, "startingRound": 3, "defaultPicks": False, "winPoints": {**DEFAULT_RULES["winPoints"], "semiFinal": 2.5}}
+    assert league["rules"] == expected
+    assert client.get(lp(client, "/rules", league["id"]), headers=admin).json() == expected
+    created_event = admin_audit(league["id"], "league.created")[0]
+    assert created_event.after["rules"] == {"startingRound": 3, "defaultPicks": False, "winPoints": {"semiFinal": 2.5}}
+
+    patched = client.patch(f"/v1/admin/leagues/{league['id']}", json={"rules": {"marginWindow": 6}}, headers=admin)
+    assert patched.status_code == 200, patched.text
+    assert patched.json()["rules"] == {**expected, "marginWindow": 6}
+    [event] = admin_audit(league["id"], "rules.updated")
+    assert (event.actor_label, event.before, event.after) == ("admin", {"marginWindow": 5}, {"marginWindow": 6})
+    feed = client.get(lp(client, "/feed", league["id"]), headers=admin).json()
+    assert (feed[0]["kind"], feed[0]["title"]) == ("rules_updated", "Superbru rules updated.")
+    # The admin without a membership changes the rules through the league routes too.
+    assert client.put(lp(client, "/rules"), json={"bonusRange": 20}, headers=admin).json()["bonusRange"] == 20
+
+    for rules, code in (({"startingRound": 30}, "invalid_rules"), ({"previousChampionMemberId": str(uuid4())}, "invalid_rules")):
+        refused = client.post("/v1/admin/leagues", json=new_league_body(rules=rules), headers=admin)
+        assert refused.status_code == 422 and refused.json()["detail"]["code"] == code, refused.text
+    refused = client.patch(f"/v1/admin/leagues/{league['id']}", json={"rules": {"marginPoint": None}}, headers=admin)
+    assert refused.status_code == 422 and refused.json()["detail"]["code"] == "invalid_rules"
+    assert client.post("/v1/admin/leagues", json=new_league_body(rules={"nope": 1}), headers=admin).status_code == 422
+
+
+def test_picks_and_rules_stay_in_their_league(client: TestClient, clock) -> None:
+    """The captain here also captains Zulu. Nothing here reaches Zulu's members or picks."""
+    captain, mo = captain_headers(client), mo_headers(client)
+    zulu = second_league(client, _captain_email(client))
+    assert client.get("/v1/me", headers=captain).status_code == 200  # claims the Zulu captain name
+    zulu_ids = {m["displayName"]: m["id"] for m in client.get(lp(client, "/members", zulu), headers=captain).json()}
+    assert own_pick(client, OPEN, "home", 4, captain, league_id=zulu).status_code == 200
+    assert steward_picks(client, OPEN, [{"memberId": zulu_ids["Ola"], "side": "away", "margin": 8}], league_id=zulu).status_code == 200
+
+    # Mo, a member here only, cannot read Zulu's picks or rules.
+    for path in ("/picks", "/rules"):
+        response = client.get(lp(client, path, zulu), headers=mo)
+        assert response.status_code == 403 and response.json()["detail"]["code"] == "not_a_member", path
+    # Zulu's picks are not in this league's pool, even for the admin.
+    admin = admin_headers(client)
+    assert fixture_view(client, OPEN, admin)["picks"] == []
+    # Zulu membership ids are unknown here.
+    calls = {
+        "picks": lambda: steward_picks(client, OPEN, [{"memberId": zulu_ids["Ola"], "side": "home", "margin": 1}]),
+        "delete": lambda: client.delete(lp(client, f"/matches/{OPEN}/picks/{zulu_ids['Ola']}"), headers=captain),
+        "standings": lambda: client.delete(lp(client, f"/rounds/1/standings/{zulu_ids['Ola']}"), headers=captain),
+        "champion": lambda: client.put(lp(client, "/rules"), json={"previousChampionMemberId": zulu_ids["Ola"]}, headers=captain),
+    }
+    for name, call in calls.items():
+        response = call()
+        assert response.status_code == 404, (name, response.text)
+        assert response.json()["detail"]["code"] == "unknown_member", name
+    # A duty from Zulu cannot be linked here.
+    zulu_duty = client.post(
+        lp(client, "/duties", zulu), json={"memberId": zulu_ids["Ola"], "type": "pick_confirmation", "roundNumber": 2, "deadlineAt": "2026-10-09T18:45:00Z"}, headers=captain
+    ).json()
+    ids = member_ids(client)
+    linked = steward_picks(client, OPEN, [{"memberId": ids["Ola"], "side": "home", "margin": 1, "dutyId": zulu_duty["id"]}])
+    assert linked.status_code == 404 and linked.json()["detail"]["code"] == "unknown_duty"
+    # Rules are per league.
+    assert client.put(lp(client, "/rules", zulu), json={"startingRound": 4}, headers=captain).status_code == 200
+    assert client.get(lp(client, "/rules"), headers=mo).json()["startingRound"] == 1

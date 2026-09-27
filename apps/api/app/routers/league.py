@@ -8,7 +8,7 @@ from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Path, Query, Request
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.competitions import Competition
 from app.config import Settings
@@ -57,6 +57,83 @@ def emblem_fields(request: Request, emblem_path: str | None) -> dict[str, str | 
     }
 
 
+# Superbru rules ------------------------------------------------------------------------
+
+
+class WinPoints(BaseModel):
+    regular: float
+    quarterFinal: float
+    semiFinal: float
+    final: float
+
+
+class Rules(BaseModel):
+    """The active season's Superbru rules (service.DEFAULT_RULES with the season's changes)."""
+
+    # A missed pick may be recorded as a Superbru default: win points only, no grand slam.
+    defaultPicks: bool
+    # Informational (Superbru's own setting); the app hides the pool's picks from a member
+    # without a pick until kickoff whatever this says.
+    picksHiddenBeforeKickoff: bool
+    bonusPoint: bool
+    # False: every tied qualifier gets the full bonus point.
+    bonusPointSplit: bool
+    # Only picks within bonusRange of the actual margin qualify.
+    bonusPointRangeCapped: bool
+    # Rounds before it are not scored.
+    startingRound: int
+    winPoints: WinPoints
+    marginPoint: float
+    marginWindow: float
+    bonusPointValue: float
+    bonusPointMinimumShare: float
+    bonusRange: float
+    # Regular rounds only.
+    grandSlamPoints: float
+    # A membership of this league, shown with a crown.
+    previousChampionMemberId: UUID | None
+
+
+RuleNumber = Annotated[float, Field(ge=0, le=service.MAX_RULE_NUMBER, allow_inf_nan=False)]
+
+
+class WinPointsChange(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    regular: RuleNumber | None = None
+    quarterFinal: RuleNumber | None = None
+    semiFinal: RuleNumber | None = None
+    final: RuleNumber | None = None
+
+
+class RulesChange(BaseModel):
+    """Any subset of the rules; winPoints may be partial. Only the fields sent change;
+    previousChampionMemberId null clears the champion. The service checks the rest (422
+    `invalid_rules`, 404 `unknown_member` for a champion outside the league)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    defaultPicks: bool | None = None
+    picksHiddenBeforeKickoff: bool | None = None
+    bonusPoint: bool | None = None
+    bonusPointSplit: bool | None = None
+    bonusPointRangeCapped: bool | None = None
+    startingRound: int | None = Field(default=None, ge=1)
+    winPoints: WinPointsChange | None = None
+    marginPoint: RuleNumber | None = None
+    marginWindow: RuleNumber | None = None
+    bonusPointValue: RuleNumber | None = None
+    bonusPointMinimumShare: RuleNumber | None = None
+    bonusRange: RuleNumber | None = None
+    grandSlamPoints: RuleNumber | None = None
+    previousChampionMemberId: UUID | None = None
+
+    def change(self) -> dict[str, Any]:
+        """The fields sent, as the service takes them (a null other than the champion is
+        refused there)."""
+        return self.model_dump(mode="json", exclude_unset=True)
+
+
 class Me(BaseModel):
     """The caller in one league. The admin viewing a league they do not belong to gets
     memberId null, displayName "Admin" and isCaptain false."""
@@ -89,6 +166,8 @@ class Me(BaseModel):
     # the keys of items read individually above it.
     notificationsReadAt: datetime | None
     notificationsReadKeys: list[str]
+    # The active season's Superbru rules.
+    rules: Rules
 
 
 def me_document(request: Request, actor: Actor) -> Me:
@@ -114,6 +193,7 @@ def me_document(request: Request, actor: Actor) -> Me:
         photoUrl=profile.photo_url,
         notificationsReadAt=read.read_at,
         notificationsReadKeys=read.read_keys,
+        rules=Rules.model_validate(service.rules(actor)),
     )
 
 
@@ -402,6 +482,8 @@ class Duty(BaseModel):
     createdAt: datetime
     marks: Marks
     evidence: list[EvidenceLink]
+    # The fixtures whose picks this duty covers (pick confirmation duties), in schedule order.
+    pickFixtureIds: list[str]
 
 
 def _duty(competition: Competition, view: service.DutyView) -> Duty:
@@ -445,6 +527,7 @@ def _duty(competition: Competition, view: service.DutyView) -> Duty:
             )
             for link in view.links
         ],
+        pickFixtureIds=view.pick_fixture_ids,
     )
 
 
@@ -462,6 +545,9 @@ class NewDuty(BaseModel):
     roundNumber: int | None = Field(default=None, ge=1)
     deadlineAt: datetime | None = None
     reason: str = Field(default="", max_length=500)
+    # A pick confirmation duty only: links the member's picks of these fixtures to the duty,
+    # recording a `missed` pick where the member has none.
+    pickFixtureIds: list[Annotated[str, Field(min_length=1, max_length=40)]] | None = Field(default=None, max_length=100)
 
 
 @router.post("/duties", response_model=Duty, status_code=201)
@@ -475,6 +561,7 @@ def create_duty(body: NewDuty, actor: Actor = Depends(steward_dependency)) -> Du
         round_number=body.roundNumber,
         deadline_at=body.deadlineAt,
         reason=body.reason.strip(),
+        pick_fixture_ids=body.pickFixtureIds,
     )
     return _duty(actor.competition, service.duties(actor, duty_id=duty_id)[0])
 
@@ -559,6 +646,127 @@ def record_standings(
     actor.competition.validate_round(round_number)
     service.record_standings(actor, round_number, [(entry.memberId, entry.points) for entry in body.standings])
     return service.standings(actor, round_number)
+
+
+@router.delete("/rounds/{round_number}/standings/{member_id}", status_code=204)
+def clear_standing(
+    member_id: UUID,
+    round_number: int = Path(ge=1),
+    actor: Actor = Depends(steward_dependency),
+) -> None:
+    """Clears one member's stored round total (an override of the derived total)."""
+    actor.competition.validate_round(round_number)
+    service.clear_standing(actor, round_number, member_id)
+
+
+@router.get("/rules", response_model=Rules)
+def get_rules(actor: Actor = Depends(actor_dependency)) -> Any:
+    return service.rules(actor)
+
+
+@router.put("/rules", response_model=Rules)
+def update_rules(body: RulesChange, actor: Actor = Depends(steward_dependency)) -> Any:
+    """Captain or admin changes any subset of the season's Superbru rules."""
+    return service.update_rules(actor, body.change())
+
+
+# Superbru picks -----------------------------------------------------------------------
+
+PickSide = Literal["home", "away", "draw", "missed"]
+FixtureId = Annotated[str, Path(min_length=1, max_length=40)]
+
+
+class Pick(BaseModel):
+    memberId: UUID
+    memberName: str
+    side: PickSide
+    # From the winner's side: 1 to 150 for home or away, 0 for a draw, null when missed.
+    margin: int | None
+    # A Superbru default pick: win points only.
+    isDefault: bool
+    # The pick confirmation duty that covers this pick.
+    dutyId: UUID | None
+
+
+class FixtureResult(BaseModel):
+    homeScore: int
+    awayScore: int
+    # Postponed and cancelled fixtures are never scored (their scores are 0 when unknown).
+    state: Literal["live", "half_time", "full_time", "postponed", "cancelled"]
+
+
+class FixturePicks(BaseModel):
+    fixtureId: str
+    roundNumber: int
+    kickoffUtc: datetime | None
+    # Kicked off by the schedule: members can no longer change their own picks.
+    locked: bool
+    result: FixtureResult | None
+    myPick: Pick | None
+    # Empty for a member without a pick until kickoff; everyone's picks otherwise.
+    picks: list[Pick]
+
+
+@router.get("/picks", response_model=list[FixturePicks])
+def list_picks(round: int | None = Query(default=None, ge=1), actor: Actor = Depends(actor_dependency)) -> list[Any]:
+    """Every fixture from the rules' starting round on whose kickoff is known, with its result
+    and picks."""
+    if round is not None:
+        actor.competition.validate_round(round)
+    return service.picks(actor, round)
+
+
+class NewPick(BaseModel):
+    side: PickSide
+    # Checked by the service (422 `invalid_pick`): 1 to 150 for home or away, 0 or null for a draw.
+    margin: int | None = None
+
+
+@router.put("/matches/{fixture_id}/picks/me", response_model=FixturePicks)
+def save_own_pick(fixture_id: FixtureId, body: NewPick, actor: Actor = Depends(actor_dependency)) -> Any:
+    """The caller's own pick, until kickoff (422 `picks_locked` after)."""
+    service.save_own_pick(actor, fixture_id, side=body.side, margin=body.margin)
+    return service.fixture_picks(actor, fixture_id)
+
+
+class StewardPick(BaseModel):
+    memberId: UUID
+    side: PickSide
+    margin: int | None = None
+    isDefault: bool = False
+    # Left out: an existing pick keeps its duty; null unlinks it.
+    dutyId: UUID | None = None
+
+
+class FixturePicksUpdate(BaseModel):
+    picks: list[StewardPick] = Field(max_length=200)
+
+
+@router.put("/matches/{fixture_id}/picks", response_model=FixturePicks)
+def record_picks(fixture_id: FixtureId, body: FixturePicksUpdate, actor: Actor = Depends(steward_dependency)) -> Any:
+    """Captain or admin records or corrects members' picks at any time; members left out keep
+    theirs."""
+    service.record_picks(
+        actor,
+        fixture_id,
+        [
+            service.StewardPick(
+                member_id=entry.memberId,
+                side=entry.side,
+                margin=entry.margin,
+                is_default=entry.isDefault,
+                **({"duty_id": entry.dutyId} if "dutyId" in entry.model_fields_set else {}),
+            )
+            for entry in body.picks
+        ],
+    )
+    return service.fixture_picks(actor, fixture_id)
+
+
+@router.delete("/matches/{fixture_id}/picks/{member_id}", status_code=204)
+def delete_pick(fixture_id: FixtureId, member_id: UUID, actor: Actor = Depends(steward_dependency)) -> None:
+    """Captain or admin removes a member's pick."""
+    service.delete_pick(actor, fixture_id, member_id)
 
 
 # Evidence -----------------------------------------------------------------------------

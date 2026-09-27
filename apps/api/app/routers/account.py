@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 from app.league import service
 from app.league.context import Account, account_dependency
-from app.routers.league import CompetitionRef, Me, competition_ref, emblem_fields, me_document, settings_of, storage_of
+from app.routers.league import CompetitionRef, Me, Rules, competition_ref, emblem_fields, me_document, settings_of, storage_of
 
 router = APIRouter(tags=["account"])
 
@@ -32,6 +32,8 @@ class LeagueSummary(BaseModel):
     displayName: str | None
     isCaptain: bool
     favouriteTeamId: str | None
+    # The active season's Superbru rules.
+    rules: Rules
 
 
 class AccountDocument(BaseModel):
@@ -59,6 +61,7 @@ def _summary(request: Request, summary: service.LeagueSummary) -> LeagueSummary:
         displayName=membership.display_name if membership is not None else None,
         isCaptain=membership is not None and league.captain_membership_id == membership.id,
         favouriteTeamId=membership.favourite_team_id if membership is not None else None,
+        rules=Rules.model_validate(service.season_rules(summary.season)),
     )
 
 
