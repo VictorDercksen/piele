@@ -18,6 +18,7 @@ import { LeagueContext } from './league-context';
 import { LeagueData } from './league-data';
 import { adminOnly, leagueHome, leagueRequired, legacyLeaguePath } from './league.guards';
 import { LeagueSummary } from './league.models';
+import { DEFAULT_RULES } from './superbru';
 
 const API = `${environment.apiUrl}/v1`;
 const URC = { id: 'urc-2026-27', name: 'United Rugby Championship 2026/27', shortName: 'URC' };
@@ -38,6 +39,7 @@ function league(slug: string, name: string, extra: Partial<LeagueSummary> = {}):
     displayName: 'Vic',
     isCaptain: false,
     favouriteTeamId: 'dhl-stormers',
+    rules: DEFAULT_RULES,
     ...extra,
   };
 }
@@ -118,7 +120,7 @@ function setup() {
     // The steward's team sheet includes the withdrawn members.
     const members = summary.isCaptain ? '/members?include=withdrawn' : '/members';
     return settle().then(() => {
-      for (const path of [members, '/standings', '/duties', '/marks', '/feed?limit=200'])
+      for (const path of [members, '/standings', '/duties', '/marks', '/feed?limit=200', '/picks'])
         http.expectOne(`${base}${path}`).flush([]);
     });
   }

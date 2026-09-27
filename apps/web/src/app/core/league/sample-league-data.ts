@@ -10,17 +10,23 @@ import {
   DutyEvidence,
   EvidenceSubmission,
   FeedItem,
+  FixturePicks,
   JoinPreview,
   LeagueAppearance,
   LeagueMember,
+  LeagueRules,
   LeagueSummary,
   MemberMarks,
+  MemberPick,
   NewDuty,
   NewMember,
+  NewPick,
   NotificationsRead,
   Poll,
   RoundNote,
   RoundStanding,
+  StandingEntry,
+  StewardPick,
 } from './league.models';
 import { loadStoredRead, storeRead } from './notifications-read';
 import { sampleMarks } from './marks';
@@ -30,9 +36,12 @@ import {
   SAMPLE_ME as ME,
   SampleDutyRecord as DutyRecord,
   SampleLeagueSeed,
+  SamplePickRecord,
   feedItem,
   memberRecord,
+  sampleResults,
 } from './sample-leagues';
+import { rankRows, withDefaultRules } from './superbru';
 
 function title(
   type: Duty['type'],
@@ -80,6 +89,8 @@ export class SampleLeagueData extends LeagueData {
   readonly error = signal<string | null>(null).asReadonly();
   readonly members = this.from((league) => league.members);
   readonly standings = this.from((league) => league.standings);
+  readonly picks = this.from((league) => league.picks);
+  readonly rules = this.from((league) => league.rules);
   readonly duties = this.from((league) => league.duties);
   readonly marks = this.from((league) => league.marks);
   readonly polls = this.from((league) => league.polls);
@@ -196,6 +207,35 @@ export class SampleLeagueData extends LeagueData {
     return this.active().saveAppearance(change);
   }
 
+  savePick(fixtureId: string, pick: NewPick): Promise<void> {
+    return this.active().savePick(fixtureId, pick);
+  }
+
+  recordPicks(fixtureId: string, picks: readonly StewardPick[]): Promise<void> {
+    return this.steward() ?? this.active().recordPicks(fixtureId, picks);
+  }
+
+  removePick(fixtureId: string, memberId: string): Promise<void> {
+    return this.steward() ?? this.active().removePick(fixtureId, memberId);
+  }
+
+  saveRules(change: Partial<LeagueRules>): Promise<void> {
+    return this.steward() ?? this.active().saveRules(change);
+  }
+
+  recordStandings(roundId: number, entries: readonly StandingEntry[]): Promise<void> {
+    return this.steward() ?? this.active().recordStandings(roundId, entries);
+  }
+
+  clearStanding(roundId: number, memberId: string): Promise<void> {
+    return this.steward() ?? this.active().clearStanding(roundId, memberId);
+  }
+
+  /** The API's refusal of a steward route for anyone but the captain or admin, else null. */
+  private steward(): Promise<void> | null {
+    return this.administers() ? null : refuse(403, 'captain_only', 'Only the captain can do this.');
+  }
+
   /**
    * What `/join/{code}` shows for a sample league's current join code (codes rotate and
    * close in memory). Rejects like the API for an unknown or closed code.
@@ -257,11 +297,15 @@ export class SampleLeague {
   readonly members: Signal<readonly LeagueMember[]>;
   private readonly withdrawnRecords = signal<readonly LeagueMember[]>([]);
   readonly withdrawn = this.withdrawnRecords.asReadonly();
-  private readonly standingRecords: Signal<readonly RoundStanding[]>;
+  private readonly standingRecords: WritableSignal<readonly RoundStanding[]>;
+  /** Recorded round totals of active members: overrides of the derived totals. */
   readonly standings = computed(() => {
     const active = new Set(this.memberRecords().map((m) => m.id));
     return this.standingRecords().filter((s) => active.has(s.memberId));
   });
+  private readonly pickRecords: WritableSignal<readonly SamplePickRecord[]>;
+  private readonly rulesState: WritableSignal<LeagueRules>;
+  readonly rules: Signal<LeagueRules>;
   private readonly dutyRecords: WritableSignal<readonly DutyRecord[]>;
   private readonly code: WritableSignal<string | null>;
   readonly joinCode: Signal<string | null>;
@@ -272,6 +316,7 @@ export class SampleLeague {
     const now = new Date(this.clock());
     const members = this.memberRecords();
     const active = new Set(members.map((m) => m.id));
+    const picks = this.pickRecords();
     return this.dutyRecords().filter((record) => active.has(record.memberId)).map((record) => {
       const marks = sampleMarks(
         record.deadlineAt,
@@ -295,6 +340,7 @@ export class SampleLeague {
         title: this.title(record.type, record.roundId),
         display,
         marks,
+        pickFixtureIds: picks.filter((p) => p.dutyId === record.id).map((p) => p.fixtureId),
       };
     });
   });
@@ -335,7 +381,10 @@ export class SampleLeague {
     this.competition = competition;
     this.memberRecords = signal(seed.members);
     this.members = this.memberRecords.asReadonly();
-    this.standingRecords = signal(seed.standings).asReadonly();
+    this.standingRecords = signal(seed.standings);
+    this.pickRecords = signal(seed.picks);
+    this.rulesState = signal(withDefaultRules(seed.summary.rules));
+    this.rules = this.rulesState.asReadonly();
     this.code = signal<string | null>(seed.joinCode);
     this.joinCode = this.code.asReadonly();
     const { emblemPreset, emblemUrl, accentColour } = seed.summary;
@@ -367,7 +416,43 @@ export class SampleLeague {
       memberId: me,
       isCaptain: !!me && this.captain() === me,
       inSeason: !me || this.meInSeason(),
+      rules: this.rulesState(),
     };
+  });
+
+  /**
+   * Every fixture from the starting round on with a known kickoff, as `GET /picks` answers:
+   * the sample results, and the active members' picks, hidden before kickoff from a member
+   * who has not picked yet. A fixture with a sample result counts as kicked off.
+   */
+  readonly picks = computed<readonly FixturePicks[]>(() => {
+    const now = this.clock();
+    const me = this.me();
+    const members = new Map(this.memberRecords().map((m) => [m.id, m.name]));
+    const byFixture = new Map<string, MemberPick[]>();
+    for (const record of this.pickRecords()) {
+      const name = members.get(record.memberId);
+      if (name === undefined) continue;
+      const { fixtureId, ...pick } = record;
+      byFixture.set(fixtureId, [...(byFixture.get(fixtureId) ?? []), { ...pick, memberName: name }]);
+    }
+    return this.competition
+      .current()
+      .fixtures.filter((f) => f.round >= this.rulesState().startingRound && !!f.kickoffUtc)
+      .map((f) => {
+        const picks = byFixture.get(f.id) ?? [];
+        const locked = this.locked(f.id, now);
+        const myPick = picks.find((p) => p.memberId === me) ?? null;
+        return {
+          fixtureId: f.id,
+          roundId: f.round,
+          kickoffUtc: f.kickoffUtc ?? null,
+          locked,
+          result: sampleResults[f.id] ?? null,
+          myPick,
+          picks: locked || myPick || !me ? picks : [],
+        };
+      });
   });
 
   reload(): void {
@@ -463,6 +548,25 @@ export class SampleLeague {
       return Promise.reject(new Error('That member already has a live duty of this type in this round.'));
     const deadlineAt = duty.deadlineAt ?? (duty.type === 'spoon' ? this.competition.current().firstKickoff(duty.roundId + 1) : null);
     const id = `duty-${Date.now()}`;
+    const fixtureIds = duty.type === 'pick_confirmation' ? (duty.pickFixtureIds ?? []) : [];
+    if (fixtureIds.some((fixtureId) => !this.fixture(fixtureId)))
+      return refuse(404, 'unknown_fixture', 'That match is not in the schedule.');
+    // The member's picks there are linked to the duty; missing ones are recorded as missed.
+    this.pickRecords.update((records) => [
+      ...records.map((p) =>
+        p.memberId === duty.memberId && fixtureIds.includes(p.fixtureId) ? { ...p, dutyId: id } : p,
+      ),
+      ...fixtureIds
+        .filter((fixtureId) => !records.some((p) => p.memberId === duty.memberId && p.fixtureId === fixtureId))
+        .map((fixtureId) => ({
+          fixtureId,
+          memberId: duty.memberId,
+          side: 'missed' as const,
+          margin: null,
+          isDefault: false,
+          dutyId: id,
+        })),
+    ]);
     this.dutyRecords.update((duties) => [
       ...duties,
       {
@@ -661,12 +765,153 @@ export class SampleLeague {
     return Promise.resolve(next);
   }
 
-  /** Duties or round standings on record, which keep a name from being deleted. */
+  /** The member's own pick, before kickoff, as `PUT /matches/{id}/picks/me` does it. */
+  savePick(fixtureId: string, pick: NewPick): Promise<void> {
+    const me = this.memberId;
+    if (!me) return notAMember();
+    if (!this.fixture(fixtureId)) return refuse(404, 'unknown_fixture', 'That match is not in the schedule.');
+    if (this.locked(fixtureId, Date.now()))
+      return refuse(422, 'picks_locked', 'Picks for this match closed at kickoff.');
+    if (!validPick(pick, false)) return invalidPick();
+    const kept = this.pickRecords().find((p) => p.fixtureId === fixtureId && p.memberId === me);
+    this.upsertPicks(fixtureId, [
+      { memberId: me, side: pick.side, margin: pick.margin, isDefault: false, dutyId: kept?.dutyId ?? null },
+    ]);
+    return Promise.resolve();
+  }
+
+  /** Steward: records the listed members' picks at any time, as `PUT /matches/{id}/picks`. */
+  recordPicks(fixtureId: string, picks: readonly StewardPick[]): Promise<void> {
+    if (!this.fixture(fixtureId)) return refuse(404, 'unknown_fixture', 'That match is not in the schedule.');
+    const ids = picks.map((p) => p.memberId);
+    if (new Set(ids).size !== ids.length)
+      return refuse(422, 'duplicate_member', 'Each member can have one pick per match.');
+    const active = new Set(this.memberRecords().map((m) => m.id));
+    if (ids.some((id) => !active.has(id))) return refuse(404, 'unknown_member', 'That member is not on the team sheet.');
+    if (picks.some((p) => !validPick(p, p.isDefault ?? false))) return invalidPick();
+    const duties = this.dutyRecords();
+    if (
+      picks.some(
+        (p) =>
+          p.dutyId &&
+          !duties.some((d) => d.id === p.dutyId && d.memberId === p.memberId && d.type === 'pick_confirmation'),
+      )
+    )
+      return refuse(404, 'unknown_duty', 'That pick confirmation duty is not this member’s.');
+    this.upsertPicks(
+      fixtureId,
+      picks.map((p) => ({
+        memberId: p.memberId,
+        side: p.side,
+        margin: p.margin,
+        isDefault: p.isDefault ?? false,
+        dutyId: p.dutyId ?? null,
+      })),
+    );
+    return Promise.resolve();
+  }
+
+  /** Steward: removes a member's pick. */
+  removePick(fixtureId: string, memberId: string): Promise<void> {
+    this.pickRecords.update((records) =>
+      records.filter((p) => !(p.fixtureId === fixtureId && p.memberId === memberId)),
+    );
+    return Promise.resolve();
+  }
+
+  /** Steward: changes some rules, validated like `PUT /rules`. */
+  saveRules(change: Partial<LeagueRules>): Promise<void> {
+    const next = withDefaultRules({ ...this.rulesState(), ...change, winPoints: { ...this.rulesState().winPoints, ...change.winPoints } });
+    const numbers = [
+      next.marginPoint,
+      next.marginWindow,
+      next.bonusPointValue,
+      next.bonusPointMinimumShare,
+      next.bonusRange,
+      next.grandSlamPoints,
+      ...Object.values(next.winPoints),
+    ];
+    if (numbers.some((n) => typeof n !== 'number' || !Number.isFinite(n) || n < 0))
+      return refuse(422, 'validation', 'Points and ranges must be zero or more.');
+    const lastRound = this.competition.current().lastRound;
+    if (!Number.isInteger(next.startingRound) || next.startingRound < 1 || next.startingRound > lastRound)
+      return refuse(422, 'validation', `The starting round must be between 1 and ${lastRound}.`);
+    const champion = next.previousChampionMemberId;
+    if (champion && ![...this.memberRecords(), ...this.withdrawnRecords()].some((m) => m.id === champion))
+      return refuse(404, 'unknown_member', 'The previous champion must be a member of this league.');
+    this.rulesState.set(next);
+    this.post('rules_updated', null, 'Superbru rules updated.', '', null);
+    return Promise.resolve();
+  }
+
+  /** Steward: replaces a round's recorded totals; members left out lose theirs. */
+  recordStandings(roundId: number, entries: readonly StandingEntry[]): Promise<void> {
+    const members = this.memberRecords();
+    if (entries.some((e) => !members.some((m) => m.id === e.memberId)))
+      return refuse(404, 'unknown_member', 'That member is not on the team sheet.');
+    if (entries.some((e) => !Number.isFinite(e.points) || e.points < 0))
+      return refuse(422, 'validation', 'Points must be zero or more.');
+    const ranked = rankRows(
+      entries.map((e) => ({
+        memberId: e.memberId,
+        memberName: members.find((m) => m.id === e.memberId)?.name ?? '',
+        points: e.points,
+        wp: 0,
+        mp: 0,
+        distance: 0,
+      })),
+    );
+    this.standingRecords.update((rows) => [
+      ...rows.filter((row) => row.roundId !== roundId),
+      ...ranked.map(({ memberId, rank, points }) => ({ roundId, memberId, rank, points })),
+    ]);
+    const leaders = ranked.filter((row) => row.rank === 1).map((row) => row.memberName);
+    const code = this.competition.current().roundCode(roundId);
+    this.post(
+      'standings_recorded',
+      roundId,
+      `Round ${code} Superbru standings updated.`,
+      leaders.length
+        ? `${leaders.join(' and ')} ${leaders.length === 1 ? 'leads' : 'lead'} on ${ranked[0].points} points.`
+        : '',
+      null,
+    );
+    return Promise.resolve();
+  }
+
+  /** Steward: clears one member's recorded total for a round. */
+  clearStanding(roundId: number, memberId: string): Promise<void> {
+    this.standingRecords.update((rows) =>
+      rows.filter((row) => !(row.roundId === roundId && row.memberId === memberId)),
+    );
+    return Promise.resolve();
+  }
+
+  /** Duties, picks or round standings on record, which keep a name from being deleted. */
   private hasRecords(memberId: string): boolean {
     return (
       this.dutyRecords().some((d) => d.memberId === memberId) ||
+      this.pickRecords().some((p) => p.memberId === memberId) ||
       this.standingRecords().some((s) => s.memberId === memberId)
     );
+  }
+
+  private fixture(fixtureId: string) {
+    return this.competition.current().fixtures.find((f) => f.id === fixtureId);
+  }
+
+  /** Kicked off, or already carrying a sample result. */
+  private locked(fixtureId: string, now: number): boolean {
+    const kickoff = this.fixture(fixtureId)?.kickoffUtc;
+    return !!sampleResults[fixtureId] || (!!kickoff && Date.parse(kickoff) <= now);
+  }
+
+  private upsertPicks(fixtureId: string, picks: readonly Omit<SamplePickRecord, 'fixtureId'>[]): void {
+    const ids = new Set(picks.map((p) => p.memberId));
+    this.pickRecords.update((records) => [
+      ...records.filter((p) => !(p.fixtureId === fixtureId && ids.has(p.memberId))),
+      ...picks.map((p) => ({ ...p, fixtureId })),
+    ]);
   }
 
   /** `Round 03 Spoon duty`, with the round labelled as the competition labels it. */
@@ -691,6 +936,26 @@ function sampleAdmin(): boolean {
   } catch {
     return true;
   }
+}
+
+/** A pick the API accepts: home or away by 1–150, a draw by 0, missed without a margin. */
+function validPick(pick: NewPick, isDefault: boolean): boolean {
+  if (isDefault && pick.side !== 'home' && pick.side !== 'away') return false;
+  switch (pick.side) {
+    case 'home':
+    case 'away':
+      return Number.isInteger(pick.margin) && pick.margin! >= 1 && pick.margin! <= 150;
+    case 'draw':
+      return pick.margin === 0;
+    case 'missed':
+      return pick.margin === null;
+    default:
+      return false;
+  }
+}
+
+function invalidPick<T>(): Promise<T> {
+  return refuse(422, 'invalid_pick', 'Pick a side and a margin from 1 to 150, or a draw.');
 }
 
 function refuse<T>(status: number, code: string, message: string): Promise<T> {

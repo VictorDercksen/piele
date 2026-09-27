@@ -13,6 +13,7 @@ import { HttpLeagueData, toApiError } from './http-league-data';
 import { LeagueData } from './league-data';
 import { Account, AppearanceChange, LeagueAppearance, LeagueSummary } from './league.models';
 import { SampleLeagueData } from './sample-league-data';
+import { DEFAULT_RULES } from './superbru';
 
 /**
  * The signed-in account, the leagues it can open and the league being shown. The router's
@@ -292,6 +293,7 @@ const LOCAL_ACCOUNT: Account = {
       displayName: null,
       isCaptain: false,
       favouriteTeamId: null,
+      rules: DEFAULT_RULES,
     },
   ],
 };

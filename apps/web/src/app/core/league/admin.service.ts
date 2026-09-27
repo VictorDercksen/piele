@@ -19,6 +19,7 @@ import { LeagueMember } from './league.models';
 import { slugProblem } from './league-slugs';
 import { SampleLeague, SampleLeagueData } from './sample-league-data';
 import { SAMPLE_ME, feedItem, memberRecord } from './sample-leagues';
+import { DEFAULT_RULES } from './superbru';
 
 /**
  * The management centre's data (`/manage`, the admin only): every league, archived included,
@@ -264,12 +265,14 @@ export class SampleAdminService extends AdminService {
         displayName: null,
         isCaptain: captainIsMe,
         favouriteTeamId: null,
+        rules: DEFAULT_RULES,
       },
       joinCode: randomCode(),
       captainId,
       createdAt: now,
       members,
       standings: [],
+      picks: [],
       duties: [],
       polls: [],
       notes: [],

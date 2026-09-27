@@ -1,3 +1,5 @@
+import { MatchState } from '../api/match-centre.models';
+
 export interface LeagueMember {
   readonly id: string;
   /** The member's Superbru nickname. */
@@ -16,7 +18,11 @@ export interface LeagueMember {
   readonly withdrawalReason?: string | null;
 }
 
-/** Superbru points and house marks are separate measures with no exchange rate. */
+/**
+ * A recorded Superbru round total: an override that replaces the total derived from the
+ * member's picks for that round (after Superbru reprocessing). A row equal to the derived
+ * total is not an override. Superbru points and house marks are separate measures.
+ */
 export interface RoundStanding {
   readonly roundId: number;
   readonly memberId: string;
@@ -82,6 +88,8 @@ export interface Duty {
   readonly createdAt: string;
   readonly marks: DutyMarks;
   readonly evidence: readonly DutyEvidence[];
+  /** Fixtures whose picks a pick confirmation duty covers (many picks to one duty). */
+  readonly pickFixtureIds: readonly string[];
 }
 
 export interface NewDuty {
@@ -91,6 +99,11 @@ export interface NewDuty {
   /** Omit to let the league apply the default for the type. */
   readonly deadlineAt: string | null;
   readonly reason: string;
+  /**
+   * A pick confirmation duty's fixtures: the member's picks there are linked to the duty, and
+   * `missed` picks are created where none exist.
+   */
+  readonly pickFixtureIds?: readonly string[];
 }
 
 export interface Poll {
@@ -117,6 +130,7 @@ export interface RoundNote {
 export type FeedKind =
   | 'season_opened'
   | 'standings_recorded'
+  | 'rules_updated'
   | 'member_joined'
   | 'member_added'
   | 'member_left'
@@ -205,6 +219,8 @@ export interface LeagueSummary {
   readonly displayName: string | null;
   readonly isCaptain: boolean;
   readonly favouriteTeamId: string | null;
+  /** The season's Superbru rules. */
+  readonly rules: LeagueRules;
 }
 
 /** The signed-in account and the leagues it can open (`GET /v1/me`). */
@@ -248,4 +264,98 @@ export interface LeagueAppearance {
 export interface AppearanceChange {
   readonly emblem?: { readonly preset: string } | { readonly image: string } | null;
   readonly accentColour?: string | null;
+}
+
+/** A Superbru pick's side. `missed` records that no pick was made. */
+export type PickSide = 'home' | 'away' | 'draw' | 'missed';
+
+/** One member's Superbru pick for one fixture. */
+export interface MemberPick {
+  readonly memberId: string;
+  readonly memberName: string;
+  readonly side: PickSide;
+  /** 1–150 for a home or away pick, 0 for a draw, null when missed. */
+  readonly margin: number | null;
+  /** A Superbru default pick: earns win points only. */
+  readonly isDefault: boolean;
+  /** The pick confirmation duty this pick is linked to. */
+  readonly dutyId: string | null;
+}
+
+/** A fixture's score and state, stored or live. */
+export interface FixtureResult {
+  readonly homeScore: number;
+  readonly awayScore: number;
+  readonly state: MatchState;
+}
+
+/**
+ * One fixture's picks (`GET /picks`). `picks` is empty while hidden: before kickoff to a
+ * member who has not picked yet; `myPick` is always the member's own.
+ */
+export interface FixturePicks {
+  readonly fixtureId: string;
+  readonly roundId: number;
+  readonly kickoffUtc: string | null;
+  /** Kickoff has passed: members can no longer change their own pick. */
+  readonly locked: boolean;
+  readonly result: FixtureResult | null;
+  readonly myPick: MemberPick | null;
+  readonly picks: readonly MemberPick[];
+}
+
+/** The member's own pick: `PUT /matches/{fixtureId}/picks/me`. */
+export interface NewPick {
+  readonly side: PickSide;
+  readonly margin: number | null;
+}
+
+/** A pick the steward records for a member: `PUT /matches/{fixtureId}/picks`. */
+export interface StewardPick extends NewPick {
+  readonly memberId: string;
+  readonly isDefault?: boolean;
+  readonly dutyId?: string | null;
+}
+
+/** Win points by round type. */
+export interface WinPoints {
+  readonly regular: number;
+  readonly quarterFinal: number;
+  readonly semiFinal: number;
+  readonly final: number;
+}
+
+/**
+ * A season's Superbru rules, editable by the captain and admin. `DEFAULT_RULES` in
+ * `superbru.ts` holds Piele's.
+ */
+export interface LeagueRules {
+  /** A missed pick may be recorded as a Superbru default: win points only, no grand slam. */
+  readonly defaultPicks: boolean;
+  /** Informational: Superbru hides picks before kickoff. The app's own rule is lock-in. */
+  readonly picksHiddenBeforeKickoff: boolean;
+  readonly bonusPoint: boolean;
+  /** Tied bonus point winners share the point; false gives each the full point. */
+  readonly bonusPointSplit: boolean;
+  /** Only picks within `bonusRange` of the actual margin qualify for the bonus point. */
+  readonly bonusPointRangeCapped: boolean;
+  /** Rounds before it are not scored. */
+  readonly startingRound: number;
+  readonly winPoints: WinPoints;
+  readonly marginPoint: number;
+  readonly marginWindow: number;
+  readonly bonusPointValue: number;
+  /** A split bonus point never goes below this share. */
+  readonly bonusPointMinimumShare: number;
+  readonly bonusRange: number;
+  /** For a perfect regular round; none in knockout rounds. */
+  readonly grandSlamPoints: number;
+  /** Last season's champion, shown with a crown. */
+  readonly previousChampionMemberId: string | null;
+}
+
+/** A recorded round total for one member, for `PUT /rounds/{n}/standings`. */
+export interface StandingEntry {
+  readonly memberId: string;
+  readonly points: number;
 }
