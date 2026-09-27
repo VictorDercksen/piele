@@ -97,7 +97,14 @@ export class Dropdown {
     if (!this.collapsible()) return;
     const element = this.body().nativeElement;
     const opening = !this.open();
-    const from = element.getBoundingClientRect().height;
+    if (!opening) this.returnToHeading();
+    let from = element.getBoundingClientRect().height;
+    // Closing, only the part of the body on screen needs to fold away; below the fold it can go
+    // at once.
+    if (!opening) {
+      const onScreen = Math.max(0, innerHeight - element.getBoundingClientRect().top);
+      from = Math.max(this.peek(), Math.min(from, onScreen));
+    }
     const to = opening ? element.scrollHeight : this.peek();
     this.open.set(opening);
     if (!opening) this.stuck.set(false);
@@ -116,6 +123,23 @@ export class Dropdown {
     };
     animation.addEventListener('finish', settle);
     animation.addEventListener('cancel', settle);
+  }
+
+  /**
+   * Closing from inside a long body would leave the reader wherever the page shrinks to, with the
+   * heading gone far above. Instead the page scrolls back to where the heading pins, so the
+   * heading stays where it is on screen and the body folds up under it.
+   */
+  private returnToHeading(): void {
+    const head = this.head().nativeElement;
+    if (typeof scrollBy !== 'function') return;
+    const pin = parseFloat(getComputedStyle(head).top) || 0;
+    // Where the heading sits in the page's flow, not where it is pinned.
+    const sticky = head.style.position;
+    head.style.position = 'static';
+    const home = head.getBoundingClientRect().top;
+    head.style.position = sticky;
+    if (home < pin - 1) scrollBy({ top: home - pin, behavior: 'instant' });
   }
 
   /** With `tapToOpen`, a tap on the closed dropdown opens it and the open heading or lead close it. */

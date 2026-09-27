@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { expectPinnedHeading, openSection, seedProfile } from './support';
+import { expectClosesInPlace, expectPinnedHeading, openSection, seedProfile } from './support';
 
 // The sample build's leagues: Piele (the sample member captains it), the Pofadder Bowl
 // (Doempie captains it; the sample member plays) and the Sample Third XV (the sample account
@@ -269,9 +269,8 @@ test('an open desk section keeps its heading pinned under the round header', asy
     await page.goto('/piele/captain');
     await openSection(page, 'The team sheet.');
     await expectPinnedHeading(page, 'The team sheet.');
-    // The pinned chevron closes the section again.
-    const chevron = page.getByRole('button', { name: 'The team sheet.', exact: true });
-    await chevron.click();
-    await expect(chevron).toHaveAttribute('aria-expanded', 'false');
+    // The pinned chevron closes the section in place: the next section follows right under it.
+    await expectClosesInPlace(page, 'The team sheet.');
+    await expect(page.getByRole('button', { name: 'The join link.', exact: true })).toBeInViewport();
   }
 });
