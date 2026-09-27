@@ -13,7 +13,7 @@
     </div>
     <h2 id="create-duty-title">Put it on the register.</h2>
     <div class="field-grid">
-      <label class="field">
+      <label class="field wide">
         <span>Member</span>
         <select formControlName="memberId" [attr.aria-invalid]="submitted() && form.controls.memberId.invalid">
           <option value="" disabled>Choose a member</option>
@@ -37,7 +37,7 @@
           }
         </select>
       </label>
-      <label class="field">
+      <label class="field wide">
         <span>Deadline ({{ zoneName() }})</span>
         <input type="datetime-local" formControlName="deadline" />
       </label>
