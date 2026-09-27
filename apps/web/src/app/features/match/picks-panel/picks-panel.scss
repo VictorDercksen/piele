@@ -27,11 +27,62 @@
   box-shadow: 0 8px 24px #0003;
 }
 .panel .section-title {
+  align-items: center;
   margin-bottom: 16px;
 }
-/* The global style hides section-title tags; this one carries the fixture's state. */
-.section-title > .tag {
+/* The fixture's state tag and the drawer's chevron, top right. */
+.title-side {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+.title-side .tag {
   display: inline-block;
+}
+.chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: #ffffff0a;
+  color: var(--ink);
+  cursor: pointer;
+  transition:
+    transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+    background 0.2s,
+    border-color 0.2s;
+}
+.chevron ng-icon {
+  font-size: 18px;
+}
+.chevron:hover {
+  background: #ffffff1a;
+  border-color: var(--muted);
+}
+.chevron:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.open .chevron {
+  transform: rotate(180deg);
+}
+/* The pool table's drawer: closed to nothing, open to its content. */
+.drawer {
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
+}
+.open .drawer,
+.animating .drawer {
+  visibility: visible;
+}
+.open .drawer {
+  height: auto;
 }
 .tag.provisional {
   background: #5a211a;

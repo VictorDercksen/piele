@@ -259,6 +259,50 @@ describe('PicksPanel', () => {
     expect(root.querySelectorAll('tbody tr')).toHaveLength(2);
   });
 
+  it('keeps the pool table closed by default and opens it from the chevron', async () => {
+    const { root, settle } = setup(OPEN);
+    await settle();
+    const section = root.querySelector('section.panel')!;
+    const chevron = root.querySelector<HTMLButtonElement>('.section-title .chevron')!;
+    const drawer = root.querySelector('#picks-pool')!;
+    // Closed: the split and the member's pick show; the table sits inert in the drawer.
+    expect(section.classList).not.toContain('open');
+    expect(chevron.getAttribute('aria-expanded')).toBe('false');
+    expect(chevron.getAttribute('aria-label')).toBe("Show the pool's picks");
+    expect(chevron.getAttribute('aria-controls')).toBe('picks-pool');
+    expect(drawer.hasAttribute('inert')).toBe(true);
+    expect(root.querySelector('.sway')).not.toBeNull();
+    expect(root.querySelector('.mine')).not.toBeNull();
+    expect(drawer.querySelector('table')).not.toBeNull();
+    expect(drawer.querySelector('.panel-source')).not.toBeNull();
+
+    chevron.click();
+    await settle();
+    expect(section.classList).toContain('open');
+    expect(chevron.getAttribute('aria-expanded')).toBe('true');
+    expect(chevron.getAttribute('aria-label')).toBe("Hide the pool's picks");
+    expect(drawer.hasAttribute('inert')).toBe(false);
+
+    chevron.click();
+    await settle();
+    expect(section.classList).not.toContain('open');
+    expect(drawer.hasAttribute('inert')).toBe(true);
+  });
+
+  it('has no chevron while the pool is hidden and closes again for another fixture', async () => {
+    const { root, current, settle, fixture } = setup(picksView());
+    await settle();
+    expect(root.querySelector('.chevron')).toBeNull();
+    current.set(OPEN);
+    await settle();
+    root.querySelector<HTMLButtonElement>('.chevron')!.click();
+    await settle();
+    expect(root.querySelector('section.panel')?.classList).toContain('open');
+    fixture.componentRef.setInput('fixtureId', '292591');
+    await settle();
+    expect(root.querySelector('section.panel')?.classList).not.toContain('open');
+  });
+
   it('scores a locked fixture with marks, points, place and the rules legend', async () => {
     const { root, text, settle } = setup(FINAL);
     await settle();
