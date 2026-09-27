@@ -219,6 +219,24 @@ describe('PicksPanel', () => {
     expect(root.querySelector('.draw-pick')?.getAttribute('aria-pressed')).toBe('false');
     // The margin field starts on the home side of the Draw chip.
     expect(root.querySelector('.margin-field')?.classList).not.toContain('away');
+    // Quick margins run in toward the middle on the home side and out from it on the away side.
+    const quick = (side: string) =>
+      Array.from(root.querySelectorAll(`.quick.${side} .quick-pick`)).map((b) => [
+        b.textContent?.trim(),
+        b.getAttribute('aria-label'),
+      ]);
+    expect(quick('home')).toEqual([
+      ['21', 'Zebre by 21'],
+      ['14', 'Zebre by 14'],
+      ['7', 'Zebre by 7'],
+      ['3', 'Zebre by 3'],
+    ]);
+    expect(quick('away')).toEqual([
+      ['3', 'Bulls by 3'],
+      ['7', 'Bulls by 7'],
+      ['14', 'Bulls by 14'],
+      ['21', 'Bulls by 21'],
+    ]);
     expect(root.querySelector('#pick-margin')?.getAttribute('inputmode')).toBe('numeric');
     expect(text('.form-note')).toMatch(
       /^Make your pick to see the pool's picks\. Picks lock at kickoff, \d+ \w{3} \d{2}:\d{2} \S+\.$/,
@@ -285,7 +303,8 @@ describe('PicksPanel', () => {
   });
 
   it('reads the marker as a margin toward a side, with the middle a draw', async () => {
-    const { root, text, slide, choose, typeMargin, marker, margin, strip } = setup(picksView());
+    const { root, text, slide, choose, typeMargin, marker, margin, strip, settle } =
+      setup(picksView());
     const field = () => root.querySelector('.margin-field')!;
     // Left of the middle is the home side, by the distance; the margin field sits left of Draw.
     await slide(-12);
@@ -325,6 +344,25 @@ describe('PicksPanel', () => {
     expect(marker().getAttribute('aria-valuetext')).toBe('A draw');
     expect(text('.thumb')).toBe('Draw');
     expect(strip().classList).toContain('picked');
+    // A quick margin sets that side by that many and shows pressed while it matches.
+    const pressed = () =>
+      Array.from(root.querySelectorAll('.quick-pick[aria-pressed="true"]')).map((b) =>
+        b.getAttribute('aria-label'),
+      );
+    root.querySelector<HTMLButtonElement>('.quick.away .quick-pick:nth-child(2)')!.click();
+    await settle();
+    expect(marker().getAttribute('aria-valuetext')).toBe('Bulls by 7');
+    expect(margin().value).toBe('7');
+    expect(field().classList).toContain('away');
+    expect(pressed()).toEqual(['Bulls by 7']);
+    await typeMargin('8');
+    expect(pressed()).toEqual([]);
+    root.querySelector<HTMLButtonElement>('.quick.home .quick-pick:first-child')!.click();
+    await settle();
+    expect(marker().getAttribute('aria-valuetext')).toBe('Zebre by 21');
+    expect(marker().value).toBe('-21');
+    expect(field().classList).not.toContain('away');
+    expect(pressed()).toEqual(['Zebre by 21']);
   });
 
   it('disables and clears the margin on a draw and saves a draw as margin 0', async () => {
@@ -385,7 +423,9 @@ describe('PicksPanel', () => {
     expect(root.querySelector('form')).toBeNull();
     expect(root.querySelector('.mine')?.classList).toContain('you');
     expect(text('.mine .chip')).toBe('Bulls by 20');
-    expect(root.querySelector('.sway')?.getAttribute('aria-label')).toBe(
+    // The split heads the pool's drawer, so it shows only with the table.
+    expect(root.querySelector('.dropdown-lead .sway')).toBeNull();
+    expect(root.querySelector('#picks-pool .sway')?.getAttribute('aria-label')).toBe(
       "The pool's split: Zebre 50%, Bulls 50%.",
     );
     expect(root.querySelectorAll('.sway-part b')).toHaveLength(2);
@@ -414,13 +454,13 @@ describe('PicksPanel', () => {
     const section = root.querySelector('section.panel')!;
     const chevron = root.querySelector<HTMLButtonElement>('.section-title .chevron')!;
     const drawer = root.querySelector('#picks-pool')!;
-    // Closed: the split and the member's pick show; the table sits inert in the drawer.
+    // Closed: the member's pick shows; the split and the table sit inert in the drawer.
     expect(section.classList).not.toContain('open');
     expect(chevron.getAttribute('aria-expanded')).toBe('false');
     expect(chevron.getAttribute('aria-label')).toBe("Show the pool's picks");
     expect(chevron.getAttribute('aria-controls')).toBe('picks-pool');
     expect(drawer.hasAttribute('inert')).toBe(true);
-    expect(root.querySelector('.sway')).not.toBeNull();
+    expect(drawer.querySelector('.sway')).not.toBeNull();
     expect(root.querySelector('.mine')).not.toBeNull();
     expect(drawer.querySelector('table')).not.toBeNull();
     expect(drawer.querySelector('.panel-source')).not.toBeNull();
