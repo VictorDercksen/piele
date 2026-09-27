@@ -198,8 +198,13 @@ test('fixture strip sits under the round header and features a match on the home
     .getByRole('navigation', { name: 'League navigation', exact: true })
     .getByRole('link', { name: 'Duties', exact: true })
     .click();
-  await expect(strip).toBeVisible();
+  await expect(strip).toBeHidden();
   await expect(page.getByText('ROUND 02 →')).toHaveCount(0);
+  await page
+    .getByRole('navigation', { name: 'League navigation', exact: true })
+    .getByRole('link', { name: 'Home', exact: true })
+    .click();
+  await expect(strip).toBeVisible();
 });
 
 test('captain creates, records and decides duties; the feed follows', async ({ page }) => {

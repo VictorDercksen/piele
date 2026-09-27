@@ -233,6 +233,33 @@ app-season-timeline {
   background: var(--surface-grain), linear-gradient(100deg, #162529, #101b1d);
   box-shadow: 0 8px 24px #0004;
 }
+// The fixture ribbon slides up under the round header on pages that do not use it and
+// back down on Home and Match. Visibility waits for the slide so it stays out of the tab
+// order and accessibility tree while closed.
+.ribbon-drawer {
+  display: grid;
+  grid-template-rows: 0fr;
+  visibility: hidden;
+  transition:
+    grid-template-rows 0.35s ease,
+    visibility 0s linear 0.35s;
+}
+.ribbon-drawer.open {
+  grid-template-rows: 1fr;
+  visibility: visible;
+  transition:
+    grid-template-rows 0.35s ease,
+    visibility 0s;
+}
+.ribbon-drawer > app-fixture-ribbon {
+  min-height: 0;
+  overflow: hidden;
+  transform: translateY(-100%);
+  transition: transform 0.35s ease;
+}
+.ribbon-drawer.open > app-fixture-ribbon {
+  transform: none;
+}
 .round-context {
   display: flex;
   align-items: center;
