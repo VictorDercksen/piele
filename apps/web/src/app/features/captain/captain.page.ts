@@ -13,6 +13,7 @@ import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { ActivatedRoute } from '@angular/router';
 import { LeagueTime } from '../../core/competition/league-time';
 import { AlertService } from '../../core/feedback/alert.service';
+import { highlightProblem } from '../../core/feedback/problem-highlight';
 import { LeagueData } from '../../core/league/league-data';
 import { LeagueMember } from '../../core/league/league.models';
 import { ReviewView, RoundViewService } from '../../core/league/round-view.service';
@@ -178,7 +179,7 @@ export class CaptainPage {
     if (this.emailControl.invalid) {
       this.emailAttempted.set(true);
       this.alerts.warn('Enter a valid email address.', { key: ALERT_KEYS.email });
-      this.focus(`email-${member.id}`);
+      this.highlight(`email-${member.id}`);
       return;
     }
     this.emailAttempted.set(false);
@@ -297,7 +298,7 @@ export class CaptainPage {
         key: ALERT_KEYS.addMember,
         details: rest.map((problem) => problem.message),
       });
-      this.focus(`new-member-${first.field}`);
+      this.highlight(`new-member-${first.field}`);
       return;
     }
     this.addAttempted.set(false);
@@ -321,10 +322,10 @@ export class CaptainPage {
     }
   }
 
-  /** Moves focus to an input by id once its `aria-invalid` has rendered. */
-  private focus(id: string): void {
+  /** Highlights an input by id once its `aria-invalid` has rendered, without moving focus. */
+  private highlight(id: string): void {
     afterNextRender(
-      () => this.host.nativeElement.querySelector<HTMLElement>(`[id="${id}"]`)?.focus(),
+      () => highlightProblem(this.host.nativeElement.querySelector<HTMLElement>(`[id="${id}"]`)),
       { injector: this.injector },
     );
   }

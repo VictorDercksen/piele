@@ -15,6 +15,7 @@ import { map } from 'rxjs';
 import { LeagueRules } from '../../../core/league/league.models';
 import { CompetitionService } from '../../../core/competition/competition.service';
 import { AlertService } from '../../../core/feedback/alert.service';
+import { highlightProblem } from '../../../core/feedback/problem-highlight';
 import { ApiError } from '../../../core/league/http-league-data';
 import { RoundViewService } from '../../../core/league/round-view.service';
 import { Dropdown } from '../../../shared/dropdown/dropdown';
@@ -123,7 +124,7 @@ export class RulesCard {
         key: ALERT_KEY,
         details: alertDetails(problems.map((problem) => problem.message)),
       });
-      this.focusField(first.field);
+      this.highlightField(first.field);
       return;
     }
     this.alerts.dismissKey(ALERT_KEY);
@@ -152,10 +153,10 @@ export class RulesCard {
     }
   }
 
-  /** Focuses a rule field by its id suffix, once `aria-invalid` has rendered. */
-  private focusField(field: string): void {
+  /** Highlights a rule field by its id suffix, once `aria-invalid` has rendered. */
+  private highlightField(field: string): void {
     afterNextRender(
-      () => this.host.nativeElement.querySelector<HTMLElement>(`#rules-${field}`)?.focus(),
+      () => highlightProblem(this.host.nativeElement.querySelector<HTMLElement>(`#rules-${field}`)),
       { injector: this.injector },
     );
   }

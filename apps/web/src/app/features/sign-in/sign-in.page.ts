@@ -15,6 +15,7 @@ import { map } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import { CompetitionService, shortSeason } from '../../core/competition/competition.service';
 import { AlertService } from '../../core/feedback/alert.service';
+import { highlightProblem } from '../../core/feedback/problem-highlight';
 import { safeReturnUrl } from '../../core/profile/profile.guards';
 import { Loader } from '../../shared/loader/loader';
 
@@ -116,7 +117,7 @@ export class SignInPage {
     }
   }
 
-  /** One warning for the attempt, naming each field to fix, and focus on the first. */
+  /** One warning for the attempt, naming each field to fix, and a highlight on the first. */
   private reportProblems(): void {
     const { email, password } = this.form.controls;
     const problems: { message: string; input: HTMLInputElement }[] = [];
@@ -132,7 +133,7 @@ export class SignInPage {
       });
     const [first, ...rest] = problems;
     if (!first) return;
-    first.input.focus();
+    highlightProblem(first.input);
     this.alerts.warn(first.message, {
       key: ALERT_KEY,
       details: rest.map((problem) => problem.message),

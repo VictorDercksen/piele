@@ -88,7 +88,9 @@ export class Shell {
   readonly competitionName = computed(() => this.competition.current().name);
   readonly regularRounds = computed(() => this.competition.regularRounds);
   /** The admin in a league it holds no membership in. */
-  readonly adminView = computed(() => !!this.context.current() && !this.context.isMemberOfCurrent());
+  readonly adminView = computed(
+    () => !!this.context.current() && !this.context.isMemberOfCurrent(),
+  );
   readonly nav = [
     { path: '/', label: 'Home', icon: 'home' },
     { path: '/standings', label: 'Standings', icon: 'standings' },

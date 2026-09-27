@@ -78,7 +78,8 @@ describe('LeagueCard', () => {
     fixture.componentRef.setInput('dialog', {} as ReasonDialog);
     const card = fixture.componentInstance;
     const root = fixture.nativeElement as HTMLElement;
-    const field = <T extends HTMLElement>(id: string) => root.querySelector<T>(`#league-l-1-${id}`)!;
+    const field = <T extends HTMLElement>(id: string) =>
+      root.querySelector<T>(`#league-l-1-${id}`)!;
     const startingRound = card.renameForm.controls.rules.controls.startingRound;
     const fail = (message: string) => (refusal = new Error(message));
     return { card, root, field, startingRound, resolveList, updates, warn, error, fail };
@@ -108,13 +109,15 @@ describe('LeagueCard', () => {
     expect(updates).toEqual([{ rules: { startingRound: 10 } }]);
   });
 
-  it('warns once about a blank name and a rule to fix, and focuses the name', async () => {
+  it('warns once about a blank name and a rule to fix, and highlights the name', async () => {
     const { card, field, startingRound, updates, warn } = setup();
     card.expanded.set(true);
     card.startRename();
     await settle();
     card.renameForm.controls.name.setValue(' ');
     startingRound.setValue(3);
+    // Opening the form put the cursor in the name; the warning must not bring it back.
+    field('rename-name').blur();
     await card.saveRename();
     await settle();
     expect(updates).toEqual([]);
@@ -124,13 +127,14 @@ describe('LeagueCard', () => {
       details: ['Starting round: choose a round from 1 to 2.'],
     });
     expect(field('rename-name').getAttribute('aria-invalid')).toBe('true');
-    expect(document.activeElement).toBe(field('rename-name'));
+    expect(field('rename-name').classList).toContain('problem-flag');
+    expect(document.activeElement).not.toBe(field('rename-name'));
     // The rules group opens so the marked rule shows.
     expect(field<HTMLDetailsElement>('rules').open).toBe(true);
     expect(field('rules-startingRound').getAttribute('aria-invalid')).toBe('true');
   });
 
-  it('focuses the first rule to fix when only the rules are wrong', async () => {
+  it('highlights the first rule to fix when only the rules are wrong', async () => {
     const { card, field, startingRound, warn } = setup();
     card.expanded.set(true);
     card.startRename();
@@ -143,7 +147,8 @@ describe('LeagueCard', () => {
       key: 'league-l-1-rename',
       details: ['Margin point: enter a number from 0 to 1000.'],
     });
-    expect(document.activeElement).toBe(field('rules-startingRound'));
+    expect(field('rules-startingRound').classList).toContain('problem-flag');
+    expect(document.activeElement).not.toBe(field('rules-startingRound'));
   });
 
   it('shows a refused save and a refused "Add me" as errors', async () => {
@@ -179,7 +184,7 @@ describe('LeagueCard', () => {
     expect(card.copied()).toBe(false);
   });
 
-  it('warns and focuses the select when no captain is chosen', async () => {
+  it('warns and highlights the select when no captain is chosen', async () => {
     const { card, root, field, warn } = setup();
     card.expanded.set(true);
     await settle();
@@ -194,6 +199,7 @@ describe('LeagueCard', () => {
       details: [],
     });
     expect(field('captain').getAttribute('aria-invalid')).toBe('true');
-    expect(document.activeElement).toBe(field('captain'));
+    expect(field('captain').classList).toContain('problem-flag');
+    expect(document.activeElement).not.toBe(field('captain'));
   });
 });

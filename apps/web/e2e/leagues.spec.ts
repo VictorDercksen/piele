@@ -36,7 +36,10 @@ test('the Pofadder Bowl shows its own name, captain, standings and feed', async 
   const rail = page.locator('.rail-brand .switcher-trigger');
   await expect(rail.locator('strong')).toHaveText('POFADDER BOWL');
   await expect(rail.locator('small')).toContainText('URC');
-  await expect(rail.locator('use')).toHaveAttribute('href', 'assets/images/emblems/posts.svg#emblem');
+  await expect(rail.locator('use')).toHaveAttribute(
+    'href',
+    'assets/images/emblems/posts.svg#emblem',
+  );
   const feed = page.locator('app-feed');
   await expect(feed).toContainText('Thabo: Round 02 Spoon duty.');
   await expect(feed).not.toContainText('Liam');
@@ -108,7 +111,8 @@ test('the no-league page takes a pasted join link', async ({ page }) => {
     page.getByRole('status').filter({ hasText: 'not a join link or code' }),
   ).toBeVisible();
   await expect(field).toHaveAttribute('aria-invalid', 'true');
-  await expect(field).toBeFocused();
+  await expect(field).toHaveClass(/problem-flag/);
+  await expect(field).not.toBeFocused();
   await field.fill(`https://pavilion.example/join/${PIELE_JOIN_CODE}`);
   await page.getByRole('button', { name: 'Join' }).click();
   await expect(page).toHaveURL(new RegExp(`/join/${PIELE_JOIN_CODE}$`));
@@ -157,7 +161,9 @@ test('on a phone the switcher drops as a sheet and takes a join code', async ({ 
   expect(box.x).toBe(0);
   expect(box.width).toBe(320);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
-  await sheet.getByLabel('Join link or code').fill(`https://pavilion.example/join/${POFADDER_JOIN_CODE}`);
+  await sheet
+    .getByLabel('Join link or code')
+    .fill(`https://pavilion.example/join/${POFADDER_JOIN_CODE}`);
   await sheet.getByRole('button', { name: 'Join' }).click();
   await expect(page).toHaveURL(new RegExp(`/join/${POFADDER_JOIN_CODE}$`));
 });
@@ -189,7 +195,10 @@ test('the captain’s desk shows the join link, copies it, rotates it and closes
   await expect(link).toHaveValue(/\/join\/[0-9a-f]{12}$/);
 
   await card.getByRole('button', { name: 'Close joining' }).click();
-  await page.getByRole('dialog', { name: 'Close joining?' }).getByRole('button', { name: 'Close joining' }).click();
+  await page
+    .getByRole('dialog', { name: 'Close joining?' })
+    .getByRole('button', { name: 'Close joining' })
+    .click();
   await expect(card.getByRole('heading', { name: 'Joining is closed.' })).toBeVisible();
   await card.getByRole('button', { name: 'Open joining' }).click();
   await expect(card.getByLabel('Join link', { exact: true })).toHaveValue(/\/join\/[0-9a-f]{12}$/);
@@ -204,7 +213,12 @@ test('removing a member moves them to Withdrawn and reinstating brings them back
   const sheet = page.locator('.members .dropdown-inner > .member-list');
   await expect(sheet.locator('li')).toHaveCount(6);
   // The captain's own row has no Remove button.
-  await expect(sheet.locator('li').filter({ hasText: 'You' }).getByRole('button', { name: /Remove/ })).toHaveCount(0);
+  await expect(
+    sheet
+      .locator('li')
+      .filter({ hasText: 'You' })
+      .getByRole('button', { name: /Remove/ }),
+  ).toHaveCount(0);
   const remove = sheet.getByRole('button', { name: 'Remove Liam' });
   await remove.click();
   const dialog = page.getByRole('dialog', { name: 'Remove Liam?' });
@@ -213,7 +227,8 @@ test('removing a member moves them to Withdrawn and reinstating brings them back
   await dialog.getByRole('button', { name: 'Remove' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'Give a reason' })).toBeVisible();
   await expect(dialog.getByLabel('Reason')).toHaveAttribute('aria-invalid', 'true');
-  await expect(dialog.getByLabel('Reason')).toBeFocused();
+  await expect(dialog.getByLabel('Reason')).toHaveClass(/problem-flag/);
+  await expect(dialog.getByLabel('Reason')).not.toBeFocused();
   await dialog.getByLabel('Reason').fill('Moved to Perth');
   await dialog.getByRole('button', { name: 'Remove' }).click();
   await expect(dialog).toBeHidden();
@@ -242,7 +257,10 @@ test('the appearance card changes the league crest', async ({ page }) => {
   await card.getByRole('radio', { name: 'Trophy' }).check();
   await card.getByLabel('Accent colour').fill('#3f8f6b');
   await card.getByRole('button', { name: 'Save appearance' }).click();
-  await expect(crest.locator('use')).toHaveAttribute('href', 'assets/images/emblems/trophy.svg#emblem');
+  await expect(crest.locator('use')).toHaveAttribute(
+    'href',
+    'assets/images/emblems/trophy.svg#emblem',
+  );
   await expect(crest).toHaveCSS('color', 'rgb(63, 143, 107)');
   await expect(page.getByRole('status')).toContainText('new look');
 
@@ -277,6 +295,8 @@ test('an open desk section keeps its heading pinned under the round header', asy
     await expectPinnedHeading(page, 'The team sheet.');
     // The pinned chevron closes the section in place: the next section follows right under it.
     await expectClosesInPlace(page, 'The team sheet.');
-    await expect(page.getByRole('button', { name: 'The join link.', exact: true })).toBeInViewport();
+    await expect(
+      page.getByRole('button', { name: 'The join link.', exact: true }),
+    ).toBeInViewport();
   }
 });

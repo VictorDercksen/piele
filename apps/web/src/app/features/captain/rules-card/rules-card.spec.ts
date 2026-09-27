@@ -161,7 +161,8 @@ describe('RulesCard', () => {
       details: ['Bonus range: enter a number from 0 to 1000.'],
     });
     expect(root.querySelector('.field-error, [role="alert"]')).toBeNull();
-    expect(document.activeElement).toBe(field('startingRound'));
+    expect(field('startingRound').classList).toContain('problem-flag');
+    expect(document.activeElement).not.toBe(field('startingRound'));
   });
 
   it('replaces the warning on a resubmit and drops it once the rules are valid', async () => {

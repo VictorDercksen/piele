@@ -16,11 +16,12 @@ test('first visit requires a favourite team and saves a personal identity', asyn
   await expect(page).toHaveURL(/\/piele\/welcome\?returnUrl=%2Fpiele$/);
   await expect(page.getByRole('radio')).toHaveCount(16);
   await page.getByRole('button', { name: 'Enter the clubhouse' }).click();
-  // One warning card names both problems; focus goes to the first field to fix.
+  // One warning card names both problems; the first field to fix is highlighted, not focused.
   const warning = page.getByRole('status').filter({ hasText: 'Enter your name to continue.' });
   await expect(warning).toBeVisible();
   await expect(warning).toContainText('Choose the team you support.');
-  await expect(page.getByLabel('Your name', { exact: true })).toBeFocused();
+  await expect(page.getByLabel('Your name', { exact: true })).toHaveClass(/problem-flag/);
+  await expect(page.getByLabel('Your name', { exact: true })).not.toBeFocused();
   await expect(page.getByLabel('Your name', { exact: true })).toHaveAttribute(
     'aria-invalid',
     'true',

@@ -43,7 +43,8 @@ describe('NoLeaguePage', () => {
     expect(warn.mock.calls[0][1]).toEqual({ key: 'join-code' });
     expect(input.getAttribute('aria-invalid')).toBe('true');
     expect(input.hasAttribute('aria-describedby')).toBe(false);
-    expect(document.activeElement).toBe(input);
+    expect(input.classList).toContain('problem-flag');
+    expect(document.activeElement).not.toBe(input);
     expect(root.querySelector('[role=alert]')).toBeNull();
 
     await submit('https://pavilion.example/join/abc123def456');

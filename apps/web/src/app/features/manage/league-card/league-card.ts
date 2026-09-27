@@ -26,6 +26,7 @@ import {
   lucideCrown,
 } from '@ng-icons/lucide';
 import { AlertService } from '../../../core/feedback/alert.service';
+import { highlightProblem } from '../../../core/feedback/problem-highlight';
 import { AdminLeague, CaptainCandidate, LeagueUpdate } from '../../../core/league/admin.models';
 import { AdminService } from '../../../core/league/admin.service';
 import { LeagueCrest } from '../../../shared/league-crest/league-crest';
@@ -194,7 +195,11 @@ export class LeagueCard {
         await this.admin.update(league.id, { status: 'archived' });
       },
       done: () =>
-        this.changed.emit({ id: league.id, message: `${league.name} is archived.`, moved: 'archived' }),
+        this.changed.emit({
+          id: league.id,
+          message: `${league.name} is archived.`,
+          moved: 'archived',
+        }),
     });
   }
 
@@ -211,7 +216,11 @@ export class LeagueCard {
         await this.admin.update(league.id, { status: 'active' });
       },
       done: () =>
-        this.changed.emit({ id: league.id, message: `${league.name} is open again.`, moved: 'active' }),
+        this.changed.emit({
+          id: league.id,
+          message: `${league.name} is open again.`,
+          moved: 'active',
+        }),
     });
   }
 
@@ -248,7 +257,7 @@ export class LeagueCard {
     this.renameSubmitted.set(true);
     const problems = this.renameProblems();
     if (problems.length) {
-      // The collapsed rules group opens so its fields can be seen and focused.
+      // The collapsed rules group opens so its fields can be seen and highlighted.
       if (this.renameForm.controls.rules.invalid) this.rulesOpen.set(true);
       this.warn('rename', problems);
       return;
@@ -310,7 +319,9 @@ export class LeagueCard {
     try {
       this.candidates.set(await this.admin.captainCandidates(this.league().id));
     } catch (error) {
-      this.candidatesError.set(error instanceof Error ? error.message : 'The team sheet could not be loaded.');
+      this.candidatesError.set(
+        error instanceof Error ? error.message : 'The team sheet could not be loaded.',
+      );
     }
   }
 
@@ -362,9 +373,11 @@ export class LeagueCard {
     }
   }
 
-  /** One warning card per attempt, keyed to this card's form, and focus on the first problem. */
+  /** One warning card per attempt, keyed to this card's form, and a highlight on the first problem. */
   private warn(form: 'rename' | 'captain', problems: readonly FormProblem[]): void {
-    this.focus(problems[0].id);
+    afterNextRender(() => highlightProblem(this.document.getElementById(problems[0].id)), {
+      injector: this.injector,
+    });
     this.alerts.warn(problems[0].message, {
       key: `${this.id()}-${form}`,
       details: problemDetails(problems),
@@ -372,10 +385,7 @@ export class LeagueCard {
   }
 
   private focus(id: string): void {
-    afterNextRender(
-      () => this.document.getElementById(id)?.focus(),
-      { injector: this.injector },
-    );
+    afterNextRender(() => this.document.getElementById(id)?.focus(), { injector: this.injector });
   }
 }
 

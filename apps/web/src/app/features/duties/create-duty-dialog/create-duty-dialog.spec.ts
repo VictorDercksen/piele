@@ -58,13 +58,27 @@ describe('CreateDutyDialog', () => {
       await dialog.submit();
       await settle();
     };
-    const member = () => root.querySelector<HTMLSelectElement>('select[formControlName="memberId"]')!;
+    const member = () =>
+      root.querySelector<HTMLSelectElement>('select[formControlName="memberId"]')!;
     const deadline = () => root.querySelector<HTMLInputElement>('input[type="datetime-local"]')!;
     const refuse = (next: Error | null) => (refusal = next);
-    return { fixture, dialog, root, alerts, warn, error, created, settle, submit, member, deadline, refuse };
+    return {
+      fixture,
+      dialog,
+      root,
+      alerts,
+      warn,
+      error,
+      created,
+      settle,
+      submit,
+      member,
+      deadline,
+      refuse,
+    };
   }
 
-  it('warns when no member is chosen, marking and focusing the select', async () => {
+  it('warns when no member is chosen, marking and highlighting the select', async () => {
     const { dialog, root, settle, submit, member, warn, created } = setup();
     dialog.open();
     await settle();
@@ -77,7 +91,8 @@ describe('CreateDutyDialog', () => {
       details: [],
     });
     expect(member().getAttribute('aria-invalid')).toBe('true');
-    expect(document.activeElement).toBe(member());
+    expect(member().classList).toContain('problem-flag');
+    expect(document.activeElement).not.toBe(member());
     expect(root.querySelector('[role="alert"], .error-message')).toBeNull();
   });
 
@@ -101,7 +116,8 @@ describe('CreateDutyDialog', () => {
       key: 'create-duty',
       details: [],
     });
-    expect(document.activeElement).toBe(deadline());
+    expect(deadline().classList).toContain('problem-flag');
+    expect(document.activeElement).not.toBe(deadline());
     expect(alerts.alerts()).toHaveLength(1);
 
     // Closing takes the warning away.

@@ -12,8 +12,7 @@
         [emblemUrl]="leagueSummary()?.emblemUrl ?? null"
         [emblemPreset]="leagueSummary()?.emblemPreset ?? null"
         [accentColour]="leagueSummary()?.accentColour ?? null"
-      />{{ leagueTitle().toUpperCase() }}
-      <span>{{ competitionLabel() }}</span></a
+      />{{ leagueTitle().toUpperCase() }} <span>{{ competitionLabel() }}</span></a
     >
     <div class="poster-copy">
       <span>YOUR CLUB. YOUR COLOURS.</span>
@@ -86,9 +85,9 @@
               formControlName="teamId"
               [value]="team.id"
               [attr.aria-label]="team.name"
-              [attr.aria-invalid]="submitted() && !teamId()" /><img [src]="team.jersey" alt="" /><span>{{
-              team.shortName
-            }}</span
+              [attr.aria-invalid]="submitted() && !teamId()" /><img
+              [src]="team.jersey"
+              alt="" /><span>{{ team.shortName }}</span
             ><i aria-hidden="true">
               @if (teamId() === team.id) {
                 <ng-icon name="lucideCheck" />

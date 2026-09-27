@@ -31,6 +31,7 @@ import { CompetitionService } from '../../../core/competition/competition.servic
 import { LeagueTime } from '../../../core/competition/league-time';
 import { LeagueTimePipe } from '../../../core/competition/league-time.pipe';
 import { AlertService } from '../../../core/feedback/alert.service';
+import { highlightProblem } from '../../../core/feedback/problem-highlight';
 import { ApiError } from '../../../core/league/http-league-data';
 import { LeaguePathPipe } from '../../../core/league/league-path.pipe';
 import { MemberPick, NewPick } from '../../../core/league/league.models';
@@ -315,10 +316,9 @@ export class PicksPanel {
       const problems: string[] = [];
       if (this.form.controls.side.invalid) problems.push('Choose a side or a draw.');
       if (this.form.controls.margin.invalid) problems.push('Enter a margin from 1 to 150.');
-      (this.form.controls.side.invalid
-        ? this.firstSide()
-        : this.marginInput()
-      )?.nativeElement.focus();
+      highlightProblem(
+        (this.form.controls.side.invalid ? this.firstSide() : this.marginInput())?.nativeElement,
+      );
       const [first = 'Choose a side or a draw.', ...rest] = problems;
       this.alerts.warn(first, { key: this.warningKey(), details: rest });
       return;

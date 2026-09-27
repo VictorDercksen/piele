@@ -1,6 +1,7 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { AlertService } from '../../../core/feedback/alert.service';
+import { problemTarget } from '../../../core/feedback/problem-highlight';
 import { LeagueData } from '../../../core/league/league-data';
 import { RoundDutyView, RoundViewService } from '../../../core/league/round-view.service';
 import { EvidenceDialog } from './evidence-dialog';
@@ -94,14 +95,15 @@ describe('EvidenceDialog', () => {
 
   const video = () => new File(['demo'], 'proof.mp4', { type: 'video/mp4' });
 
-  it('warns about a file that is not a video, marking and focusing the picker', async () => {
+  it('warns about a file that is not a video, marking and highlighting the picker', async () => {
     const { root, settle, choose, fileInput, warn } = setup({ ...DUTY, mine: true });
     await settle();
     await choose(new File(['x'], 'note.txt', { type: 'text/plain' }));
     expect(warn).toHaveBeenCalledOnce();
     expect(warn).toHaveBeenCalledWith('Choose a video file to continue.', { key: 'evidence' });
     expect(fileInput().getAttribute('aria-invalid')).toBe('true');
-    expect(document.activeElement).toBe(fileInput());
+    expect(problemTarget(fileInput()).classList).toContain('problem-flag');
+    expect(document.activeElement).not.toBe(fileInput());
     expect(root.querySelector('[role="alert"], .error-message')).toBeNull();
     // No file, no submit.
     expect(root.querySelector<HTMLButtonElement>('button.primary-button')!.disabled).toBe(true);
@@ -130,7 +132,8 @@ describe('EvidenceDialog', () => {
     expect(warn).toHaveBeenCalledOnce();
     expect(warn).toHaveBeenCalledWith('Record when the duty was completed.', { key: 'evidence' });
     expect(completed().getAttribute('aria-invalid')).toBe('true');
-    expect(document.activeElement).toBe(completed());
+    expect(completed().classList).toContain('problem-flag');
+    expect(document.activeElement).not.toBe(completed());
 
     await complete('2099-01-01T09:00');
     expect(completed().getAttribute('aria-invalid')).toBe('false');

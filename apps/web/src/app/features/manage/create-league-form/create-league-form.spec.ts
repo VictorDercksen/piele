@@ -44,7 +44,8 @@ describe('CreateLeagueForm', () => {
     const error = vi.spyOn(alerts, 'error');
     const fixture = TestBed.createComponent(CreateLeagueForm);
     const root = fixture.nativeElement as HTMLElement;
-    const field = <T extends HTMLElement>(id: string) => root.querySelector<T>(`#new-league-${id}`)!;
+    const field = <T extends HTMLElement>(id: string) =>
+      root.querySelector<T>(`#new-league-${id}`)!;
     const type = (id: string, value: string) => {
       const input = field<HTMLInputElement | HTMLTextAreaElement>(id);
       input.value = value;
@@ -109,17 +110,20 @@ describe('CreateLeagueForm', () => {
     choose('captain', 'Thabo');
     await submit();
     expect(sent).toEqual([]);
-    expect(root.querySelector('.preview-count')?.textContent).toBe('2 members ready, 1 row to fix.');
+    expect(root.querySelector('.preview-count')?.textContent).toBe(
+      '2 members ready, 1 row to fix.',
+    );
     expect(warn).toHaveBeenCalledTimes(1);
     expect(warn).toHaveBeenCalledWith('Member 2: Add the Superbru name.', {
       key: 'create-league',
       details: [],
     });
     expect(field('member-1-superbru').getAttribute('aria-invalid')).toBe('true');
-    expect(document.activeElement).toBe(field('member-1-superbru'));
+    expect(field('member-1-superbru').classList).toContain('problem-flag');
+    expect(document.activeElement).not.toBe(field('member-1-superbru'));
   });
 
-  it('gathers every problem into one warning and focuses the first', async () => {
+  it('gathers every problem into one warning and highlights the first', async () => {
     const { root, member, field, submit, warn } = setup();
     await settle();
     await member(1, 'Kallie', '', '');
@@ -135,7 +139,8 @@ describe('CreateLeagueForm', () => {
         'and 2 more.',
       ],
     });
-    expect(document.activeElement).toBe(field('name'));
+    expect(field('name').classList).toContain('problem-flag');
+    expect(document.activeElement).not.toBe(field('name'));
     for (const id of ['name', 'slug', 'member-1-superbru', 'captain'])
       expect(field(id).getAttribute('aria-invalid')).toBe('true');
     expect(root.querySelector('.field-error')).toBeNull();
@@ -219,7 +224,8 @@ describe('CreateLeagueForm', () => {
     await submit();
     expect(sent).toEqual([]);
     expect(field('captainEmail').getAttribute('aria-invalid')).toBe('true');
-    expect(document.activeElement).toBe(field('captainEmail'));
+    expect(field('captainEmail').classList).toContain('problem-flag');
+    expect(document.activeElement).not.toBe(field('captainEmail'));
 
     type('captainEmail', 'doempie@example.test');
     root.querySelector<HTMLInputElement>('input[formcontrolname="addMe"]')!.click();
@@ -241,7 +247,8 @@ describe('CreateLeagueForm', () => {
       details: [],
     });
     expect(field('slug').getAttribute('aria-invalid')).toBe('true');
-    expect(document.activeElement).toBe(field('slug'));
+    expect(field('slug').classList).toContain('problem-flag');
+    expect(document.activeElement).not.toBe(field('slug'));
 
     refusal = new ApiError(422, 'unknown_captain', 'The captain must be one of the members.');
     await submit();
@@ -251,12 +258,14 @@ describe('CreateLeagueForm', () => {
       details: [],
     });
     expect(field('captain').getAttribute('aria-invalid')).toBe('true');
-    expect(document.activeElement).toBe(field('captain'));
+    expect(field('captain').classList).toContain('problem-flag');
+    expect(document.activeElement).not.toBe(field('captain'));
 
     refusal = new ApiError(409, 'duplicate_member', 'Doempie is on the team sheet twice.');
     await submit();
     expect(field('member-0-superbru').getAttribute('aria-invalid')).toBe('true');
-    expect(document.activeElement).toBe(field('member-0-superbru'));
+    expect(field('member-0-superbru').classList).toContain('problem-flag');
+    expect(document.activeElement).not.toBe(field('member-0-superbru'));
 
     refusal = new ApiError(422, 'invalid_timezone', 'Unknown time zone.');
     await submit();
@@ -287,7 +296,7 @@ describe('CreateLeagueForm', () => {
     });
   });
 
-  it('opens the rules and focuses a rule to fix', async () => {
+  it('opens the rules and highlights a rule to fix', async () => {
     const { type, choose, member, submit, root, field, warn } = setup();
     await settle();
     type('name', 'Die Ou Manne');
@@ -302,11 +311,18 @@ describe('CreateLeagueForm', () => {
     });
     expect(root.querySelector<HTMLDetailsElement>('#new-league-rules')!.open).toBe(true);
     expect(field('rules-startingRound').getAttribute('aria-invalid')).toBe('true');
-    expect(document.activeElement).toBe(field('rules-startingRound'));
+    expect(field('rules-startingRound').classList).toContain('problem-flag');
+    expect(document.activeElement).not.toBe(field('rules-startingRound'));
   });
 
   it("bounds the starting round by the chosen competition's regular rounds", async () => {
-    const short = { ...URC, id: 'short-cup-2027', name: 'Short Cup 2027', shortName: 'SC', regularRounds: 10 };
+    const short = {
+      ...URC,
+      id: 'short-cup-2027',
+      name: 'Short Cup 2027',
+      shortName: 'SC',
+      regularRounds: 10,
+    };
     const { type, choose, member, submit, field, fixture } = setup([short, URC]);
     await settle();
     expect(fixture.componentInstance.lastRound()).toBe(10);
@@ -326,7 +342,9 @@ describe('CreateLeagueForm', () => {
 
   it('names the default season from the registry or the competition name', () => {
     expect(defaultSeasonName(URC)).toBe('URC 2026/27');
-    expect(defaultSeasonName({ id: 'x', name: 'Currie Cup 2027', shortName: 'CC' })).toBe('CC 2027');
+    expect(defaultSeasonName({ id: 'x', name: 'Currie Cup 2027', shortName: 'CC' })).toBe(
+      'CC 2027',
+    );
     expect(defaultSeasonName({ id: 'x', name: 'Friendly', shortName: 'FR' })).toBe('FR');
   });
 });

@@ -126,6 +126,8 @@ img {
   --ground-photo: url('/assets/editorial/match-night-ground.png');
   --chalk: #f2efdf;
   --night: #0b1518;
+  /* The yellow card's colour: a control a warning points at (`highlightProblem`). */
+  --problem: #e6b422;
 
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);

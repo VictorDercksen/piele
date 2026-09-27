@@ -13,6 +13,7 @@ import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideArrowRight } from '@ng-icons/lucide';
 import { AuthService } from '../../core/auth/auth.service';
 import { AlertService } from '../../core/feedback/alert.service';
+import { highlightProblem } from '../../core/feedback/problem-highlight';
 import { joinCodeFrom } from '../../core/league/join.service';
 import { LeagueContext } from '../../core/league/league-context';
 import { Loader } from '../../shared/loader/loader';
@@ -60,7 +61,7 @@ export class NoLeaguePage {
     const code = joinCodeFrom(this.form.controls.code.value);
     this.invalid.set(!code);
     if (!code) {
-      this.codeInput()?.nativeElement.focus();
+      highlightProblem(this.codeInput()?.nativeElement);
       this.alerts.warn(JOIN_CODE_PROBLEM, { key: ALERT_KEY });
       return;
     }

@@ -41,7 +41,9 @@ test('before kickoff a member sees only the pick form; saving the pick reveals t
   await expect(warning.filter({ hasText: 'Choose a side or a draw.' })).toBeVisible();
   await expect(warning).toHaveCount(1);
   await expect(side).toHaveAttribute('aria-invalid', 'true');
-  await expect(side.getByRole('radio', { name: 'Stormers' })).toBeFocused();
+  // The radios are drawn through their labels, so the first side's tile carries the flag.
+  await expect(side.locator('label', { hasText: 'Stormers' })).toHaveClass(/problem-flag/);
+  await expect(side.getByRole('radio', { name: 'Stormers' })).not.toBeFocused();
   await side.locator('label', { hasText: 'Draw' }).click();
   await expect(side.getByRole('radio', { name: 'Draw' })).toBeChecked();
   await expect(panel.getByLabel('Margin (points)')).toBeDisabled();
@@ -55,7 +57,8 @@ test('before kickoff a member sees only the pick form; saving the pick reveals t
   await expect(warning).toHaveCount(1);
   await expect(warning).toContainText('Enter a margin from 1 to 150.');
   await expect(panel.getByLabel('Margin (points)')).toHaveAttribute('aria-invalid', 'true');
-  await expect(panel.getByLabel('Margin (points)')).toBeFocused();
+  await expect(panel.getByLabel('Margin (points)')).toHaveClass(/problem-flag/);
+  await expect(panel.getByLabel('Margin (points)')).not.toBeFocused();
   await panel.getByLabel('Margin (points)').fill('7');
   await panel.getByRole('button', { name: 'Save pick' }).click();
 
@@ -359,7 +362,8 @@ test('a new league takes its Superbru rules from the form', async ({ page }) => 
     page.getByRole('status').filter({ hasText: 'Starting round: choose a round from 1 to 18.' }),
   ).toBeVisible();
   await expect(rules.getByLabel('Starting round')).toHaveAttribute('aria-invalid', 'true');
-  await expect(rules.getByLabel('Starting round')).toBeFocused();
+  await expect(rules.getByLabel('Starting round')).toHaveClass(/problem-flag/);
+  await expect(rules.getByLabel('Starting round')).not.toBeFocused();
   await rules.getByLabel('Starting round').fill('3');
   await form.getByRole('button', { name: 'Create league' }).click();
   await expect(page).toHaveURL(/\/bokkie-bru$/);

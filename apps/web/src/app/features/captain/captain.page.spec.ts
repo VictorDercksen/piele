@@ -4,6 +4,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { AlertService } from '../../core/feedback/alert.service';
+import { problemTarget } from '../../core/feedback/problem-highlight';
 import { LeagueContext } from '../../core/league/league-context';
 import { LeagueData } from '../../core/league/league-data';
 import { SampleLeagueData } from '../../core/league/sample-league-data';
@@ -64,7 +65,7 @@ describe('CaptainPage notices', () => {
     vi.restoreAllMocks();
   });
 
-  it('warns about a new member without a name and focuses the nickname', async () => {
+  it('warns about a new member without a name and highlights the nickname', async () => {
     const { root, button, input, warn } = await open();
     const form = root.querySelector('form.add-member')!;
     button('Add member', form).click();
@@ -77,11 +78,12 @@ describe('CaptainPage notices', () => {
     expect(input('#new-member-name').getAttribute('aria-invalid')).toBe('true');
     expect(input('#new-member-fullName').getAttribute('aria-invalid')).toBe('true');
     expect(input('#new-member-email').getAttribute('aria-invalid')).toBe('false');
-    expect(document.activeElement).toBe(input('#new-member-name'));
+    expect(input('#new-member-name').classList).toContain('problem-flag');
+    expect(document.activeElement).not.toBe(input('#new-member-name'));
     expect(root.querySelector('.error-message, [role="alert"]')).toBeNull();
   });
 
-  it('warns about a new member’s email alone and focuses it', async () => {
+  it('warns about a new member’s email alone and highlights it', async () => {
     const { root, button, input, type, warn } = await open();
     type('#new-member-name', 'Kallie');
     type('#new-member-fullName', 'Kallie Kotze');
@@ -95,7 +97,8 @@ describe('CaptainPage notices', () => {
     });
     expect(input('#new-member-name').getAttribute('aria-invalid')).toBe('false');
     expect(input('#new-member-email').getAttribute('aria-invalid')).toBe('true');
-    expect(document.activeElement).toBe(input('#new-member-email'));
+    expect(input('#new-member-email').classList).toContain('problem-flag');
+    expect(document.activeElement).not.toBe(input('#new-member-email'));
   });
 
   it('shows a failed add as an error card', async () => {
@@ -110,7 +113,7 @@ describe('CaptainPage notices', () => {
     expect(error).toHaveBeenCalledWith('The API is away.', { key: 'captain-add-member' });
   });
 
-  it('warns about a reserved email on its row and focuses that row’s input', async () => {
+  it('warns about a reserved email on its row and highlights that row’s input', async () => {
     const { root, input, type, warn, data } = await open();
     await data.addMember({ name: 'Kallie', fullName: 'Kallie Kotze', email: null });
     await settle();
@@ -133,7 +136,8 @@ describe('CaptainPage notices', () => {
       key: 'captain-member-email',
     });
     expect(input(selector).getAttribute('aria-invalid')).toBe('true');
-    expect(document.activeElement).toBe(input(selector));
+    expect(input(selector).classList).toContain('problem-flag');
+    expect(document.activeElement).not.toBe(input(selector));
   });
 
   it('shows a refused copy as an error card that keeps the link', async () => {
@@ -154,7 +158,7 @@ describe('CaptainPage notices', () => {
     expect(card.querySelector('.error-message, [role="alert"]')).toBeNull();
   });
 
-  it('warns about an emblem file of the wrong type and focuses the upload', async () => {
+  it('warns about an emblem file of the wrong type and highlights the upload', async () => {
     const { root, input, warn, error } = await open();
     const file = input('#emblem-file');
     Object.defineProperty(file, 'files', {
@@ -169,7 +173,8 @@ describe('CaptainPage notices', () => {
       key: 'captain-appearance',
     });
     expect(file.getAttribute('aria-invalid')).toBe('true');
-    expect(document.activeElement).toBe(file);
+    expect(problemTarget(file).classList).toContain('problem-flag');
+    expect(document.activeElement).not.toBe(file);
     expect(root.querySelector('app-appearance-card .error-message')).toBeNull();
   });
 });

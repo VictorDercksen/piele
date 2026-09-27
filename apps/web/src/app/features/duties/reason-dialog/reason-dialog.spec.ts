@@ -71,7 +71,7 @@ describe('ReasonDialog', () => {
     };
   }
 
-  it('warns when the reason is missing, marking and focusing the field', async () => {
+  it('warns when the reason is missing, marking and highlighting the field', async () => {
     const { fixture, root, request, settle, submit, textarea, type, warn, reasons } = setup();
     fixture.componentInstance.open(request);
     await settle();
@@ -83,7 +83,8 @@ describe('ReasonDialog', () => {
       key: 'reason',
     });
     expect(textarea().getAttribute('aria-invalid')).toBe('true');
-    expect(document.activeElement).toBe(textarea());
+    expect(textarea().classList).toContain('problem-flag');
+    expect(document.activeElement).not.toBe(textarea());
     expect(root.querySelector('[role="alert"], .error-message')).toBeNull();
 
     // A second empty attempt replaces the card; typing clears the mark.

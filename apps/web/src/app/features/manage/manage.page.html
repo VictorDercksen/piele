@@ -12,9 +12,8 @@
     <span class="eyebrow">THE PAVILION / MANAGEMENT CENTRE</span>
     <h1>Manage leagues.</h1>
     <p class="page-description">
-      Every league in The Pavilion, archived ones included. Expand a league to open it, add
-      yourself to it, rename it, archive or restore it, or appoint its captain. Start a new one
-      below.
+      Every league in The Pavilion, archived ones included. Expand a league to open it, add yourself
+      to it, rename it, archive or restore it, or appoint its captain. Start a new one below.
     </p>
 
     <section class="leagues" aria-labelledby="leagues-heading">
@@ -34,7 +33,11 @@
           <ul class="league-list" aria-label="Active leagues">
             @for (league of active(); track league.id) {
               <li>
-                <app-league-card [league]="league" [dialog]="dialog()" (changed)="onChanged($event)" />
+                <app-league-card
+                  [league]="league"
+                  [dialog]="dialog()"
+                  (changed)="onChanged($event)"
+                />
               </li>
             }
           </ul>

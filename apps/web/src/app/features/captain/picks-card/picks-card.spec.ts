@@ -261,7 +261,8 @@ describe('PicksCard', () => {
       key: 'picks-grid',
       details: ['Annas needs a margin.', 'Pierre needs a margin.'],
     });
-    expect(document.activeElement).toBe(margin('a'));
+    expect(margin('a').classList).toContain('problem-flag');
+    expect(document.activeElement).not.toBe(margin('a'));
     expect(root.querySelector('#picks-error, [role="alert"]')).toBeNull();
 
     // A valid attempt drops the warning.
@@ -378,7 +379,8 @@ describe('PicksCard', () => {
       key: 'picks-override',
     });
     expect(input.getAttribute('aria-invalid')).toBe('true');
-    expect(document.activeElement).toBe(input);
+    expect(input.classList).toContain('problem-flag');
+    expect(document.activeElement).not.toBe(input);
     expect(root.querySelector('.override-form [role="alert"]')).toBeNull();
   });
 });
