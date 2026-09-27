@@ -351,7 +351,8 @@ test('captain creates, records and decides duties; the feed follows', async ({ p
   await expect(
     page.getByRole('status').filter({ hasText: 'Record when the duty was completed' }),
   ).toBeVisible();
-  await expect(evidence.getByLabel('Completed at (SAST)')).toBeFocused();
+  await expect(evidence.getByLabel('Completed at (SAST)')).toHaveClass(/problem-flag/);
+  await expect(evidence.getByLabel('Completed at (SAST)')).not.toBeFocused();
   await evidence.getByLabel('Completed at (SAST)').fill('2026-09-20T09:00');
   await evidence.getByRole('button', { name: 'Record evidence' }).click();
   await expect(
@@ -364,7 +365,8 @@ test('captain creates, records and decides duties; the feed follows', async ({ p
   await reason.getByRole('button', { name: 'Void duty' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'Give a reason' })).toBeVisible();
   await expect(reason.getByLabel('Reason')).toHaveAttribute('aria-invalid', 'true');
-  await expect(reason.getByLabel('Reason')).toBeFocused();
+  await expect(reason.getByLabel('Reason')).toHaveClass(/problem-flag/);
+  await expect(reason.getByLabel('Reason')).not.toBeFocused();
   await reason.getByLabel('Reason').fill('Created by mistake');
   await reason.getByRole('button', { name: 'Void duty' }).click();
   await expect(card).toContainText('Voided');

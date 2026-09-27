@@ -16,9 +16,15 @@ import { lucideArrowRight, lucidePlus, lucideX } from '@ng-icons/lucide';
 import { map } from 'rxjs';
 import { COMPETITIONS } from '../../../core/competition/registry';
 import { AlertService } from '../../../core/feedback/alert.service';
+import { highlightProblem } from '../../../core/feedback/problem-highlight';
 import { CompetitionOption, NewLeague } from '../../../core/league/admin.models';
 import { AdminService } from '../../../core/league/admin.service';
-import { DEFAULT_ACCENT, EMBLEM_LABELS, isAccentColour, isEmblemPreset } from '../../../core/league/emblems';
+import {
+  DEFAULT_ACCENT,
+  EMBLEM_LABELS,
+  isAccentColour,
+  isEmblemPreset,
+} from '../../../core/league/emblems';
 import { ApiError } from '../../../core/league/http-league-data';
 import { deriveSlug } from '../../../core/league/league-slugs';
 import { DEFAULT_RULES } from '../../../core/league/superbru';
@@ -34,16 +40,11 @@ import {
   setLastRound,
 } from '../../../shared/rules-fields/rules-form';
 import { FormProblem, problemDetails } from '../form-problems';
-import {
-  membersValidator,
-  notBlank,
-  slugValidator,
-  zoneValidator,
-} from '../manage-validators';
+import { membersValidator, notBlank, slugValidator, zoneValidator } from '../manage-validators';
 import { MAX_MEMBERS, MemberRow, MemberRowError, checkMembers } from '../member-rows';
 import { timeZoneGroups } from '../time-zones';
 
-/** API refusals that concern one field (a warning that focuses it); any other code is an error. */
+/** API refusals that concern one field (a warning that highlights it); any other code is an error. */
 const FIELD_OF_CODE: Readonly<Partial<Record<string, ApiField>>> = {
   slug_taken: 'slug',
   invalid_slug: 'slug',
@@ -317,7 +318,10 @@ export class CreateLeagueForm {
       timezone: v.timezone.trim(),
       competitionId: v.competitionId,
       seasonName: v.seasonName.trim(),
-      members: this.checked().members.map(({ fullName, displayName }) => ({ fullName, displayName })),
+      members: this.checked().members.map(({ fullName, displayName }) => ({
+        fullName,
+        displayName,
+      })),
       captainDisplayName: v.captain,
       captainEmail: v.captainIsMe ? null : v.captainEmail.trim(),
       emblemPreset: v.emblemPreset,
@@ -376,17 +380,18 @@ export class CreateLeagueForm {
       add('member-0-name', 'Add at least one member.');
     if (c.captain.invalid) add('captain', 'Choose the captain from the members.');
     if (c.captainEmail.invalid) add('captainEmail', "Give the captain's email address.");
-    for (const rule of ruleProblems(c.rules, this.lastRound())) add(`rules-${rule.field}`, rule.message);
+    for (const rule of ruleProblems(c.rules, this.lastRound()))
+      add(`rules-${rule.field}`, rule.message);
     return problems;
   }
 
-  /** One warning card for the attempt and focus on the first problem; a rule opens the rules. */
+  /** One warning card for the attempt and a highlight on the first problem; a rule opens the rules. */
   private warn(problems: readonly FormProblem[]): void {
     if (!problems.length) return;
     const [first] = problems;
     if (problems.some((problem) => problem.id.startsWith('new-league-rules-')))
       this.rulesOpen.set(true);
-    this.focus(first.id);
+    this.highlight(first.id);
     this.alerts.warn(first.message, { key: ALERT_KEY, details: problemDetails(problems) });
   }
 
@@ -399,13 +404,19 @@ export class CreateLeagueForm {
     const seen = new Set(repeats.map((error) => `${error.row}:${error.message}`));
     const fresh = repeats.find((error) => !this.warnedRepeats.has(`${error.row}:${error.message}`));
     this.warnedRepeats = seen;
-    if (fresh)
-      this.alerts.warn(`Member ${fresh.row + 1}: ${fresh.message}`, { key: ALERT_KEY });
+    if (fresh) this.alerts.warn(`Member ${fresh.row + 1}: ${fresh.message}`, { key: ALERT_KEY });
   }
 
   private focus(id: string): void {
+    afterNextRender(() => this.host.nativeElement.querySelector<HTMLElement>(`#${id}`)?.focus(), {
+      injector: this.injector,
+    });
+  }
+
+  /** Points the problem out without moving focus (focusing a text box zooms a phone). */
+  private highlight(id: string): void {
     afterNextRender(
-      () => this.host.nativeElement.querySelector<HTMLElement>(`#${id}`)?.focus(),
+      () => highlightProblem(this.host.nativeElement.querySelector<HTMLElement>(`#${id}`)),
       { injector: this.injector },
     );
   }
@@ -416,13 +427,7 @@ type ApiField = 'slug' | 'members' | 'captain';
 
 /** The single controls the template marks invalid. */
 type MarkedField =
-  | 'name'
-  | 'slug'
-  | 'competitionId'
-  | 'timezone'
-  | 'seasonName'
-  | 'captain'
-  | 'captainEmail';
+  'name' | 'slug' | 'competitionId' | 'timezone' | 'seasonName' | 'captain' | 'captainEmail';
 
 function memberRow() {
   return new FormGroup({
@@ -436,7 +441,9 @@ function memberRow() {
  * `URC 2026/27`: the competition's short name and season. The web registry knows the season
  * of the competitions it ships; otherwise the season at the end of the name is used.
  */
-export function defaultSeasonName(option: Pick<CompetitionOption, 'id' | 'name' | 'shortName'>): string {
+export function defaultSeasonName(
+  option: Pick<CompetitionOption, 'id' | 'name' | 'shortName'>,
+): string {
   const season =
     COMPETITIONS.get(option.id)?.season ?? option.name.match(/\d{4}(?:\/\d{2,4})?$/)?.[0] ?? '';
   return season ? `${option.shortName} ${season}` : option.shortName;

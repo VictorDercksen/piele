@@ -3,6 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { competition } from '../../../core/competition/registry';
 import { AlertService } from '../../../core/feedback/alert.service';
+import { problemTarget } from '../../../core/feedback/problem-highlight';
 import { ApiError } from '../../../core/league/http-league-data';
 import { LeagueContext } from '../../../core/league/league-context';
 import { LeagueMember, MemberPick, NewPick, PickSide } from '../../../core/league/league.models';
@@ -199,7 +200,7 @@ describe('PicksPanel', () => {
     expect(root.querySelector('.mine')).toBeNull();
   });
 
-  it('warns once per attempt, marks and focuses the field, and saves the pick', async () => {
+  it('warns once per attempt, marks and highlights the field, and saves the pick', async () => {
     const { root, text, choose, typeMargin, submit, margin, alerts, warn } = setup(picksView());
     const group = () => root.querySelector('[role="radiogroup"]')!;
     expect(warn).not.toHaveBeenCalled();
@@ -213,7 +214,11 @@ describe('PicksPanel', () => {
     });
     expect(group().getAttribute('aria-invalid')).toBe('true');
     expect(margin().getAttribute('aria-invalid')).toBe('true');
-    expect(document.activeElement).toBe(root.querySelector('input[value="home"]'));
+    // The side radios are drawn through their labels: the flag lands on the visible tile.
+    const home = root.querySelector<HTMLInputElement>('input[value="home"]')!;
+    expect(problemTarget(home)).not.toBe(home);
+    expect(problemTarget(home).classList).toContain('problem-flag');
+    expect(document.activeElement).not.toBe(home);
     // No inline problem text remains; the hint is the only line under the margin.
     expect(root.querySelector('.field-error, .form-error, [role="alert"]')).toBeNull();
     expect(margin().hasAttribute('aria-describedby')).toBe(false);
@@ -231,12 +236,16 @@ describe('PicksPanel', () => {
     // The resubmit replaced the first card rather than stacking another.
     expect(alerts.alerts().filter((a) => a.key === 'pick-292590')).toHaveLength(1);
     expect(margin().getAttribute('aria-invalid')).toBe('true');
-    expect(document.activeElement).toBe(margin());
+    expect(margin().classList).toContain('problem-flag');
+    expect(document.activeElement).not.toBe(margin());
 
     await typeMargin('20');
     await submit();
     expect(saved).toEqual([['292590', { side: 'away', margin: 20 }]]);
-    expect(alerts.alerts()).toEqual([]);
+    // The warning is gone and a green card names the saved pick.
+    expect(alerts.alerts().map((a) => [a.severity, a.message])).toEqual([
+      ['success', 'Pick saved: Bulls by 20.'],
+    ]);
     // The data layer adopted the pick: the panel shows the member's strip and the pool.
     expect(root.querySelector('form')).toBeNull();
     expect(text('.mine .chip')).toBe('Bulls by 20');
@@ -244,7 +253,7 @@ describe('PicksPanel', () => {
   });
 
   it('disables and clears the margin on a draw and saves a draw as margin 0', async () => {
-    const { margin, choose, typeMargin, submit, text } = setup(picksView());
+    const { margin, choose, typeMargin, submit, text, alerts } = setup(picksView());
     await choose('home');
     await typeMargin('7');
     await choose('draw');
@@ -256,6 +265,7 @@ describe('PicksPanel', () => {
     await choose('draw');
     await submit();
     expect(saved).toEqual([['292590', { side: 'draw', margin: 0 }]]);
+    expect(alerts.alerts().map((a) => a.message)).toEqual(['Pick saved: a draw.']);
   });
 
   it('warns with the kickoff when the API says picks are locked', async () => {
@@ -288,7 +298,8 @@ describe('PicksPanel', () => {
     refusal = null;
     await submit();
     expect(saved).toHaveLength(2);
-    expect(alerts.alerts()).toEqual([]);
+    // The red card is gone; only the green card for the saved pick remains.
+    expect(alerts.alerts().map((a) => a.severity)).toEqual(['success']);
   });
 
   it('shows the pool, the sway bar and an Edit button once the member has picked', async () => {

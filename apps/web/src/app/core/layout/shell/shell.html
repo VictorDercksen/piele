@@ -59,7 +59,11 @@
           <strong>{{ view.memberName() }}</strong>
           <small>
             @if (favouriteTeam(); as team) {
-              {{ team.shortName }} supporter<img class="profile-jersey" [src]="team.jersey" alt="" />
+              {{ team.shortName }} supporter<img
+                class="profile-jersey"
+                [src]="team.jersey"
+                alt=""
+              />
             } @else if (adminView()) {
               Admin view
             }
@@ -155,17 +159,17 @@
   </main>
 </div>
 <nav class="mobile-nav" #navBar aria-label="Mobile league navigation">
-    @for (item of mobileNav; track item.path) {
-      <a
-        [routerLink]="item.path | leaguePath"
-        queryParamsHandling="preserve"
-        [state]="navState"
-        routerLinkActive="selected"
-        [routerLinkActiveOptions]="{ exact: item.path === '/' }"
-        ariaCurrentWhenActive="page"
-        [class.selected]="item.path === '/more' && page().underMore"
-      >
-        <app-icon [name]="item.icon" /><span>{{ item.label }}</span>
-      </a>
-    }
+  @for (item of mobileNav; track item.path) {
+    <a
+      [routerLink]="item.path | leaguePath"
+      queryParamsHandling="preserve"
+      [state]="navState"
+      routerLinkActive="selected"
+      [routerLinkActiveOptions]="{ exact: item.path === '/' }"
+      ariaCurrentWhenActive="page"
+      [class.selected]="item.path === '/more' && page().underMore"
+    >
+      <app-icon [name]="item.icon" /><span>{{ item.label }}</span>
+    </a>
+  }
 </nav>

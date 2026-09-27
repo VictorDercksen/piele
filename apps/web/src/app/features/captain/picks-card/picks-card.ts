@@ -20,6 +20,7 @@ import { ClubTeam, Fixture } from '../../../core/competition/competition.models'
 import { CompetitionService } from '../../../core/competition/competition.service';
 import { LeagueTime } from '../../../core/competition/league-time';
 import { AlertService } from '../../../core/feedback/alert.service';
+import { highlightProblem } from '../../../core/feedback/problem-highlight';
 import { BADGES } from '../../../core/league/badges';
 import { ApiError } from '../../../core/league/http-league-data';
 import { MemberPick, StewardPick } from '../../../core/league/league.models';
@@ -245,7 +246,7 @@ export class PicksCard {
         key: ALERT_KEYS.grid,
         details: capDetails(invalid.map(({ name }) => `${name} needs a margin.`)),
       });
-      this.focus(`#pick-${fixtureId}-${invalid[0].memberId}-margin`);
+      this.highlight(`#pick-${fixtureId}-${invalid[0].memberId}-margin`);
       return;
     }
     this.alerts.dismissKey(ALERT_KEYS.grid);
@@ -319,7 +320,7 @@ export class PicksCard {
     this.overrideSubmitted.set(true);
     if (this.overrideControl.invalid) {
       this.alerts.warn('Enter a total from 0 to 99999.99.', { key: ALERT_KEYS.override });
-      this.focus(`#override-${row.memberId}`);
+      this.highlight(`#override-${row.memberId}`);
       return;
     }
     this.alerts.dismissKey(ALERT_KEYS.override);
@@ -439,6 +440,14 @@ export class PicksCard {
     afterNextRender(() => this.host.nativeElement.querySelector<HTMLElement>(selector)?.focus(), {
       injector: this.injector,
     });
+  }
+
+  /** Points a problem out without moving focus (focusing a text box zooms a phone). */
+  private highlight(selector: string): void {
+    afterNextRender(
+      () => highlightProblem(this.host.nativeElement.querySelector<HTMLElement>(selector)),
+      { injector: this.injector },
+    );
   }
 }
 

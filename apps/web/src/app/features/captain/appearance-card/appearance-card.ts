@@ -10,6 +10,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { AlertService } from '../../../core/feedback/alert.service';
+import { highlightProblem } from '../../../core/feedback/problem-highlight';
 import { LeagueContext } from '../../../core/league/league-context';
 import { DEFAULT_ACCENT, isAccentColour } from '../../../core/league/emblems';
 import { AppearanceChange } from '../../../core/league/league.models';
@@ -96,7 +97,9 @@ export class AppearanceCard {
       this.alerts.warn(error instanceof Error ? error.message : 'This image could not be used.', {
         key: ALERT_KEY,
       });
-      afterNextRender(() => this.fileInput().nativeElement.focus(), { injector: this.injector });
+      afterNextRender(() => highlightProblem(this.fileInput().nativeElement), {
+        injector: this.injector,
+      });
     } finally {
       this.preparing.set(false);
       input.value = '';

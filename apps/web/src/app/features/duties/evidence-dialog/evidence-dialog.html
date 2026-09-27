@@ -11,7 +11,9 @@
       <app-icon name="close" />
     </button>
   </div>
-  <h2 id="evidence-title">{{ onBehalf() ? 'Record the evidence.' : 'The proof is in the video.' }}</h2>
+  <h2 id="evidence-title">
+    {{ onBehalf() ? 'Record the evidence.' : 'The proof is in the video.' }}
+  </h2>
   <p>{{ duty()?.title }}</p>
   <label class="file-field" [class.filled]="file()" [class.invalid]="invalid() === 'file'">
     <app-icon name="upload" />

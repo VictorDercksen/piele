@@ -31,6 +31,7 @@ import { CompetitionService } from '../../../core/competition/competition.servic
 import { LeagueTime } from '../../../core/competition/league-time';
 import { LeagueTimePipe } from '../../../core/competition/league-time.pipe';
 import { AlertService } from '../../../core/feedback/alert.service';
+import { highlightProblem } from '../../../core/feedback/problem-highlight';
 import { ApiError } from '../../../core/league/http-league-data';
 import { LeaguePathPipe } from '../../../core/league/league-path.pipe';
 import { MemberPick, NewPick } from '../../../core/league/league.models';
@@ -315,10 +316,9 @@ export class PicksPanel {
       const problems: string[] = [];
       if (this.form.controls.side.invalid) problems.push('Choose a side or a draw.');
       if (this.form.controls.margin.invalid) problems.push('Enter a margin from 1 to 150.');
-      (this.form.controls.side.invalid
-        ? this.firstSide()
-        : this.marginInput()
-      )?.nativeElement.focus();
+      highlightProblem(
+        (this.form.controls.side.invalid ? this.firstSide() : this.marginInput())?.nativeElement,
+      );
       const [first = 'Choose a side or a draw.', ...rest] = problems;
       this.alerts.warn(first, { key: this.warningKey(), details: rest });
       return;
@@ -330,6 +330,7 @@ export class PicksPanel {
     try {
       await this.view.savePick(this.fixtureId(), pick);
       this.alerts.dismissKey(this.failureKey());
+      this.alerts.success(`Pick saved: ${this.describe(pick)}.`, { key: this.savedKey() });
       this.editing.set(false);
       this.fill(null);
       afterNextRender(() => this.mineStrip()?.nativeElement.focus(), { injector: this.injector });
@@ -361,6 +362,17 @@ export class PicksPanel {
         : 'The pick could not be saved. Try again.',
       { key: this.failureKey() },
     );
+  }
+
+  /** The pick as the chip reads it: "Bulls by 20" or "a draw". */
+  private describe(pick: NewPick): string {
+    if (pick.side !== 'home' && pick.side !== 'away') return 'a draw';
+    const name = this.sides()?.[pick.side].name ?? (pick.side === 'home' ? 'Home' : 'Away');
+    return `${name} by ${pick.margin}`;
+  }
+
+  private savedKey(): string {
+    return `pick-saved-${this.fixtureId()}`;
   }
 
   private fill(pick: MemberPick | null): void {

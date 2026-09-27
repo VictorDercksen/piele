@@ -31,7 +31,7 @@ describe('SignInPage', () => {
     return { fixture, root, alerts, field, type, submit };
   }
 
-  it('warns once per attempt about every field to fix and focuses the first', async () => {
+  it('warns once per attempt about every field to fix and highlights the first', async () => {
     const { fixture, root, alerts, field, type, submit } = setup();
     const warn = vi.spyOn(alerts, 'warn');
     await fixture.whenStable();
@@ -44,7 +44,8 @@ describe('SignInPage', () => {
       key: 'sign-in',
       details: ['Use at least 8 characters.'],
     });
-    expect(document.activeElement).toBe(field('email'));
+    expect(field('email').classList).toContain('problem-flag');
+    expect(document.activeElement).not.toBe(field('email'));
     expect(field('email').getAttribute('aria-invalid')).toBe('true');
     expect(field('password').getAttribute('aria-invalid')).toBe('true');
     expect(field('email').hasAttribute('aria-describedby')).toBe(false);
@@ -57,7 +58,8 @@ describe('SignInPage', () => {
       key: 'sign-in',
       details: [],
     });
-    expect(document.activeElement).toBe(field('password'));
+    expect(field('password').classList).toContain('problem-flag');
+    expect(document.activeElement).not.toBe(field('password'));
     expect(field('email').getAttribute('aria-invalid')).toBe('false');
     expect(alerts.alerts()).toHaveLength(1);
   });

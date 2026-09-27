@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { AlertService } from '../../core/feedback/alert.service';
+import { problemTarget } from '../../core/feedback/problem-highlight';
 import { LeagueContext } from '../../core/league/league-context';
 import { LeagueData } from '../../core/league/league-data';
 import { SampleLeagueData } from '../../core/league/sample-league-data';
@@ -34,7 +35,7 @@ describe('ProfileEditor', () => {
     return { fixture, root, alerts, name, radios, photo, submit };
   }
 
-  it('warns once about the name and the team and focuses the name', async () => {
+  it('warns once about the name and the team and highlights the name', async () => {
     const { root, alerts, name, radios, submit } = await setup();
     const warn = vi.spyOn(alerts, 'warn');
     name.value = '';
@@ -46,7 +47,8 @@ describe('ProfileEditor', () => {
       key: 'profile',
       details: ['Choose the team you support.'],
     });
-    expect(document.activeElement).toBe(name);
+    expect(name.classList).toContain('problem-flag');
+    expect(document.activeElement).not.toBe(name);
     expect(name.getAttribute('aria-invalid')).toBe('true');
     expect(radios().every((radio) => radio.getAttribute('aria-invalid') === 'true')).toBe(true);
     expect(root.querySelector('.validation, [role=alert]')).toBeNull();
@@ -58,11 +60,12 @@ describe('ProfileEditor', () => {
       key: 'profile',
       details: [],
     });
-    expect(document.activeElement).toBe(radios()[0]);
+    expect(problemTarget(radios()[0]).classList).toContain('problem-flag');
+    expect(document.activeElement).not.toBe(radios()[0]);
     expect(alerts.alerts()).toHaveLength(1);
   });
 
-  it('warns about a photo it cannot use and focuses the file field', async () => {
+  it('warns about a photo it cannot use and highlights the file field', async () => {
     const { fixture, alerts, photo } = await setup();
     const warn = vi.spyOn(alerts, 'warn');
     const file = new File(['<svg/>'], 'bad.svg', { type: 'image/svg+xml' });
@@ -73,7 +76,8 @@ describe('ProfileEditor', () => {
       key: 'profile-photo',
     });
     expect(photo.getAttribute('aria-invalid')).toBe('true');
-    expect(document.activeElement).toBe(photo);
+    expect(problemTarget(photo).classList).toContain('problem-flag');
+    expect(document.activeElement).not.toBe(photo);
   });
 
   it('shows a failed save as a red card, cleared when the editor closes', async () => {

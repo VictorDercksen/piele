@@ -9,6 +9,7 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AlertService } from '../../../core/feedback/alert.service';
+import { highlightProblem } from '../../../core/feedback/problem-highlight';
 import { LeagueContext } from '../../../core/league/league-context';
 import { Icon } from '../../../shared/icon/icon';
 import { Loader } from '../../../shared/loader/loader';
@@ -39,7 +40,10 @@ export class ReasonDialog {
   readonly busy = signal(false);
   /** The reason was wanting on the last attempt: `aria-invalid` until it changes. */
   readonly invalid = signal(false);
-  readonly reason = new FormControl('', { nonNullable: true, validators: [Validators.maxLength(500)] });
+  readonly reason = new FormControl('', {
+    nonNullable: true,
+    validators: [Validators.maxLength(500)],
+  });
 
   constructor() {
     this.reason.valueChanges.pipe(takeUntilDestroyed()).subscribe({
@@ -85,7 +89,7 @@ export class ReasonDialog {
     if (!request || this.busy()) return;
     if (this.reason.invalid) {
       this.invalid.set(true);
-      this.reasonInput()?.nativeElement.focus();
+      highlightProblem(this.reasonInput()?.nativeElement);
       this.alerts.warn('Give a reason so the register explains itself.', { key: REASON_WARNING });
       return;
     }

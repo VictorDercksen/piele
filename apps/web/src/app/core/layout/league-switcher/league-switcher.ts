@@ -17,6 +17,7 @@ import { lucideArrowRight, lucideChevronsUpDown } from '@ng-icons/lucide';
 import { filter, map } from 'rxjs';
 import { CompetitionService, shortSeason } from '../../competition/competition.service';
 import { AlertService } from '../../feedback/alert.service';
+import { highlightProblem } from '../../feedback/problem-highlight';
 import { joinCodeFrom } from '../../league/join.service';
 import { LeagueContext } from '../../league/league-context';
 import { LeagueSummary } from '../../league/league.models';
@@ -149,7 +150,9 @@ export class LeagueSwitcher {
   /** `URC 2026/27`, with the competition's short name when the season name leaves it out. */
   seasonLine(league: LeagueSummary): string {
     const short = league.competition.shortName;
-    return league.seasonName.startsWith(short) ? league.seasonName : `${short} · ${league.seasonName}`;
+    return league.seasonName.startsWith(short)
+      ? league.seasonName
+      : `${short} · ${league.seasonName}`;
   }
 
   isCurrent(league: LeagueSummary): boolean {
@@ -163,7 +166,7 @@ export class LeagueSwitcher {
     const code = joinCodeFrom(input.value);
     this.joinInvalid.set(!code);
     if (!code) {
-      input.focus();
+      highlightProblem(input);
       this.alerts.warn(JOIN_CODE_PROBLEM, { key: ALERT_KEY });
       return;
     }

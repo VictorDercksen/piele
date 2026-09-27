@@ -35,7 +35,8 @@ describe('LeagueSwitcher', () => {
 
   /** Waits for a navigation, which may lazy-load a page. */
   async function until(check: () => boolean) {
-    for (let i = 0; i < 100 && !check(); i++) await new Promise((resolve) => setTimeout(resolve, 10));
+    for (let i = 0; i < 100 && !check(); i++)
+      await new Promise((resolve) => setTimeout(resolve, 10));
   }
 
   const rows = (switcher: HTMLElement) =>
@@ -127,7 +128,8 @@ describe('LeagueSwitcher', () => {
     expect(switcher.querySelector('[role="alert"]')).toBeNull();
     expect(input.getAttribute('aria-invalid')).toBe('true');
     expect(input.hasAttribute('aria-describedby')).toBe(false);
-    expect(document.activeElement).toBe(input);
+    expect(input.classList).toContain('problem-flag');
+    expect(document.activeElement).not.toBe(input);
 
     // Dismissing the card does not close the switcher.
     const snack = document.createElement('app-alert-snack');

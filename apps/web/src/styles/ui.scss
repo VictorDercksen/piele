@@ -640,3 +640,37 @@ button.remove-photo:enabled:hover {
     letter-spacing: 1.2px;
   }
 }
+
+// Validation: a control marked `aria-invalid` keeps a thin yellow-card line after the flash.
+// Zero-specificity, so each component's own `aria-invalid` border and focus ring still apply.
+:where(
+    input:not([type='radio'], [type='checkbox'], [type='file']),
+    select,
+    textarea
+  )[aria-invalid='true']:not(:focus-visible) {
+  outline: 1px solid var(--problem, #e6b422);
+  outline-offset: 0;
+}
+// `highlightProblem` (core/feedback/problem-highlight.ts) points a warning at a control without
+// moving focus: a yellow outline and a halo that fades so the eye lands on it.
+.problem-flag {
+  outline: 2px solid var(--problem, #e6b422);
+  outline-offset: 3px;
+  animation: problem-flash 1.4s ease-out;
+}
+@keyframes problem-flash {
+  0% {
+    box-shadow: 0 0 0 10px color-mix(in srgb, var(--problem, #e6b422) 55%, transparent);
+  }
+  25% {
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--problem, #e6b422) 45%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .problem-flag {
+    animation: none;
+  }
+}

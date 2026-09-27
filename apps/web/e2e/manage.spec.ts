@@ -11,7 +11,9 @@ function notice(page: Page, text: string) {
 }
 
 function card(page: Page, name: string) {
-  return page.locator('app-league-card').filter({ has: page.getByRole('heading', { name, exact: true }) });
+  return page
+    .locator('app-league-card')
+    .filter({ has: page.getByRole('heading', { name, exact: true }) });
 }
 
 /** Opens a league's card to its details and actions. */
@@ -52,7 +54,9 @@ async function openSwitcher(page: Page) {
   return sheet;
 }
 
-test('the switcher ends with "Manage leagues", which lists the sample leagues', async ({ page }) => {
+test('the switcher ends with "Manage leagues", which lists the sample leagues', async ({
+  page,
+}) => {
   await seedProfile(page);
   await page.goto('/piele');
   const sheet = await openSwitcher(page);
@@ -82,7 +86,9 @@ test('the switcher ends with "Manage leagues", which lists the sample leagues', 
   // The admin is already a member of Piele and the Pofadder Bowl, not of the Sample Third XV.
   await expect(pofadder.getByRole('button', { name: 'Add me to Pofadder Bowl' })).toHaveCount(0);
   await expand(page, 'Sample Third XV');
-  await expect(card(page, 'Sample Third XV').getByRole('button', { name: 'Add me to Sample Third XV' })).toBeVisible();
+  await expect(
+    card(page, 'Sample Third XV').getByRole('button', { name: 'Add me to Sample Third XV' }),
+  ).toBeVisible();
 
   await card(page, 'Sample Third XV').getByRole('link', { name: 'Open Sample Third XV' }).click();
   await expect(page).toHaveURL(/\/sample-third$/);
@@ -100,7 +106,9 @@ test('creating a league adds it to the switcher and opens it', async ({ page }) 
   await expect(form.getByLabel('Season name')).toHaveValue('URC 2026/27');
 
   // The time zone is chosen from the browser's IANA zones.
-  await expect(form.getByLabel('Time zone').locator('option[value="Europe/London"]')).toHaveCount(1);
+  await expect(form.getByLabel('Time zone').locator('option[value="Europe/London"]')).toHaveCount(
+    1,
+  );
 
   // A row without a Superbru name is pointed out on submit, on a warning card, and stops the form.
   await expect(form.locator('.member-row')).toHaveCount(3);
@@ -111,8 +119,12 @@ test('creating a league adds it to the switcher and opens it', async ({ page }) 
   await expect(warning).toBeVisible();
   await expect(warning).toContainText('Yellow card');
   await expect(warning).toContainText('Choose the captain from the members.');
-  await expect(form.locator('#new-league-member-1-superbru')).toHaveAttribute('aria-invalid', 'true');
-  await expect(form.locator('#new-league-member-1-superbru')).toBeFocused();
+  await expect(form.locator('#new-league-member-1-superbru')).toHaveAttribute(
+    'aria-invalid',
+    'true',
+  );
+  await expect(form.locator('#new-league-member-1-superbru')).toHaveClass(/problem-flag/);
+  await expect(form.locator('#new-league-member-1-superbru')).not.toBeFocused();
   await expect(form.locator('.preview-count')).toHaveText('1 member ready, 1 row to fix.');
   await member(page, 1, 'Kallie', 'Kruger', 'Kallie');
   await member(page, 2, 'Thabo', 'Nkosi', 'Thabo');
@@ -132,7 +144,10 @@ test('creating a league adds it to the switcher and opens it', async ({ page }) 
   await expect(page).toHaveURL(/\/die-ou-manne$/);
   const rail = page.locator('.rail-brand .switcher-trigger');
   await expect(rail.locator('strong')).toHaveText('DIE OU MANNE');
-  await expect(rail.locator('use')).toHaveAttribute('href', 'assets/images/emblems/jersey.svg#emblem');
+  await expect(rail.locator('use')).toHaveAttribute(
+    'href',
+    'assets/images/emblems/jersey.svg#emblem',
+  );
   const feed = page.locator('app-feed');
   await feed.getByRole('button', { name: 'Season' }).click();
   await expect(feed).toContainText('4 members enrolled. Vic is captain.');
@@ -142,7 +157,7 @@ test('creating a league adds it to the switcher and opens it', async ({ page }) 
   ).toContainText('Captain');
 });
 
-test('the form warns about a taken slug and focuses the slug field', async ({ page }) => {
+test('the form warns about a taken slug and highlights the slug field', async ({ page }) => {
   await seedProfile(page);
   await page.goto('/manage');
   const form = await openCreate(page);
@@ -152,7 +167,8 @@ test('the form warns about a taken slug and focuses the slug field', async ({ pa
   await form.getByRole('button', { name: 'Create league' }).click();
   const slug = form.getByLabel('Slug');
   await expect(slug).toHaveAttribute('aria-invalid', 'true');
-  await expect(slug).toBeFocused();
+  await expect(slug).toHaveClass(/problem-flag/);
+  await expect(slug).not.toBeFocused();
   await expect(notice(page, 'Another league already uses piele')).toBeVisible();
 
   await slug.fill('manage');
@@ -161,10 +177,13 @@ test('the form warns about a taken slug and focuses the slug field', async ({ pa
   // The new attempt's card replaces the last one.
   await expect(notice(page, 'app’s own paths')).toBeVisible();
   await expect(notice(page, 'Another league already uses piele')).toHaveCount(0);
-  await expect(slug).toBeFocused();
+  await expect(slug).toHaveClass(/problem-flag/);
+  await expect(slug).not.toBeFocused();
 });
 
-test('archiving a league takes it out of the switcher; restoring brings it back', async ({ page }) => {
+test('archiving a league takes it out of the switcher; restoring brings it back', async ({
+  page,
+}) => {
   await seedProfile(page, { leagues: ['piele', 'pofadder-bowl'] });
   await page.goto('/manage');
   const pofadder = await expand(page, 'Pofadder Bowl');
@@ -183,7 +202,9 @@ test('archiving a league takes it out of the switcher; restoring brings it back'
   const archived = page.locator('details.archived-group');
   await expect(archived.locator('summary')).toBeFocused();
   await expect(archived.locator('summary')).toContainText('Archived 1');
-  await expect(page.getByRole('list', { name: 'Active leagues' })).not.toContainText('Pofadder Bowl');
+  await expect(page.getByRole('list', { name: 'Active leagues' })).not.toContainText(
+    'Pofadder Bowl',
+  );
   await archived.locator('summary').click();
   await expect(card(page, 'Pofadder Bowl').getByText('Archived', { exact: true })).toBeVisible();
 
@@ -196,7 +217,10 @@ test('archiving a league takes it out of the switcher; restoring brings it back'
   await page.locator('details.archived-group summary').click();
   await expand(page, 'Pofadder Bowl');
   await card(page, 'Pofadder Bowl').getByRole('button', { name: 'Restore Pofadder Bowl' }).click();
-  await page.getByRole('dialog', { name: 'Restore Pofadder Bowl?' }).getByRole('button', { name: 'Restore' }).click();
+  await page
+    .getByRole('dialog', { name: 'Restore Pofadder Bowl?' })
+    .getByRole('button', { name: 'Restore' })
+    .click();
   await expect(page.locator('details.archived-group')).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Pofadder Bowl', level: 3 })).toBeFocused();
   await page.getByRole('link', { name: 'Back to the clubhouse' }).click();
@@ -219,12 +243,13 @@ test('rename, add me and appoint a captain from a league’s card', async ({ pag
   await expect(name).toBeFocused();
   await expect(pofadder.getByLabel('Time zone')).toHaveValue('Africa/Johannesburg');
   await pofadder.getByLabel('Time zone').selectOption('Europe/London');
-  // A blank name is warned about on a card, marked and focused.
+  // A blank name is warned about on a card, marked and highlighted.
   await name.fill('');
   await pofadder.getByRole('button', { name: 'Save' }).click();
   await expect(notice(page, 'Give the league a name.')).toBeVisible();
   await expect(name).toHaveAttribute('aria-invalid', 'true');
-  await expect(name).toBeFocused();
+  await expect(name).toHaveClass(/problem-flag/);
+  await expect(name).not.toBeFocused();
   await name.fill('Pofadder Cup');
   await pofadder.getByRole('button', { name: 'Save' }).click();
   const cup = card(page, 'Pofadder Cup');
@@ -240,7 +265,13 @@ test('rename, add me and appoint a captain from a league’s card', async ({ pag
 
   await cup.locator('summary', { hasText: 'Appoint a captain' }).click();
   const captain = cup.getByLabel('New captain');
-  await expect(captain.locator('option')).toHaveText(['Choose a claimed member', 'Kallie', 'You', 'Sanet', 'Thabo']);
+  await expect(captain.locator('option')).toHaveText([
+    'Choose a claimed member',
+    'Kallie',
+    'You',
+    'Sanet',
+    'Thabo',
+  ]);
   await captain.selectOption({ label: 'Kallie' });
   await cup.getByRole('button', { name: 'Appoint', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Make Kallie captain?' });

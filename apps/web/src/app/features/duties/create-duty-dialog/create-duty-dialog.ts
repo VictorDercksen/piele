@@ -13,6 +13,7 @@ import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { CompetitionService } from '../../../core/competition/competition.service';
 import { LeagueTime } from '../../../core/competition/league-time';
 import { AlertService } from '../../../core/feedback/alert.service';
+import { highlightProblem } from '../../../core/feedback/problem-highlight';
 import { LeagueData } from '../../../core/league/league-data';
 import { DutyType } from '../../../core/league/league.models';
 import { RoundViewService } from '../../../core/league/round-view.service';
@@ -45,7 +46,8 @@ export class CreateDutyDialog {
   readonly view = inject(RoundViewService);
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
   private readonly memberSelect = viewChild.required<ElementRef<HTMLSelectElement>>('memberSelect');
-  private readonly deadlineInput = viewChild.required<ElementRef<HTMLInputElement>>('deadlineInput');
+  private readonly deadlineInput =
+    viewChild.required<ElementRef<HTMLInputElement>>('deadlineInput');
   readonly created = output<{ title: string; memberName: string; deadlineAt: string | null }>();
   readonly busy = signal(false);
   /** The controls the last attempt found wanting, marked `aria-invalid` until they change. */
@@ -69,7 +71,9 @@ export class CreateDutyDialog {
       ? this.competition.current().firstKickoff(this.roundId() + 1)
       : null,
   );
-  readonly defaultDeadlineLabel = computed(() => this.time.format(this.defaultDeadline(), 'unknown'));
+  readonly defaultDeadlineLabel = computed(() =>
+    this.time.format(this.defaultDeadline(), 'unknown'),
+  );
   readonly needsDeadline = computed(() => this.type() !== 'spoon' || !this.defaultDeadline());
   readonly deadlineOverridden = computed(() => !!this.values().deadline);
   /** Fixtures left off the pick confirmation; every candidate is ticked to start with. */
@@ -169,7 +173,9 @@ export class CreateDutyDialog {
       this.invalid.set(new Set(problems.map((problem) => problem.control)));
       const [first, ...rest] = problems;
       if (first) {
-        (first.control === 'memberId' ? this.memberSelect() : this.deadlineInput()).nativeElement.focus();
+        highlightProblem(
+          (first.control === 'memberId' ? this.memberSelect() : this.deadlineInput()).nativeElement,
+        );
         this.alerts.warn(first.message, {
           key: CREATE_DUTY_WARNING,
           details: rest.map((problem) => problem.message),
@@ -205,10 +211,9 @@ export class CreateDutyDialog {
         deadlineAt: deadlineAt ?? this.defaultDeadline(),
       });
     } catch (error) {
-      this.alerts.error(
-        error instanceof Error ? error.message : 'The duty could not be created.',
-        { key: CREATE_DUTY_FAILURE },
-      );
+      this.alerts.error(error instanceof Error ? error.message : 'The duty could not be created.', {
+        key: CREATE_DUTY_FAILURE,
+      });
     } finally {
       this.busy.set(false);
     }

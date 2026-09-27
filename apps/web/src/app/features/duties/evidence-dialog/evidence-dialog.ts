@@ -11,6 +11,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { LeagueTime } from '../../../core/competition/league-time';
 import { AlertService } from '../../../core/feedback/alert.service';
+import { highlightProblem } from '../../../core/feedback/problem-highlight';
 import { LeagueData } from '../../../core/league/league-data';
 import { RoundDutyView, RoundViewService } from '../../../core/league/round-view.service';
 import { Icon } from '../../../shared/icon/icon';
@@ -151,11 +152,11 @@ export class EvidenceDialog {
     }
   }
 
-  /** One warning card per attempt, with the control concerned marked and focused. */
+  /** One warning card per attempt, with the control concerned marked and highlighted. */
   private warn(control: 'file' | 'completed', message: string): void {
     this.invalid.set(control);
     const input = control === 'file' ? this.fileInput() : this.completedInput();
-    input?.nativeElement.focus();
+    highlightProblem(input?.nativeElement);
     this.alerts.warn(message, { key: EVIDENCE_WARNING });
   }
 }

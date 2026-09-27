@@ -16,6 +16,7 @@ import { RouterLink } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { AuthService } from '../../core/auth/auth.service';
 import { AlertService } from '../../core/feedback/alert.service';
+import { highlightProblem } from '../../core/feedback/problem-highlight';
 import { LeagueContext } from '../../core/league/league-context';
 import { LeagueData } from '../../core/league/league-data';
 import { preparePhoto } from '../../core/profile/profile-photo';
@@ -126,8 +127,10 @@ export class ProfileEditor {
       this.alerts.warn(error instanceof Error ? error.message : 'Unable to open this photo.', {
         key: PHOTO_ALERT_KEY,
       });
-      // The input is disabled while busy; focus it once it is enabled again.
-      afterNextRender(() => this.photoInput().nativeElement.focus(), { injector: this.injector });
+      // The input is disabled while busy; point it out once it is enabled again.
+      afterNextRender(() => highlightProblem(this.photoInput().nativeElement), {
+        injector: this.injector,
+      });
     } finally {
       this.busy.set(false);
     }
@@ -172,7 +175,7 @@ export class ProfileEditor {
     }
   }
 
-  /** One warning for the attempt, naming each field to fix, and focus on the first. */
+  /** One warning for the attempt, naming each field to fix, and a highlight on the first. */
   private reportProblems(): void {
     const problems: { message: string; control: () => HTMLElement | null }[] = [];
     if (this.form.controls.displayName.invalid)
@@ -188,7 +191,7 @@ export class ProfileEditor {
       });
     const [first, ...rest] = problems;
     if (!first) return;
-    first.control()?.focus();
+    highlightProblem(first.control());
     this.alerts.warn(first.message, {
       key: ALERT_KEY,
       details: rest.map((problem) => problem.message),
