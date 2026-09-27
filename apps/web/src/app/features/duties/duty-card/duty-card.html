@@ -34,6 +34,23 @@
       <dd>{{ evidenceSummary() }}</dd>
     </div>
   </dl>
+  @if (pickFixtures().length) {
+    <div class="pick-fixtures">
+      <span class="pick-fixtures-label" id="picks-covered-{{ duty().id }}">Picks covered:</span>
+      <ul [attr.aria-labelledby]="'picks-covered-' + duty().id">
+        @for (fixture of pickFixtures(); track fixture.id) {
+          <li>
+            <a
+              class="text-button"
+              [routerLink]="'/match/' + fixture.id | leaguePath"
+              queryParamsHandling="preserve"
+              >{{ fixture.label }}<ng-icon class="link-icon" name="lucideArrowRight"
+            /></a>
+          </li>
+        }
+      </ul>
+    </div>
+  }
   @if (duty().evidence.length) {
     <ul class="evidence-trail">
       @for (evidence of duty().evidence; track evidence.id) {

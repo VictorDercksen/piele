@@ -1,0 +1,496 @@
+:host {
+  --deep: #0f1d20;
+  --live: #ff6b52;
+  --live-ink: #ffb3a3;
+  display: block;
+  container-type: inline-size;
+  margin-bottom: 20px;
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+/* The scoring and teamsheet panels' language: grain surface, chalk top rule. */
+.panel {
+  min-width: 0;
+  padding: 22px 24px;
+  background: var(--surface-grain), var(--surface);
+  border: 1px solid var(--line);
+  border-top: 3px solid #d4d9c4;
+  box-shadow: 0 8px 24px #0003;
+}
+.panel .section-title {
+  margin-bottom: 16px;
+}
+/* The global style hides section-title tags; this one carries the fixture's state. */
+.section-title > .tag {
+  display: inline-block;
+}
+.tag.provisional {
+  background: #5a211a;
+  color: var(--live-ink);
+}
+.panel-empty {
+  color: var(--muted);
+  margin: 6px 0 12px;
+}
+.panel-source {
+  font-size: 10px;
+  letter-spacing: 0.4px;
+  color: var(--muted);
+  margin: 12px 0 0;
+}
+
+/* Sway: the pool's split between the sides, crest at each end, percentages inside. */
+.sway {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.sway-crest {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+}
+.sway-bar {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  height: 26px;
+  gap: 2px;
+  background: var(--deep);
+  box-shadow: 0 3px 10px #0005;
+}
+.sway-part {
+  display: flex;
+  align-items: center;
+  flex-basis: 0;
+  min-width: 42px;
+  padding: 0 4px;
+  background: linear-gradient(180deg, #ffffff26, #0000 70%), var(--club, #33413f);
+}
+.sway-part.away {
+  justify-content: flex-end;
+}
+.sway-part.draw {
+  justify-content: center;
+  background: #ffffff1a;
+}
+.sway-part b {
+  padding: 1px 5px;
+  background: #0b1518b3;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
+}
+.sway-part.draw b {
+  background: none;
+  color: var(--muted);
+}
+
+/* The member's own pick: a strip in their colours. */
+.mine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  min-height: 48px;
+  margin-bottom: 16px;
+  padding: 8px 14px;
+  border-left: 3px solid var(--member-accent, var(--accent));
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--member-colour, #18282a) 22%, transparent),
+      transparent
+    ),
+    #dfbc7520;
+}
+.mine:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.mine-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: var(--accent);
+  text-transform: uppercase;
+}
+.mine-points {
+  font-size: 18px;
+  font-weight: 900;
+  font-style: italic;
+  font-variant-numeric: tabular-nums;
+}
+.mine-points small {
+  margin-left: 2px;
+  font-size: 11px;
+  font-weight: 700;
+  font-style: normal;
+  color: var(--muted);
+}
+.mine-place {
+  color: var(--muted);
+  font-size: 12px;
+}
+.mine .edit {
+  margin-left: auto;
+  min-height: 36px;
+}
+
+/* The member's pick form. */
+.pick-form {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.form-error {
+  margin: 0 !important;
+  padding: 10px 12px;
+  border-left: 2px solid var(--accent);
+  background: var(--tint);
+  font-size: 13px;
+}
+.choice {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.choice legend {
+  padding: 0;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.segments {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(64px, 0.7fr) minmax(0, 1fr);
+  background: var(--deep);
+  box-shadow: 0 3px 10px #0005;
+}
+.segment {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 0;
+  min-height: 64px;
+  padding: 8px 6px;
+  border: 1px solid #ffffff14;
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    background-color 0.15s,
+    color 0.15s;
+}
+.segment:hover {
+  color: var(--ink);
+  background: #ffffff0d;
+}
+.segment input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.segment:has(input:focus-visible) {
+  outline: 3px solid #e77935;
+  outline-offset: -3px;
+}
+.segment.selected {
+  color: #fff;
+  border-color: var(--club-accent, var(--accent));
+  background: linear-gradient(180deg, #ffffff1f, #0000 70%), var(--club, #2d3f3c);
+  box-shadow: inset 0 -3px 0 var(--club-accent, var(--accent));
+}
+.jersey {
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+}
+.draw-mark {
+  width: 20px;
+  height: 30px;
+  background:
+    linear-gradient(currentColor, currentColor) center 11px / 16px 2px no-repeat,
+    linear-gradient(currentColor, currentColor) center 17px / 16px 2px no-repeat;
+}
+.segment-name {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.form-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 16px;
+}
+.field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.field > label {
+  font-size: 13px;
+  font-weight: 600;
+}
+.field > label span {
+  color: var(--muted);
+  font-weight: 400;
+}
+.margin-field {
+  width: 120px;
+}
+.margin-field input {
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: #0f1b1e;
+  color: var(--ink);
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+.margin-field input:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.margin-field input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+[aria-invalid='true'] {
+  border-color: var(--accent) !important;
+}
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+.field-error,
+.hint {
+  margin: 0;
+  font-size: 12px;
+}
+.field-error {
+  color: var(--accent);
+}
+.choice .field-error {
+  margin-top: 8px;
+}
+.hint,
+.form-note {
+  color: var(--muted);
+}
+.form-note {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* The pool's picks. */
+.pool {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.pool thead th {
+  padding: 0 0 8px;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-align: left;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--line);
+}
+.pool abbr {
+  text-decoration: none;
+  cursor: help;
+}
+.pool td,
+.pool tbody th {
+  height: 46px;
+  padding: 0;
+  border-bottom: 1px solid #ffffff12;
+  vertical-align: middle;
+}
+.col-avatar {
+  width: 40px;
+}
+.col-pick {
+  width: 156px;
+}
+.col-mark {
+  width: 26px;
+}
+.col-points {
+  width: 44px;
+}
+.c-mark {
+  text-align: center !important;
+}
+.c-points {
+  text-align: right !important;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.pool.locked .c-pick {
+  padding-right: 6px;
+}
+app-member-avatar {
+  --avatar-size: 30px;
+  vertical-align: middle;
+}
+.pool tbody .c-name {
+  padding-right: 8px;
+  font-weight: 600;
+  text-align: left;
+}
+.who {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.you-tag {
+  flex-shrink: 0;
+  color: var(--accent);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+.pool tr.you {
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--member-colour, #18282a) 20%, transparent),
+      transparent
+    ),
+    #dfbc7520;
+}
+.pool tr.you .c-avatar {
+  box-shadow: inset 3px 0 0 var(--member-accent, var(--accent));
+  padding-left: 6px;
+}
+.pool tr.you .c-points {
+  padding-right: 6px;
+}
+
+/* W M B: a hollow ring until earned, then a filled disc; a shared bonus shows its share. */
+.mark {
+  position: relative;
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid #ffffff3d;
+  border-radius: 50%;
+  vertical-align: middle;
+}
+.mark.earned {
+  border-color: var(--accent);
+  background: var(--accent);
+  box-shadow: 0 0 0 2px #0003;
+}
+.fraction {
+  position: absolute;
+  bottom: 9px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0 3px;
+  background: var(--deep);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.record {
+  margin-top: 8px;
+  color: var(--accent);
+}
+
+@container (max-width: 600px) {
+  .panel {
+    padding: 18px 16px;
+  }
+}
+@container (max-width: 480px) {
+  .panel {
+    padding: 18px 14px;
+  }
+  .pool {
+    font-size: 13px;
+  }
+  .col-avatar {
+    width: 28px;
+  }
+  app-member-avatar {
+    --avatar-size: 22px;
+  }
+  .pool tr.you .c-avatar {
+    padding-left: 4px;
+  }
+  .col-pick {
+    width: 96px;
+  }
+  .col-mark {
+    width: 18px;
+  }
+  /* The YOU tag sits under the name so the name keeps the column. */
+  .who {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+  }
+  .who .name {
+    max-width: 100%;
+  }
+  .you-tag {
+    font-size: 8px;
+    line-height: 1.1;
+  }
+  .mark {
+    width: 12px;
+    height: 12px;
+  }
+  .col-points {
+    width: 32px;
+  }
+  .sway-crest {
+    width: 22px;
+    height: 22px;
+  }
+  .sway {
+    gap: 6px;
+  }
+}
