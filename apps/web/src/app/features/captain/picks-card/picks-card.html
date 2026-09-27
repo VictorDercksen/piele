@@ -1,0 +1,332 @@
+<section class="picks" id="picks" aria-labelledby="picks-heading">
+  <div class="section-title">
+    <h2 id="picks-heading">Superbru picks.</h2>
+    <span>ROUND {{ view.round().code }}</span>
+  </div>
+  <p class="page-description">
+    Members pick in the clubhouse before kickoff. From kickoff you can record or correct any
+    member's pick so the clubhouse matches Superbru.
+  </p>
+
+  @if (strip().length) {
+    <div class="fixture-strip" role="group" [attr.aria-label]="view.round().title + ' fixtures'">
+      @for (item of strip(); track item.fixture.id) {
+        <button
+          type="button"
+          [class.active]="chosen()?.fixture?.id === item.fixture.id"
+          [class.awaiting]="item.awaiting"
+          [attr.aria-pressed]="chosen()?.fixture?.id === item.fixture.id"
+          (click)="choose(item.fixture.id)"
+        >
+          <span class="matchup"
+            ><img [src]="jersey(item.fixture.homeAsset)" alt="" /><b>{{ item.homeName }}</b
+            ><i>v</i><b>{{ item.awayName }}</b
+            ><img [src]="jersey(item.fixture.awayAsset)" alt=""
+          /></span>
+          <span class="strip-status">{{ item.status }}</span>
+        </button>
+      }
+    </div>
+  } @else {
+    <div class="round-empty"><h3>This round has no published fixtures.</h3></div>
+  }
+
+  @if (chosen(); as item) {
+    <div
+      class="pick-grid"
+      [class.read-only]="readOnly()"
+      [class.with-default]="defaultPicks()"
+      [class.with-score]="scored()"
+    >
+      <h3 class="grid-heading">
+        {{ item.fixture.home }} v {{ item.fixture.away }}
+        @if (scored() && picks()?.result) {
+          <span class="result"
+            >{{ picks()!.result!.homeScore }}–{{ picks()!.result!.awayScore }}</span
+          >
+        }
+      </h3>
+      @if (readOnly()) {
+        <p class="grid-note">
+          Members make their own picks until kickoff. You can correct picks from kickoff.
+        </p>
+      }
+      @if (error()) {
+        <p id="picks-error" class="error-message grid-error" role="alert" tabindex="-1">
+          {{ error() }}
+        </p>
+      }
+      <div class="grid-head" aria-hidden="true">
+        <span class="member">Member</span><span class="pick-head">Pick</span
+        ><span class="margin">Margin</span>
+        @if (defaultPicks()) {
+          <span class="default">Default</span>
+        }
+        <span class="missed">Missed</span>
+        @if (scored()) {
+          <span class="score">W · M · B · Pts</span>
+        }
+      </div>
+      <ul
+        class="grid-rows"
+        [attr.aria-label]="'Picks for ' + item.homeName + ' v ' + item.awayName"
+      >
+        @for (row of grid(); track row.memberId) {
+          @let c = row.group.controls;
+          @let rowId = 'pick-' + item.fixture.id + '-' + row.memberId;
+          @let rowScore = score(row.memberId);
+          @let name = look(row.memberId)?.name ?? row.name;
+          <li class="grid-row" [class.you]="look(row.memberId)?.you">
+            <span class="member">
+              <app-member-avatar
+                [name]="name"
+                [photo]="look(row.memberId)?.photo ?? null"
+                [teamId]="look(row.memberId)?.teamId ?? row.teamId"
+              />
+              <strong>{{ name }}</strong>
+            </span>
+            <div class="side-picker" role="radiogroup" [attr.aria-label]="name + '\'s pick'">
+              <label
+                class="side"
+                [title]="item.homeName"
+                [style.--club]="item.home?.colour ?? null"
+              >
+                <input
+                  type="radio"
+                  [name]="rowId"
+                  [attr.name]="rowId"
+                  value="home"
+                  [formControl]="c.side"
+                />
+                <img [src]="jersey(item.fixture.homeAsset)" alt="" /><span
+                  class="visually-hidden"
+                  >{{ item.homeName }}</span
+                >
+              </label>
+              <label class="side draw">
+                <input
+                  type="radio"
+                  [name]="rowId"
+                  [attr.name]="rowId"
+                  value="draw"
+                  [formControl]="c.side"
+                />
+                <span>Draw</span>
+              </label>
+              <label
+                class="side"
+                [title]="item.awayName"
+                [style.--club]="item.away?.colour ?? null"
+              >
+                <input
+                  type="radio"
+                  [name]="rowId"
+                  [attr.name]="rowId"
+                  value="away"
+                  [formControl]="c.side"
+                />
+                <img [src]="jersey(item.fixture.awayAsset)" alt="" /><span
+                  class="visually-hidden"
+                  >{{ item.awayName }}</span
+                >
+              </label>
+            </div>
+            <span class="margin">
+              <label class="cell-label" [for]="rowId + '-margin'"
+                >Margin<span class="visually-hidden"> for {{ name }}</span></label
+              >
+              <input
+                [id]="rowId + '-margin'"
+                type="text"
+                inputmode="numeric"
+                maxlength="3"
+                autocomplete="off"
+                [formControl]="c.margin"
+                [attr.aria-invalid]="invalidRows().has(row.memberId)"
+              />
+            </span>
+            @if (defaultPicks()) {
+              <label class="check default">
+                <input type="checkbox" [formControl]="c.isDefault" />
+                <span class="cell-label"
+                  >Default<span class="visually-hidden"> pick for {{ name }}</span></span
+                >
+              </label>
+            }
+            <label class="check missed">
+              <input type="checkbox" [formControl]="c.missed" />
+              <span class="cell-label"
+                >Missed<span class="visually-hidden"> by {{ name }}</span></span
+              >
+            </label>
+            @if (scored()) {
+              <span class="score">
+                @if (rowScore?.scored) {
+                  <span class="parts"
+                    ><span class="visually-hidden">Win points </span>{{ rowScore!.wp
+                    }}<span aria-hidden="true"> · </span
+                    ><span class="visually-hidden">, margin point </span>{{ rowScore!.mp
+                    }}<span aria-hidden="true"> · </span
+                    ><span class="visually-hidden">, bonus point </span>{{ rowScore!.bp }}</span
+                  >
+                  <strong
+                    ><span class="visually-hidden">, total </span>{{ rowScore!.points
+                    }}<span class="visually-hidden"> points</span></strong
+                  >
+                } @else {
+                  <span class="parts">No pick</span>
+                }
+              </span>
+            }
+          </li>
+        } @empty {
+          <li class="grid-empty">Nobody is on the team sheet this season.</li>
+        }
+      </ul>
+      @if (!readOnly()) {
+        <div class="grid-actions">
+          <button
+            type="button"
+            class="primary-button"
+            [disabled]="busy()"
+            [attr.aria-busy]="busy()"
+            (click)="save()"
+          >
+            @if (busy()) {
+              <app-loader [size]="16" aria-hidden="true" />
+            }
+            Save picks
+          </button>
+          <p class="hint">Only the rows you changed are sent. Clear a row to remove its pick.</p>
+        </div>
+      }
+    </div>
+  }
+
+  <div class="round-table">
+    <h3 id="round-table-heading">Round table</h3>
+    <p class="hint">
+      Totals are computed from picks. Record a total only where Superbru shows a different figure
+      after reprocessing.
+    </p>
+    <table aria-labelledby="round-table-heading">
+      <thead>
+        <tr>
+          <th scope="col">Member</th>
+          <th scope="col" class="num col-derived">Derived</th>
+          <th scope="col" class="num col-recorded">Recorded</th>
+          <th scope="col" class="col-action"><span class="visually-hidden">Override</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of view.derivedVsRecorded(); track row.memberId) {
+          <tr [class.you]="row.you">
+            <th scope="row">
+              <span class="member">
+                <app-member-avatar [name]="row.name" [photo]="row.photo" [teamId]="row.teamId" />
+                <span class="name">{{ row.name }}</span>
+              </span>
+            </th>
+            <td class="num">{{ row.derived }}</td>
+            <td class="num">
+              {{ row.recorded ?? '–' }}
+              @if (row.differs) {
+                <span class="tag differs">DIFFERS</span>
+              }
+            </td>
+            <td class="action">
+              <button
+                type="button"
+                class="text-button"
+                [id]="'override-button-' + row.memberId"
+                [attr.aria-expanded]="overriding() === row.memberId"
+                [attr.aria-label]="'Override ' + row.name + '\'s total'"
+                (click)="overriding() === row.memberId ? cancelOverride() : startOverride(row)"
+              >
+                Override
+              </button>
+            </td>
+          </tr>
+          @if (overriding() === row.memberId) {
+            <tr class="override-row">
+              <td colspan="4">
+                <form class="override-form" novalidate (submit)="submitOverride($event, row)">
+                  <label [for]="'override-' + row.memberId"
+                    >Recorded total for {{ row.name }}</label
+                  >
+                  <input
+                    [id]="'override-' + row.memberId"
+                    type="number"
+                    inputmode="decimal"
+                    min="0"
+                    max="99999.99"
+                    step="0.25"
+                    [formControl]="overrideControl"
+                    [attr.aria-invalid]="overrideSubmitted() && overrideControl.invalid"
+                  />
+                  <button
+                    type="submit"
+                    class="primary-button"
+                    [disabled]="overrideBusy()"
+                    [attr.aria-busy]="overrideBusy()"
+                  >
+                    Save
+                  </button>
+                  @if (row.recorded !== null) {
+                    <button
+                      type="button"
+                      class="text-button"
+                      [disabled]="overrideBusy()"
+                      (click)="clearOverride(row)"
+                    >
+                      Clear
+                    </button>
+                  }
+                  <button
+                    type="button"
+                    class="text-button"
+                    [disabled]="overrideBusy()"
+                    (click)="cancelOverride()"
+                  >
+                    Cancel
+                  </button>
+                  @if (overrideSubmitted() && overrideControl.invalid) {
+                    <p class="error-message" role="alert">Enter a total from 0 to 99999.99.</p>
+                  }
+                  @if (overrideError()) {
+                    <p class="error-message" role="alert">{{ overrideError() }}</p>
+                  }
+                </form>
+              </td>
+            </tr>
+          }
+        }
+      </tbody>
+    </table>
+  </div>
+
+  @if (spoon().length) {
+    <div class="spoon-line">
+      <p>
+        <img class="badge" [src]="badges.spoon.src" alt="" />Spoon:
+        {{ spoonNames() }}
+      </p>
+      <div class="spoon-actions">
+        @for (member of spoon(); track member.id) {
+          <button
+            type="button"
+            class="text-button"
+            [attr.aria-label]="'Propose Spoon duty for ' + member.name"
+            (click)="proposeSpoon(member)"
+          >
+            Propose Spoon duty
+            @if (spoon().length > 1) {
+              <span aria-hidden="true">({{ member.name }})</span>
+            }
+            <ng-icon class="link-icon" name="lucideArrowRight" />
+          </button>
+        }
+      </div>
+    </div>
+  }
+</section>

@@ -1,0 +1,34 @@
+<section class="rules" aria-labelledby="rules-heading">
+  <div class="section-title">
+    <h2 id="rules-heading">Superbru rules.</h2>
+    <span>SEASON</span>
+  </div>
+  <p class="page-description">
+    These mirror the pool's settings on Superbru and drive the scoring in the clubhouse.
+  </p>
+  <form class="rules-form" novalidate (submit)="submit($event)">
+    <app-rules-fields
+      idPrefix="rules"
+      [group]="form"
+      [lastRound]="lastRound()"
+      [champions]="champions()"
+      [submitted]="submitted()"
+    />
+    @if (error()) {
+      <p class="error-message" role="alert">{{ error() }}</p>
+    }
+    <div class="rules-actions">
+      <button type="submit" class="primary-button" [disabled]="busy()" [attr.aria-busy]="busy()">
+        @if (busy()) {
+          <app-loader [size]="16" aria-hidden="true" />
+        }
+        Save rules
+      </button>
+      @if (dirty()) {
+        <button type="button" class="text-button" [disabled]="busy()" (click)="undo()">
+          Undo changes
+        </button>
+      }
+    </div>
+  </form>
+</section>

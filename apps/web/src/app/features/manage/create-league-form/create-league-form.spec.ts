@@ -193,6 +193,42 @@ describe('CreateLeagueForm', () => {
     expect(navigate).not.toHaveBeenCalled();
   });
 
+  it('keeps Piele’s rules collapsed and sends only the rules that differ', async () => {
+    const { type, choose, member, submit, root, field } = setup();
+    await settle();
+    const group = root.querySelector<HTMLDetailsElement>('#new-league-rules')!;
+    expect(group.open).toBe(false);
+    expect(field<HTMLInputElement>('rules-marginWindow').value).toBe('5');
+    expect(field<HTMLInputElement>('rules-defaultPicks').checked).toBe(true);
+    expect(root.querySelector('#new-league-rules-previousChampionMemberId')).toBeNull();
+    type('name', 'Die Ou Manne');
+    await member(0, 'Doempie', 'Steyn', 'Doempie');
+    choose('captain', 'Doempie');
+    field<HTMLInputElement>('rules-defaultPicks').click();
+    type('rules-grandSlamPoints', '3');
+    type('rules-win-final', '4');
+    await submit();
+    expect(sent[0].rules).toEqual({
+      defaultPicks: false,
+      winPoints: { regular: 1, quarterFinal: 1.5, semiFinal: 2, final: 4 },
+      grandSlamPoints: 3,
+    });
+  });
+
+  it('opens the rules and focuses a rule to fix', async () => {
+    const { type, choose, member, submit, root, field } = setup();
+    await settle();
+    type('name', 'Die Ou Manne');
+    await member(0, 'Doempie', 'Steyn', 'Doempie');
+    choose('captain', 'Doempie');
+    type('rules-startingRound', '19');
+    await submit();
+    expect(sent).toEqual([]);
+    expect(root.querySelector<HTMLDetailsElement>('#new-league-rules')!.open).toBe(true);
+    expect(field('rules-startingRound').getAttribute('aria-invalid')).toBe('true');
+    expect(document.activeElement).toBe(field('rules-startingRound'));
+  });
+
   it('names the default season from the registry or the competition name', () => {
     expect(defaultSeasonName(URC)).toBe('URC 2026/27');
     expect(defaultSeasonName({ id: 'x', name: 'Currie Cup 2027', shortName: 'CC' })).toBe('CC 2027');

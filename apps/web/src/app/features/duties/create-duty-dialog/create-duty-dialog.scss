@@ -60,6 +60,46 @@ textarea {
   color: var(--muted);
   font-weight: 400;
 }
+.pick-fixtures {
+  min-width: 0;
+  margin: 18px 0 0;
+  padding: 12px 14px 6px;
+  border: 1px solid var(--line);
+}
+.pick-fixtures legend {
+  padding: 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.pick-fixture {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  font-size: 14px;
+  cursor: pointer;
+}
+.pick-fixture input {
+  flex-shrink: 0;
+  width: 18px;
+  min-height: 0;
+  height: 18px;
+  padding: 0;
+  accent-color: var(--accent);
+}
+.pick-fixture span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.pick-fixture small {
+  margin-left: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.pick-fixtures-empty {
+  padding-bottom: 8px;
+  font-size: 13px;
+}
 @container (max-width: 460px) {
   .field-grid {
     grid-template-columns: 1fr;

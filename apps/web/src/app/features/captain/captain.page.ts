@@ -8,7 +8,9 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { LeagueTime } from '../../core/competition/league-time';
 import { ToastService } from '../../core/feedback/toast.service';
 import { LeagueData } from '../../core/league/league-data';
@@ -18,20 +20,35 @@ import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucidePlay } from '@ng-icons/lucide';
 import { Icon } from '../../shared/icon/icon';
 import { Loader } from '../../shared/loader/loader';
+import { CreateDutyDialog } from '../duties/create-duty-dialog/create-duty-dialog';
 import { ReasonDialog } from '../duties/reason-dialog/reason-dialog';
 import { AppearanceCard } from './appearance-card/appearance-card';
 import { JoinLinkCard } from './join-link-card/join-link-card';
+import { PicksCard } from './picks-card/picks-card';
+import { RulesCard } from './rules-card/rules-card';
 
 /**
  * The steward's desk (the captain, or the admin): evidence awaiting a decision in the selected
- * round, the team sheet with removal and reinstatement, the join link and the league's look.
+ * round, the round's Superbru picks and totals (`#picks`), the team sheet with removal and
+ * reinstatement, the join link, the league's look and the season's Superbru rules.
  */
 @Component({
   selector: 'app-captain-page',
   templateUrl: './captain.page.html',
   styleUrl: './captain.page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, Icon, NgIcon, Loader, ReasonDialog, JoinLinkCard, AppearanceCard],
+  imports: [
+    ReactiveFormsModule,
+    Icon,
+    NgIcon,
+    Loader,
+    ReasonDialog,
+    CreateDutyDialog,
+    PicksCard,
+    JoinLinkCard,
+    AppearanceCard,
+    RulesCard,
+  ],
   viewProviders: [provideIcons({ lucidePlay })],
 })
 export class CaptainPage {
@@ -41,6 +58,7 @@ export class CaptainPage {
   readonly view = inject(RoundViewService);
   private readonly injector = inject(Injector);
   readonly reasonDialog = viewChild.required(ReasonDialog);
+  readonly dutyDialog = viewChild.required(CreateDutyDialog);
   private readonly withdrawnGroup = viewChild<ElementRef<HTMLDetailsElement>>('withdrawnGroup');
   readonly withdrawError = signal('');
   readonly playbackError = signal('');
@@ -66,6 +84,26 @@ export class CaptainPage {
     }),
   });
   readonly addingMember = signal(false);
+
+  constructor() {
+    // `/captain#picks` opens at a card: the router does not scroll to fragments by itself.
+    inject(ActivatedRoute)
+      .fragment.pipe(takeUntilDestroyed())
+      .subscribe({
+        next: (fragment) => {
+          if (!fragment) return;
+          afterNextRender(() => document.getElementById(fragment)?.scrollIntoView(), {
+            injector: this.injector,
+          });
+        },
+      });
+  }
+
+  dutyCreated(duty: { title: string; memberName: string; deadlineAt: string | null }): void {
+    this.toast.show(
+      `${duty.title} created for ${duty.memberName}. Due ${this.time.format(duty.deadlineAt)}.`,
+    );
+  }
 
   when(review: ReviewView): string {
     return this.time.relative(review.evidence.submittedAt);

@@ -1,0 +1,142 @@
+:host {
+  display: block;
+}
+.rules-fields {
+  display: grid;
+  gap: 20px;
+}
+.switches {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+  gap: 4px 20px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.switch {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-height: 44px;
+  padding: 8px 0;
+  cursor: pointer;
+}
+/* The native checkbox stays focusable and clickable over the drawn track. */
+.switch input {
+  position: absolute;
+  top: 8px;
+  left: 0;
+  width: 40px;
+  height: 22px;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.track {
+  position: relative;
+  flex-shrink: 0;
+  width: 40px;
+  height: 22px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: #0f1b1e;
+  transition: background 0.15s;
+}
+.track::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--muted);
+  transition: transform 0.15s;
+}
+.switch input:checked + .track {
+  border-color: var(--accent);
+  background: var(--tint);
+}
+.switch input:checked + .track::after {
+  background: var(--accent);
+  transform: translateX(18px);
+}
+.switch input:focus-visible + .track {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.switch input:disabled + .track {
+  opacity: 0.5;
+}
+.switch-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.switch-text strong {
+  font-size: 13px;
+  font-weight: 700;
+}
+.switch-text small {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.number-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 120px), 1fr));
+  gap: 14px 18px;
+  align-items: start;
+}
+.rule-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.rule-field.champion {
+  grid-column: 1 / -1;
+  max-width: 360px;
+}
+.rule-field label {
+  font-size: 13px;
+  font-weight: 600;
+}
+.rule-field input,
+.rule-field select {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: #0f1b1e;
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+}
+.rule-field select {
+  appearance: auto;
+}
+.rule-field input:focus-visible,
+.rule-field select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.rule-field [aria-invalid='true'] {
+  border-color: var(--accent);
+}
+.rule-field :disabled {
+  opacity: 0.6;
+}
+.field-error {
+  margin: 0;
+  color: var(--accent);
+  font-size: 12px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .track,
+  .track::after {
+    transition: none;
+  }
+}

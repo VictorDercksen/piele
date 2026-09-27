@@ -9,6 +9,7 @@ import { ApiError } from './http-league-data';
 import { LeagueContext } from './league-context';
 import { LeagueData } from './league-data';
 import { SampleLeagueData } from './sample-league-data';
+import { DEFAULT_RULES } from './superbru';
 
 const ADMIN = `${environment.apiUrl}/v1/admin/leagues`;
 
@@ -29,6 +30,7 @@ function adminLeague(extra: Partial<AdminLeague> = {}): AdminLeague {
     counts: { members: 6, claimed: 4, inSeason: 6, withdrawn: 0 },
     myMemberId: 'm-1',
     createdAt: '2026-09-18T08:00:00Z',
+    rules: DEFAULT_RULES,
     ...extra,
   };
 }
@@ -150,6 +152,31 @@ describe('HttpAdminService', () => {
     expect(refreshes).toBe(2);
   });
 
+  it('sends the rules that differ with a new league and a rules change through PATCH', async () => {
+    const creating = service.create({ ...NEW_LEAGUE, rules: { bonusPoint: false, marginWindow: 7 } });
+    const create = http.expectOne(ADMIN);
+    expect(create.request.body.rules).toEqual({ bonusPoint: false, marginWindow: 7 });
+    create.flush(
+      adminLeague({ id: 'l-9', rules: { ...DEFAULT_RULES, bonusPoint: false, marginWindow: 7 } }),
+    );
+    expect((await creating).rules).toMatchObject({ bonusPoint: false, marginWindow: 7 });
+
+    const updating = service.update('l-9', { rules: { grandSlamPoints: 3 } });
+    const update = http.expectOne(`${ADMIN}/l-9`);
+    expect(update.request.method).toBe('PATCH');
+    expect(update.request.body).toEqual({ rules: { grandSlamPoints: 3 } });
+    update.flush(adminLeague({ id: 'l-9', rules: { ...DEFAULT_RULES, grandSlamPoints: 3 } }));
+    expect((await updating).rules.grandSlamPoints).toBe(3);
+  });
+
+  it('fills in the default rules when the API leaves them out', async () => {
+    const loading = service.load();
+    const { rules: _, ...bare } = adminLeague();
+    http.expectOne(ADMIN).flush([bare]);
+    await loading;
+    expect(service.leagues()[0].rules).toEqual(DEFAULT_RULES);
+  });
+
   it('appoints a captain with the membership id', async () => {
     const appointing = service.appointCaptain('l-1', 'm-2');
     const request = http.expectOne(`${ADMIN}/l-1/captain`);
@@ -257,6 +284,31 @@ describe('SampleAdminService', () => {
     expect(data.captainMemberId()).toBe(data.currentMemberId());
     expect(data.members().map((m) => m.name)).toEqual(['Doempie', 'Kallie']);
     expect(data.feed()[0].title).toBe('The Die Ou Manne is open.');
+  });
+
+  it('starts a new league with the rules sent and Piele’s for the rest', async () => {
+    const league = await service.create({
+      ...NEW_LEAGUE,
+      slug: 'own-rules',
+      rules: { bonusPointSplit: false, winPoints: { ...DEFAULT_RULES.winPoints, final: 4 } },
+    });
+    expect(league.rules).toEqual({
+      ...DEFAULT_RULES,
+      bonusPointSplit: false,
+      winPoints: { ...DEFAULT_RULES.winPoints, final: 4 },
+    });
+    expect(context.find('own-rules')?.rules.bonusPointSplit).toBe(false);
+  });
+
+  it('changes a league’s rules through the update and refuses what the rules refuse', async () => {
+    const pofadder = service.leagues().find((l) => l.slug === 'pofadder-bowl')!;
+    const updated = await service.update(pofadder.id, { rules: { marginWindow: 3 } });
+    expect(updated.rules.marginWindow).toBe(3);
+    expect(context.find('pofadder-bowl')?.rules.marginWindow).toBe(3);
+    await expect(
+      service.update(pofadder.id, { name: 'Renamed', rules: { startingRound: 99 } }),
+    ).rejects.toBeInstanceOf(ApiError);
+    expect(service.leagues().find((l) => l.slug === 'pofadder-bowl')?.name).toBe(pofadder.name);
   });
 
   it('adds the admin outside the season when someone else captains', async () => {

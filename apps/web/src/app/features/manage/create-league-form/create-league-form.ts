@@ -20,9 +20,17 @@ import { AdminService } from '../../../core/league/admin.service';
 import { DEFAULT_ACCENT, EMBLEM_LABELS, isAccentColour, isEmblemPreset } from '../../../core/league/emblems';
 import { ApiError } from '../../../core/league/http-league-data';
 import { deriveSlug } from '../../../core/league/league-slugs';
+import { DEFAULT_RULES } from '../../../core/league/superbru';
 import { EmblemPicker } from '../../../shared/emblem-picker/emblem-picker';
 import { LeagueCrest } from '../../../shared/league-crest/league-crest';
 import { Loader } from '../../../shared/loader/loader';
+import { RulesFields } from '../../../shared/rules-fields/rules-fields';
+import {
+  rulesChange,
+  rulesFrom,
+  rulesGroup,
+  setLastRound,
+} from '../../../shared/rules-fields/rules-form';
 import {
   membersValidator,
   notBlank,
@@ -50,10 +58,14 @@ const FIELD_ORDER = [
   'members',
   'captain',
   'captainEmail',
+  'rules',
 ] as const;
 
 /** Blank rows the team sheet starts with. */
 const STARTING_ROWS = 3;
+
+/** The starting round's bound until the competition is known (the URC's regular rounds). */
+const FALLBACK_LAST_ROUND = 18;
 
 /**
  * The management centre's new-league form: name and slug (derived from the name until
@@ -61,14 +73,15 @@ const STARTING_ROWS = 3;
  * (defaulted from the competition until edited), the team sheet as rows of name, surname and
  * Superbru name with "Add member" for another row, the captain (the admin, or another
  * member with the email their name is reserved for), the admin's own membership, an emblem
- * preset and the accent colour. One request makes the league; success opens it.
+ * preset and the accent colour, and, collapsed, the season's Superbru rules (Piele's to start
+ * with; only the rules that differ are sent). One request makes the league; success opens it.
  */
 @Component({
   selector: 'app-create-league-form',
   templateUrl: './create-league-form.html',
   styleUrls: ['../manage-fields.scss', './create-league-form.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, NgIcon, EmblemPicker, LeagueCrest, Loader],
+  imports: [ReactiveFormsModule, NgIcon, EmblemPicker, LeagueCrest, Loader, RulesFields],
   viewProviders: [provideIcons({ lucideArrowRight, lucidePlus, lucideX })],
 })
 export class CreateLeagueForm {
@@ -105,6 +118,7 @@ export class CreateLeagueForm {
     addMe: new FormControl(false, { nonNullable: true }),
     emblemPreset: new FormControl<string | null>(null),
     accentColour: new FormControl<string | null>(null),
+    rules: rulesGroup(DEFAULT_RULES, FALLBACK_LAST_ROUND),
   });
   readonly controls = this.form.controls;
   /** The form's whole value, as a signal for the template's conditions and previews. */
@@ -138,6 +152,11 @@ export class CreateLeagueForm {
     const preset = this.value().emblemPreset;
     return isEmblemPreset(preset) ? EMBLEM_LABELS[preset] : null;
   });
+
+  /** The latest starting round the chosen competition allows. */
+  readonly lastRound = signal(FALLBACK_LAST_ROUND);
+  /** The collapsed "Superbru rules" group is open. */
+  readonly rulesOpen = signal(false);
 
   readonly competitions = signal<readonly CompetitionOption[] | null>(null);
   readonly competitionsError = signal('');
@@ -217,6 +236,10 @@ export class CreateLeagueForm {
     this.seasonEdited = true;
   }
 
+  rulesToggled(event: Event): void {
+    if (event.target instanceof HTMLDetailsElement) this.rulesOpen.set(event.target.open);
+  }
+
   /** Adds a blank row at the bottom and puts the cursor in its name. */
   addRow(): void {
     if (!this.canAddRow()) return;
@@ -282,6 +305,7 @@ export class CreateLeagueForm {
       return;
     }
     const v = this.form.getRawValue();
+    const rules = rulesChange(rulesFrom(this.controls.rules), DEFAULT_RULES, { champion: false });
     const body: NewLeague = {
       name: v.name.trim(),
       slug: v.slug,
@@ -294,6 +318,7 @@ export class CreateLeagueForm {
       emblemPreset: v.emblemPreset,
       accentColour: v.accentColour,
       addMe: !v.captainIsMe && v.addMe,
+      ...(Object.keys(rules).length ? { rules } : {}),
     };
     this.busy.set(true);
     try {
@@ -314,6 +339,8 @@ export class CreateLeagueForm {
   private applyCompetition(id: string): void {
     const option = this.competitions()?.find((c) => c.id === id);
     if (!option) return;
+    this.lastRound.set(option.regularRounds);
+    setLastRound(this.controls.rules, option.regularRounds);
     if (!this.zoneEdited) this.controls.timezone.setValue(option.timezone);
     if (!this.seasonEdited) this.controls.seasonName.setValue(defaultSeasonName(option));
   }
@@ -324,6 +351,18 @@ export class CreateLeagueForm {
 
   private focusFirstInvalid(): void {
     const field = FIELD_ORDER.find((name) => this.controls[name].invalid);
+    if (field === 'rules') {
+      // Open the collapsed group so its first problem can take focus.
+      this.rulesOpen.set(true);
+      afterNextRender(
+        () =>
+          this.host.nativeElement
+            .querySelector<HTMLElement>('#new-league-rules input.ng-invalid')
+            ?.focus(),
+        { injector: this.injector },
+      );
+      return;
+    }
     if (field !== 'members') {
       if (field) this.focus(`new-league-${field}`);
       return;

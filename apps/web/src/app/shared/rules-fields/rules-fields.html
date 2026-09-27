@@ -1,0 +1,104 @@
+@let g = group();
+@let p = idPrefix();
+<div class="rules-fields" [formGroup]="g">
+  <ul class="switches">
+    @for (item of switches; track item.key) {
+      <li>
+        <label class="switch" [for]="p + '-' + item.key">
+          <input
+            type="checkbox"
+            role="switch"
+            [id]="p + '-' + item.key"
+            [formControlName]="item.key"
+            [attr.aria-describedby]="p + '-' + item.key + '-hint'"
+          />
+          <span class="track" aria-hidden="true"></span>
+          <span class="switch-text"
+            ><strong>{{ item.label }}</strong
+            ><small [id]="p + '-' + item.key + '-hint'">{{ item.hint }}</small></span
+          >
+        </label>
+      </li>
+    }
+  </ul>
+
+  <div class="number-grid">
+    @let start = g.controls.startingRound;
+    <div class="rule-field">
+      <label [for]="p + '-startingRound'">Starting round</label>
+      <input
+        [id]="p + '-startingRound'"
+        type="number"
+        inputmode="numeric"
+        min="1"
+        [max]="lastRound()"
+        step="1"
+        formControlName="startingRound"
+        [attr.aria-invalid]="shows(start)"
+        [attr.aria-describedby]="shows(start) ? p + '-startingRound-error' : null"
+      />
+      @if (shows(start)) {
+        <p [id]="p + '-startingRound-error'" class="field-error">
+          Choose a round from 1 to {{ lastRound() }}.
+        </p>
+      }
+    </div>
+    <ng-container formGroupName="winPoints">
+      @for (item of winPoints; track item.key) {
+        @let control = g.controls.winPoints.controls[item.key];
+        <div class="rule-field">
+          <label [for]="p + '-win-' + item.key">{{ item.label }}</label>
+          <input
+            [id]="p + '-win-' + item.key"
+            type="number"
+            inputmode="decimal"
+            min="0"
+            [max]="max"
+            step="any"
+            [formControlName]="item.key"
+            [attr.aria-invalid]="shows(control)"
+            [attr.aria-describedby]="shows(control) ? p + '-win-' + item.key + '-error' : null"
+          />
+          @if (shows(control)) {
+            <p [id]="p + '-win-' + item.key + '-error'" class="field-error">
+              Enter a number from 0 to {{ max }}.
+            </p>
+          }
+        </div>
+      }
+    </ng-container>
+    @for (item of numbers; track item.key) {
+      @let control = g.controls[item.key];
+      <div class="rule-field">
+        <label [for]="p + '-' + item.key">{{ item.label }}</label>
+        <input
+          [id]="p + '-' + item.key"
+          type="number"
+          inputmode="decimal"
+          min="0"
+          [max]="max"
+          step="any"
+          [formControlName]="item.key"
+          [attr.aria-invalid]="shows(control)"
+          [attr.aria-describedby]="shows(control) ? p + '-' + item.key + '-error' : null"
+        />
+        @if (shows(control)) {
+          <p [id]="p + '-' + item.key + '-error'" class="field-error">
+            Enter a number from 0 to {{ max }}.
+          </p>
+        }
+      </div>
+    }
+    @if (champions(); as members) {
+      <div class="rule-field champion">
+        <label [for]="p + '-previousChampionMemberId'">Previous season's champion</label>
+        <select [id]="p + '-previousChampionMemberId'" formControlName="previousChampionMemberId">
+          <option value="">None</option>
+          @for (member of members; track member.id) {
+            <option [value]="member.id">{{ member.name }}</option>
+          }
+        </select>
+      </div>
+    }
+  </div>
+</div>

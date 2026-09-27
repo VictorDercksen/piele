@@ -1,4 +1,4 @@
-import { CompetitionRef } from './league.models';
+import { CompetitionRef, LeagueRules } from './league.models';
 
 /** One league as the management centre sees it (`GET /v1/admin/leagues`). */
 export interface AdminLeague {
@@ -29,6 +29,8 @@ export interface AdminLeague {
   /** The admin's own active membership, if any. */
   readonly myMemberId: string | null;
   readonly createdAt: string;
+  /** The active season's Superbru rules (the defaults when the league has no season). */
+  readonly rules: LeagueRules;
 }
 
 /** A competition a new league can play (`GET /v1/competitions`). */
@@ -64,6 +66,8 @@ export interface NewLeague {
   readonly accentColour?: string | null;
   /** With another captain: also add the admin as a member outside the season. */
   readonly addMe?: boolean;
+  /** The season's Superbru rules that differ from `DEFAULT_RULES`; left out, Piele's. */
+  readonly rules?: Partial<LeagueRules>;
 }
 
 /** `PATCH /v1/admin/leagues/{id}`: fields left out stay as they are. */
@@ -71,7 +75,12 @@ export interface LeagueUpdate {
   readonly name?: string;
   readonly timezone?: string;
   readonly status?: 'active' | 'archived';
+  /** Changes to the active season's Superbru rules. */
+  readonly rules?: Partial<LeagueRules>;
 }
+
+/** The same patch under the contract's name. */
+export type LeaguePatch = LeagueUpdate;
 
 /** A member the admin can appoint captain: active and claimed by an account. */
 export interface CaptainCandidate {

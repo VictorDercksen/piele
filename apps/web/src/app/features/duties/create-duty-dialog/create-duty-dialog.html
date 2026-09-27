@@ -61,6 +61,27 @@
         A pick confirmation needs the deadline you agreed with the member.
       }
     </p>
+    @if (type() === 'pick_confirmation' && memberId()) {
+      <fieldset class="pick-fixtures">
+        <legend>Picks it covers</legend>
+        @for (fixture of pickFixtures(); track fixture.id) {
+          <label class="pick-fixture">
+            <input
+              type="checkbox"
+              [checked]="fixture.checked"
+              (change)="togglePickFixture(fixture.id, $event)"
+            />
+            <span
+              >{{ fixture.label }} <small>{{ fixture.state }}</small></span
+            >
+          </label>
+        } @empty {
+          <p class="pick-fixtures-empty">
+            No match of this round that has kicked off is missing a pick from this member.
+          </p>
+        }
+      </fieldset>
+    }
     <label class="field-label" for="duty-reason">Reason <span>(shown on the register)</span></label>
     <textarea
       id="duty-reason"
