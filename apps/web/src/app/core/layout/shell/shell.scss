@@ -1,11 +1,7 @@
 // Floodlights shell: season rail, fixed top bar, scrolling content and mobile navigation.
+// The shell's colours and type live on the host so the fixed bottom navigation, a sibling of
+// the grid, shares them.
 :host {
-  display: block;
-  container-type: inline-size;
-  min-height: 100vh;
-  background: var(--night);
-}
-.league {
   --paper: #0b1518;
   --surface: #18282a;
   --ink: #f2efdf;
@@ -14,6 +10,20 @@
   --accent: #ffa17c;
   --orange: #f58b65;
   --tint: #382e26;
+  display: block;
+  // The container the shell and its pages query. It applies inline-size containment only, so
+  // it is not a containing block for the fixed bottom navigation.
+  container-type: inline-size;
+  min-height: 100vh;
+  background: var(--night);
+  color: var(--ink);
+  font-family: 'Titillium Web', sans-serif;
+  font-size: 15px;
+  line-height: 1.45;
+}
+// The bottom navigation sits outside the grid, which may never become a containing block for
+// fixed descendants (no filter or transform here).
+.league {
   display: grid;
   grid-template:
     'rail top' auto
@@ -22,10 +32,6 @@
   min-height: 100vh;
   position: relative;
   background: var(--surface-grain), var(--paper);
-  color: var(--ink);
-  font-family: 'Titillium Web', sans-serif;
-  font-size: 15px;
-  line-height: 1.45;
 }
 // Stays at the top while the content below scrolls.
 .top-bar {
@@ -454,8 +460,9 @@ app-season-timeline {
       'top' auto
       'rail' auto
       'main' 1fr
-      'nav' auto
       / minmax(0, 1fr);
+    // Room for the fixed bottom navigation, measured by the shell.
+    padding-bottom: var(--nav-height, 0px);
   }
   .season-rail {
     position: static;
@@ -503,46 +510,6 @@ app-season-timeline {
   }
   .page-heading h1 {
     font-size: 25px;
-  }
-  .mobile-nav {
-    grid-area: nav;
-    position: sticky;
-    bottom: 0;
-    z-index: 3;
-    display: flex;
-    justify-content: space-around;
-    padding: 8px 7px max(8px, env(safe-area-inset-bottom));
-    border-top: 1px solid var(--line);
-    background: var(--surface-grain), #132226;
-    box-shadow: 0 -8px 30px #0006;
-  }
-  .mobile-nav a {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 5px;
-    min-width: 50px;
-    min-height: 46px;
-    padding: 5px 7px;
-    color: var(--muted);
-    font-size: 11px;
-    text-decoration: none;
-  }
-  .mobile-nav a.selected {
-    color: var(--accent);
-  }
-  .mobile-nav a.selected::before {
-    content: '';
-    position: absolute;
-    top: -9px;
-    width: 25px;
-    height: 2px;
-    background: var(--orange);
-  }
-  .mobile-nav a app-icon {
-    width: 19px;
-    height: 19px;
   }
 }
 @container (max-width: 600px) {
@@ -611,6 +578,56 @@ app-season-timeline {
   .round-context strong {
     font-size: 18px;
   }
+}
+
+// The bottom navigation is fixed to the viewport, outside the grid, so it stays put while the
+// page shrinks under it (another page opening, a round or a dropdown closing) and while iOS
+// bounces the document back into range. A media query rather than the shell's container query:
+// the shell is as wide as the viewport, and the bar stays out of the grid's cascade.
+@media (max-width: 1050px) {
+  .mobile-nav {
+    position: fixed;
+    inset: auto 0 0;
+    z-index: 3;
+    display: flex;
+    justify-content: space-around;
+    padding: 8px 7px max(8px, env(safe-area-inset-bottom));
+    border-top: 1px solid var(--line);
+    background: var(--surface-grain), #132226;
+    box-shadow: 0 -8px 30px #0006;
+  }
+  .mobile-nav a {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    min-width: 50px;
+    min-height: 46px;
+    padding: 5px 7px;
+    color: var(--muted);
+    font-family: inherit;
+    font-size: 11px;
+    text-decoration: none;
+    touch-action: manipulation;
+  }
+  .mobile-nav a.selected {
+    color: var(--accent);
+  }
+  .mobile-nav a.selected::before {
+    content: '';
+    position: absolute;
+    top: -9px;
+    width: 25px;
+    height: 2px;
+    background: var(--orange);
+  }
+  .mobile-nav a app-icon {
+    width: 19px;
+    height: 19px;
+  }
+}
+@media (max-width: 350px) {
   .mobile-nav a {
     font-size: 10px;
   }

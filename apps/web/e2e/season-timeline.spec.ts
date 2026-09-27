@@ -141,6 +141,45 @@ test('sample league duties, evidence, votes and round scoping', async ({ page })
   await expect(page.getByRole('heading', { name: 'Same club. Shared rules.' })).toBeVisible();
 });
 
+test('a short page opened from deep in a long one starts at the top, the bottom bar in place', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 700 });
+  await page.goto('/piele?round=1');
+  await expect(page.locator('app-feed .feed-item').first()).toBeVisible();
+  await page.evaluate(() => scrollTo(0, 1200));
+  await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(800);
+  const nav = page.getByRole('navigation', { name: 'Mobile league navigation' });
+  // The bar is fixed to the viewport, not a row of the page's grid.
+  await expect(nav).toHaveCSS('position', 'fixed');
+  await nav.evaluate((element) => {
+    const gaps: number[] = [];
+    const started = performance.now();
+    const tick = () => {
+      gaps.push(innerHeight - element.getBoundingClientRect().bottom);
+      if (performance.now() - started < 1500) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+    (window as unknown as { navGaps: number[] }).navGaps = gaps;
+  });
+  await nav.getByRole('link', { name: 'Duties', exact: true }).click();
+  await expect(page).toHaveURL(/\/piele\/duties/);
+  await expect(page.getByRole('heading', { name: /No personal duties/ })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => scrollY)).toBe(0);
+  await page.waitForTimeout(1600);
+  // The bar never moved off the bottom of the viewport.
+  const gaps = await page.evaluate(() => (window as unknown as { navGaps: number[] }).navGaps);
+  expect(gaps.length).toBeGreaterThan(10);
+  for (const gap of gaps) expect(Math.abs(gap)).toBeLessThan(1);
+  // Scrolled to its end, the page's footer clears the bar: the grid is padded by its height.
+  const clearance = await page.evaluate(() => {
+    const bar = document.querySelector('.mobile-nav')!.getBoundingClientRect();
+    const footer = document.querySelector('.club-footer')!.getBoundingClientRect();
+    return document.documentElement.scrollHeight - (footer.bottom + scrollY) - bar.height;
+  });
+  expect(clearance).toBeGreaterThanOrEqual(-1);
+});
+
 test('desktop rail and top bar stay in view while the content scrolls', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 800 });
   await page.goto('/piele?round=2');

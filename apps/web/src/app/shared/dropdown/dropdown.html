@@ -30,7 +30,7 @@
       </div>
     </div>
   </div>
-  <div class="dropdown-lead"><ng-content select="[dropdownLead]" /></div>
+  <div class="dropdown-lead" #lead><ng-content select="[dropdownLead]" /></div>
   <div class="dropdown-body" #body [id]="contentId()" [attr.inert]="open() ? null : ''">
     <div class="dropdown-inner"><ng-content /></div>
   </div>
