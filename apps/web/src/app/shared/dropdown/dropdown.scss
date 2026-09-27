@@ -116,6 +116,12 @@
 
 /* Closed to nothing (or to the peek), open to its content. */
 .dropdown-body {
+  /*
+   * The body is the containing block of its absolutely positioned descendants (visually hidden
+   * table text, for one), so a closed body clips them too. A static box clips only in-flow
+   * content, and the rest extended the page's scrollable area from behind a closed dropdown.
+   */
+  position: relative;
   height: 0;
   overflow: hidden;
   visibility: hidden;

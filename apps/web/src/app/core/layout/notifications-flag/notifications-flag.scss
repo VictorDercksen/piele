@@ -67,16 +67,25 @@
   position: absolute;
 }
 
-// The assembly hangs off the trigger and drops below the header.
+// The assembly hangs off the trigger and drops below the header. Closed, it is not rendered:
+// the cloth hanging hidden under the sticky top bar still extended the page's scrollable area
+// (iOS Safari measures it at the bar's stuck position, so the page scrolled on past its end).
+// It leaves the page once the roll-up and retract animations have played.
 .assembly {
   position: absolute;
   right: 0;
   top: calc(100% + 18px);
   width: min(var(--cloth-width), calc(100vw - 96px));
+  display: none;
   pointer-events: none;
   filter: drop-shadow(0 18px 24px #0004);
   color: var(--fabric-ink);
   text-align: left;
+  // A display transition shows at once and hides at its end.
+  transition: display 660ms allow-discrete;
+}
+:host(.open) .assembly {
+  display: block;
 }
 .rod {
   position: relative;

@@ -127,16 +127,28 @@ test('sample league duties, evidence, votes and round scoping', async ({ page })
   await nav.getByRole('link', { name: 'More', exact: true }).click();
   await page.getByRole('link', { name: "Round 03 captain's desk" }).click();
   // Every section of the desk is closed until its chevron opens it.
-  await expect(page.getByRole('button', { name: 'Evidence to decide.' })).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.getByRole('button', { name: 'Evidence to decide.' })).toHaveAttribute(
+    'aria-expanded',
+    'false',
+  );
   await openSection(page, 'Evidence to decide.');
   await expect(page.locator('.round-empty')).toContainText('Nothing needs your decision');
   await openSection(page, 'The team sheet.');
   await expect(page.locator('.member-list li')).toHaveCount(6);
   const liam = page.locator('.member-list li').filter({ hasText: 'Liam' });
   await liam.getByRole('button', { name: 'Release Liam' }).click();
-  await page.getByRole('dialog').filter({ hasText: 'Release Liam?' }).getByRole('button', { name: 'Release name' }).click();
+  await page
+    .getByRole('dialog')
+    .filter({ hasText: 'Release Liam?' })
+    .getByRole('button', { name: 'Release name' })
+    .click();
   await expect(liam).toContainText('OPEN');
-  await expect(page.locator('.member-list li').filter({ hasText: 'You' }).getByRole('button', { name: /Release/ })).toHaveCount(0);
+  await expect(
+    page
+      .locator('.member-list li')
+      .filter({ hasText: 'You' })
+      .getByRole('button', { name: /Release/ }),
+  ).toHaveCount(0);
   await page.goto('/piele/constitution');
   await expect(page.getByRole('heading', { name: 'Same club. Shared rules.' })).toBeVisible();
 });
@@ -178,6 +190,59 @@ test('a short page opened from deep in a long one starts at the top, the bottom 
     return document.documentElement.scrollHeight - (footer.bottom + scrollY) - bar.height;
   });
   expect(clearance).toBeGreaterThanOrEqual(-1);
+});
+
+test('a page ends where its content ends: closed overlays and dropdowns add no scroll', async ({
+  page,
+}) => {
+  // The league switcher's sheet and scrim and the notifications cloth hang under the sticky
+  // top bar (the switcher's popover under the sticky rail), and a closed dropdown's body holds
+  // its visually hidden table text. Left rendered while closed, they extended the document,
+  // and iOS Safari measures a sticky bar's descendants at its stuck position, so a page could
+  // be scrolled a viewport past its footer.
+  const overhang = () =>
+    page.evaluate(() => {
+      const bottom = (element: Element) => element.getBoundingClientRect().bottom + scrollY;
+      const nav = document.querySelector('.mobile-nav')!;
+      const padding =
+        getComputedStyle(nav).position === 'fixed' ? nav.getBoundingClientRect().height : 0;
+      const end = Math.max(innerHeight, bottom(document.querySelector('.club-footer')!) + padding);
+      const beyond: string[] = [];
+      for (const bar of document.querySelectorAll('.top-bar, .season-rail, .round-bar')) {
+        const box = bar.getBoundingClientRect();
+        for (const element of bar.querySelectorAll('*')) {
+          const rect = element.getBoundingClientRect();
+          if (rect.height === 0 || rect.bottom <= box.bottom + 1) continue;
+          let clipped = false;
+          for (let parent = element.parentElement; parent !== bar; parent = parent!.parentElement)
+            if (getComputedStyle(parent!).overflowY !== 'visible') clipped = true;
+          if (!clipped) beyond.push(element.className);
+        }
+      }
+      return { excess: document.documentElement.scrollHeight - end, beyond };
+    });
+  for (const [width, height] of [
+    [390, 700],
+    [1440, 1100],
+  ]) {
+    await page.setViewportSize({ width, height });
+    for (const path of [
+      '/piele/duties?round=1',
+      '/piele/constitution?round=1',
+      '/piele/captain?round=1',
+      '/piele/match/292585?round=1',
+      '/piele?round=1',
+    ]) {
+      await page.goto(path);
+      await expect(page.locator('.page-loading')).toHaveCount(0);
+      await expect(page.locator('.page-body')).toBeVisible();
+      await expect.poll(overhang, { message: `${path} at ${width}px` }).toEqual({
+        excess: expect.any(Number),
+        beyond: [],
+      });
+      expect(Math.abs((await overhang()).excess), `${path} at ${width}px`).toBeLessThanOrEqual(1);
+    }
+  }
 });
 
 test('desktop rail and top bar stay in view while the content scrolls', async ({ page }) => {
@@ -309,7 +374,9 @@ test('captain creates, records and decides duties; the feed follows', async ({ p
 
   await nav.getByRole('link', { name: 'Home', exact: true }).click();
   const feed = page.locator('app-feed');
-  await expect(feed.locator('.feed-item').nth(1)).toContainText('Round 02 Pick confirmation completed');
+  await expect(feed.locator('.feed-item').nth(1)).toContainText(
+    'Round 02 Pick confirmation completed',
+  );
   await expect(feed.locator('.feed-item')).toHaveCount(10);
   await feed.getByRole('button', { name: 'Season' }).click();
   await expect(feed.locator('.feed-item')).toHaveCount(13);
@@ -321,7 +388,11 @@ test('captain creates, records and decides duties; the feed follows', async ({ p
   expect(Number(await arno.locator('strong').textContent())).toBeGreaterThanOrEqual(3);
 
   // A challenge upheld in Arno's favour clears his marks and restarts the clock.
-  await page.getByRole('navigation', { name: 'Season timeline' }).locator('.round-stop').first().click();
+  await page
+    .getByRole('navigation', { name: 'Season timeline' })
+    .locator('.round-stop')
+    .first()
+    .click();
   await nav.getByRole('link', { name: 'Duties', exact: true }).click();
   await page.getByRole('link', { name: 'League duties', exact: true }).click();
   const arnoDuty = page.locator('.register-card').filter({ hasText: 'Arno' });
@@ -334,7 +405,9 @@ test('captain creates, records and decides duties; the feed follows', async ({ p
   await expect(arnoDuty).toContainText('Clock reset');
   await nav.getByRole('link', { name: 'Standings', exact: true }).click();
   await page.getByRole('button', { name: 'House marks' }).click();
-  await expect(page.locator('.standing-row').filter({ hasText: 'Arno' }).locator('strong')).toHaveText('0');
+  await expect(
+    page.locator('.standing-row').filter({ hasText: 'Arno' }).locator('strong'),
+  ).toHaveText('0');
 });
 
 test('evidence dialog is centred on desktop and phone', async ({ page }) => {
