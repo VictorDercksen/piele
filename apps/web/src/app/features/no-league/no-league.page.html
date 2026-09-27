@@ -35,24 +35,20 @@
       <div class="join-row">
         <input
           id="join-code"
+          #codeInput
           formControlName="code"
           autocomplete="off"
           autocapitalize="off"
           spellcheck="false"
           maxlength="300"
           placeholder="Paste the link or code"
-          [attr.aria-invalid]="submitted() && invalid()"
-          [attr.aria-describedby]="submitted() && invalid() ? 'join-code-error' : null"
+          [attr.aria-invalid]="invalid()"
+          (input)="invalid.set(false)"
         />
         <button type="submit" class="primary-button">
           Join<ng-icon class="link-icon" name="lucideArrowRight" />
         </button>
       </div>
-      @if (submitted() && invalid()) {
-        <p id="join-code-error" class="error" role="alert">
-          That is not a join link or code. Paste the whole link the captain sent.
-        </p>
-      }
     </form>
   }
   @if (canSignOut) {

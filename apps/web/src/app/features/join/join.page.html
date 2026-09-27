@@ -52,15 +52,12 @@
               </button>
             }
           </div>
-        } @else if (!error()) {
+        } @else {
           <p class="empty">
             Every name on the team sheet is taken. Ask the captain to add you or to release a wrong
             claim.
           </p>
         }
-      }
-      @if (error()) {
-        <p class="error" role="alert">{{ error() }}</p>
       }
       <div class="actions">
         <button

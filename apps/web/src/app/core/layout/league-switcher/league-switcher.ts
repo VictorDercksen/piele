@@ -16,6 +16,7 @@ import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideArrowRight, lucideChevronsUpDown } from '@ng-icons/lucide';
 import { filter, map } from 'rxjs';
 import { CompetitionService, shortSeason } from '../../competition/competition.service';
+import { AlertService } from '../../feedback/alert.service';
 import { joinCodeFrom } from '../../league/join.service';
 import { LeagueContext } from '../../league/league-context';
 import { LeagueSummary } from '../../league/league.models';
@@ -52,6 +53,7 @@ export class LeagueSwitcher {
   private readonly competition = inject(CompetitionService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly injector = inject(Injector);
+  private readonly alerts = inject(AlertService);
   private readonly trigger = viewChild.required<ElementRef<HTMLButtonElement>>('trigger');
   private readonly panel = viewChild<ElementRef<HTMLElement>>('panel');
 
@@ -110,6 +112,7 @@ export class LeagueSwitcher {
   });
 
   private readonly codeInput = viewChild.required<ElementRef<HTMLInputElement>>('codeInput');
+  /** The last attempt's code did not parse; cleared when the field changes. */
   readonly joinInvalid = signal(false);
 
   toggle(): void {
@@ -159,7 +162,12 @@ export class LeagueSwitcher {
     const input = this.codeInput().nativeElement;
     const code = joinCodeFrom(input.value);
     this.joinInvalid.set(!code);
-    if (!code) return;
+    if (!code) {
+      input.focus();
+      this.alerts.warn(JOIN_CODE_PROBLEM, { key: ALERT_KEY });
+      return;
+    }
+    this.alerts.dismissKey(ALERT_KEY);
     input.value = '';
     this.close();
     void this.router.navigate(['/join', code]);
@@ -170,10 +178,19 @@ export class LeagueSwitcher {
   }
 
   onPointerDown(event: Event): void {
-    if (this.open() && !event.composedPath().includes(this.host.nativeElement))
-      this.open.set(false);
+    if (!this.open()) return;
+    const path = event.composedPath();
+    // Dismissing the join field's card leaves the switcher open.
+    const onAlert = path.some(
+      (target) => target instanceof Element && target.localName === 'app-alert-snack',
+    );
+    if (!path.includes(this.host.nativeElement) && !onAlert) this.open.set(false);
   }
 }
+
+/** The join field's one card, shared with the no-league page's field. */
+const ALERT_KEY = 'join-code';
+const JOIN_CODE_PROBLEM = 'That is not a join link or code. Paste the whole link the captain sent.';
 
 interface LeagueGroup {
   readonly title: string | null;

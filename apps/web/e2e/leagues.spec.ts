@@ -104,7 +104,11 @@ test('the no-league page takes a pasted join link', async ({ page }) => {
   const field = page.getByLabel('Join link or code');
   await field.fill('not a code');
   await page.getByRole('button', { name: 'Join' }).click();
-  await expect(page.getByRole('alert')).toContainText('not a join link or code');
+  await expect(
+    page.getByRole('status').filter({ hasText: 'not a join link or code' }),
+  ).toBeVisible();
+  await expect(field).toHaveAttribute('aria-invalid', 'true');
+  await expect(field).toBeFocused();
   await field.fill(`https://pavilion.example/join/${PIELE_JOIN_CODE}`);
   await page.getByRole('button', { name: 'Join' }).click();
   await expect(page).toHaveURL(new RegExp(`/join/${PIELE_JOIN_CODE}$`));

@@ -1,9 +1,18 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  computed,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideArrowRight } from '@ng-icons/lucide';
 import { AuthService } from '../../core/auth/auth.service';
+import { AlertService } from '../../core/feedback/alert.service';
 import { joinCodeFrom } from '../../core/league/join.service';
 import { LeagueContext } from '../../core/league/league-context';
 import { Loader } from '../../shared/loader/loader';
@@ -24,6 +33,8 @@ export class NoLeaguePage {
   private readonly router = inject(Router);
   private readonly context = inject(LeagueContext);
   private readonly auth = inject(AuthService);
+  private readonly alerts = inject(AlertService);
+  private readonly codeInput = viewChild<ElementRef<HTMLInputElement>>('codeInput');
   readonly email = this.auth.email;
   readonly canSignOut = this.auth.configured;
   /** Why the account could not be loaded, when that is what brought the member here. */
@@ -36,7 +47,7 @@ export class NoLeaguePage {
       validators: [Validators.required, Validators.maxLength(300)],
     }),
   });
-  readonly submitted = signal(false);
+  /** The last attempt's code did not parse; cleared when the field changes. */
   readonly invalid = signal(false);
   readonly busy = signal(false);
 
@@ -46,10 +57,15 @@ export class NoLeaguePage {
   }
 
   join(): void {
-    this.submitted.set(true);
     const code = joinCodeFrom(this.form.controls.code.value);
     this.invalid.set(!code);
-    if (code) void this.router.navigate(['/join', code]);
+    if (!code) {
+      this.codeInput()?.nativeElement.focus();
+      this.alerts.warn(JOIN_CODE_PROBLEM, { key: ALERT_KEY });
+      return;
+    }
+    this.alerts.dismissKey(ALERT_KEY);
+    void this.router.navigate(['/join', code]);
   }
 
   async retry(): Promise<void> {
@@ -72,3 +88,7 @@ export class NoLeaguePage {
     }
   }
 }
+
+/** The join field's one card: a replacement for each attempt. */
+const ALERT_KEY = 'join-code';
+const JOIN_CODE_PROBLEM = 'That is not a join link or code. Paste the whole link the captain sent.';

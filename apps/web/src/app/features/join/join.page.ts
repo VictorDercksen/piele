@@ -1,8 +1,16 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideArrowRight } from '@ng-icons/lucide';
 import { AuthService } from '../../core/auth/auth.service';
+import { AlertService } from '../../core/feedback/alert.service';
 import { ApiError } from '../../core/league/http-league-data';
 import { JoinService } from '../../core/league/join.service';
 import { LeagueContext } from '../../core/league/league-context';
@@ -29,6 +37,7 @@ export class JoinPage {
   private readonly router = inject(Router);
   private readonly joins = inject(JoinService);
   private readonly context = inject(LeagueContext);
+  private readonly alerts = inject(AlertService);
   private readonly code = inject(ActivatedRoute).snapshot.paramMap.get('code') ?? '';
   readonly email = this.auth.email;
   readonly canSignOut = this.auth.configured;
@@ -38,6 +47,7 @@ export class JoinPage {
   readonly chosen = signal<string | null>(null);
   readonly confirming = signal(false);
   readonly busy = signal(false);
+  /** The preview could not be loaded at all: the page's own "Not just now." state. */
   readonly error = signal('');
   readonly league = computed(() => this.preview()?.league ?? null);
   readonly names = computed(() => this.preview()?.unclaimed ?? null);
@@ -48,6 +58,8 @@ export class JoinPage {
 
   constructor() {
     void this.load();
+    // A failed claim persists until dismissed; it should not outlive the page.
+    inject(DestroyRef).onDestroy(() => this.alerts.dismissKey(ALERT_KEY));
   }
 
   async load(): Promise<void> {
@@ -55,19 +67,18 @@ export class JoinPage {
     try {
       this.preview.set(await this.joins.preview(this.code));
     } catch (error) {
-      if (error instanceof ApiError && UNUSABLE.includes(error.code))
+      const message = error instanceof Error ? error.message : 'The join link could not be opened.';
+      // With the names already showing, a failed refresh is a notice, not the page's state.
+      if (this.preview()) this.alerts.error(message, { key: ALERT_KEY });
+      else if (error instanceof ApiError && UNUSABLE.includes(error.code))
         this.invalid.set(error.message);
-      else
-        this.error.set(
-          error instanceof Error ? error.message : 'The join link could not be opened.',
-        );
+      else this.error.set(message);
     }
   }
 
   choose(id: string): void {
     this.chosen.set(id);
     this.confirming.set(false);
-    this.error.set('');
   }
 
   async claim(): Promise<void> {
@@ -79,17 +90,22 @@ export class JoinPage {
       return;
     }
     this.busy.set(true);
-    this.error.set('');
     try {
       await this.joins.claim(this.code, id);
       await this.context.reloadAccount();
+      this.alerts.dismissKey(ALERT_KEY);
       await this.router.navigateByUrl(`/${league.slug}`);
     } catch (error) {
       // Refresh first: the list drops a name someone else took, then the reason is shown.
       this.confirming.set(false);
       this.chosen.set(null);
       await this.load();
-      this.error.set(error instanceof Error ? error.message : 'That name could not be claimed.');
+      this.alerts.error(
+        error instanceof Error ? error.message : 'That name could not be claimed.',
+        {
+          key: ALERT_KEY,
+        },
+      );
     } finally {
       this.busy.set(false);
     }
@@ -107,3 +123,6 @@ export class JoinPage {
 
 /** Codes for a link that will not work however often it is retried. */
 const UNUSABLE = ['unknown_join_code', 'unavailable'];
+
+/** The join page's one notice: a failed claim or refresh. */
+const ALERT_KEY = 'join';

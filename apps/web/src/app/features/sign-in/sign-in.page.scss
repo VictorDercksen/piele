@@ -159,10 +159,8 @@ button:focus-visible {
   outline: 2px solid #ff957e;
   outline-offset: 3px;
 }
-.validation {
-  color: #ff957e;
-  font-size: 13px;
-  margin: 8px 0 0;
+input[aria-invalid='true'] {
+  border-color: #ff957e;
 }
 .notice {
   margin: 14px 0 0;

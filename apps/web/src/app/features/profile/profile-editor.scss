@@ -178,6 +178,12 @@ h2 {
   color: #fff;
   padding: 10px 14px;
 }
+#display-name[aria-invalid='true'] {
+  border-color: #ffb5ab;
+}
+.team-options:has(input[aria-invalid='true']) .team-option {
+  border-color: #ffb5ab;
+}
 .profile-form input:focus-visible,
 button:focus-visible {
   outline: 2px solid var(--team-accent);
@@ -305,10 +311,6 @@ legend span {
   text-decoration: underline;
   border: 0;
   padding: 5px 0;
-}
-.validation {
-  font-size: 13px;
-  color: #ffb5ab;
 }
 .save-profile {
   margin-top: 24px;

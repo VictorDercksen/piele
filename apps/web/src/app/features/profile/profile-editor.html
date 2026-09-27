@@ -57,6 +57,7 @@
     <label for="display-name">Your name</label
     ><input
       id="display-name"
+      #nameInput
       formControlName="displayName"
       autocomplete="nickname"
       maxlength="50"
@@ -66,9 +67,6 @@
     />
     @if (leagueName) {
       <p class="field-hint">Your Superbru nickname, set by the league.</p>
-    }
-    @if (submitted() && form.controls.displayName.invalid) {
-      <p class="validation" role="alert">Enter your name to continue.</p>
     }
     <fieldset>
       <legend>Your favourite team <span>Required</span></legend>
@@ -87,7 +85,8 @@
               type="radio"
               formControlName="teamId"
               [value]="team.id"
-              [attr.aria-label]="team.name" /><img [src]="team.jersey" alt="" /><span>{{
+              [attr.aria-label]="team.name"
+              [attr.aria-invalid]="submitted() && !teamId()" /><img [src]="team.jersey" alt="" /><span>{{
               team.shortName
             }}</span
             ><i aria-hidden="true">
@@ -97,9 +96,6 @@
           ></label>
         }
       </div>
-      @if (submitted() && !teamId()) {
-        <p class="validation" role="alert">Choose the team you support.</p>
-      }
     </fieldset>
     <div class="photo-control">
       <span class="profile-avatar">
@@ -116,8 +112,10 @@
           }
           {{ busy() ? 'Preparing photo…' : 'Add a profile photo'
           }}<input
+            #photoInput
             type="file"
             accept="image/jpeg,image/png,image/webp"
+            [attr.aria-invalid]="photoInvalid()"
             (change)="choosePhoto($event)"
             [disabled]="busy() || saving()"
         /></label>
@@ -126,7 +124,7 @@
           <button
             class="remove-photo"
             type="button"
-            (click)="photo.set(null)"
+            (click)="removePhoto()"
             [disabled]="busy() || saving()"
           >
             Remove photo
@@ -134,9 +132,6 @@
         }
       </div>
     </div>
-    @if (error()) {
-      <p class="validation" role="alert">{{ error() }}</p>
-    }
     <div class="save-profile">
       <p>
         {{

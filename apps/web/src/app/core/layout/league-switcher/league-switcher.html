@@ -101,17 +101,12 @@
         maxlength="300"
         placeholder="Paste the link from your captain"
         [attr.aria-invalid]="joinInvalid()"
-        [attr.aria-describedby]="joinInvalid() ? id + '-error' : null"
+        (input)="joinInvalid.set(false)"
       />
       <button type="submit" class="primary-button">
         Join<ng-icon class="link-icon" name="lucideArrowRight" />
       </button>
     </div>
-    @if (joinInvalid()) {
-      <p [id]="id + '-error'" class="join-error" role="alert">
-        That is not a join link or code. Paste the whole link the captain sent.
-      </p>
-    }
   </form>
   @if (isAdmin()) {
     <a class="manage-link" routerLink="/manage" (click)="close()"
