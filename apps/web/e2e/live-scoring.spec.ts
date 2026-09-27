@@ -155,7 +155,9 @@ test('a live match updates the ribbon, hero and scoring timeline', async ({ page
   await expect(page.locator('.panel.weather')).toBeVisible();
 
   const panel = page.locator('app-scoring-panel');
-  const summary = panel.getByRole('button', { name: /scoring pitch/ });
+  const summary = panel.locator('.summary');
+  const chevron = panel.getByRole('button', { name: 'Show the scoring pitch', exact: true });
+  await expect(chevron).toHaveAttribute('aria-expanded', 'false');
   await expect(panel.locator('.tag')).toHaveText('live');
   await expect(summary).toHaveAttribute('aria-expanded', 'false');
   await expect(panel.locator('.side.away b')).toHaveText('7');
@@ -163,6 +165,9 @@ test('a live match updates the ribbon, hero and scoring timeline', async ({ page
   await expect(panel.locator('.summary-line')).toContainText("Latest: 30' Yellow card");
   await panel.locator('.summary-line').click();
   await expect(summary).toHaveAttribute('aria-expanded', 'true');
+  await expect(
+    panel.getByRole('button', { name: 'Hide the scoring pitch', exact: true }),
+  ).toHaveAttribute('aria-expanded', 'true');
   const rows = panel.locator('.row');
   await expect(rows).toHaveCount(4);
   await expect(rows.nth(1)).toHaveClass(/away big/);

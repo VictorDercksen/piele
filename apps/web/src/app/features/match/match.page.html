@@ -7,17 +7,6 @@
     [linked]="false"
   />
 
-  <div class="deadline-banner">
-    <app-icon name="clock" /><span
-      ><strong>{{ view.round().title }} house pick deadline</strong>{{ view.deadline() }}</span
-    >
-    @if (view.round().status === 'Current') {
-      <a href="https://www.superbru.com/" target="_blank" rel="noopener noreferrer"
-        >Open Superbru<ng-icon class="link-icon" name="lucideExternalLink"
-      /></a>
-    }
-  </div>
-
   @if (!configured) {
     <div class="round-empty">
       <app-icon name="rounds" />
@@ -239,8 +228,8 @@
     </div>
   }
   <p class="context-note">
-    Published competition fixture. House pick deadlines require a separate captain confirmation.
-    Live scores, teamsheets, forecasts and previews come from public sources and can change.
+    Published competition fixture. Picks lock at kickoff. Live scores, teamsheets, forecasts and
+    previews come from public sources and can change.
   </p>
 } @else {
   <div class="round-empty">

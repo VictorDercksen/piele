@@ -63,7 +63,17 @@ test('before kickoff a member sees only the pick form; saving the pick reveals t
   await expect(
     panel.getByRole('img', { name: "The pool's split: Stormers 100%, Sharks 0%." }),
   ).toBeVisible();
+  // The pool table waits behind the chevron, closed by default.
   const pool = panel.getByRole('table', { name: 'Picks for Stormers v Sharks' });
+  await expect(pool).toBeHidden();
+  const chevron = panel.getByRole('button', { name: "Show the pool's picks" });
+  await expect(chevron).toHaveAttribute('aria-expanded', 'false');
+  await chevron.click();
+  await expect(panel.getByRole('button', { name: "Hide the pool's picks" })).toHaveAttribute(
+    'aria-expanded',
+    'true',
+  );
+  await expect(pool).toBeVisible();
   await expect(pool.locator('tbody tr')).toHaveCount(1);
   await expect(pool.locator('tbody tr.you')).toContainText('Victor Dercksen');
   // No marks or points before kickoff.
@@ -94,8 +104,14 @@ test('a kicked-off fixture shows every pick with its marks, points and the membe
   await expect(mine.locator('.mine-points')).toHaveText('0 pts');
   await expect(mine.locator('.mine-place')).toHaveText('4th of 6 in this match');
 
-  // Every pick, from the biggest home margin to the biggest away margin, with W, M and B.
+  // Closed by default: the split and the member's line only; the chevron opens the pool.
   const pool = panel.getByRole('table', { name: 'Picks for Connacht v Stormers' });
+  await expect(pool).toBeHidden();
+  await expect(panel.locator('.panel-source')).toBeHidden();
+  await panel.getByRole('button', { name: "Show the pool's picks" }).click();
+  await expect(pool).toBeVisible();
+
+  // Every pick, from the biggest home margin to the biggest away margin, with W, M and B.
   for (const heading of ['W', 'M', 'B', 'Pts']) {
     await expect(pool.getByRole('columnheader', { name: heading, exact: true })).toBeVisible();
   }

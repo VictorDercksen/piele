@@ -90,7 +90,6 @@ export class RoundViewService {
       : (this.league.members().find((m) => m.id === id)?.name ?? null);
   });
   readonly note = computed(() => this.league.notes().find((n) => n.roundId === this.round().id));
-  readonly deadline = computed(() => this.note()?.deadline ?? 'Not confirmed by the captain');
   readonly activity = computed(
     () =>
       this.note()?.activity ??

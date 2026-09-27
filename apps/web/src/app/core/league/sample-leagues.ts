@@ -158,7 +158,9 @@ export const sampleResults: Readonly<Record<string, FixtureResult>> = Object.fro
 function roundFixtures(roundId: number): string[] {
   return URC.fixtures
     .filter((f) => f.round === roundId)
-    .sort((a, b) => (a.kickoffUtc ?? '').localeCompare(b.kickoffUtc ?? '') || a.id.localeCompare(b.id))
+    .sort(
+      (a, b) => (a.kickoffUtc ?? '').localeCompare(b.kickoffUtc ?? '') || a.id.localeCompare(b.id),
+    )
     .map((f) => f.id);
 }
 
@@ -206,7 +208,12 @@ function summary(
   slug: string,
   name: string,
   captain: boolean,
-  { emblemPreset = null, accentColour = null, member = true, rules = DEFAULT_RULES }: SummaryOptions = {},
+  {
+    emblemPreset = null,
+    accentColour = null,
+    member = true,
+    rules = DEFAULT_RULES,
+  }: SummaryOptions = {},
 ): LeagueSummary {
   return {
     id,
@@ -389,18 +396,15 @@ const PIELE: SampleLeagueSeed = {
   notes: [
     {
       roundId: 1,
-      deadline: '25 Sep 2026 · 19:00 SAST',
       activity: 'PieterW takes the Round 1 cap. Franco’s spoon evidence was accepted.',
     },
     {
       roundId: 2,
-      deadline: '02 Oct 2026 · 18:45 SAST',
       activity:
         'Johan takes the Round 2 cap. A result correction is awaiting the league’s decision.',
     },
     {
       roundId: 3,
-      deadline: '09 Oct 2026 · 18:45 SAST',
       activity: 'Round 3 standings and duties will appear after results are recorded.',
     },
   ],
@@ -564,12 +568,10 @@ const POFADDER: SampleLeagueSeed = {
   notes: [
     {
       roundId: 1,
-      deadline: '25 Sep 2026 · 19:00 SAST',
       activity: 'Sanet takes the Round 1 cap in the Pofadder Bowl.',
     },
     {
       roundId: 2,
-      deadline: '02 Oct 2026 · 18:45 SAST',
       activity: 'Kallie takes Round 2 with 15.5 points. Thabo holds the spoon.',
     },
   ],
@@ -665,7 +667,6 @@ const THIRD: SampleLeagueSeed = {
   notes: [
     {
       roundId: 2,
-      deadline: '02 Oct 2026 · 18:45 SAST',
       activity: 'Hennie takes Round 2. Zola holds the spoon.',
     },
   ],
