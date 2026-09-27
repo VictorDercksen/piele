@@ -5,11 +5,11 @@ import {
   inject,
   input,
   output,
-  signal,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { CompetitionService } from '../../../core/competition/competition.service';
 import { LeagueTime } from '../../../core/competition/league-time';
+import { AlertService } from '../../../core/feedback/alert.service';
 import { LeagueData } from '../../../core/league/league-data';
 import { LeaguePathPipe } from '../../../core/league/league-path.pipe';
 import { DutyEvidence } from '../../../core/league/league.models';
@@ -34,6 +34,7 @@ import { lucideArrowRight, lucidePlay } from '@ng-icons/lucide';
   },
 })
 export class DutyCard {
+  private readonly alerts = inject(AlertService);
   private readonly league = inject(LeagueData);
   private readonly time = inject(LeagueTime);
   private readonly competition = inject(CompetitionService);
@@ -48,7 +49,6 @@ export class DutyCard {
   readonly voided = output<void>();
   /** The captain records a challenge resolved in the member's favour. */
   readonly resetClock = output<void>();
-  readonly playbackError = signal('');
   readonly deadline = computed(() => this.time.format(this.duty().deadlineAt));
   readonly nextMark = computed(() => {
     const at = this.duty().marks.nextMarkAt;
@@ -109,12 +109,15 @@ export class DutyCard {
   }
 
   async watch(evidence: DutyEvidence): Promise<void> {
-    this.playbackError.set('');
+    const key = `playback-${evidence.assetId}`;
     try {
       const url = await this.league.playbackUrl(evidence.assetId);
+      this.alerts.dismissKey(key);
       window.open(url, '_blank', 'noopener');
     } catch (error) {
-      this.playbackError.set(error instanceof Error ? error.message : 'The video is unavailable.');
+      this.alerts.error(error instanceof Error ? error.message : 'The video is unavailable.', {
+        key,
+      });
     }
   }
 }

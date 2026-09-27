@@ -85,7 +85,8 @@ test('sample league duties, evidence, votes and round scoping', async ({ page })
     mimeType: 'text/plain',
     buffer: Buffer.from('x'),
   });
-  await expect(page.getByRole('alert')).toContainText('Choose a video file');
+  await expect(page.getByRole('status').filter({ hasText: 'Choose a video file' })).toBeVisible();
+  await expect(upload).toHaveAttribute('aria-invalid', 'true');
   await upload.setInputFiles({
     name: 'demo.mp4',
     mimeType: 'video/mp4',
@@ -93,7 +94,9 @@ test('sample league duties, evidence, votes and round scoping', async ({ page })
   });
   await page.getByRole('button', { name: 'Submit evidence' }).click();
   await expect(page.getByRole('heading', { name: 'Over to the captain.' })).toBeVisible();
-  await expect(page.getByRole('status')).toContainText('No file was uploaded');
+  await expect(page.getByRole('status').filter({ hasText: 'No file was uploaded' })).toBeVisible();
+  // The dialog's warning left with the problem it named.
+  await expect(page.getByRole('status').filter({ hasText: 'Choose a video file' })).toHaveCount(0);
 
   await nav.getByRole('link', { name: 'Duties', exact: true }).click();
   await expect(page).toHaveURL(/\/piele\/duties\?round=2/);
@@ -345,7 +348,10 @@ test('captain creates, records and decides duties; the feed follows', async ({ p
     buffer: Buffer.from('demo'),
   });
   await evidence.getByRole('button', { name: 'Record evidence' }).click();
-  await expect(evidence.getByRole('alert')).toContainText('Record when the duty was completed');
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Record when the duty was completed' }),
+  ).toBeVisible();
+  await expect(evidence.getByLabel('Completed at (SAST)')).toBeFocused();
   await evidence.getByLabel('Completed at (SAST)').fill('2026-09-20T09:00');
   await evidence.getByRole('button', { name: 'Record evidence' }).click();
   await expect(
@@ -356,7 +362,9 @@ test('captain creates, records and decides duties; the feed follows', async ({ p
   await card.getByRole('button', { name: 'Void duty' }).click();
   const reason = page.getByRole('dialog').filter({ hasText: 'Void this duty?' });
   await reason.getByRole('button', { name: 'Void duty' }).click();
-  await expect(reason.getByRole('alert')).toContainText('Give a reason');
+  await expect(page.getByRole('status').filter({ hasText: 'Give a reason' })).toBeVisible();
+  await expect(reason.getByLabel('Reason')).toHaveAttribute('aria-invalid', 'true');
+  await expect(reason.getByLabel('Reason')).toBeFocused();
   await reason.getByLabel('Reason').fill('Created by mistake');
   await reason.getByRole('button', { name: 'Void duty' }).click();
   await expect(card).toContainText('Voided');

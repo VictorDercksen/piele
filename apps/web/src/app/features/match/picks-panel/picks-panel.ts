@@ -30,6 +30,7 @@ import { map } from 'rxjs';
 import { CompetitionService } from '../../../core/competition/competition.service';
 import { LeagueTime } from '../../../core/competition/league-time';
 import { LeagueTimePipe } from '../../../core/competition/league-time.pipe';
+import { AlertService } from '../../../core/feedback/alert.service';
 import { ApiError } from '../../../core/league/http-league-data';
 import { LeaguePathPipe } from '../../../core/league/league-path.pipe';
 import { MemberPick, NewPick } from '../../../core/league/league.models';
@@ -75,6 +76,7 @@ function marginValidator(control: AbstractControl<string>): ValidationErrors | n
   viewProviders: [provideIcons({ lucideArrowRight, lucidePencil })],
 })
 export class PicksPanel {
+  private readonly alerts = inject(AlertService);
   private readonly competition = inject(CompetitionService);
   private readonly time = inject(LeagueTime);
   private readonly injector = inject(Injector);
@@ -90,7 +92,10 @@ export class PicksPanel {
   readonly editing = linkedSignal({ source: this.fixtureId, computation: () => false });
   readonly submitted = signal(false);
   readonly saving = signal(false);
-  readonly error = signal('');
+  /** The key of this fixture's warning card; a new attempt replaces it. */
+  readonly warningKey = computed(() => `pick-${this.fixtureId()}`);
+  /** The key of this fixture's failure card; a retry replaces it and a save clears it. */
+  readonly failureKey = computed(() => `pick-failed-${this.fixtureId()}`);
   /** The chip for a member with no pick after kickoff. */
   protected readonly noPick: PickChipView = {
     kind: 'missed',
@@ -297,6 +302,7 @@ export class PicksPanel {
   }
 
   cancel(): void {
+    this.alerts.dismissKey(this.warningKey());
     this.editing.set(false);
     this.fill(null);
     afterNextRender(() => this.mineStrip()?.nativeElement.focus(), { injector: this.injector });
@@ -304,41 +310,57 @@ export class PicksPanel {
 
   async save(): Promise<void> {
     this.submitted.set(true);
-    this.error.set('');
     const { side, margin } = this.form.getRawValue();
     if (this.form.invalid || !side) {
+      const problems: string[] = [];
+      if (this.form.controls.side.invalid) problems.push('Choose a side or a draw.');
+      if (this.form.controls.margin.invalid) problems.push('Enter a margin from 1 to 150.');
       (this.form.controls.side.invalid
         ? this.firstSide()
         : this.marginInput()
       )?.nativeElement.focus();
+      const [first = 'Choose a side or a draw.', ...rest] = problems;
+      this.alerts.warn(first, { key: this.warningKey(), details: rest });
       return;
     }
+    this.alerts.dismissKey(this.warningKey());
     const pick: NewPick =
       side === 'draw' ? { side: 'draw', margin: 0 } : { side, margin: Number(margin.trim()) };
     this.saving.set(true);
     try {
       await this.view.savePick(this.fixtureId(), pick);
+      this.alerts.dismissKey(this.failureKey());
       this.editing.set(false);
       this.fill(null);
       afterNextRender(() => this.mineStrip()?.nativeElement.focus(), { injector: this.injector });
     } catch (error) {
-      this.error.set(this.refusal(error));
+      this.refuse(error);
     } finally {
       this.saving.set(false);
     }
   }
 
-  /** The API's refusal as the member reads it; a lock names the kickoff. */
-  private refusal(error: unknown): string {
+  /**
+   * The API's refusal as the member reads it: a lock is a warning naming the kickoff, anything
+   * else a failure that stays until dismissed or the pick saves.
+   */
+  private refuse(error: unknown): void {
     if (error instanceof ApiError && error.code === 'picks_locked') {
       const kickoff = this.time.pattern(this.picks()?.fixture.kickoffUtc ?? null, 'd MMM HH:mm z');
-      return kickoff
-        ? `Picks for this match closed at kickoff, ${kickoff}.`
-        : 'Picks for this match closed at kickoff.';
+      this.alerts.warn(
+        kickoff
+          ? `Picks for this match closed at kickoff, ${kickoff}.`
+          : 'Picks for this match closed at kickoff.',
+        { key: this.warningKey() },
+      );
+      return;
     }
-    return error instanceof Error && error.message
-      ? error.message
-      : 'The pick could not be saved. Try again.';
+    this.alerts.error(
+      error instanceof Error && error.message
+        ? error.message
+        : 'The pick could not be saved. Try again.',
+      { key: this.failureKey() },
+    );
   }
 
   private fill(pick: MemberPick | null): void {
@@ -348,7 +370,6 @@ export class PicksPanel {
       margin: side && side !== 'draw' && pick?.margin ? String(pick.margin) : '',
     });
     this.submitted.set(false);
-    this.error.set('');
   }
 
   private firstChecked(): HTMLInputElement | null {

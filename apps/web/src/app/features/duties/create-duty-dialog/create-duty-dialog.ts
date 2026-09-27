@@ -8,15 +8,21 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { CompetitionService } from '../../../core/competition/competition.service';
 import { LeagueTime } from '../../../core/competition/league-time';
+import { AlertService } from '../../../core/feedback/alert.service';
 import { LeagueData } from '../../../core/league/league-data';
 import { DutyType } from '../../../core/league/league.models';
 import { RoundViewService } from '../../../core/league/round-view.service';
 import { Icon } from '../../../shared/icon/icon';
 import { Loader } from '../../../shared/loader/loader';
+
+/** The key of the form's warning card; a new attempt replaces it. */
+export const CREATE_DUTY_WARNING = 'create-duty';
+/** The key of the form's failure card; a retry replaces it and a success clears it. */
+export const CREATE_DUTY_FAILURE = 'create-duty-failed';
 
 /**
  * Captain's duty form. Spoon duties default to the next round's first kickoff; a pick
@@ -30,6 +36,7 @@ import { Loader } from '../../../shared/loader/loader';
   imports: [ReactiveFormsModule, Icon, Loader],
 })
 export class CreateDutyDialog {
+  private readonly alerts = inject(AlertService);
   private readonly league = inject(LeagueData);
   private readonly competition = inject(CompetitionService);
   private readonly time = inject(LeagueTime);
@@ -37,10 +44,12 @@ export class CreateDutyDialog {
   readonly zoneName = this.time.abbreviation;
   readonly view = inject(RoundViewService);
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
+  private readonly memberSelect = viewChild.required<ElementRef<HTMLSelectElement>>('memberSelect');
+  private readonly deadlineInput = viewChild.required<ElementRef<HTMLInputElement>>('deadlineInput');
   readonly created = output<{ title: string; memberName: string; deadlineAt: string | null }>();
-  readonly error = signal('');
   readonly busy = signal(false);
-  readonly submitted = signal(false);
+  /** The controls the last attempt found wanting, marked `aria-invalid` until they change. */
+  readonly invalid = signal<ReadonlySet<'memberId' | 'deadline'>>(new Set());
   readonly rounds = computed(() => this.competition.rounds);
   readonly form = new FormGroup({
     memberId: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
@@ -89,6 +98,19 @@ export class CreateDutyDialog {
     });
   });
 
+  constructor() {
+    for (const name of ['memberId', 'deadline'] as const) {
+      this.form.controls[name].valueChanges.pipe(takeUntilDestroyed()).subscribe({
+        next: () => {
+          if (!this.invalid().has(name)) return;
+          const next = new Set(this.invalid());
+          next.delete(name);
+          this.invalid.set(next);
+        },
+      });
+    }
+  }
+
   /** Opens the form, optionally filled in, e.g. a spoon duty proposed from the round table. */
   open(prefill: DutyPrefill = {}): void {
     this.form.reset({
@@ -99,8 +121,7 @@ export class CreateDutyDialog {
       reason: prefill.reason ?? '',
     });
     this.unticked.set(new Set());
-    this.error.set('');
-    this.submitted.set(false);
+    this.invalid.set(new Set());
     this.dialog().nativeElement.showModal();
   }
 
@@ -118,6 +139,11 @@ export class CreateDutyDialog {
     this.dialog().nativeElement.close();
   }
 
+  /** The dialog closed, however: its warning goes with it; a failure card stays to be read. */
+  closed(): void {
+    this.alerts.dismissKey(CREATE_DUTY_WARNING);
+  }
+
   useDefault(): void {
     this.form.controls.deadline.setValue('');
   }
@@ -127,18 +153,32 @@ export class CreateDutyDialog {
   }
 
   async submit(): Promise<void> {
-    this.submitted.set(true);
-    if (this.form.invalid || this.busy()) return;
+    if (this.busy()) return;
     const { memberId, type, roundId, deadline, reason } = this.form.getRawValue();
     const deadlineAt = deadline ? this.time.fromLocalInput(deadline) : null;
+    const problems: { control: 'memberId' | 'deadline'; message: string }[] = [];
+    if (this.form.controls.memberId.invalid) {
+      problems.push({ control: 'memberId', message: 'Choose the member who owes the duty.' });
+    }
     if (deadline && !deadlineAt) {
-      this.error.set('Enter a valid deadline.');
+      problems.push({ control: 'deadline', message: 'Enter a valid deadline.' });
+    } else if (this.needsDeadline() && !deadlineAt && type !== 'spoon') {
+      problems.push({ control: 'deadline', message: 'A pick confirmation needs a deadline.' });
+    }
+    if (problems.length || this.form.invalid) {
+      this.invalid.set(new Set(problems.map((problem) => problem.control)));
+      const [first, ...rest] = problems;
+      if (first) {
+        (first.control === 'memberId' ? this.memberSelect() : this.deadlineInput()).nativeElement.focus();
+        this.alerts.warn(first.message, {
+          key: CREATE_DUTY_WARNING,
+          details: rest.map((problem) => problem.message),
+        });
+      }
       return;
     }
-    if (this.needsDeadline() && !deadlineAt && type !== 'spoon') {
-      this.error.set('A pick confirmation needs a deadline.');
-      return;
-    }
+    this.invalid.set(new Set());
+    this.alerts.dismissKey(CREATE_DUTY_WARNING);
     const pickFixtureIds =
       type === 'pick_confirmation'
         ? this.pickFixtures()
@@ -146,7 +186,6 @@ export class CreateDutyDialog {
             .map((f) => f.id)
         : [];
     this.busy.set(true);
-    this.error.set('');
     try {
       await this.league.createDuty({
         memberId,
@@ -158,6 +197,7 @@ export class CreateDutyDialog {
       });
       const member = this.members().find((m) => m.id === memberId);
       const round = this.competition.round(Number(roundId));
+      this.alerts.dismissKey(CREATE_DUTY_FAILURE);
       this.close();
       this.created.emit({
         title: `${round?.title ?? 'Round'} ${type === 'spoon' ? 'Spoon duty' : 'Pick confirmation'}`,
@@ -165,7 +205,10 @@ export class CreateDutyDialog {
         deadlineAt: deadlineAt ?? this.defaultDeadline(),
       });
     } catch (error) {
-      this.error.set(error instanceof Error ? error.message : 'The duty could not be created.');
+      this.alerts.error(
+        error instanceof Error ? error.message : 'The duty could not be created.',
+        { key: CREATE_DUTY_FAILURE },
+      );
     } finally {
       this.busy.set(false);
     }

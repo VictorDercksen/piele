@@ -20,7 +20,8 @@
 .file-field:focus-within {
   border-color: var(--accent);
 }
-.file-field.filled {
+.file-field.filled,
+.file-field.invalid {
   border-style: solid;
   border-color: var(--accent);
 }
@@ -75,6 +76,9 @@ textarea {
 }
 .text-input {
   min-height: 40px;
+}
+.text-input[aria-invalid='true'] {
+  border-color: var(--accent);
 }
 .context-note {
   margin: 0 0 12px;

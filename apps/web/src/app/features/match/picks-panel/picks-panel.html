@@ -47,14 +47,11 @@
       @if (showForm()) {
         @if (sides(); as sides) {
           <form class="pick-form" [formGroup]="form" (ngSubmit)="save()" novalidate>
-            @if (error()) {
-              <p class="error-message form-error" role="alert">{{ error() }}</p>
-            }
             <fieldset
               class="choice"
               role="radiogroup"
               aria-labelledby="pick-side-legend"
-              [attr.aria-describedby]="invalid('side') ? 'pick-side-error' : null"
+              [attr.aria-invalid]="invalid('side')"
             >
               <legend id="pick-side-legend">Your pick</legend>
               <div class="segments">
@@ -84,9 +81,6 @@
                   <span class="segment-name">{{ sides.away.name }}</span>
                 </label>
               </div>
-              @if (invalid('side')) {
-                <p id="pick-side-error" class="field-error">Choose a side or a draw.</p>
-              }
             </fieldset>
             <div class="form-row">
               <div class="field margin-field">
@@ -99,13 +93,7 @@
                   autocomplete="off"
                   maxlength="3"
                   [attr.aria-invalid]="invalid('margin')"
-                  [attr.aria-describedby]="
-                    invalid('margin')
-                      ? 'pick-margin-error'
-                      : marginDisabled()
-                        ? 'pick-margin-hint'
-                        : null
-                  "
+                  [attr.aria-describedby]="marginDisabled() ? 'pick-margin-hint' : null"
                 />
               </div>
               <div class="form-actions">
@@ -117,9 +105,7 @@
                 }
               </div>
             </div>
-            @if (invalid('margin')) {
-              <p id="pick-margin-error" class="field-error">Enter a margin from 1 to 150.</p>
-            } @else if (marginDisabled()) {
+            @if (marginDisabled()) {
               <p id="pick-margin-hint" class="hint">A draw has no margin.</p>
             }
             <p class="form-note">

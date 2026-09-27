@@ -31,6 +31,9 @@ textarea {
 select {
   appearance: auto;
 }
+[aria-invalid='true'] {
+  border-color: var(--accent);
+}
 textarea {
   display: block;
   resize: vertical;

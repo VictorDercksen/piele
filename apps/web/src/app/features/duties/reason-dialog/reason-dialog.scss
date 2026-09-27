@@ -11,6 +11,9 @@ textarea {
   font-size: 13px;
   margin-bottom: 14px;
 }
+textarea[aria-invalid='true'] {
+  border-color: var(--accent);
+}
 .field-label {
   display: block;
   font-size: 12px;

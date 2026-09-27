@@ -21,9 +21,6 @@
     @if (poll.myChoice) {
       <p class="recorded-vote">Your recorded choice: {{ poll.myChoice }}</p>
     }
-    @if (error()) {
-      <p class="error-message" role="alert">{{ error() }}</p>
-    }
     <p class="context-note">Closes {{ poll.closes }}. You can change your vote until then.</p>
     <button
       type="button"
