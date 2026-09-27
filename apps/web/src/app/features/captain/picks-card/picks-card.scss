@@ -1,10 +1,6 @@
 :host {
   display: block;
 }
-/* `/captain#picks` lands below the sticky top bar and round header. */
-.picks {
-  scroll-margin-top: 170px;
-}
 .visually-hidden {
   position: absolute;
   width: 1px;

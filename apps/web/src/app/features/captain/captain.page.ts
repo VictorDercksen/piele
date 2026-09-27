@@ -18,6 +18,7 @@ import { LeagueMember } from '../../core/league/league.models';
 import { ReviewView, RoundViewService } from '../../core/league/round-view.service';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucidePlay } from '@ng-icons/lucide';
+import { CollapsibleSection } from '../../shared/collapsible-section/collapsible-section';
 import { Icon } from '../../shared/icon/icon';
 import { Loader } from '../../shared/loader/loader';
 import { CreateDutyDialog } from '../duties/create-duty-dialog/create-duty-dialog';
@@ -30,7 +31,8 @@ import { RulesCard } from './rules-card/rules-card';
 /**
  * The steward's desk (the captain, or the admin): evidence awaiting a decision in the selected
  * round, the round's Superbru picks and totals (`#picks`), the team sheet with removal and
- * reinstatement, the join link, the league's look and the season's Superbru rules.
+ * reinstatement, the join link, the league's look and the season's Superbru rules. Each section
+ * is closed behind its heading until its chevron opens it; `#picks` opens the picks.
  */
 @Component({
   selector: 'app-captain-page',
@@ -39,6 +41,7 @@ import { RulesCard } from './rules-card/rules-card';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     ReactiveFormsModule,
+    CollapsibleSection,
     Icon,
     NgIcon,
     Loader,
@@ -217,7 +220,9 @@ export class CaptainPage {
       },
       done: () => {
         this.toast.show(
-          deleted ? `${member.name} was deleted.` : `${member.name} was removed from the team sheet.`,
+          deleted
+            ? `${member.name} was deleted.`
+            : `${member.name} was removed from the team sheet.`,
         );
         // The row is gone; focus moves to the withdrawn group (or the heading) instead.
         afterNextRender(

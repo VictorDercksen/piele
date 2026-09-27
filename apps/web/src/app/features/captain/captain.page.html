@@ -1,8 +1,7 @@
-<section aria-labelledby="review-heading">
-  <div class="section-title">
-    <h2 id="review-heading">Evidence to decide.</h2>
-    <span>ROUND {{ view.round().code }}</span>
-  </div>
+<app-collapsible-section heading="Evidence to decide." headingId="review-heading">
+  @if (view.reviewCount()) {
+    <span class="tag" sectionSide>{{ view.reviewCount() }} PENDING</span>
+  }
   <p class="page-description">
     {{ view.reviewCount() }} {{ view.reviewCount() === 1 ? 'item' : 'items' }} for
     {{ view.round().title }}. Accepting sets the completion time; rejecting keeps the duty open.
@@ -42,15 +41,11 @@
   @if (playbackError()) {
     <p class="error-message" role="alert">{{ playbackError() }}</p>
   }
-</section>
+</app-collapsible-section>
 
 <app-picks-card [dialog]="reasonDialog()" [dutyDialog]="dutyDialog()" />
 
-<section class="members" aria-labelledby="members-heading">
-  <div class="section-title">
-    <h2 id="members-heading">The team sheet.</h2>
-    <span>SEASON</span>
-  </div>
+<app-collapsible-section class="members" heading="The team sheet." headingId="members-heading">
   <p class="page-description">
     Members sign in with Google or a password and claim their own name. Reserving a name for an
     email is optional: only a sign-in with that address can then take it. Release a name if the
@@ -146,7 +141,8 @@
         @for (member of view.withdrawn(); track member.id) {
           <li>
             <span class="member-name"
-              ><strong>{{ member.name }}</strong><small>{{ member.fullName }}</small></span
+              ><strong>{{ member.name }}</strong
+              ><small>{{ member.fullName }}</small></span
             >
             <span class="member-status">
               <span class="tag withdrawn-tag">WITHDRAWN</span>
@@ -203,7 +199,7 @@
       Add member
     </button>
   </form>
-</section>
+</app-collapsible-section>
 
 <app-join-link-card [dialog]="reasonDialog()" />
 

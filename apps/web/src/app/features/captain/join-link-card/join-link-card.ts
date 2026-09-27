@@ -13,6 +13,7 @@ import { lucideCopy, lucideRefreshCw } from '@ng-icons/lucide';
 import { ToastService } from '../../../core/feedback/toast.service';
 import { LeagueContext } from '../../../core/league/league-context';
 import { LeagueData } from '../../../core/league/league-data';
+import { CollapsibleSection } from '../../../shared/collapsible-section/collapsible-section';
 import { Icon } from '../../../shared/icon/icon';
 import { Loader } from '../../../shared/loader/loader';
 import { ReasonDialog } from '../../duties/reason-dialog/reason-dialog';
@@ -26,7 +27,7 @@ import { ReasonDialog } from '../../duties/reason-dialog/reason-dialog';
   templateUrl: './join-link-card.html',
   styleUrl: './join-link-card.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Icon, NgIcon, Loader],
+  imports: [CollapsibleSection, Icon, NgIcon, Loader],
   viewProviders: [provideIcons({ lucideCopy, lucideRefreshCw })],
 })
 export class JoinLinkCard {

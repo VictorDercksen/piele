@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { seedProfile } from './support';
+import { openSection, seedProfile } from './support';
 
 test.beforeEach(async ({ page }) => {
   await seedProfile(page);
@@ -126,7 +126,11 @@ test('sample league duties, evidence, votes and round scoping', async ({ page })
 
   await nav.getByRole('link', { name: 'More', exact: true }).click();
   await page.getByRole('link', { name: "Round 03 captain's desk" }).click();
+  // Every section of the desk is closed until its chevron opens it.
+  await expect(page.getByRole('button', { name: 'Evidence to decide.' })).toHaveAttribute('aria-expanded', 'false');
+  await openSection(page, 'Evidence to decide.');
   await expect(page.locator('.round-empty')).toContainText('Nothing needs your decision');
+  await openSection(page, 'The team sheet.');
   await expect(page.locator('.member-list li')).toHaveCount(6);
   const liam = page.locator('.member-list li').filter({ hasText: 'Liam' });
   await liam.getByRole('button', { name: 'Release Liam' }).click();
@@ -254,6 +258,7 @@ test('captain creates, records and decides duties; the feed follows', async ({ p
   const nav = page.getByRole('navigation', { name: 'League navigation', exact: true });
   await nav.getByRole('link', { name: 'More', exact: true }).click();
   await page.getByRole('link', { name: "Round 02 captain's desk" }).click();
+  await openSection(page, 'Evidence to decide.');
   const review = page.locator('.review-row').filter({ hasText: 'Liam' });
   await expect(review).toContainText('Counts from submission');
   await review.getByRole('button', { name: 'Accept' }).click();

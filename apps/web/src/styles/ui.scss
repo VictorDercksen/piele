@@ -503,6 +503,30 @@
 .profile-editor button.remove-photo {
   padding-inline: 16px;
 }
+// The white buttons carry the same stitched edge as the main actions.
+.league .icon-button,
+.league .context-pager button,
+.league .toast button,
+.profile-editor .close-profile,
+.league button.text-button,
+.profile-editor button.remove-photo,
+.google-button {
+  position: relative;
+}
+.league .icon-button::after,
+.league .context-pager button::after,
+.league .toast button::after,
+.profile-editor .close-profile::after,
+.league button.text-button::after,
+.profile-editor button.remove-photo::after,
+.google-button::after {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border: 1px dashed #153b4442;
+  border-radius: inherit;
+  pointer-events: none;
+}
 .league .icon-button:enabled:hover,
 .league .context-pager button:enabled:hover,
 .league .toast button:enabled:hover,

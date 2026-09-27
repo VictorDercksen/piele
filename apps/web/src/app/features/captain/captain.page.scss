@@ -1,10 +1,26 @@
-section + section,
+app-collapsible-section,
 app-picks-card,
 app-join-link-card,
 app-appearance-card,
 app-rules-card {
   display: block;
-  margin-top: 44px;
+}
+/* The desk's sections, each closed to its heading. */
+:is(
+    app-collapsible-section,
+    app-picks-card,
+    app-join-link-card,
+    app-appearance-card,
+    app-rules-card
+  )
+  + :is(
+    app-collapsible-section,
+    app-picks-card,
+    app-join-link-card,
+    app-appearance-card,
+    app-rules-card
+  ) {
+  margin-top: 28px;
 }
 .review-row {
   display: flex;

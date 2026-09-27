@@ -4,6 +4,7 @@ import { LeagueContext } from '../../../core/league/league-context';
 import { DEFAULT_ACCENT, isAccentColour } from '../../../core/league/emblems';
 import { AppearanceChange } from '../../../core/league/league.models';
 import { prepareEmblem } from '../../../core/profile/profile-photo';
+import { CollapsibleSection } from '../../../shared/collapsible-section/collapsible-section';
 import { EmblemPicker } from '../../../shared/emblem-picker/emblem-picker';
 import { LeagueCrest } from '../../../shared/league-crest/league-crest';
 import { Loader } from '../../../shared/loader/loader';
@@ -18,7 +19,7 @@ import { Loader } from '../../../shared/loader/loader';
   templateUrl: './appearance-card.html',
   styleUrl: './appearance-card.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [EmblemPicker, LeagueCrest, Loader],
+  imports: [CollapsibleSection, EmblemPicker, LeagueCrest, Loader],
 })
 export class AppearanceCard {
   private readonly context = inject(LeagueContext);
