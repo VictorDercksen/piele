@@ -1,8 +1,10 @@
+// A register entry is a dense slip: heading row, title, the three facts, then the trail
+// and actions. Spacing stays tight so several duties fit on one screen.
 :host {
   display: block;
   background: var(--surface-grain), var(--surface);
   border: 0;
-  padding: 30px;
+  padding: 18px 22px 20px;
   border-top: 3px solid #d4d9c4;
   box-shadow: 0 8px 24px #0003;
 }
@@ -10,35 +12,38 @@
   opacity: 0.82;
 }
 h2 {
-  line-height: 1.12;
-  margin: 22px 0 14px;
+  line-height: 1.15;
+  margin: 12px 0 6px;
   font-weight: 700;
-  letter-spacing: -0.7px;
-  font-size: 29px;
+  letter-spacing: -0.5px;
+  font-size: 22px;
 }
 .spoon-content > p {
   color: var(--muted);
-  font-size: 15px;
-  line-height: 1.6;
+  font-size: 13px;
+  line-height: 1.55;
   max-width: 600px;
 }
 dl {
   display: flex;
-  gap: 32px;
+  gap: 8px 28px;
   flex-wrap: wrap;
-  padding: 23px 0;
+  padding: 12px 0;
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
-  margin: 25px 0;
+  margin: 14px 0;
+}
+dl > div {
+  min-width: 0;
 }
 dt {
   font-size: 10px;
   color: var(--muted);
-  margin-bottom: 5px;
+  margin-bottom: 3px;
 }
 dd {
   margin: 0;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
 }
 dd small {
@@ -46,7 +51,7 @@ dd small {
   font-size: 11px;
   font-weight: 400;
   color: var(--muted);
-  margin-top: 3px;
+  margin-top: 2px;
 }
 .tag.warn {
   background: #4a1f1a;
@@ -54,16 +59,17 @@ dd small {
 }
 .evidence-trail {
   list-style: none;
-  margin: 0 0 20px;
+  margin: 0 0 14px;
   padding: 0;
   display: grid;
-  gap: 12px;
+  gap: 8px;
 }
 .evidence-trail li {
   display: grid;
-  gap: 4px;
-  font-size: 13px;
-  padding-left: 12px;
+  gap: 2px;
+  font-size: 12px;
+  line-height: 1.5;
+  padding-left: 10px;
   border-left: 2px solid var(--line);
 }
 .evidence-line {
@@ -82,32 +88,30 @@ dd small {
   color: var(--accent);
 }
 .evidence-trail .text-button {
-  min-height: 32px;
+  min-height: 28px;
   padding: 0;
   justify-self: start;
 }
 .card-actions {
   display: flex;
   align-items: center;
-  gap: 18px;
+  gap: 4px 16px;
   flex-wrap: wrap;
 }
-@container (max-width: 600px) {
-  :host {
-    padding: 22px;
-  }
-  dl {
-    flex-direction: column;
-    gap: 18px;
-  }
+.card-actions .primary-button {
+  min-height: 40px;
+  padding-block: 9px;
+}
+.card-actions .text-button {
+  min-height: 40px;
 }
 .pick-fixtures {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0 12px;
-  margin: -10px 0 18px;
-  font-size: 13px;
+  gap: 0 10px;
+  margin: -4px 0 12px;
+  font-size: 12px;
 }
 .pick-fixtures-label {
   color: var(--muted);
@@ -115,12 +119,40 @@ dd small {
 .pick-fixtures ul {
   display: flex;
   flex-wrap: wrap;
-  gap: 0 16px;
+  gap: 0 14px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 .pick-fixtures .text-button {
-  min-height: 36px;
+  min-height: 30px;
   font-size: 12px;
+}
+// The spoon photograph scales down with the slip so it never outgrows a short card.
+:host(.spoon-duty) > .spoon-art {
+  --spoon-art-height: 170px;
+  inset: 12px 0 auto auto;
+  width: 150px;
+}
+:host(.spoon-duty) > .spoon-content {
+  width: calc(100% - 140px);
+}
+@container spoon (max-width: 520px) {
+  :host(.spoon-duty) > .spoon-art {
+    --spoon-art-height: 120px;
+    inset: auto;
+    width: 100%;
+    margin-bottom: 12px;
+  }
+  :host(.spoon-duty) > .spoon-content {
+    width: 100%;
+  }
+}
+@container (max-width: 600px) {
+  :host {
+    padding: 16px 18px 18px;
+  }
+  dl {
+    gap: 10px 24px;
+  }
 }

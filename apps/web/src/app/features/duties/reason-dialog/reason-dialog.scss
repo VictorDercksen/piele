@@ -6,16 +6,16 @@ textarea {
   border: 1px solid var(--line);
   background: var(--surface);
   color: var(--ink);
-  padding: 12px;
+  padding: 10px 12px;
   border-radius: 3px;
-  font-size: 14px;
-  margin-bottom: 18px;
+  font-size: 13px;
+  margin-bottom: 14px;
 }
 .field-label {
   display: block;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
-  margin: 20px 0 8px;
+  margin: 14px 0 6px;
 }
 .field-label span {
   color: var(--muted);
