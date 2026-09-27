@@ -52,6 +52,7 @@ export class CreateDutyDialog {
   private readonly values = toSignal(this.form.valueChanges, { initialValue: this.form.value });
   readonly type = computed(() => this.values().type ?? 'spoon');
   readonly roundId = computed(() => Number(this.values().roundId ?? 1));
+  readonly memberId = computed(() => this.values().memberId ?? '');
   readonly members = computed(() => this.view.members().filter((m) => m.inSeason));
   /** The plan's default: due when the following round kicks off. */
   readonly defaultDeadline = computed(() =>
@@ -62,18 +63,55 @@ export class CreateDutyDialog {
   readonly defaultDeadlineLabel = computed(() => this.time.format(this.defaultDeadline(), 'unknown'));
   readonly needsDeadline = computed(() => this.type() !== 'spoon' || !this.defaultDeadline());
   readonly deadlineOverridden = computed(() => !!this.values().deadline);
-
-  open(): void {
-    this.form.reset({
-      memberId: '',
-      type: 'spoon',
-      roundId: this.view.round().id,
-      deadline: '',
-      reason: '',
+  /** Fixtures left off the pick confirmation; every candidate is ticked to start with. */
+  private readonly unticked = signal<ReadonlySet<string>>(new Set());
+  /**
+   * For a pick confirmation: the round's fixtures that have kicked off where the member has
+   * no pick, or a missed or default one. The duty links those picks.
+   */
+  readonly pickFixtures = computed<readonly PickFixtureOption[]>(() => {
+    const memberId = this.memberId();
+    if (this.type() !== 'pick_confirmation' || !memberId) return [];
+    const round = this.competition.round(this.roundId());
+    return (round?.fixtures ?? []).flatMap((fixture) => {
+      const picks = this.view.picksFor(fixture.id);
+      if (!picks?.locked) return [];
+      const pick = picks.rows.find((row) => row.memberId === memberId);
+      if (pick && pick.side !== 'missed' && !pick.isDefault) return [];
+      return [
+        {
+          id: fixture.id,
+          label: `${fixture.home} v ${fixture.away}`,
+          state: !pick ? 'No pick' : pick.side === 'missed' ? 'Missed' : 'Default pick',
+          checked: !this.unticked().has(fixture.id),
+        },
+      ];
     });
+  });
+
+  /** Opens the form, optionally filled in, e.g. a spoon duty proposed from the round table. */
+  open(prefill: DutyPrefill = {}): void {
+    this.form.reset({
+      memberId: prefill.memberId ?? '',
+      type: prefill.type ?? 'spoon',
+      roundId: prefill.roundId ?? this.view.round().id,
+      deadline: '',
+      reason: prefill.reason ?? '',
+    });
+    this.unticked.set(new Set());
     this.error.set('');
     this.submitted.set(false);
     this.dialog().nativeElement.showModal();
+  }
+
+  togglePickFixture(fixtureId: string, event: Event): void {
+    const checked = event.target instanceof HTMLInputElement && event.target.checked;
+    this.unticked.update((ids) => {
+      const next = new Set(ids);
+      if (checked) next.delete(fixtureId);
+      else next.add(fixtureId);
+      return next;
+    });
   }
 
   close(): void {
@@ -101,6 +139,12 @@ export class CreateDutyDialog {
       this.error.set('A pick confirmation needs a deadline.');
       return;
     }
+    const pickFixtureIds =
+      type === 'pick_confirmation'
+        ? this.pickFixtures()
+            .filter((f) => f.checked)
+            .map((f) => f.id)
+        : [];
     this.busy.set(true);
     this.error.set('');
     try {
@@ -110,6 +154,7 @@ export class CreateDutyDialog {
         roundId: Number(roundId),
         deadlineAt,
         reason: reason.trim(),
+        ...(pickFixtureIds.length ? { pickFixtureIds } : {}),
       });
       const member = this.members().find((m) => m.id === memberId);
       const round = this.competition.round(Number(roundId));
@@ -125,4 +170,20 @@ export class CreateDutyDialog {
       this.busy.set(false);
     }
   }
+}
+
+/** What a caller can fill in when it opens the form. */
+export interface DutyPrefill {
+  readonly memberId?: string;
+  readonly type?: DutyType;
+  readonly roundId?: number;
+  readonly reason?: string;
+}
+
+/** A fixture the pick confirmation can cover, with the member's pick state there. */
+export interface PickFixtureOption {
+  readonly id: string;
+  readonly label: string;
+  readonly state: 'No pick' | 'Missed' | 'Default pick';
+  readonly checked: boolean;
 }

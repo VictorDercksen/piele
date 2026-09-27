@@ -1,12 +1,14 @@
 """League domain operations. Every mutation runs inside the actor's transaction and writes
 its audit event and feed entry there, so the three commit or roll back together (I6)."""
 
+import copy
+import math
 import re
 import secrets
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 from uuid import UUID, uuid4
 
 from fastapi import HTTPException
@@ -29,6 +31,11 @@ from app.league.context import (
 )
 from app.league.marks import MarkCalculation, calculate
 from app.league.storage import Storage, StorageError
+from app.matchcentre import milestones
+from app.matchcentre.cache import external_snapshots
+from app.matchcentre.providers import scores as score_feed
+from app.matchcentre.schedule import Fixture
+from app.matchcentre.service import round_scores_key
 
 DUTY_TYPES = ("spoon", "pick_confirmation")
 VIDEO_TYPES = ("video/",)
@@ -285,7 +292,7 @@ def _void_member_duties(actor: Actor, membership_id: UUID) -> list[UUID]:
 
 
 def _delete_if_record_free(actor: Actor, row: Any) -> bool:
-    """Deletes an unclaimed name that nothing refers to: no duties, standings or evidence,
+    """Deletes an unclaimed name that nothing refers to: no duties, standings, picks or evidence,
     and no season membership beyond its one enrolment. Anything else that still points at
     it (a feed entry from an earlier claim, say) makes the delete fail on its foreign key,
     and the caller withdraws the name instead."""
@@ -299,6 +306,8 @@ def _delete_if_record_free(actor: Actor, row: Any) -> bool:
         if connection.execute(select(d.c.id).where(d.c.season_membership_id == enrolment).limit(1)).first():
             return False
         if connection.execute(select(rs.c.id).where(rs.c.season_membership_id == enrolment).limit(1)).first():
+            return False
+        if connection.execute(select(t.picks.c.id).where(t.picks.c.season_membership_id == enrolment).limit(1)).first():
             return False
     evidence = connection.execute(
         select(e.c.id)
@@ -381,12 +390,14 @@ def create_league(
     emblem_path: str | None = None,
     accent_colour: str | None = None,
     request_id: str | None = None,
+    rules: Mapping[str, Any] | None = None,
 ) -> UUID:
     """Creates a league, its memberships (`members` are `{fullName, displayName}`), the
     captain's membership reserved for `captain_email`, the first season on the competition
-    and its season memberships, in the caller's transaction. Used by the operator bootstrap
-    and the admin's management centre (`create_admin_league`). New leagues get a join code.
-    Leaves the new league's context set."""
+    (with `rules`, any subset of the Superbru rules, over DEFAULT_RULES) and its season
+    memberships, in the caller's transaction. Used by the operator bootstrap and the admin's
+    management centre (`create_admin_league`). New leagues get a join code. Leaves the new
+    league's context set."""
     if not SLUG_PATTERN.fullmatch(slug):
         raise problem(422, "invalid_slug", "Use 3 to 40 lower-case letters, digits and hyphens for the slug.")
     if slug in RESERVED_SLUGS:
@@ -411,6 +422,10 @@ def create_league(
         raise problem(422, "duplicate_member", "Each member needs a different display name.")
     if captain_display_name not in names:
         raise problem(422, "unknown_captain", "The captain must be one of the members.")
+    change = check_rules_change(rules or {}, competition)
+    if change.get(PREVIOUS_CHAMPION) is not None:
+        raise problem(422, "invalid_rules", "A new league has no previous champion yet; set one once it exists.")
+    season_rules_stored = stored_rules(apply_rules_change(merge_rules(None, None), change))
 
     league_id = uuid4()
     # Leagues are writable only inside their own context, so set it before inserting.
@@ -452,6 +467,7 @@ def create_league(
             competition=competition.name[:80],
             competition_id=competition.id,
             status="active",
+            rules=season_rules_stored,
         )
         .returning(t.seasons.c.id)
     ).scalar_one()
@@ -466,7 +482,14 @@ def create_league(
             action="league.created",
             entity_type="league",
             entity_id=league_id,
-            after={"name": name, "slug": slug, "members": len(memberships), "season": season_name, "competitionId": competition.id},
+            after={
+                "name": name,
+                "slug": slug,
+                "members": len(memberships),
+                "season": season_name,
+                "competitionId": competition.id,
+                "rules": season_rules_stored,
+            },
             request_id=request_id,
         )
     )
@@ -1058,6 +1081,8 @@ class AdminLeagueView:
     captain: AdminCaptainView | None
     counts: AdminLeagueCounts
     my_member_id: UUID | None
+    # The Superbru rules of the active season, else of the latest one, else the defaults.
+    rules: dict[str, Any]
 
 
 def admin_leagues(account: Account) -> list[AdminLeagueView]:
@@ -1142,6 +1167,7 @@ def _admin_view(account: Account, league: Any) -> AdminLeagueView:
         captain=AdminCaptainView(row.captain_id, row.captain_name, row.captain_user_id) if row.captain_id is not None else None,
         counts=AdminLeagueCounts(row.members, row.claimed, row.in_season, row.withdrawn),
         my_member_id=row.my_member_id,
+        rules=season_rules(season) if season is not None else merge_rules(None, None),
     )
 
 
@@ -1181,11 +1207,12 @@ def create_admin_league(
     emblem_preset_key: str | None,
     accent_colour: str | None,
     add_me: bool,
+    rules: Mapping[str, Any] | None = None,
 ) -> UUID:
     """`create_league` for the admin. A null captain email (or the admin's own verified
     address) makes the admin the captain: the captain's name is reserved for that address and
     claimed at once, in season. Otherwise `add_me` adds the admin as a member outside the
-    season, as `add_admin_membership` does."""
+    season, as `add_admin_membership` does. `rules` is any subset of the Superbru rules."""
     own_email = account.verified_email
     captain_is_me = captain_email is None or (own_email is not None and captain_email.lower() == own_email)
     if captain_is_me and own_email is None:
@@ -1206,6 +1233,7 @@ def create_admin_league(
         emblem_path=f"{PRESET_PREFIX}{emblem_preset_key}" if emblem_preset_key is not None else None,
         accent_colour=accent_colour.lower() if accent_colour is not None else None,
         request_id=account.request_id,
+        rules=rules,
     )
     if captain_is_me:
         _claim_as_admin(account, league_id)
@@ -1240,11 +1268,30 @@ def _claim_as_admin(account: Account, league_id: UUID) -> None:
     )
 
 
-def update_admin_league(account: Account, league_id: UUID, *, name: str | None, timezone: str | None, status: str | None) -> None:
-    """Renames the league, changes its time zone, or archives or restores it. Archiving keeps
-    every row; restoring tells the league it is open again."""
+def update_admin_league(
+    account: Account,
+    league_id: UUID,
+    *,
+    name: str | None,
+    timezone: str | None,
+    status: str | None,
+    rules: Mapping[str, Any] | None = None,
+) -> None:
+    """Renames the league, changes its time zone, archives or restores it, or changes its
+    active season's Superbru rules (any subset). Archiving keeps every row; restoring tells
+    the league it is open again."""
     connection = account.connection
     league = _admin_target(account, league_id, for_update=True)
+    if rules:
+        season = _season_for_update(connection, league_id)
+        if season is None:
+            raise problem(409, "no_active_season", "No active season.")
+        competition = competitions.ALL.get(season.competition_id)
+        if competition is None:
+            raise problem(409, "unknown_competition", "This season's competition is not supported.")
+        changed = _save_rules(connection, league_id, season, rules, competition)
+        if changed is not None:
+            _admin_record(account, league_id, **_rules_record(season.id, *changed))
     details: dict[str, Any] = {}
     if name is not None and name != league.name:
         details["name"] = name
@@ -1577,6 +1624,8 @@ class DutyView:
     marks: MarkCalculation
     display: str
     links: list[Any]
+    # The fixtures whose picks this duty covers, in schedule order.
+    pick_fixture_ids: list[str]
 
 
 def _duty_query(actor: Actor):
@@ -1626,11 +1675,29 @@ def duties(actor: Actor, round_number: int | None = None, duty_id: UUID | None =
     by_duty: dict[UUID, list[Any]] = {}
     for link in links:
         by_duty.setdefault(link.duty_id, []).append(link)
+    p = t.picks
+    covered: dict[UUID, list[str]] = {}
+    for pick in actor.connection.execute(
+        select(p.c.duty_id, p.c.fixture_id).where(p.c.league_id == actor.league_id, p.c.duty_id.in_([r.id for r in rows]))
+    ).all():
+        covered.setdefault(pick.duty_id, []).append(pick.fixture_id)
+    order = _schedule_order(actor.competition)
     now = now_utc()
     views = []
     for row in rows:
         duty_links = by_duty.get(row.id, [])
-        views.append(DutyView(row, row.member_id, row.member_name, duty_marks(actor, row, now), _display(row, duty_links, now), duty_links))
+        fixture_ids = sorted(covered.get(row.id, []), key=lambda fixture_id: (order.get(fixture_id, len(order)), fixture_id))
+        views.append(
+            DutyView(
+                row,
+                row.member_id,
+                row.member_name,
+                duty_marks(actor, row, now),
+                _display(row, duty_links, now),
+                duty_links,
+                fixture_ids,
+            )
+        )
     return views
 
 
@@ -1673,10 +1740,19 @@ def create_duty(
     round_number: int | None,
     deadline_at: datetime | None,
     reason: str,
+    pick_fixture_ids: Sequence[str] | None = None,
 ) -> UUID:
+    """Opens a duty. A pick confirmation duty may cover picks (`pick_fixture_ids`): the
+    member's picks of those fixtures are linked to it, and a `missed` pick is recorded where
+    the member has none."""
     created_by = require_membership(actor)
     if duty_type not in DUTY_TYPES:
         raise problem(422, "unknown_duty_type", "Unknown duty type.")
+    fixture_ids = list(dict.fromkeys(pick_fixture_ids or []))
+    if fixture_ids and duty_type != "pick_confirmation":
+        raise problem(422, "invalid_pick_links", "Only a pick confirmation duty covers picks.")
+    for fixture_id in fixture_ids:
+        _fixture(actor, fixture_id)
     sm = t.season_memberships
     # A shared lock, so a concurrent withdrawal (which updates this row) waits for the duty
     # and then voids it, or this waits for the withdrawal and finds no active enrolment.
@@ -1714,6 +1790,8 @@ def create_duty(
             ).scalar_one()
     except IntegrityError as exc:
         raise problem(409, "duplicate_duty", "That member already has a live duty of this type in this round.") from exc
+    for fixture_id in fixture_ids:
+        _link_pick(actor, member_id, season_membership_id, fixture_id, duty_id, created_by)
     member_name = actor.connection.execute(
         select(t.league_memberships.c.display_name).where(
             t.league_memberships.c.id == member_id, t.league_memberships.c.league_id == actor.league_id
@@ -1726,7 +1804,13 @@ def create_duty(
         entity_type="duty",
         entity_id=duty_id,
         reason=reason,
-        after={"type": duty_type, "roundNumber": round_number, "deadlineAt": _iso(deadline_at), "status": status},
+        after={
+            "type": duty_type,
+            "roundNumber": round_number,
+            "deadlineAt": _iso(deadline_at),
+            "status": status,
+            **({"pickFixtureIds": fixture_ids} if fixture_ids else {}),
+        },
         feed=FeedEntry(
             kind="duty_created",
             title=f"{member_name}: {title}.",
@@ -1884,20 +1968,7 @@ def record_standings(actor: Actor, round_number: int, entries: Sequence[tuple[UU
         raise problem(422, "duplicate_member", "Each member can appear once in a round's standings.")
     sm = t.season_memberships
     m = t.league_memberships
-    enrolled = {
-        row.membership_id: row
-        for row in actor.connection.execute(
-            select(sm.c.id, sm.c.membership_id, m.c.display_name)
-            .select_from(sm.join(m, m.c.id == sm.c.membership_id))
-            .where(
-                sm.c.league_id == actor.league_id,
-                m.c.league_id == actor.league_id,
-                sm.c.season_id == actor.season_id,
-                sm.c.status == "active",
-                m.c.status == "active",
-            )
-        ).all()
-    }
+    enrolled = _enrolled(actor)
     unknown = [member_id for member_id in member_ids if member_id not in enrolled]
     if unknown:
         raise problem(404, "unknown_member", "Every member in the standings must be enrolled in this season.")
@@ -1961,6 +2032,658 @@ def record_standings(actor: Actor, round_number: int, entries: Sequence[tuple[UU
             detail=detail,
             round_number=round_number,
         ),
+    )
+
+
+def _enrolled(actor: Actor) -> dict[UUID, Any]:
+    """Active members enrolled in the active season, by league membership id: each row has
+    the season membership `id`, `membership_id` and `display_name`."""
+    sm, m = t.season_memberships, t.league_memberships
+    return {
+        row.membership_id: row
+        for row in actor.connection.execute(
+            select(sm.c.id, sm.c.membership_id, m.c.display_name)
+            .select_from(sm.join(m, m.c.id == sm.c.membership_id))
+            .where(
+                sm.c.league_id == actor.league_id,
+                m.c.league_id == actor.league_id,
+                sm.c.season_id == actor.season_id,
+                sm.c.status == "active",
+                m.c.status == "active",
+            )
+        ).all()
+    }
+
+
+def _member_rows(actor: Actor, table: Any, member_id: UUID) -> Any:
+    """A condition on `table` (picks or round_standings) for the member's rows in the active
+    season, on any of their season memberships (a reinstated member has several)."""
+    sm = t.season_memberships
+    return table.c.season_membership_id.in_(
+        select(sm.c.id).where(sm.c.membership_id == member_id, sm.c.season_id == actor.season_id, sm.c.league_id == actor.league_id)
+    )
+
+
+def clear_standing(actor: Actor, round_number: int, member_id: UUID) -> None:
+    """Clears one member's stored round total, so the derived total shows again. Nothing to
+    clear is not an error."""
+    member = _league_membership(actor, member_id)
+    rs = t.round_standings
+    removed = actor.connection.execute(
+        rs.delete()
+        .where(
+            rs.c.league_id == actor.league_id,
+            rs.c.season_id == actor.season_id,
+            rs.c.round_number == round_number,
+            _member_rows(actor, rs, member_id),
+        )
+        .returning(rs.c.points)
+    ).first()
+    if removed is None:
+        return
+    record(
+        actor,
+        action="standings.cleared",
+        entity_type="round_standings",
+        entity_id=None,
+        before={"roundNumber": round_number, "points": {member.display_name: float(removed.points)}},
+        after={"roundNumber": round_number, "points": {}},
+    )
+
+
+# Superbru rules -----------------------------------------------------------------------
+#
+# Rules belong to the season. `seasons.rules` stores only the keys that differ from
+# DEFAULT_RULES (Piele's rules) and reads merge them; the previous champion is the column
+# `previous_champion_membership_id`. The web's scoring module reads the merged rules.
+
+PREVIOUS_CHAMPION = "previousChampionMemberId"
+WIN_POINT_KEYS = ("regular", "quarterFinal", "semiFinal", "final")
+RULE_FLAGS = ("defaultPicks", "picksHiddenBeforeKickoff", "bonusPoint", "bonusPointSplit", "bonusPointRangeCapped")
+RULE_NUMBERS = ("marginPoint", "marginWindow", "bonusPointValue", "bonusPointMinimumShare", "bonusRange", "grandSlamPoints")
+# Generous: enough for any scoring scheme, small enough to catch a typo.
+MAX_RULE_NUMBER = 1000
+
+DEFAULT_RULES: dict[str, Any] = {
+    "defaultPicks": True,
+    "picksHiddenBeforeKickoff": False,
+    "bonusPoint": True,
+    "bonusPointSplit": True,
+    "bonusPointRangeCapped": True,
+    "startingRound": 1,
+    "winPoints": {"regular": 1, "quarterFinal": 1.5, "semiFinal": 2, "final": 3},
+    "marginPoint": 0.5,
+    "marginWindow": 5,
+    "bonusPointValue": 1,
+    "bonusPointMinimumShare": 0.25,
+    "bonusRange": 15,
+    "grandSlamPoints": 2,
+    PREVIOUS_CHAMPION: None,
+}
+
+
+def merge_rules(stored: Any, previous_champion_id: UUID | None) -> dict[str, Any]:
+    """The season's full rules: DEFAULT_RULES with the stored differences over them. Unknown
+    stored keys are ignored."""
+    rules = copy.deepcopy(DEFAULT_RULES)
+    for key, value in (stored if isinstance(stored, dict) else {}).items():
+        if key == "winPoints" and isinstance(value, dict):
+            rules["winPoints"].update({name: points for name, points in value.items() if name in WIN_POINT_KEYS})
+        elif key in DEFAULT_RULES and key not in ("winPoints", PREVIOUS_CHAMPION):
+            rules[key] = value
+    rules[PREVIOUS_CHAMPION] = str(previous_champion_id) if previous_champion_id is not None else None
+    return rules
+
+
+def season_rules(season: Any) -> dict[str, Any]:
+    """The merged rules of a `seasons` row."""
+    return merge_rules(season.rules, season.previous_champion_membership_id)
+
+
+def stored_rules(rules: Mapping[str, Any]) -> dict[str, Any]:
+    """What `seasons.rules` keeps of full rules: the keys that differ from DEFAULT_RULES
+    (within winPoints, the round types that differ), the champion left to its column."""
+    stored: dict[str, Any] = {}
+    for key, default in DEFAULT_RULES.items():
+        if key == PREVIOUS_CHAMPION:
+            continue
+        if key == "winPoints":
+            changed = {name: points for name, points in rules[key].items() if points != default[name]}
+            if changed:
+                stored[key] = changed
+        elif rules[key] != default:
+            stored[key] = rules[key]
+    return stored
+
+
+def _invalid_rules(message: str) -> HTTPException:
+    return problem(422, "invalid_rules", message)
+
+
+def _rule_number(key: str, value: Any) -> int | float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+        raise _invalid_rules(f"{key} must be a number.")
+    if not 0 <= value <= MAX_RULE_NUMBER:
+        raise _invalid_rules(f"{key} must be from 0 to {MAX_RULE_NUMBER}.")
+    return value
+
+
+def check_rules_change(change: Mapping[str, Any], competition: Competition) -> dict[str, Any]:
+    """A validated copy of a change to the rules (any subset of the keys; winPoints may be
+    partial), or 422 `invalid_rules`: flags are booleans, numbers are from 0 to
+    MAX_RULE_NUMBER, startingRound is one of the competition's rounds and the champion is a
+    member id or null. Whether the champion belongs to the league is checked on save."""
+    if not isinstance(change, Mapping):
+        raise _invalid_rules("Send the rules as an object.")
+    checked: dict[str, Any] = {}
+    for key, value in change.items():
+        if key in RULE_FLAGS:
+            if not isinstance(value, bool):
+                raise _invalid_rules(f"{key} must be true or false.")
+            checked[key] = value
+        elif key in RULE_NUMBERS:
+            checked[key] = _rule_number(key, value)
+        elif key == "winPoints":
+            if not isinstance(value, Mapping):
+                raise _invalid_rules("winPoints must be an object.")
+            unknown = [name for name in value if name not in WIN_POINT_KEYS]
+            if unknown:
+                raise _invalid_rules(f"Unknown round type {unknown[0]!r} in winPoints.")
+            checked[key] = {name: _rule_number(f"winPoints.{name}", points) for name, points in value.items()}
+        elif key == "startingRound":
+            if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= competition.last_round:
+                raise _invalid_rules(f"startingRound must be a round from 1 to {competition.last_round}.")
+            checked[key] = value
+        elif key == PREVIOUS_CHAMPION:
+            if value is None:
+                checked[key] = None
+            else:
+                try:
+                    checked[key] = str(UUID(str(value)))
+                except ValueError:
+                    raise _invalid_rules("previousChampionMemberId must be a member id or null.") from None
+        else:
+            raise _invalid_rules(f"Unknown rule {key!r}.")
+    return checked
+
+
+def apply_rules_change(rules: Mapping[str, Any], change: Mapping[str, Any]) -> dict[str, Any]:
+    """Full rules with a checked change applied."""
+    updated = copy.deepcopy(dict(rules))
+    for key, value in change.items():
+        if key == "winPoints":
+            updated["winPoints"] = {**updated["winPoints"], **value}
+        else:
+            updated[key] = value
+    return updated
+
+
+def _season_for_update(connection: Connection, league_id: UUID) -> Any:
+    """The league's active season, locked, or None. Needs the league context."""
+    s = t.seasons
+    return connection.execute(
+        select(s).where(s.c.league_id == league_id, s.c.status == "active").with_for_update()
+    ).first()
+
+
+def _save_rules(
+    connection: Connection, league_id: UUID, season: Any, change: Mapping[str, Any], competition: Competition
+) -> tuple[dict[str, Any], dict[str, Any]] | None:
+    """Applies a change to a locked season's rules. Returns the changed keys' values before
+    and after, or None when nothing changed. 404 `unknown_member` for a champion who is not a
+    member of the league."""
+    checked = check_rules_change(change, competition)
+    current = season_rules(season)
+    updated = apply_rules_change(current, checked)
+    champion = updated[PREVIOUS_CHAMPION]
+    if champion is not None and champion != current[PREVIOUS_CHAMPION]:
+        m = t.league_memberships
+        found = connection.execute(select(m.c.id).where(m.c.id == UUID(champion), m.c.league_id == league_id)).first()
+        if found is None:
+            raise problem(404, "unknown_member", "The previous champion must be a member of this league.")
+    if updated == current:
+        return None
+    s = t.seasons
+    connection.execute(
+        update(s)
+        .where(s.c.id == season.id, s.c.league_id == league_id, s.c.version == season.version)
+        .values(
+            rules=stored_rules(updated),
+            previous_champion_membership_id=UUID(champion) if champion is not None else None,
+            updated_at=func.now(),
+            version=s.c.version + 1,
+        )
+    )
+    keys = [key for key in DEFAULT_RULES if updated[key] != current[key]]
+    return {key: current[key] for key in keys}, {key: updated[key] for key in keys}
+
+
+def _rules_record(season_id: UUID, before: dict[str, Any], after: dict[str, Any]) -> dict[str, Any]:
+    """The audit event and feed entry of a rules change, as `record` keyword arguments."""
+    return {
+        "action": "rules.updated",
+        "entity_type": "season",
+        "entity_id": season_id,
+        "before": before,
+        "after": after,
+        "feed": FeedEntry(kind="rules_updated", title="Superbru rules updated."),
+    }
+
+
+def rules(actor: Actor) -> dict[str, Any]:
+    """The active season's Superbru rules, merged over DEFAULT_RULES."""
+    season = actor.connection.execute(select(t.seasons).where(t.seasons.c.id == actor.season_id)).one()
+    return season_rules(season)
+
+
+def update_rules(actor: Actor, change: Mapping[str, Any]) -> dict[str, Any]:
+    """Captain or admin changes any subset of the active season's rules. Returns the merged
+    rules. An unchanged save records nothing."""
+    season = _season_for_update(actor.connection, actor.league_id)
+    if season is None or season.id != actor.season_id:
+        raise problem(409, "no_active_season", "No active season.")
+    changed = _save_rules(actor.connection, actor.league_id, season, change, actor.competition)
+    if changed is not None:
+        record(actor, **_rules_record(season.id, *changed))
+    return rules(actor)
+
+
+# Superbru picks -----------------------------------------------------------------------
+#
+# A pick is signed from the home side: 'home' or 'away' with a margin of 1 to 150, 'draw'
+# (margin 0) or 'missed' (no margin). Members record their own pick until the fixture's
+# kickoff in the competition schedule; the captain or admin records or corrects any pick at
+# any time and marks Superbru default picks. A member sees the rest of the pool's picks for a
+# fixture once their own pick is in or the fixture has kicked off; the admin without a
+# membership always sees them.
+
+PICK_SIDES = ("home", "away", "draw", "missed")
+MAX_MARGIN = 150
+RESULT_STATES = frozenset({"live", "half_time", "full_time", "postponed", "cancelled"})
+NOT_PLAYED = frozenset({"postponed", "cancelled"})
+
+
+def check_pick(
+    side: str, margin: int | None, *, is_default: bool = False, own: bool = False, default_picks: bool = True
+) -> tuple[str, int | None, bool]:
+    """The pick as stored (a draw's margin is 0), or 422 `invalid_pick`. A member's own pick
+    is home, away or a draw; `missed` and default picks are for the steward, and defaults
+    only while the rules allow them."""
+    if side not in PICK_SIDES or (own and side == "missed"):
+        raise problem(422, "invalid_pick", "Pick the home side, the away side or a draw.")
+    if side in ("home", "away"):
+        if isinstance(margin, bool) or not isinstance(margin, int) or not 1 <= margin <= MAX_MARGIN:
+            raise problem(422, "invalid_pick", f"Pick a winning margin from 1 to {MAX_MARGIN}.")
+    elif side == "draw":
+        if margin not in (None, 0):
+            raise problem(422, "invalid_pick", "A draw has no margin.")
+        margin = 0
+    elif margin is not None:
+        raise problem(422, "invalid_pick", "A missed pick has no margin.")
+    if is_default:
+        if side not in ("home", "away"):
+            raise problem(422, "invalid_pick", "Only a home or away pick can be a Superbru default.")
+        if not default_picks:
+            raise problem(422, "invalid_pick", "Default picks are off in this season's rules.")
+    return side, margin, is_default
+
+
+def _fixture(actor: Actor, fixture_id: str) -> Fixture:
+    fixture = actor.competition.schedule().fixture(fixture_id)
+    if fixture is None:
+        raise problem(404, "unknown_fixture", "Unknown match.")
+    return fixture
+
+
+def _schedule_order(competition: Competition) -> dict[str, int]:
+    return {fixture.id: index for index, fixture in enumerate(competition.schedule().fixtures)}
+
+
+def locked(fixture: Fixture, now: datetime) -> bool:
+    """Picks lock at the scheduled kickoff. An unknown kickoff never locks."""
+    return fixture.kickoff_utc is not None and fixture.kickoff_utc <= now
+
+
+def _is_score(value: Any) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool) and value >= 0
+
+
+def fixture_result(full_time: Mapping[str, Any] | None, match: Mapping[str, Any] | None) -> dict[str, Any] | None:
+    """A fixture's result: the stored full-time milestone's score (`{"home", "away"}`, see
+    app/matchcentre/updates.py), else the round's cached score snapshot while the match is
+    live, at half time, final, postponed or cancelled (postponed and cancelled carry 0-0 when
+    the feed has no score; they are never scored). None when unknown."""
+    if full_time is not None and _is_score(full_time.get("home")) and _is_score(full_time.get("away")):
+        return {"homeScore": full_time["home"], "awayScore": full_time["away"], "state": "full_time"}
+    if not isinstance(match, Mapping) or match.get("state") not in RESULT_STATES:
+        return None
+    home = (match.get("home") or {}).get("score")
+    away = (match.get("away") or {}).get("score")
+    if match["state"] in NOT_PLAYED:
+        return {"homeScore": home if _is_score(home) else 0, "awayScore": away if _is_score(away) else 0, "state": match["state"]}
+    if not (_is_score(home) and _is_score(away)):
+        return None
+    return {"homeScore": home, "awayScore": away, "state": match["state"]}
+
+
+def stored_results(connection: Connection, competition: Competition, fixtures: Sequence[Fixture], now: datetime) -> dict[str, dict[str, Any]]:
+    """Results by fixture id from `piele.fixture_milestones` (full time), falling back to the
+    rounds' cached score snapshots in `piele.external_snapshots` for started fixtures without
+    a stored full-time score. Reads only; the round updates route records the milestones."""
+    known = milestones.by_fixture(connection, competition.id, [fixture.id for fixture in fixtures])
+    full_time = {fixture_id: milestone.detail for (fixture_id, kind), milestone in known.items() if kind == milestones.FULL_TIME}
+    pending = [
+        fixture
+        for fixture in fixtures
+        if fixture_result(full_time.get(fixture.id), None) is None and score_feed.started(fixture, now)
+    ]
+    matches: dict[str, Any] = {}
+    if pending:
+        keys = sorted({round_scores_key(competition.id, fixture.round) for fixture in pending})
+        rows = connection.execute(
+            select(external_snapshots.c.status, external_snapshots.c.payload).where(external_snapshots.c.key.in_(keys))
+        ).all()
+        for row in rows:
+            if row.status == "ok" and isinstance(row.payload, dict) and isinstance(row.payload.get("matches"), dict):
+                matches.update(row.payload["matches"])
+    results = {}
+    for fixture in fixtures:
+        result = fixture_result(full_time.get(fixture.id), matches.get(fixture.id))
+        if result is not None:
+            results[fixture.id] = result
+    return results
+
+
+def _pick_rows(actor: Actor, fixture_ids: Sequence[str]) -> list[Any]:
+    """The active members' picks of these fixtures in the active season. Withdrawn members'
+    picks stay stored and return on reinstatement."""
+    p, sm, m = t.picks, t.season_memberships, t.league_memberships
+    return actor.connection.execute(
+        select(
+            p.c.fixture_id,
+            p.c.side,
+            p.c.margin,
+            p.c.is_default,
+            p.c.duty_id,
+            m.c.id.label("member_id"),
+            m.c.display_name.label("member_name"),
+        )
+        .select_from(p.join(sm, sm.c.id == p.c.season_membership_id).join(m, m.c.id == sm.c.membership_id))
+        .where(
+            p.c.league_id == actor.league_id,
+            p.c.season_id == actor.season_id,
+            p.c.fixture_id.in_(list(fixture_ids)),
+            m.c.status == "active",
+        )
+    ).all()
+
+
+def _pick_view(row: Any) -> dict[str, Any]:
+    return {
+        "memberId": row.member_id,
+        "memberName": row.member_name,
+        "side": row.side,
+        "margin": row.margin,
+        "isDefault": row.is_default,
+        "dutyId": row.duty_id,
+    }
+
+
+def _fixture_views(actor: Actor, fixtures: Sequence[Fixture], now: datetime) -> list[dict[str, Any]]:
+    if not fixtures:
+        return []
+    by_fixture: dict[str, list[Any]] = {}
+    for row in _pick_rows(actor, [fixture.id for fixture in fixtures]):
+        by_fixture.setdefault(row.fixture_id, []).append(row)
+    results = stored_results(actor.connection, actor.competition, fixtures, now)
+    views = []
+    for fixture in fixtures:
+        rows = sorted(by_fixture.get(fixture.id, []), key=lambda row: (row.member_name.lower(), str(row.member_id)))
+        mine = next((row for row in rows if row.member_id == actor.membership_id), None) if actor.membership_id else None
+        is_locked = locked(fixture, now)
+        visible = is_locked or mine is not None or actor.membership_id is None
+        views.append(
+            {
+                "fixtureId": fixture.id,
+                "roundNumber": fixture.round,
+                "kickoffUtc": fixture.kickoff_utc,
+                "locked": is_locked,
+                "result": results.get(fixture.id),
+                "myPick": _pick_view(mine) if mine is not None else None,
+                "picks": [_pick_view(row) for row in rows] if visible else [],
+            }
+        )
+    return views
+
+
+def picks(actor: Actor, round_number: int | None = None) -> list[dict[str, Any]]:
+    """Every fixture of the season's competition from the rules' starting round on whose
+    kickoff is known (one round with `round_number`), in kickoff order, with its stored
+    result and picks. The pool's picks are hidden (an empty list) from a member without a
+    pick until kickoff."""
+    starting_round = rules(actor)["startingRound"]
+    fixtures = sorted(
+        (
+            fixture
+            for fixture in actor.competition.schedule().fixtures
+            if fixture.kickoff_utc is not None
+            and fixture.round >= starting_round
+            and (round_number is None or fixture.round == round_number)
+        ),
+        key=lambda fixture: (fixture.kickoff_utc, fixture.id),
+    )
+    return _fixture_views(actor, fixtures, now_utc())
+
+
+def fixture_picks(actor: Actor, fixture_id: str) -> dict[str, Any]:
+    """One fixture's picks as `picks` lists them, whatever its round or kickoff."""
+    return _fixture_views(actor, [_fixture(actor, fixture_id)], now_utc())[0]
+
+
+def _pick_label(side: str | None, margin: int | None, is_default: bool = False) -> str | None:
+    """How the audit trail writes a pick: 'home 7', 'draw', 'missed', 'away 3 (default)'."""
+    if side is None:
+        return None
+    label = f"{side} {margin}" if side in ("home", "away") else side
+    return f"{label} (default)" if is_default else label
+
+
+def _upsert_pick(
+    actor: Actor,
+    *,
+    member_id: UUID,
+    season_membership_id: UUID,
+    fixture_id: str,
+    recorded_by: UUID,
+    values: dict[str, Any],
+) -> tuple[str | None, str | None] | None:
+    """Inserts or updates the member's pick of a fixture, found by member (a reinstated
+    member's earlier pick sits on their withdrawn season membership). Returns the pick's audit
+    label before and after, or None when nothing changed. The member's season membership is
+    locked first, so two saves of one member's pick queue rather than race."""
+    p, sm = t.picks, t.season_memberships
+    actor.connection.execute(select(sm.c.id).where(sm.c.id == season_membership_id).with_for_update())
+    existing = actor.connection.execute(
+        select(p)
+        .where(
+            p.c.league_id == actor.league_id,
+            p.c.season_id == actor.season_id,
+            p.c.fixture_id == fixture_id,
+            _member_rows(actor, p, member_id),
+        )
+        .with_for_update()
+    ).first()
+    after = _pick_label(values["side"], values["margin"], values["is_default"])
+    if existing is None:
+        actor.connection.execute(
+            insert(p).values(
+                league_id=actor.league_id,
+                season_id=actor.season_id,
+                season_membership_id=season_membership_id,
+                fixture_id=fixture_id,
+                recorded_by_membership_id=recorded_by,
+                **values,
+            )
+        )
+        return None, after
+    if all(getattr(existing, key) == value for key, value in values.items()):
+        return None
+    actor.connection.execute(
+        update(p)
+        .where(p.c.id == existing.id, p.c.version == existing.version)
+        .values(**values, recorded_by_membership_id=recorded_by, updated_at=func.now(), version=p.c.version + 1)
+    )
+    return _pick_label(existing.side, existing.margin, existing.is_default), after
+
+
+def _picks_record(fixture_id: str, action: str, before: dict[str, Any], after: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "action": action,
+        "entity_type": "picks",
+        "entity_id": None,
+        "before": {"fixtureId": fixture_id, "picks": before},
+        "after": {"fixtureId": fixture_id, "picks": after},
+    }
+
+
+def save_own_pick(actor: Actor, fixture_id: str, *, side: str, margin: int | None) -> None:
+    """The caller's own pick of a fixture, until its kickoff: 422 `picks_locked` after,
+    `invalid_pick` for an impossible pick. A steward's default mark is cleared and a linked
+    duty kept."""
+    membership_id = require_membership(actor)
+    fixture = _fixture(actor, fixture_id)
+    if actor.season_membership_id is None:
+        raise problem(403, "not_in_season", "You are not enrolled in this season.")
+    if locked(fixture, now_utc()):
+        raise problem(422, "picks_locked", "This match has kicked off, so picks are locked. Ask your captain to correct a pick.")
+    side, margin, _ = check_pick(side, margin, own=True)
+    changed = _upsert_pick(
+        actor,
+        member_id=membership_id,
+        season_membership_id=actor.season_membership_id,
+        fixture_id=fixture_id,
+        recorded_by=membership_id,
+        values={"side": side, "margin": margin, "is_default": False},
+    )
+    if changed is not None:
+        before, after = changed
+        record(actor, **_picks_record(fixture_id, "picks.recorded", {actor.display_name: before}, {actor.display_name: after}))
+
+
+@dataclass(frozen=True)
+class StewardPick:
+    member_id: UUID
+    side: str
+    margin: int | None
+    is_default: bool = False
+    # Left out: an existing pick keeps its duty. None clears it.
+    duty_id: UUID | None | Any = _UNSET
+
+
+def record_picks(actor: Actor, fixture_id: str, entries: Sequence[StewardPick]) -> None:
+    """Captain or admin records or corrects members' picks of a fixture at any time. Members
+    left out keep their picks. A duty must be a pick confirmation duty of that member."""
+    recorded_by = require_membership(actor)
+    _fixture(actor, fixture_id)
+    member_ids = [entry.member_id for entry in entries]
+    if len(set(member_ids)) != len(member_ids):
+        raise problem(422, "duplicate_member", "Each member can appear once in a fixture's picks.")
+    enrolled = _enrolled(actor)
+    if any(member_id not in enrolled for member_id in member_ids):
+        raise problem(404, "unknown_member", "Every member in the picks must be enrolled in this season.")
+    default_picks = rules(actor)["defaultPicks"]
+    checked = [
+        (entry, check_pick(entry.side, entry.margin, is_default=entry.is_default, default_picks=default_picks))
+        for entry in entries
+    ]
+    duty_ids = {entry.duty_id for entry in entries if entry.duty_id is not _UNSET and entry.duty_id is not None}
+    duty_members: dict[UUID, UUID] = {}
+    if duty_ids:
+        d, sm = t.duties, t.season_memberships
+        duty_members = {
+            row.id: row.membership_id
+            for row in actor.connection.execute(
+                select(d.c.id, sm.c.membership_id)
+                .select_from(d.join(sm, sm.c.id == d.c.season_membership_id))
+                .where(d.c.id.in_(duty_ids), d.c.league_id == actor.league_id, d.c.type == "pick_confirmation")
+            ).all()
+        }
+    for entry in entries:
+        if entry.duty_id is not _UNSET and entry.duty_id is not None and duty_members.get(entry.duty_id) != entry.member_id:
+            raise problem(404, "unknown_duty", "A linked duty must be a pick confirmation duty of that member.")
+    before: dict[str, Any] = {}
+    after: dict[str, Any] = {}
+    for entry, (side, margin, is_default) in checked:
+        values: dict[str, Any] = {"side": side, "margin": margin, "is_default": is_default}
+        if entry.duty_id is not _UNSET:
+            values["duty_id"] = entry.duty_id
+        member = enrolled[entry.member_id]
+        changed = _upsert_pick(
+            actor,
+            member_id=entry.member_id,
+            season_membership_id=member.id,
+            fixture_id=fixture_id,
+            recorded_by=recorded_by,
+            values=values,
+        )
+        if changed is not None:
+            before[member.display_name], after[member.display_name] = changed
+    if after:
+        record(actor, **_picks_record(fixture_id, "picks.recorded", before, after))
+
+
+def delete_pick(actor: Actor, fixture_id: str, member_id: UUID) -> None:
+    """Captain or admin removes a member's pick of a fixture. Nothing to remove is not an
+    error."""
+    _fixture(actor, fixture_id)
+    member = _league_membership(actor, member_id)
+    p = t.picks
+    removed = actor.connection.execute(
+        p.delete()
+        .where(
+            p.c.league_id == actor.league_id,
+            p.c.season_id == actor.season_id,
+            p.c.fixture_id == fixture_id,
+            _member_rows(actor, p, member_id),
+        )
+        .returning(p.c.side, p.c.margin, p.c.is_default)
+    ).first()
+    if removed is not None:
+        label = _pick_label(removed.side, removed.margin, removed.is_default)
+        record(actor, **_picks_record(fixture_id, "picks.deleted", {member.display_name: label}, {member.display_name: None}))
+
+
+def _link_pick(actor: Actor, member_id: UUID, season_membership_id: UUID, fixture_id: str, duty_id: UUID, recorded_by: UUID) -> None:
+    """Links the member's pick of a fixture to a pick confirmation duty, recording a `missed`
+    pick when there is none."""
+    p = t.picks
+    existing = actor.connection.execute(
+        select(p.c.id)
+        .where(
+            p.c.league_id == actor.league_id,
+            p.c.season_id == actor.season_id,
+            p.c.fixture_id == fixture_id,
+            _member_rows(actor, p, member_id),
+        )
+        .with_for_update()
+    ).first()
+    if existing is not None:
+        actor.connection.execute(
+            update(p).where(p.c.id == existing.id).values(duty_id=duty_id, updated_at=func.now(), version=p.c.version + 1)
+        )
+        return
+    actor.connection.execute(
+        insert(p).values(
+            league_id=actor.league_id,
+            season_id=actor.season_id,
+            season_membership_id=season_membership_id,
+            fixture_id=fixture_id,
+            side="missed",
+            margin=None,
+            is_default=False,
+            duty_id=duty_id,
+            recorded_by_membership_id=recorded_by,
+        )
     )
 
 

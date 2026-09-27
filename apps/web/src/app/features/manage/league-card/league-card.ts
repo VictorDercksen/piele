@@ -7,10 +7,12 @@ import {
   Injector,
   afterNextRender,
   computed,
+  effect,
   inject,
   input,
   output,
   signal,
+  untracked,
   viewChild,
 } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -23,10 +25,19 @@ import {
   lucideCopy,
   lucideCrown,
 } from '@ng-icons/lucide';
-import { AdminLeague, CaptainCandidate } from '../../../core/league/admin.models';
+import { AdminLeague, CaptainCandidate, LeagueUpdate } from '../../../core/league/admin.models';
 import { AdminService } from '../../../core/league/admin.service';
 import { LeagueCrest } from '../../../shared/league-crest/league-crest';
+import { withDefaultRules } from '../../../core/league/superbru';
 import { Loader } from '../../../shared/loader/loader';
+import { RulesFields } from '../../../shared/rules-fields/rules-fields';
+import {
+  resetRules,
+  rulesChange,
+  rulesFrom,
+  rulesGroup,
+  setLastRound,
+} from '../../../shared/rules-fields/rules-form';
 import { ReasonDialog } from '../../duties/reason-dialog/reason-dialog';
 import { notBlank, zoneValidator } from '../manage-validators';
 import { timeZoneGroups } from '../time-zones';
@@ -38,7 +49,8 @@ const EYEBROW = 'THE PAVILION / MANAGEMENT CENTRE';
  * One league in the management centre, collapsed to its crest, name and status until opened:
  * what it is (slug, competition and season, captain, counts, time zone, join code) and what
  * the admin can do with it: open it, add
- * themselves, rename it or change its time zone, archive or restore it (confirmed), and
+ * themselves, rename it or change its time zone and Superbru rules, archive or restore it
+ * (confirmed), and
  * appoint a captain from its claimed members (confirmed).
  */
 @Component({
@@ -46,7 +58,7 @@ const EYEBROW = 'THE PAVILION / MANAGEMENT CENTRE';
   templateUrl: './league-card.html',
   styleUrls: ['../manage-fields.scss', './league-card.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, RouterLink, NgIcon, LeagueCrest, Loader],
+  imports: [ReactiveFormsModule, RouterLink, NgIcon, LeagueCrest, Loader, RulesFields],
   viewProviders: [
     provideIcons({ lucideArrowRight, lucideCheck, lucideChevronDown, lucideCopy, lucideCrown }),
   ],
@@ -83,6 +95,16 @@ export class LeagueCard {
   });
 
   readonly zoneGroups = computed(() => timeZoneGroups(this.league().timezone));
+  /** Regular rounds per competition id, from `AdminService.competitions()` once loaded. */
+  private readonly regularRounds = signal<ReadonlyMap<string, number> | null>(null);
+  /**
+   * The latest round the season may start scoring from: the competition's regular rounds, or
+   * the league's saved starting round until the competition list arrives (never looser).
+   */
+  readonly lastRound = computed(() => {
+    const league = this.league();
+    return this.regularRounds()?.get(league.competition.id) ?? league.rules.startingRound;
+  });
 
   readonly expanded = signal(false);
   readonly busy = signal(false);
@@ -91,6 +113,8 @@ export class LeagueCard {
   private copiedTimer: ReturnType<typeof setTimeout> | undefined;
 
   readonly renaming = signal(false);
+  /** The rename form's "Superbru rules" group is open. */
+  readonly rulesOpen = signal(false);
   readonly renameSubmitted = signal(false);
   readonly renameForm = new FormGroup({
     name: new FormControl('', {
@@ -101,6 +125,7 @@ export class LeagueCard {
       nonNullable: true,
       validators: [Validators.required, zoneValidator, Validators.maxLength(64)],
     }),
+    rules: rulesGroup(withDefaultRules(null), withDefaultRules(null).startingRound),
   });
 
   readonly candidates = signal<readonly CaptainCandidate[] | null>(null);
@@ -114,6 +139,11 @@ export class LeagueCard {
 
   constructor() {
     inject(DestroyRef).onDestroy(() => clearTimeout(this.copiedTimer));
+    // The bound follows the competition list when it arrives after the form opened.
+    effect(() => {
+      const lastRound = this.lastRound();
+      untracked(() => setLastRound(this.renameForm.controls.rules, lastRound));
+    });
   }
 
   toggle(): void {
@@ -180,9 +210,23 @@ export class LeagueCard {
     });
   }
 
+  /** The competitions' regular rounds (one request for every card); the fallback stays on failure. */
+  private async loadRegularRounds(): Promise<void> {
+    if (this.regularRounds()) return;
+    try {
+      const list = await this.admin.competitions();
+      this.regularRounds.set(new Map(list.map((c) => [c.id, c.regularRounds])));
+    } catch {
+      // Keep the league's own starting round as the bound; the API validates the rest.
+    }
+  }
+
   startRename(): void {
     const league = this.league();
     this.renameForm.reset({ name: league.name, timezone: league.timezone });
+    void this.loadRegularRounds();
+    resetRules(this.renameForm.controls.rules, withDefaultRules(league.rules));
+    this.rulesOpen.set(false);
     this.renameSubmitted.set(false);
     this.error.set('');
     this.renaming.set(true);
@@ -197,13 +241,23 @@ export class LeagueCard {
 
   async saveRename(): Promise<void> {
     this.renameSubmitted.set(true);
-    if (this.renameForm.invalid || this.busy()) return;
+    if (this.renameForm.invalid || this.busy()) {
+      this.focusInvalidRule();
+      return;
+    }
     const league = this.league();
     const name = this.renameForm.controls.name.value.trim();
     const timezone = this.renameForm.controls.timezone.value.trim();
-    const patch = {
+    // The champion is kept as it is: the captain's desk sets it among the members.
+    const rules = rulesChange(
+      rulesFrom(this.renameForm.controls.rules),
+      withDefaultRules(league.rules),
+      { champion: false },
+    );
+    const patch: LeagueUpdate = {
       ...(name !== league.name ? { name } : {}),
       ...(timezone !== league.timezone ? { timezone } : {}),
+      ...(Object.keys(rules).length ? { rules } : {}),
     };
     if (!Object.keys(patch).length) {
       this.cancelRename();
@@ -214,6 +268,24 @@ export class LeagueCard {
       this.cancelRename();
       this.changed.emit({ id: league.id, message: `${name} is saved.` });
     });
+  }
+
+  /** Opens the rules group when one of its fields needs fixing, and focuses that field. */
+  private focusInvalidRule(): void {
+    const controls = this.renameForm.controls;
+    if (controls.name.invalid || controls.timezone.invalid || controls.rules.valid) return;
+    this.rulesOpen.set(true);
+    afterNextRender(
+      () =>
+        document
+          .querySelector<HTMLElement>(`#${CSS.escape(this.id())}-rules input.ng-invalid`)
+          ?.focus(),
+      { injector: this.injector },
+    );
+  }
+
+  rulesToggled(event: Event): void {
+    if (event.target instanceof HTMLDetailsElement) this.rulesOpen.set(event.target.open);
   }
 
   /** Loads the claimed members the first time the captain panel opens. */

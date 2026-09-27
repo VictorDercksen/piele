@@ -4,6 +4,7 @@ import { TestBed } from '@angular/core/testing';
 import { environment } from '../../../environments/environment';
 import { AuthService } from '../auth/auth.service';
 import { HttpLeagueData } from './http-league-data';
+import { DEFAULT_RULES } from './superbru';
 
 const API = `${environment.apiUrl}/v1/leagues/l-1`;
 const OTHER = `${environment.apiUrl}/v1/leagues/l-2`;
@@ -64,7 +65,7 @@ describe('HttpLeagueData', () => {
     members = '/members',
   ) {
     http.expectOne(`${base}/standings`).flush(standings);
-    for (const path of [members, '/duties', '/marks', '/feed?limit=200'])
+    for (const path of [members, '/duties', '/marks', '/feed?limit=200', '/picks'])
       http.expectOne(`${base}${path}`).flush([]);
   }
 
@@ -253,7 +254,7 @@ describe('HttpLeagueData', () => {
     });
     await settle();
     http.expectOne(`${API}/members?include=withdrawn`).flush(members);
-    for (const path of ['/standings', '/duties', '/marks', '/feed?limit=200'])
+    for (const path of ['/standings', '/duties', '/marks', '/feed?limit=200', '/picks'])
       http.expectOne(`${API}${path}`).flush([]);
     expect(await loaded).toBe('member');
   }
@@ -261,7 +262,7 @@ describe('HttpLeagueData', () => {
   /** The records a write reloads, with the steward's team sheet. */
   function flushRefresh(http: HttpTestingController, members: unknown[] = []) {
     http.expectOne(`${API}/members?include=withdrawn`).flush(members);
-    for (const path of ['/standings', '/duties', '/marks', '/feed?limit=200'])
+    for (const path of ['/standings', '/duties', '/marks', '/feed?limit=200', '/picks'])
       http.expectOne(`${API}${path}`).flush([]);
   }
 
@@ -435,6 +436,217 @@ describe('HttpLeagueData', () => {
     expect(colour.request.body).toEqual({ accentColour: null });
     colour.flush(steward({}));
     await accent;
+    http.verify();
+  });
+
+  const apiPick = (memberId: string, extra: Record<string, unknown> = {}) => ({
+    memberId,
+    memberName: memberId.toUpperCase(),
+    side: 'home',
+    margin: 7,
+    isDefault: false,
+    dutyId: null,
+    ...extra,
+  });
+  const apiFixture = (fixtureId: string, extra: Record<string, unknown> = {}) => ({
+    fixtureId,
+    roundNumber: 1,
+    kickoffUtc: '2026-09-25T18:45:00Z',
+    locked: true,
+    result: { homeScore: 20, awayScore: 20, state: 'full_time' },
+    myPick: apiPick('m-1'),
+    picks: [apiPick('m-1'), apiPick('m-2', { side: 'away', margin: 3 })],
+    ...extra,
+  });
+
+  it('loads the picks and the rules from the league-scoped me, and forgets them on clear', async () => {
+    const { league, http } = setup();
+    const loaded = league.load('l-1');
+    http.expectOne(`${API}/me`).flush({
+      ...me({ favouriteTeamId: null, photoUrl: null }),
+      rules: { bonusPointSplit: false, winPoints: { final: 4 }, previousChampionMemberId: 'm-2' },
+    });
+    await settle();
+    http.expectOne(`${API}/standings`).flush([]);
+    http.expectOne(`${API}/duties`).flush([
+      {
+        id: 'd-1',
+        memberId: 'm-1',
+        roundNumber: 1,
+        type: 'pick_confirmation',
+        pickFixtureIds: ['292584'],
+      },
+      { id: 'd-2', memberId: 'm-1', roundNumber: 1, type: 'spoon' },
+    ]);
+    for (const path of ['/members', '/marks', '/feed?limit=200']) http.expectOne(`${API}${path}`).flush([]);
+    http.expectOne(`${API}/picks`).flush([apiFixture('292584')]);
+    await loaded;
+    expect(league.picks()).toEqual([
+      expect.objectContaining({ fixtureId: '292584', roundId: 1, locked: true }),
+    ]);
+    expect(league.picks()[0]).not.toHaveProperty('roundNumber');
+    expect(league.picks()[0].picks.map((p) => p.memberId)).toEqual(['m-1', 'm-2']);
+    expect(league.rules()).toEqual({
+      ...DEFAULT_RULES,
+      bonusPointSplit: false,
+      winPoints: { ...DEFAULT_RULES.winPoints, final: 4 },
+      previousChampionMemberId: 'm-2',
+    });
+    expect(league.duties().map((d) => d.pickFixtureIds)).toEqual([['292584'], []]);
+    league.clear();
+    expect(league.picks()).toEqual([]);
+    expect(league.rules()).toEqual(DEFAULT_RULES);
+    http.verify();
+  });
+
+  it('saves the member’s own pick and adopts the returned fixture', async () => {
+    const { league, http } = setup();
+    await loadSteward(http, league);
+    const saving = league.savePick('292590', { side: 'away', margin: 12 });
+    const put = http.expectOne(`${API}/matches/292590/picks/me`);
+    expect(put.request.method).toBe('PUT');
+    expect(put.request.body).toEqual({ side: 'away', margin: 12 });
+    put.flush(apiFixture('292590', { myPick: apiPick('m-1', { side: 'away', margin: 12 }) }));
+    await saving;
+    expect(league.picks().map((f) => [f.fixtureId, f.roundId, f.myPick?.margin])).toEqual([
+      ['292590', 1, 12],
+    ]);
+
+    const late = league.savePick('292590', { side: 'home', margin: 1 });
+    http
+      .expectOne(`${API}/matches/292590/picks/me`)
+      .flush(
+        { detail: { code: 'picks_locked', message: 'Picks for this match closed at kickoff.' } },
+        { status: 422, statusText: 'Unprocessable Entity' },
+      );
+    await expect(late).rejects.toMatchObject({ code: 'picks_locked' });
+    http.verify();
+  });
+
+  it('records and removes picks for the steward', async () => {
+    const { league, http } = setup();
+    await loadSteward(http, league);
+    const recording = league.recordPicks('292584', [
+      { memberId: 'm-2', side: 'home', margin: 5, isDefault: true, dutyId: 'd-1' },
+      { memberId: 'm-3', side: 'missed', margin: null },
+      { memberId: 'm-4', side: 'away', margin: 2, dutyId: null },
+    ]);
+    const put = http.expectOne(`${API}/matches/292584/picks`);
+    expect(put.request.method).toBe('PUT');
+    // An omitted dutyId keeps the existing link; an explicit null unlinks it.
+    expect(put.request.body).toEqual({
+      picks: [
+        { memberId: 'm-2', side: 'home', margin: 5, isDefault: true, dutyId: 'd-1' },
+        { memberId: 'm-3', side: 'missed', margin: null, isDefault: false },
+        { memberId: 'm-4', side: 'away', margin: 2, isDefault: false, dutyId: null },
+      ],
+    });
+    expect(put.request.body.picks[1]).not.toHaveProperty('dutyId');
+    put.flush(apiFixture('292584'));
+    await recording;
+    expect(league.picks().length).toBe(1);
+
+    const removing = league.removePick('292584', 'm-2');
+    const remove = http.expectOne(`${API}/matches/292584/picks/m-2`);
+    expect(remove.request.method).toBe('DELETE');
+    remove.flush(null, { status: 204, statusText: 'No Content' });
+    await settle();
+    http.expectOne(`${API}/picks`).flush([apiFixture('292584', { picks: [apiPick('m-1')] })]);
+    await removing;
+    expect(league.picks()[0].picks.map((p) => p.memberId)).toEqual(['m-1']);
+    http.verify();
+  });
+
+  it('saves the rules and refreshes the feed', async () => {
+    const { league, http } = setup();
+    await loadSteward(http, league);
+    const saving = league.saveRules({ bonusPoint: false });
+    const put = http.expectOne(`${API}/rules`);
+    expect(put.request.method).toBe('PUT');
+    expect(put.request.body).toEqual({ bonusPoint: false });
+    put.flush({ ...DEFAULT_RULES, bonusPoint: false });
+    await settle();
+    http.expectOne(`${API}/feed?limit=200`).flush([
+      { id: 'f-1', kind: 'rules_updated', roundNumber: null, title: 'Superbru rules updated.' },
+    ]);
+    await saving;
+    expect(league.rules().bonusPoint).toBe(false);
+    expect(league.feed()[0].kind).toBe('rules_updated');
+    http.verify();
+  });
+
+  it('reloads the picks when the starting round changes', async () => {
+    const { league, http } = setup();
+    await loadSteward(http, league);
+    const saving = league.saveRules({ startingRound: 1 });
+    http.expectOne(`${API}/rules`).flush({ ...DEFAULT_RULES, startingRound: 1 });
+    await settle();
+    http.expectOne(`${API}/feed?limit=200`).flush([]);
+    http.expectOne(`${API}/picks`).flush([apiFixture('292584'), apiFixture('292590')]);
+    await saving;
+    expect(league.rules().startingRound).toBe(1);
+    expect(league.picks().map((f) => f.fixtureId)).toEqual(['292584', '292590']);
+    http.verify();
+  });
+
+  it('records a round’s totals and clears one', async () => {
+    const { league, http } = setup();
+    await loadSteward(http, league);
+    const recording = league.recordStandings(2, [
+      { memberId: 'm-1', points: 7.5 },
+      { memberId: 'm-2', points: 9 },
+    ]);
+    const put = http.expectOne(`${API}/rounds/2/standings`);
+    expect(put.request.method).toBe('PUT');
+    expect(put.request.body).toEqual({
+      standings: [
+        { memberId: 'm-1', points: 7.5 },
+        { memberId: 'm-2', points: 9 },
+      ],
+    });
+    put.flush([
+      { roundNumber: 2, memberId: 'm-2', memberName: 'M-2', rank: 1, points: 9 },
+      { roundNumber: 2, memberId: 'm-1', memberName: 'M-1', rank: 2, points: 7.5 },
+    ]);
+    await recording;
+    expect(league.standings()).toEqual([
+      { roundId: 2, memberId: 'm-2', rank: 1, points: 9 },
+      { roundId: 2, memberId: 'm-1', rank: 2, points: 7.5 },
+    ]);
+
+    const clearing = league.clearStanding(2, 'm-2');
+    const remove = http.expectOne(`${API}/rounds/2/standings/m-2`);
+    expect(remove.request.method).toBe('DELETE');
+    remove.flush(null, { status: 204, statusText: 'No Content' });
+    await clearing;
+    expect(league.standings().map((s) => s.memberId)).toEqual(['m-1']);
+    http.verify();
+  });
+
+  it('links a pick confirmation duty to the fixtures it covers', async () => {
+    const { league, http } = setup();
+    await loadSteward(http, league);
+    const creating = league.createDuty({
+      memberId: 'm-2',
+      type: 'pick_confirmation',
+      roundId: 1,
+      deadlineAt: null,
+      reason: 'Two picks missing.',
+      pickFixtureIds: ['292584', '292585'],
+    });
+    const post = http.expectOne(`${API}/duties`);
+    expect(post.request.body).toEqual({
+      memberId: 'm-2',
+      type: 'pick_confirmation',
+      roundNumber: 1,
+      deadlineAt: null,
+      reason: 'Two picks missing.',
+      pickFixtureIds: ['292584', '292585'],
+    });
+    post.flush({});
+    await settle();
+    flushRefresh(http);
+    await creating;
     http.verify();
   });
 });

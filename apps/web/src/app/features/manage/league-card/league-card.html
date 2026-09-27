@@ -175,6 +175,20 @@
             <p class="field-error" role="alert">Choose a time zone from the list.</p>
           }
         </div>
+        <details
+          class="rules-group"
+          [id]="id() + '-rules'"
+          [open]="rulesOpen()"
+          (toggle)="rulesToggled($event)"
+        >
+          <summary>Superbru rules</summary>
+          <app-rules-fields
+            [idPrefix]="id() + '-rules'"
+            [group]="renameForm.controls.rules"
+            [lastRound]="lastRound()"
+            [submitted]="renameSubmitted()"
+          />
+        </details>
         <div class="form-actions">
           <button
             type="submit"

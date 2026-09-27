@@ -46,6 +46,9 @@
         </p>
       </app-scoring-panel>
     }
+  }
+  <app-picks-panel [fixtureId]="fixture.id" />
+  @if (configured && !failed() && data(); as centre) {
     <div class="match-grid">
       @if (showForecast()) {
         <section

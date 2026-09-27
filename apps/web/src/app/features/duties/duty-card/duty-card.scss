@@ -101,3 +101,26 @@ dd small {
     gap: 18px;
   }
 }
+.pick-fixtures {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 12px;
+  margin: -10px 0 18px;
+  font-size: 13px;
+}
+.pick-fixtures-label {
+  color: var(--muted);
+}
+.pick-fixtures ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pick-fixtures .text-button {
+  min-height: 36px;
+  font-size: 12px;
+}

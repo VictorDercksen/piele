@@ -4,21 +4,28 @@ import {
   Duty,
   EvidenceSubmission,
   FeedItem,
+  FixturePicks,
   LeagueAppearance,
   LeagueMember,
+  LeagueRules,
   LeagueSummary,
   MemberMarks,
   NewDuty,
   NewMember,
+  NewPick,
   NotificationsRead,
   Poll,
   RoundNote,
   RoundStanding,
+  StandingEntry,
+  StewardPick,
 } from './league.models';
 import { loadStoredRead, storeRead } from './notifications-read';
+import { DEFAULT_RULES } from './superbru';
 
 /**
- * League records: members, standings, duties, marks, polls and the feed.
+ * League records: members, Superbru picks, rules and recorded standings, duties, marks, polls
+ * and the feed.
  * `HttpLeagueData` talks to the Python API. Development builds can use labelled sample
  * data instead, and `EmptyLeagueData` stands in when neither is configured.
  */
@@ -36,7 +43,15 @@ export abstract class LeagueData {
   abstract readonly members: Signal<readonly LeagueMember[]>;
   /** Members the steward removed, with the date and reason. Empty for plain members. */
   abstract readonly withdrawnMembers: Signal<readonly LeagueMember[]>;
+  /** Recorded round totals: overrides of the totals derived from the picks. */
   abstract readonly standings: Signal<readonly RoundStanding[]>;
+  /**
+   * Every scored fixture's picks from the starting round on, with the stored result. Another
+   * member's picks are hidden before kickoff until the member has picked.
+   */
+  abstract readonly picks: Signal<readonly FixturePicks[]>;
+  /** The season's Superbru rules. */
+  abstract readonly rules: Signal<LeagueRules>;
   abstract readonly marks: Signal<readonly MemberMarks[]>;
   abstract readonly duties: Signal<readonly Duty[]>;
   abstract readonly polls: Signal<readonly Poll[]>;
@@ -87,6 +102,18 @@ export abstract class LeagueData {
   abstract closeJoinCode(): Promise<void>;
   /** Saves the league's emblem and accent colour and resolves to how the league now looks. */
   abstract saveAppearance(change: AppearanceChange): Promise<LeagueAppearance>;
+  /** The member's own pick for a fixture, before its kickoff. */
+  abstract savePick(fixtureId: string, pick: NewPick): Promise<void>;
+  /** Steward: records or corrects the listed members' picks at any time; others stay. */
+  abstract recordPicks(fixtureId: string, picks: readonly StewardPick[]): Promise<void>;
+  /** Steward: removes a member's pick. */
+  abstract removePick(fixtureId: string, memberId: string): Promise<void>;
+  /** Steward: changes some of the season's rules. */
+  abstract saveRules(change: Partial<LeagueRules>): Promise<void>;
+  /** Steward: replaces a round's recorded totals (overrides); members left out lose theirs. */
+  abstract recordStandings(roundId: number, entries: readonly StandingEntry[]): Promise<void>;
+  /** Steward: clears one member's recorded total for a round. */
+  abstract clearStanding(roundId: number, memberId: string): Promise<void>;
 }
 
 /** No league records. Used when neither the API nor sample data is configured. */
@@ -101,6 +128,9 @@ export class EmptyLeagueData extends LeagueData {
   readonly members = signal<readonly LeagueMember[]>([]).asReadonly();
   readonly withdrawnMembers = signal<readonly LeagueMember[]>([]).asReadonly();
   readonly standings = signal<readonly RoundStanding[]>([]).asReadonly();
+  readonly picks = signal<readonly FixturePicks[]>([]).asReadonly();
+  private readonly rulesState = signal<LeagueRules>(DEFAULT_RULES);
+  readonly rules = this.rulesState.asReadonly();
   readonly marks = signal<readonly MemberMarks[]>([]).asReadonly();
   readonly duties = signal<readonly Duty[]>([]).asReadonly();
   readonly polls = signal<readonly Poll[]>([]).asReadonly();
@@ -114,6 +144,7 @@ export class EmptyLeagueData extends LeagueData {
 
   selectLeague(league: LeagueSummary): void {
     this.slug = league.slug;
+    this.rulesState.set(league.rules ?? DEFAULT_RULES);
     this.read.set(loadStoredRead(league.slug));
   }
 
@@ -187,6 +218,30 @@ export class EmptyLeagueData extends LeagueData {
 
   saveAppearance(): Promise<LeagueAppearance> {
     return Promise.reject(new Error('League emblems are not available yet.'));
+  }
+
+  savePick(): Promise<void> {
+    return unavailable('Picks');
+  }
+
+  recordPicks(): Promise<void> {
+    return unavailable('Picks');
+  }
+
+  removePick(): Promise<void> {
+    return unavailable('Picks');
+  }
+
+  saveRules(): Promise<void> {
+    return unavailable('Rule changes');
+  }
+
+  recordStandings(): Promise<void> {
+    return unavailable('Recorded standings');
+  }
+
+  clearStanding(): Promise<void> {
+    return unavailable('Recorded standings');
   }
 }
 

@@ -19,6 +19,7 @@ import { LeagueMember } from './league.models';
 import { slugProblem } from './league-slugs';
 import { SampleLeague, SampleLeagueData } from './sample-league-data';
 import { SAMPLE_ME, feedItem, memberRecord } from './sample-leagues';
+import { withDefaultRules } from './superbru';
 
 /**
  * The management centre's data (`/manage`, the admin only): every league, archived included,
@@ -61,7 +62,7 @@ export abstract class AdminService {
     return this.adopt(await this.guard(() => this.createLeague(body)));
   }
 
-  /** Renames the league, changes its time zone, or archives or restores it. */
+  /** Renames the league, changes its time zone or rules, or archives or restores it. */
   async update(id: string, patch: LeagueUpdate): Promise<AdminLeague> {
     return this.adopt(await this.guard(() => this.updateLeague(id, patch)));
   }
@@ -152,21 +153,23 @@ export class HttpAdminService extends AdminService {
   private readonly http = inject(HttpClient);
   private readonly base = `${environment.apiUrl}/v1/admin/leagues`;
 
-  protected listLeagues(): Promise<readonly AdminLeague[]> {
-    return firstValueFrom(this.http.get<AdminLeague[]>(this.base));
+  protected async listLeagues(): Promise<readonly AdminLeague[]> {
+    return (await firstValueFrom(this.http.get<AdminLeague[]>(this.base))).map(withRules);
   }
 
-  protected createLeague(body: NewLeague): Promise<AdminLeague> {
-    return firstValueFrom(this.http.post<AdminLeague>(this.base, body));
+  protected async createLeague(body: NewLeague): Promise<AdminLeague> {
+    return withRules(await firstValueFrom(this.http.post<AdminLeague>(this.base, body)));
   }
 
-  protected updateLeague(id: string, patch: LeagueUpdate): Promise<AdminLeague> {
-    return firstValueFrom(this.http.patch<AdminLeague>(this.league(id), patch));
+  protected async updateLeague(id: string, patch: LeagueUpdate): Promise<AdminLeague> {
+    return withRules(await firstValueFrom(this.http.patch<AdminLeague>(this.league(id), patch)));
   }
 
-  protected postCaptain(id: string, memberId: string): Promise<AdminLeague> {
-    return firstValueFrom(
-      this.http.post<AdminLeague>(`${this.league(id)}/captain`, { membershipId: memberId }),
+  protected async postCaptain(id: string, memberId: string): Promise<AdminLeague> {
+    return withRules(
+      await firstValueFrom(
+        this.http.post<AdminLeague>(`${this.league(id)}/captain`, { membershipId: memberId }),
+      ),
     );
   }
 
@@ -264,12 +267,14 @@ export class SampleAdminService extends AdminService {
         displayName: null,
         isCaptain: captainIsMe,
         favouriteTeamId: null,
+        rules: withDefaultRules(body.rules),
       },
       joinCode: randomCode(),
       captainId,
       createdAt: now,
       members,
       standings: [],
+      picks: [],
       duties: [],
       polls: [],
       notes: [],
@@ -289,13 +294,16 @@ export class SampleAdminService extends AdminService {
     return Promise.resolve(view(league));
   }
 
-  protected updateLeague(id: string, patch: LeagueUpdate): Promise<AdminLeague> {
+  protected async updateLeague(id: string, patch: LeagueUpdate): Promise<AdminLeague> {
     const league = this.find(id);
     if (!league) return unknownLeague();
     if (patch.timezone !== undefined && !knownZone(patch.timezone))
       return refuse(422, 'invalid_timezone', `Unknown time zone ${patch.timezone}.`);
-    league.update(patch);
-    return Promise.resolve(view(league));
+    const { rules, ...rest } = patch;
+    // The rules are checked (and may be refused) before anything else changes.
+    if (rules && Object.keys(rules).length) await league.saveRules(rules);
+    league.update(rest);
+    return view(league);
   }
 
   protected postCaptain(id: string, memberId: string): Promise<AdminLeague> {
@@ -388,7 +396,13 @@ function view(league: SampleLeague): AdminLeague {
     },
     myMemberId: league.memberId,
     createdAt: league.seed.createdAt ?? '2026-09-18T08:00:00Z',
+    rules: league.rules(),
   };
+}
+
+/** The league with full rules, whatever the API left out. */
+function withRules(league: AdminLeague): AdminLeague {
+  return { ...league, rules: withDefaultRules(league.rules) };
 }
 
 function knownZone(zone: string): boolean {

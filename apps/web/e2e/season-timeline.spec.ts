@@ -113,7 +113,10 @@ test('sample league duties, evidence, votes and round scoping', async ({ page })
   await expect(page.getByRole('button', { name: 'Review your vote' })).toBeVisible();
 
   await nav.getByRole('link', { name: 'Standings', exact: true }).click();
-  await expect(page.locator('.standing-row.you img')).toHaveAttribute('src', /dhl-stormers/);
+  await expect(page.locator('.standing-row.you app-member-avatar img')).toHaveAttribute(
+    'src',
+    /dhl-stormers/,
+  );
   await page
     .getByRole('navigation', { name: 'Season timeline' })
     .getByRole('button', { name: 'Round 03, Upcoming', exact: true })

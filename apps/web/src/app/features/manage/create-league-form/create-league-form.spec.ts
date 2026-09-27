@@ -23,11 +23,11 @@ describe('CreateLeagueForm', () => {
   let sent: NewLeague[];
   let refusal: ApiError | null;
 
-  function setup() {
+  function setup(competitions: readonly (typeof URC)[] = [URC]) {
     sent = [];
     refusal = null;
     const admin = {
-      competitions: () => Promise.resolve([URC]),
+      competitions: () => Promise.resolve(competitions),
       create: (body: NewLeague) => {
         sent.push(body);
         return refusal ? Promise.reject(refusal) : Promise.resolve({ slug: body.slug });
@@ -191,6 +191,61 @@ describe('CreateLeagueForm', () => {
     await submit();
     expect(root.querySelector('#new-league-error')?.textContent).toContain('Unknown time zone.');
     expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it('keeps Piele’s rules collapsed and sends only the rules that differ', async () => {
+    const { type, choose, member, submit, root, field } = setup();
+    await settle();
+    const group = root.querySelector<HTMLDetailsElement>('#new-league-rules')!;
+    expect(group.open).toBe(false);
+    expect(field<HTMLInputElement>('rules-marginWindow').value).toBe('5');
+    expect(field<HTMLInputElement>('rules-defaultPicks').checked).toBe(true);
+    expect(root.querySelector('#new-league-rules-previousChampionMemberId')).toBeNull();
+    type('name', 'Die Ou Manne');
+    await member(0, 'Doempie', 'Steyn', 'Doempie');
+    choose('captain', 'Doempie');
+    field<HTMLInputElement>('rules-defaultPicks').click();
+    type('rules-grandSlamPoints', '3');
+    type('rules-win-final', '4');
+    await submit();
+    expect(sent[0].rules).toEqual({
+      defaultPicks: false,
+      winPoints: { regular: 1, quarterFinal: 1.5, semiFinal: 2, final: 4 },
+      grandSlamPoints: 3,
+    });
+  });
+
+  it('opens the rules and focuses a rule to fix', async () => {
+    const { type, choose, member, submit, root, field } = setup();
+    await settle();
+    type('name', 'Die Ou Manne');
+    await member(0, 'Doempie', 'Steyn', 'Doempie');
+    choose('captain', 'Doempie');
+    type('rules-startingRound', '19');
+    await submit();
+    expect(sent).toEqual([]);
+    expect(root.querySelector<HTMLDetailsElement>('#new-league-rules')!.open).toBe(true);
+    expect(field('rules-startingRound').getAttribute('aria-invalid')).toBe('true');
+    expect(document.activeElement).toBe(field('rules-startingRound'));
+  });
+
+  it("bounds the starting round by the chosen competition's regular rounds", async () => {
+    const short = { ...URC, id: 'short-cup-2027', name: 'Short Cup 2027', shortName: 'SC', regularRounds: 10 };
+    const { type, choose, member, submit, field, fixture } = setup([short, URC]);
+    await settle();
+    expect(fixture.componentInstance.lastRound()).toBe(10);
+    type('name', 'Die Ou Manne');
+    await member(0, 'Doempie', 'Steyn', 'Doempie');
+    choose('captain', 'Doempie');
+    type('rules-startingRound', '11');
+    await submit();
+    expect(sent).toEqual([]);
+    expect(field('rules-startingRound').getAttribute('aria-invalid')).toBe('true');
+    choose('competitionId', URC.id);
+    await settle();
+    expect(fixture.componentInstance.lastRound()).toBe(18);
+    await submit();
+    expect(sent[0].rules).toEqual({ startingRound: 11 });
   });
 
   it('names the default season from the registry or the competition name', () => {

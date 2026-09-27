@@ -12,17 +12,23 @@ import {
   Duty,
   EvidenceSubmission,
   FeedItem,
+  FixturePicks,
   LeagueAppearance,
   LeagueMember,
+  LeagueRules,
   LeagueSummary,
   MemberMarks,
   NewDuty,
   NewMember,
+  NewPick,
   NotificationsRead,
   Poll,
   RoundNote,
   RoundStanding,
+  StandingEntry,
+  StewardPick,
 } from './league.models';
+import { DEFAULT_RULES, withDefaultRules } from './superbru';
 
 /** The league-scoped `GET /v1/leagues/{leagueId}/me` document. */
 export interface Me {
@@ -50,6 +56,8 @@ export interface Me {
   readonly notificationsReadKeys?: readonly string[];
   /** Only for the steward; null for members or when joining is closed. */
   readonly joinCode?: string | null;
+  /** The season's Superbru rules. */
+  readonly rules?: Partial<LeagueRules>;
 }
 
 /** Where to put an image in private Storage: the photo and emblem grants. */
@@ -77,8 +85,13 @@ interface ApiMember {
   readonly withdrawalReason?: string | null;
 }
 
-interface ApiDuty extends Omit<Duty, 'roundId'> {
+interface ApiDuty extends Omit<Duty, 'roundId' | 'pickFixtureIds'> {
   readonly roundNumber: number | null;
+  readonly pickFixtureIds?: readonly string[];
+}
+
+interface ApiFixturePicks extends Omit<FixturePicks, 'roundId'> {
+  readonly roundNumber: number;
 }
 
 interface ApiFeedItem extends Omit<FeedItem, 'roundId'> {
@@ -147,6 +160,11 @@ export class HttpLeagueData extends LeagueData {
   /** Superbru round points the captain records from the pool results. */
   private readonly standingRecords = signal<readonly RoundStanding[]>([]);
   readonly standings = this.standingRecords.asReadonly();
+  private readonly pickRecords = signal<readonly FixturePicks[]>([]);
+  readonly picks = this.pickRecords.asReadonly();
+  private readonly rulesState = signal<LeagueRules>(DEFAULT_RULES);
+  /** From the league-scoped `me`, with any missing key from the defaults. */
+  readonly rules = this.rulesState.asReadonly();
   private readonly markRecords = signal<readonly MemberMarks[]>([]);
   readonly marks = this.markRecords.asReadonly();
   private readonly dutyRecords = signal<readonly Duty[]>([]);
@@ -209,6 +227,8 @@ export class HttpLeagueData extends LeagueData {
     this.withdrawnRecords.set([]);
     this.joinCodeState.set(null);
     this.standingRecords.set([]);
+    this.pickRecords.set([]);
+    this.rulesState.set(DEFAULT_RULES);
     this.markRecords.set([]);
     this.dutyRecords.set([]);
     this.feedRecords.set([]);
@@ -268,6 +288,7 @@ export class HttpLeagueData extends LeagueData {
       roundNumber: duty.roundId,
       deadlineAt: duty.deadlineAt,
       reason: duty.reason,
+      ...(duty.pickFixtureIds?.length ? { pickFixtureIds: duty.pickFixtureIds } : {}),
     });
     await this.refresh();
   }
@@ -356,6 +377,93 @@ export class HttpLeagueData extends LeagueData {
   async closeJoinCode(): Promise<void> {
     await this.request('DELETE', '/join-code');
     this.joinCodeState.set(null);
+  }
+
+  /** The member's own pick (`PUT /matches/{fixtureId}/picks/me`); the API refuses after kickoff. */
+  async savePick(fixtureId: string, pick: NewPick): Promise<void> {
+    const saved = await this.request<ApiFixturePicks>(
+      'PUT',
+      `/matches/${encodeURIComponent(fixtureId)}/picks/me`,
+      { side: pick.side, margin: pick.margin },
+    );
+    this.adoptPicks(saved);
+  }
+
+  /** Steward: records the listed members' picks (`PUT /matches/{fixtureId}/picks`). */
+  async recordPicks(fixtureId: string, picks: readonly StewardPick[]): Promise<void> {
+    const saved = await this.request<ApiFixturePicks>(
+      'PUT',
+      `/matches/${encodeURIComponent(fixtureId)}/picks`,
+      {
+        picks: picks.map((p) => ({
+          memberId: p.memberId,
+          side: p.side,
+          margin: p.margin,
+          isDefault: p.isDefault ?? false,
+          // Omitted keeps the existing duty link; an explicit null unlinks it.
+          ...(p.dutyId !== undefined ? { dutyId: p.dutyId } : {}),
+        })),
+      },
+    );
+    this.adoptPicks(saved);
+  }
+
+  /** Steward: removes a member's pick, then reloads the picks (visibility may change). */
+  async removePick(fixtureId: string, memberId: string): Promise<void> {
+    await this.request(
+      'DELETE',
+      `/matches/${encodeURIComponent(fixtureId)}/picks/${encodeURIComponent(memberId)}`,
+    );
+    await this.loadPicks();
+  }
+
+  /**
+   * Steward: `PUT /rules` with the changed keys; the feed gains `rules_updated`. `GET /picks`
+   * starts at the rules' starting round, so a new one reloads the picks.
+   */
+  async saveRules(change: Partial<LeagueRules>): Promise<void> {
+    const rules = await this.request<Partial<LeagueRules>>('PUT', '/rules', change);
+    this.rulesState.set(withDefaultRules(rules));
+    await Promise.all([
+      this.refreshFeed(),
+      ...(change.startingRound !== undefined ? [this.loadPicks()] : []),
+    ]);
+  }
+
+  /** Steward: replaces a round's recorded totals (`PUT /rounds/{n}/standings`). */
+  async recordStandings(roundId: number, entries: readonly StandingEntry[]): Promise<void> {
+    const saved = await this.request<ApiStanding[]>('PUT', `/rounds/${roundId}/standings`, {
+      standings: entries.map(({ memberId, points }) => ({ memberId, points })),
+    });
+    this.standingRecords.update((rows) => [
+      ...rows.filter((row) => row.roundId !== roundId),
+      ...saved.map(toStanding),
+    ]);
+  }
+
+  /** Steward: clears one recorded total (`DELETE /rounds/{n}/standings/{memberId}`). */
+  async clearStanding(roundId: number, memberId: string): Promise<void> {
+    await this.request('DELETE', `/rounds/${roundId}/standings/${encodeURIComponent(memberId)}`);
+    this.standingRecords.update((rows) =>
+      rows.filter((row) => !(row.roundId === roundId && row.memberId === memberId)),
+    );
+  }
+
+  /** Every fixture's picks (`GET /picks`). */
+  private async loadPicks(leagueId = this.league()): Promise<void> {
+    const picks = await this.request<ApiFixturePicks[]>('GET', '/picks', undefined, leagueId);
+    if (this.league() !== leagueId) return;
+    this.pickRecords.set(picks.map(toFixturePicks));
+  }
+
+  /** Replaces one fixture's picks with what a write returned. */
+  private adoptPicks(saved: ApiFixturePicks): void {
+    const next = toFixturePicks(saved);
+    this.pickRecords.update((all) =>
+      all.some((f) => f.fixtureId === next.fixtureId)
+        ? all.map((f) => (f.fixtureId === next.fixtureId ? next : f))
+        : [...all, next],
+    );
   }
 
   /** Where to upload a new emblem: `emblems/{leagueId}/...` in private Storage. */
@@ -467,27 +575,29 @@ export class HttpLeagueData extends LeagueData {
     this.me.set(me);
     this.joinCodeState.set(me.administers ? (me.joinCode ?? null) : null);
     this.read.set({ readAt: me.notificationsReadAt ?? null, readKeys: me.notificationsReadKeys ?? [] });
+    this.rulesState.set(withDefaultRules(me.rules));
   }
 
   private async refresh(leagueId = this.league()): Promise<void> {
     if (!leagueId) return;
-    const [, standings, duties, marks, feed] = await Promise.all([
+    const [, standings, duties, marks, feed, picks] = await Promise.all([
       this.loadMembers(this.administers(), leagueId),
       this.request<ApiStanding[]>('GET', '/standings', undefined, leagueId),
       this.request<ApiDuty[]>('GET', '/duties', undefined, leagueId),
       this.request<MemberMarks[]>('GET', '/marks', undefined, leagueId),
       this.request<ApiFeedItem[]>('GET', '/feed?limit=200', undefined, leagueId),
+      this.request<ApiFixturePicks[]>('GET', '/picks', undefined, leagueId),
     ]);
     if (this.league() !== leagueId) return;
-    this.standingRecords.set(
-      standings.map(({ roundNumber, memberId, rank, points }) => ({
+    this.standingRecords.set(standings.map(toStanding));
+    this.pickRecords.set(picks.map(toFixturePicks));
+    this.dutyRecords.set(
+      duties.map(({ roundNumber, pickFixtureIds, ...duty }) => ({
+        ...duty,
         roundId: roundNumber,
-        memberId,
-        rank,
-        points,
+        pickFixtureIds: pickFixtureIds ?? [],
       })),
     );
-    this.dutyRecords.set(duties.map(({ roundNumber, ...duty }) => ({ ...duty, roundId: roundNumber })));
     this.markRecords.set(marks);
     this.feedRecords.set(feed.map(({ roundNumber, ...item }) => ({ ...item, roundId: roundNumber })));
     this.errorState.set(null);
@@ -530,6 +640,14 @@ export function appearanceOf(me: Me): LeagueAppearance {
     emblemUrl: me.emblemUrl ?? null,
     accentColour: me.accentColour ?? null,
   };
+}
+
+function toStanding({ roundNumber, memberId, rank, points }: ApiStanding): RoundStanding {
+  return { roundId: roundNumber, memberId, rank, points: Number(points) };
+}
+
+function toFixturePicks({ roundNumber, ...fixture }: ApiFixturePicks): FixturePicks {
+  return { ...fixture, roundId: roundNumber, picks: fixture.picks ?? [] };
 }
 
 function toMember(m: ApiMember): LeagueMember {

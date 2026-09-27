@@ -8,7 +8,8 @@ transaction (plan section 6, "Joining"). Not an HTTP endpoint.
 Runs against DATABASE_URL as the runtime role and refuses to run when a league with the
 slug already exists. Members come from app/data/league_members.json (or --members-file);
 its `league`, `slug` and `competitionId` are the defaults for --name, --slug and
---competition (URC 2026/27 when absent). The captain's verified email is the only required
+--competition (URC 2026/27 when absent), and its optional `rules` (any subset of the Superbru
+rules) set the first season's rules. The captain's verified email is the only required
 argument, so their first sign-in claims the captain membership. Other members claim their
 names with the league's join code, or the captain reserves emails from the captain's desk.
 The work is `app.league.service.create_league`, shared with the admin's management centre.
@@ -59,6 +60,7 @@ def bootstrap(
             captain_display_name=seed["captain"],
             captain_email=captain_email,
             actor_label=ACTOR_LABEL,
+            rules=seed.get("rules"),
         )
     except HTTPException as exc:
         detail = exc.detail if isinstance(exc.detail, dict) else {"message": str(exc.detail)}

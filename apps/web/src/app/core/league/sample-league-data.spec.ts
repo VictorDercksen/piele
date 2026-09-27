@@ -127,7 +127,7 @@ describe('sample league data', () => {
       expect.objectContaining({ id: 'member-lm', withdrawalReason: 'Moved to Perth' }),
     ]);
     expect(data.withdrawnMembers()[0].leftAt).toBeTruthy();
-    expect(data.standings().some((s) => s.memberId === 'member-lm')).toBe(false);
+    expect(data.picks().some((f) => f.picks.some((p) => p.memberId === 'member-lm'))).toBe(false);
     expect(data.duties().some((d) => d.memberId === 'member-lm')).toBe(false);
     expect(data.feed()[0]).toEqual(
       expect.objectContaining({ kind: 'member_left', title: 'Liam left the clubhouse.' }),
@@ -139,7 +139,7 @@ describe('sample league data', () => {
     await data.reinstateMember('member-lm');
     expect(data.withdrawnMembers()).toEqual([]);
     expect(data.members().find((m) => m.id === 'member-lm')?.leftAt).toBeNull();
-    expect(data.standings().some((s) => s.memberId === 'member-lm')).toBe(true);
+    expect(data.picks().some((f) => f.picks.some((p) => p.memberId === 'member-lm'))).toBe(true);
     // The open duty stays voided; marks and past records came back with the member.
     const duty = data.duties().find((d) => d.id === 'duty-3')!;
     expect(duty.status).toBe('voided');
@@ -234,5 +234,172 @@ describe('sample league data', () => {
     // Stewarding the team sheet needs no membership.
     await data.withdrawMember('member-ck', 'Left the club');
     expect(data.withdrawnMembers().map((m) => m.id)).toEqual(['member-ck']);
+  });
+  describe('picks, rules and recorded totals', () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      // Round 2 carries sample results; round 3 has not kicked off.
+      vi.setSystemTime(Date.parse('2026-09-27T08:00:00Z'));
+    });
+    afterEach(() => vi.useRealTimers());
+
+    const fixture = (data: SampleLeagueData, id: string) =>
+      data.picks().find((f) => f.fixtureId === id)!;
+
+    it('lists every scheduled fixture with the sample results and the league’s picks', () => {
+      const data = sample();
+      const opener = fixture(data, '292584');
+      expect(opener).toEqual(
+        expect.objectContaining({
+          roundId: 1,
+          locked: true,
+          result: { homeScore: 20, awayScore: 20, state: 'full_time' },
+        }),
+      );
+      expect(opener.picks.length).toBe(6);
+      expect(opener.myPick).toEqual(
+        expect.objectContaining({ memberId: 'member-me', memberName: 'You', side: 'home', margin: 10 }),
+      );
+      expect(fixture(data, '292600')).toEqual(
+        expect.objectContaining({ roundId: 3, locked: false, result: null, myPick: null, picks: [] }),
+      );
+      // Pick confirmation duties list the picks they cover.
+      const duties = new Map(data.duties().map((d) => [d.id, d.pickFixtureIds]));
+      expect(duties.get('duty-4')?.length).toBe(8);
+      expect(duties.get('duty-3')).toEqual(['292592', '292596']);
+      expect(duties.get('duty-2')).toEqual([]);
+      expect(data.rules().previousChampionMemberId).toBe('member-jp');
+      expect(data.standings()).toEqual([]);
+    });
+
+    it('hides the pool’s picks before kickoff until the member has picked', async () => {
+      const data = sample();
+      await data.recordPicks('292600', [{ memberId: 'member-jp', side: 'home', margin: 8 }]);
+      expect(fixture(data, '292600').picks).toEqual([]);
+      await data.savePick('292600', { side: 'away', margin: 3 });
+      const after = fixture(data, '292600');
+      expect(after.myPick).toEqual(expect.objectContaining({ side: 'away', margin: 3, isDefault: false }));
+      expect(after.picks.map((p) => p.memberName).sort()).toEqual(['Johan', 'You']);
+      await data.savePick('292600', { side: 'draw', margin: 0 });
+      expect(fixture(data, '292600').picks.length).toBe(2);
+
+      await expect(data.savePick('292584', { side: 'home', margin: 3 })).rejects.toMatchObject({
+        code: 'picks_locked',
+      });
+      await expect(data.savePick('292600', { side: 'home', margin: 0 })).rejects.toMatchObject({
+        code: 'invalid_pick',
+      });
+      await expect(data.savePick('nope', { side: 'home', margin: 3 })).rejects.toMatchObject({
+        code: 'unknown_fixture',
+      });
+    });
+
+    it('lets the steward record, correct and remove any pick, and refuses bad ones', async () => {
+      const data = sample();
+      await data.recordPicks('292584', [
+        { memberId: 'member-as', side: 'away', margin: 4, isDefault: true, dutyId: 'duty-4' },
+      ]);
+      expect(fixture(data, '292584').picks.find((p) => p.memberId === 'member-as')).toEqual(
+        expect.objectContaining({ side: 'away', margin: 4, isDefault: true, dutyId: 'duty-4' }),
+      );
+      const link = () => fixture(data, '292584').picks.find((p) => p.memberId === 'member-as')?.dutyId;
+      // Like the API: an omitted dutyId keeps the link, an explicit null clears it.
+      await data.recordPicks('292584', [{ memberId: 'member-as', side: 'away', margin: 6, isDefault: true }]);
+      expect(link()).toBe('duty-4');
+      await data.recordPicks('292584', [
+        { memberId: 'member-as', side: 'away', margin: 6, isDefault: true, dutyId: null },
+      ]);
+      expect(link()).toBeNull();
+      await expect(
+        data.recordPicks('292584', [
+          { memberId: 'member-as', side: 'home', margin: 1 },
+          { memberId: 'member-as', side: 'home', margin: 2 },
+        ]),
+      ).rejects.toMatchObject({ code: 'duplicate_member' });
+      await expect(
+        data.recordPicks('292584', [{ memberId: 'member-x', side: 'home', margin: 1 }]),
+      ).rejects.toMatchObject({ code: 'unknown_member' });
+      await expect(
+        data.recordPicks('292584', [{ memberId: 'member-as', side: 'draw', margin: 0, isDefault: true }]),
+      ).rejects.toMatchObject({ code: 'invalid_pick' });
+      await expect(
+        data.recordPicks('292584', [{ memberId: 'member-jp', side: 'home', margin: 1, dutyId: 'duty-4' }]),
+      ).rejects.toMatchObject({ code: 'unknown_duty' });
+      await data.removePick('292584', 'member-as');
+      expect(fixture(data, '292584').picks.some((p) => p.memberId === 'member-as')).toBe(false);
+    });
+
+    it('links a new pick confirmation duty to its fixtures, recording missed picks', async () => {
+      const data = sample();
+      await data.createDuty({
+        memberId: 'member-jp',
+        type: 'pick_confirmation',
+        roundId: 3,
+        deadlineAt: null,
+        reason: 'Picks missing.',
+        pickFixtureIds: ['292600'],
+      });
+      const duty = data.duties().find((d) => d.memberId === 'member-jp' && d.roundId === 3)!;
+      expect(duty.pickFixtureIds).toEqual(['292600']);
+      await data.savePick('292600', { side: 'home', margin: 2 });
+      expect(fixture(data, '292600').picks.find((p) => p.memberId === 'member-jp')).toEqual(
+        expect.objectContaining({ side: 'missed', margin: null, dutyId: duty.id }),
+      );
+    });
+
+    it('saves the rules with a feed item and validates them', async () => {
+      const data = sample();
+      await data.saveRules({ bonusPointSplit: false, winPoints: { final: 4 } as never });
+      expect(data.rules()).toEqual(
+        expect.objectContaining({
+          bonusPointSplit: false,
+          winPoints: { regular: 1, quarterFinal: 1.5, semiFinal: 2, final: 4 },
+          previousChampionMemberId: 'member-jp',
+        }),
+      );
+      expect(data.feed()[0]).toEqual(
+        expect.objectContaining({ kind: 'rules_updated', title: 'Superbru rules updated.' }),
+      );
+      expect(data.account().leagues.find((l) => l.slug === 'piele')?.rules.bonusPointSplit).toBe(false);
+      await expect(data.saveRules({ marginPoint: -1 })).rejects.toMatchObject({ code: 'validation' });
+      await expect(data.saveRules({ startingRound: 99 })).rejects.toMatchObject({ code: 'validation' });
+      await expect(data.saveRules({ previousChampionMemberId: 'member-x' })).rejects.toMatchObject({
+        code: 'unknown_member',
+      });
+    });
+
+    it('records a round’s totals over the derived ones and clears one', async () => {
+      const data = sample();
+      await data.recordStandings(1, [
+        { memberId: 'member-pw', points: 15.5 },
+        { memberId: 'member-fb', points: 3 },
+      ]);
+      expect(data.standings()).toEqual([
+        { roundId: 1, memberId: 'member-pw', rank: 1, points: 15.5 },
+        { roundId: 1, memberId: 'member-fb', rank: 2, points: 3 },
+      ]);
+      expect(data.feed()[0]).toEqual(
+        expect.objectContaining({
+          kind: 'standings_recorded',
+          title: 'Round 01 Superbru standings updated.',
+          detail: 'PieterW leads on 15.5 points.',
+        }),
+      );
+      await data.clearStanding(1, 'member-fb');
+      expect(data.standings().map((s) => s.memberId)).toEqual(['member-pw']);
+    });
+
+    it('shows the admin every pick in a league it is not in, but takes no pick from it', async () => {
+      const data = sample();
+      data.selectLeague(SAMPLE_ACCOUNT.leagues[0]);
+      await data.recordPicks('292600', [{ memberId: 'member-jp', side: 'home', margin: 8 }]);
+      data.selectLeague(SAMPLE_ACCOUNT.leagues[2]);
+      expect(data.picks().every((f) => f.picks.length === 0)).toBe(true);
+      await expect(data.savePick('292600', { side: 'home', margin: 1 })).rejects.toMatchObject({
+        code: 'admin_not_a_member',
+      });
+      await data.recordPicks('292600', [{ memberId: 'member-hm', side: 'away', margin: 2 }]);
+      expect(fixture(data, '292600').picks.map((p) => p.memberName)).toEqual(['Hennie']);
+    });
   });
 });

@@ -44,6 +44,8 @@
   }
 </section>
 
+<app-picks-card [dialog]="reasonDialog()" [dutyDialog]="dutyDialog()" />
+
 <section class="members" aria-labelledby="members-heading">
   <div class="section-title">
     <h2 id="members-heading">The team sheet.</h2>
@@ -206,4 +208,7 @@
 <app-join-link-card [dialog]="reasonDialog()" />
 
 <app-appearance-card />
+
+<app-rules-card />
 <app-reason-dialog />
+<app-create-duty-dialog (created)="dutyCreated($event)" />

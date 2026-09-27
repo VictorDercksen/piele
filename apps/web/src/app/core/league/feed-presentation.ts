@@ -17,6 +17,7 @@ export const FEED_ICONS: Record<string, string> = {
   evidence_accepted: 'check',
   evidence_rejected: 'close',
   standings_recorded: 'standings',
+  rules_updated: 'standings',
   match_result: 'standings',
   poll_opened: 'decisions',
   poll_closed: 'decisions',
@@ -39,6 +40,7 @@ export const FEED_LABELS: Record<string, string> = {
   evidence_accepted: 'DUTY COMPLETED',
   evidence_rejected: 'EVIDENCE REJECTED',
   standings_recorded: 'SUPERBRU TABLE',
+  rules_updated: 'RULES',
   match_result: 'RESULT',
   poll_opened: 'YOUR VOICE COUNTS',
   poll_closed: 'DECISION RECORDED',
@@ -58,5 +60,6 @@ export function feedPath(item: Pick<FeedItem, 'kind'>): string | null {
   if (item.kind.startsWith('duty') || item.kind.startsWith('evidence')) return '/duties';
   if (item.kind.startsWith('poll')) return '/decisions';
   if (item.kind === 'match_result' || item.kind === 'standings_recorded') return '/standings';
+  if (item.kind === 'rules_updated') return '/more';
   return null;
 }

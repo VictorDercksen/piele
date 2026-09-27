@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from app.league import service
 from app.league.context import Account, admin_dependency
-from app.routers.league import CompetitionRef, Email, competition_ref, emblem_fields
+from app.routers.league import CompetitionRef, Email, Rules, RulesChange, competition_ref, emblem_fields
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -66,6 +66,8 @@ class AdminLeague(BaseModel):
     # The admin's own active membership in the league, if any.
     myMemberId: UUID | None
     createdAt: datetime
+    # The Superbru rules of the active season (else the latest season, else the defaults).
+    rules: Rules
 
 
 def _admin_league(request: Request, view: service.AdminLeagueView) -> AdminLeague:
@@ -99,6 +101,7 @@ def _admin_league(request: Request, view: service.AdminLeagueView) -> AdminLeagu
         ),
         myMemberId=view.my_member_id,
         createdAt=league.created_at,
+        rules=Rules.model_validate(view.rules),
     )
 
 
@@ -136,6 +139,9 @@ class NewLeague(BaseModel):
     accentColour: str | None = Field(default=None, max_length=7)
     # With another captain: also add the admin as a member outside the season.
     addMe: bool = False
+    # Any subset of the Superbru rules; the rest are the defaults. A new league has no
+    # previous champion yet.
+    rules: RulesChange | None = None
 
     @field_validator("name", "seasonName", "captainDisplayName")
     @classmethod
@@ -158,6 +164,7 @@ def create_league(body: NewLeague, request: Request, account: Account = Depends(
         emblem_preset_key=body.emblemPreset,
         accent_colour=body.accentColour,
         add_me=body.addMe,
+        rules=body.rules.change() if body.rules is not None else None,
     )
     return _admin_league(request, service.admin_league(account, league_id))
 
@@ -168,6 +175,8 @@ class LeagueUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=120)
     timezone: str | None = Field(default=None, min_length=1, max_length=64)
     status: Literal["active", "archived"] | None = None
+    # Any subset of the active season's Superbru rules.
+    rules: RulesChange | None = None
 
     @field_validator("name", "timezone")
     @classmethod
@@ -182,8 +191,16 @@ def update_league(
     league_id: UUID = Path(alias="leagueId"),
     account: Account = Depends(admin_dependency),
 ) -> AdminLeague:
-    """Renames the league, changes its time zone, or archives or restores it."""
-    service.update_admin_league(account, league_id, name=body.name, timezone=body.timezone, status=body.status)
+    """Renames the league, changes its time zone, archives or restores it, or changes its
+    Superbru rules."""
+    service.update_admin_league(
+        account,
+        league_id,
+        name=body.name,
+        timezone=body.timezone,
+        status=body.status,
+        rules=body.rules.change() if body.rules is not None else None,
+    )
     return _admin_league(request, service.admin_league(account, league_id))
 
 

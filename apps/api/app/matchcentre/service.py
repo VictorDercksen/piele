@@ -24,6 +24,12 @@ HttpFactory = Callable[[], httpx.Client]
 WEATHER_SOURCE = "Open-Meteo"
 
 
+def round_scores_key(competition_id: str, round_number: int) -> str:
+    """The snapshot key of a round's scores. The league's stored results read it too
+    (app.league.service.stored_results)."""
+    return f"{competition_id}:scores:round:{round_number}"
+
+
 class MatchCentreService:
     def __init__(self, competition: Competition, settings: Settings, cache: SnapshotCache, http: HttpFactory) -> None:
         self.competition = competition
@@ -89,7 +95,7 @@ class MatchCentreService:
         live = [f for f in fixtures if scores.started(f, now)]
         if not live:
             return _section("too_early", source)
-        key = self.key("scores", "round", round_number)
+        key = round_scores_key(self.competition.id, round_number)
         snapshot = cached(self._cache, key, lambda: self._fetch_round(key, fixtures, now), now=now)
         section = _from_snapshot(snapshot, source)
         section.pop("urcRetryAt", None)
@@ -210,4 +216,4 @@ def default_http_factory(settings: Settings) -> HttpFactory:
     return lambda: httpx.Client(timeout=timeout, headers={"User-Agent": "Pavilion/0.1 match centre"})
 
 
-__all__ = ["MatchCentreService", "default_http_factory"]
+__all__ = ["MatchCentreService", "default_http_factory", "round_scores_key"]

@@ -40,6 +40,7 @@ import { Icon } from '../../shared/icon/icon';
 import { BallLoader } from '../../shared/ball-loader/ball-loader';
 import { MatchHero } from '../home/match-hero/match-hero';
 import { MatchPreview } from './match-preview/match-preview';
+import { PicksPanel } from './picks-panel/picks-panel';
 import { ScoringPanel } from './scoring-panel/scoring-panel';
 import { scoringView } from './scoring';
 import { sheetView } from './teamsheet';
@@ -59,6 +60,7 @@ import { weatherSky } from './weather-sky';
     BallLoader,
     MatchHero,
     MatchPreview,
+    PicksPanel,
     ScoringPanel,
   ],
   viewProviders: [

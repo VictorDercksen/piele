@@ -4,12 +4,16 @@ import {
   DutyEvidence,
   Duty,
   FeedItem,
+  FixtureResult,
   LeagueMember,
+  LeagueRules,
   LeagueSummary,
+  PickSide,
   Poll,
   RoundNote,
   RoundStanding,
 } from './league.models';
+import { DEFAULT_RULES } from './superbru';
 
 /**
  * Illustrative leagues for local development only. Names, points, duties and votes are
@@ -36,6 +40,16 @@ export interface SampleDutyRecord {
   readonly evidence: readonly DutyEvidence[];
 }
 
+/** A stored pick, as the sample league keeps it; names come from the team sheet. */
+export interface SamplePickRecord {
+  readonly fixtureId: string;
+  readonly memberId: string;
+  readonly side: PickSide;
+  readonly margin: number | null;
+  readonly isDefault: boolean;
+  readonly dutyId: string | null;
+}
+
 /** Everything one sample league starts with. */
 export interface SampleLeagueSeed {
   readonly summary: LeagueSummary;
@@ -45,7 +59,9 @@ export interface SampleLeagueSeed {
   /** When the league was made; the sample leagues predate the session. */
   readonly createdAt?: string;
   readonly members: readonly LeagueMember[];
+  /** Recorded round totals: overrides of the totals derived from the picks. */
   readonly standings: readonly RoundStanding[];
+  readonly picks: readonly SamplePickRecord[];
   readonly duties: readonly SampleDutyRecord[];
   readonly polls: readonly Poll[];
   readonly notes: readonly RoundNote[];
@@ -108,11 +124,81 @@ function table(
 
 const URC = competition('urc-2026-27');
 
+/**
+ * SAMPLE RESULTS, for the sample build only: illustrative scores for URC rounds 1 and 2 so
+ * the sample picks can be scored. API builds read results from the league API and never
+ * use these.
+ */
+export const sampleResults: Readonly<Record<string, FixtureResult>> = Object.fromEntries(
+  (
+    [
+      // Round 1
+      ['292584', 20, 20],
+      ['292585', 17, 30],
+      ['292586', 20, 26],
+      ['292587', 24, 23],
+      ['292588', 31, 14],
+      ['292589', 20, 26],
+      ['292590', 10, 45],
+      ['292591', 15, 20],
+      // Round 2
+      ['292592', 32, 10],
+      ['292593', 19, 24],
+      ['292594', 21, 21],
+      ['292595', 38, 12],
+      ['292596', 13, 27],
+      ['292597', 22, 25],
+      ['292598', 18, 16],
+      ['292599', 24, 19],
+    ] as const
+  ).map(([id, homeScore, awayScore]) => [id, { homeScore, awayScore, state: 'full_time' }]),
+);
+
+/** Each round's fixture ids in schedule order, for the pick lines below. */
+function roundFixtures(roundId: number): string[] {
+  return URC.fixtures
+    .filter((f) => f.round === roundId)
+    .sort((a, b) => (a.kickoffUtc ?? '').localeCompare(b.kickoffUtc ?? '') || a.id.localeCompare(b.id))
+    .map((f) => f.id);
+}
+
+/**
+ * One member's picks for a round, one token per fixture in schedule order: `H7` home by 7,
+ * `A12` away by 12, `D` a draw, `M` missed; a trailing `*` marks a Superbru default pick.
+ */
+function picksFor(
+  memberId: string,
+  roundId: number,
+  line: string,
+  dutyId: string | null = null,
+): SamplePickRecord[] {
+  const fixtures = roundFixtures(roundId);
+  return line.split(' ').map((token, index) => {
+    const isDefault = token.endsWith('*');
+    const code = token.replace('*', '');
+    const side: PickSide =
+      code[0] === 'H' ? 'home' : code[0] === 'A' ? 'away' : code[0] === 'D' ? 'draw' : 'missed';
+    return {
+      fixtureId: fixtures[index],
+      memberId,
+      side,
+      margin: side === 'draw' ? 0 : side === 'missed' ? null : Number(code.slice(1)),
+      isDefault,
+      dutyId: isDefault || side === 'missed' ? dutyId : null,
+    };
+  });
+}
+
+function rules(change: Partial<LeagueRules> = {}): LeagueRules {
+  return { ...DEFAULT_RULES, ...change };
+}
+
 interface SummaryOptions {
   readonly emblemPreset?: string | null;
   readonly accentColour?: string | null;
   /** False for a league the sample account only sees as the admin. */
   readonly member?: boolean;
+  readonly rules?: LeagueRules;
 }
 
 function summary(
@@ -120,7 +206,7 @@ function summary(
   slug: string,
   name: string,
   captain: boolean,
-  { emblemPreset = null, accentColour = null, member = true }: SummaryOptions = {},
+  { emblemPreset = null, accentColour = null, member = true, rules = DEFAULT_RULES }: SummaryOptions = {},
 ): LeagueSummary {
   return {
     id,
@@ -138,6 +224,7 @@ function summary(
     displayName: null,
     isCaptain: captain,
     favouriteTeamId: null,
+    rules,
   };
 }
 
@@ -151,13 +238,29 @@ const PIELE_MEMBERS: readonly LeagueMember[] = [
 ];
 
 const PIELE: SampleLeagueSeed = {
-  summary: summary('sample-league-piele', 'piele', 'Piele', true),
+  summary: summary('sample-league-piele', 'piele', 'Piele', true, {
+    rules: rules({ previousChampionMemberId: 'member-jp' }),
+  }),
   joinCode: '5a3b1e0f9c2d',
   captainId: SAMPLE_ME,
   members: PIELE_MEMBERS,
-  standings: [
-    ...table(PIELE_MEMBERS, 1, [1, 0, 2, 4, 5, 3], [15, 13.5, 12, 10, 8.5, 6]),
-    ...table(PIELE_MEMBERS, 2, [0, 3, 1, 5, 4, 2], [16, 14, 12, 10.5, 9, 5.5]),
+  // Rounds 1 and 2 are derived from the picks; nothing is recorded over them.
+  standings: [],
+  picks: [
+    ...picksFor('member-pw', 1, 'H3 A12 A5 H2 H15 A4 A30 A6'),
+    ...picksFor('member-jp', 1, 'H7 A7 H6 A4 H10 A8 A20 H3'),
+    ...picksFor(SAMPLE_ME, 1, 'H10 H5 A10 H8 H20 H3 A25 A4'),
+    ...picksFor('member-fb', 1, 'H12 H8 H9 A6 H6 H10 H3 H7'),
+    ...picksFor('member-lm', 1, 'A3 A14 H4 A10 H18 A2 A15 H5'),
+    // Arno's picks were never made: Superbru defaults, under his pick confirmation duty.
+    ...picksFor('member-as', 1, 'H5* H5* H5* H5* H5* H5* H5* H5*', 'duty-4'),
+    ...picksFor('member-jp', 2, 'H20 A6 D H24 A12 A4 H3 H6'),
+    ...picksFor('member-pw', 2, 'H12 A3 H4 H15 A7 H5 A4 H8'),
+    ...picksFor(SAMPLE_ME, 2, 'H5 H7 H9 A3 H6 H12 A10 A5'),
+    ...picksFor('member-fb', 2, 'H15 H2 A5 H30 A20 H8 H7 H10'),
+    // Two picks missing, under Liam's pick confirmation duty.
+    ...picksFor('member-lm', 2, 'M A8 H3 H20 M A9 A2 H4', 'duty-3'),
+    ...picksFor('member-as', 2, 'H10 A4 H6 H12 A9 H3 H5 A3'),
   ],
   duties: [
     {
@@ -287,13 +390,13 @@ const PIELE: SampleLeagueSeed = {
     {
       roundId: 1,
       deadline: '25 Sep 2026 · 19:00 SAST',
-      activity: 'Pieter wins Round 1 with 15.0 points. Franco’s evidence was accepted.',
+      activity: 'PieterW takes the Round 1 cap. Franco’s spoon evidence was accepted.',
     },
     {
       roundId: 2,
       deadline: '02 Oct 2026 · 18:45 SAST',
       activity:
-        'Johan leads Round 2 with 16.0 points. A result correction is awaiting the league’s decision.',
+        'Johan takes the Round 2 cap. A result correction is awaiting the league’s decision.',
     },
     {
       roundId: 3,
@@ -333,7 +436,7 @@ const PIELE: SampleLeagueSeed = {
       'feed-6',
       'match_result',
       2,
-      'Glasgow Warriors 24–19 DHL Stormers.',
+      'Cardiff Rugby 32–10 Zebre Parma.',
       'Round 02 opener. Johan called it.',
       '2026-10-02T20:40:00Z',
       null,
@@ -403,9 +506,14 @@ const POFADDER: SampleLeagueSeed = {
   joinCode: 'b0e1d2c3a4f5',
   captainId: 'member-ds',
   members: POFADDER_MEMBERS,
-  standings: [
-    ...table(POFADDER_MEMBERS, 1, [3, 0, 2, 4, 1], [14, 12.5, 11, 9, 7.5]),
-    ...table(POFADDER_MEMBERS, 2, [1, 2, 0, 3, 4], [15.5, 13, 12, 10, 6.5]),
+  // Round 1 is derived from the picks; round 2 has only recorded totals (no picks entered).
+  standings: [...table(POFADDER_MEMBERS, 2, [1, 2, 0, 3, 4], [15.5, 13, 12, 10, 6.5])],
+  picks: [
+    ...picksFor('member-sl', 1, 'D A12 A6 A3 H16 A5 A28 A5'),
+    ...picksFor('member-ds', 1, 'H5 A5 H3 H7 H12 A10 A18 H4'),
+    ...picksFor(SAMPLE_ME, 1, 'H2 A9 A12 A3 H9 H2 A22 A8'),
+    ...picksFor('member-tn', 1, 'A4 H6 A2 H12 A3 A3 A10 H2'),
+    ...picksFor('member-kk', 1, 'H15 H10 H8 A9 H25 H7 H5 H12'),
   ],
   duties: [
     {
@@ -457,7 +565,7 @@ const POFADDER: SampleLeagueSeed = {
     {
       roundId: 1,
       deadline: '25 Sep 2026 · 19:00 SAST',
-      activity: 'Sanet wins Round 1 of the Pofadder Bowl with 14.0 points.',
+      activity: 'Sanet takes the Round 1 cap in the Pofadder Bowl.',
     },
     {
       roundId: 2,
@@ -531,10 +639,12 @@ const THIRD: SampleLeagueSeed = {
   joinCode: 'c7d8e9f0a1b2',
   captainId: 'member-hm',
   members: THIRD_MEMBERS,
+  // Recorded totals only: no picks were entered in this league.
   standings: [
     ...table(THIRD_MEMBERS, 1, [1, 3, 0, 2], [13, 11.5, 10, 8]),
     ...table(THIRD_MEMBERS, 2, [0, 2, 3, 1], [14.5, 12, 9.5, 7]),
   ],
+  picks: [],
   duties: [
     {
       id: 'duty-st-1',

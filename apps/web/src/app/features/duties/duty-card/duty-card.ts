@@ -7,13 +7,16 @@ import {
   output,
   signal,
 } from '@angular/core';
+import { RouterLink } from '@angular/router';
+import { CompetitionService } from '../../../core/competition/competition.service';
 import { LeagueTime } from '../../../core/competition/league-time';
 import { LeagueData } from '../../../core/league/league-data';
+import { LeaguePathPipe } from '../../../core/league/league-path.pipe';
 import { DutyEvidence } from '../../../core/league/league.models';
 import { RoundDutyView } from '../../../core/league/round-view.service';
 import { Icon } from '../../../shared/icon/icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucidePlay } from '@ng-icons/lucide';
+import { lucideArrowRight, lucidePlay } from '@ng-icons/lucide';
 
 /** One register entry: status, deadline, marks, evidence trail and the actions the viewer may take. */
 @Component({
@@ -21,8 +24,8 @@ import { lucidePlay } from '@ng-icons/lucide';
   templateUrl: './duty-card.html',
   styleUrl: './duty-card.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Icon, NgIcon],
-  viewProviders: [provideIcons({ lucidePlay })],
+  imports: [Icon, LeaguePathPipe, NgIcon, RouterLink],
+  viewProviders: [provideIcons({ lucideArrowRight, lucidePlay })],
   host: {
     class: 'register-card',
     '[class.personal-duty]': 'duty().mine',
@@ -33,6 +36,7 @@ import { lucidePlay } from '@ng-icons/lucide';
 export class DutyCard {
   private readonly league = inject(LeagueData);
   private readonly time = inject(LeagueTime);
+  private readonly competition = inject(CompetitionService);
   readonly duty = input.required<RoundDutyView>();
   readonly captain = input(false);
   readonly sample = input(false);
@@ -49,6 +53,21 @@ export class DutyCard {
   readonly nextMark = computed(() => {
     const at = this.duty().marks.nextMarkAt;
     return at ? this.time.format(at) : null;
+  });
+  /** The fixtures whose picks a pick confirmation duty covers, named "Bulls v Zebre". */
+  readonly pickFixtures = computed(() => {
+    const competition = this.competition.current();
+    return this.duty().pickFixtureIds.map((id) => {
+      const fixture = competition.locate(id)?.fixture;
+      const name = (clubId: string, fallback: string) =>
+        competition.team(clubId)?.shortName ?? fallback;
+      return {
+        id,
+        label: fixture
+          ? `${name(fixture.homeAsset, fixture.home)} v ${name(fixture.awayAsset, fixture.away)}`
+          : `Match ${id}`,
+      };
+    });
   });
   readonly live = computed(
     () => this.duty().status === 'open' || this.duty().status === 'pending_deadline',

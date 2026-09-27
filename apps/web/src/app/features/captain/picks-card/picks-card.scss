@@ -1,0 +1,572 @@
+:host {
+  display: block;
+}
+/* `/captain#picks` lands below the sticky top bar and round header. */
+.picks {
+  scroll-margin-top: 170px;
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.hint {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* The round's fixtures, in the fixture ribbon's style. */
+.fixture-strip {
+  display: flex;
+  min-width: 0;
+  padding: 8px 10px;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  background: var(--surface-grain), #142124;
+  color: #f2f2ec;
+  scrollbar-width: thin;
+}
+.fixture-strip button {
+  display: grid;
+  gap: 6px;
+  flex: 0 0 186px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 0;
+  border-left: 1px dashed #526059;
+  background: none;
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
+}
+.fixture-strip button:first-child {
+  border-left: 0;
+}
+.fixture-strip button.active {
+  background: var(--surface-grain), linear-gradient(135deg, #f2efdf14, #f58b650a);
+  box-shadow: inset 0 -3px var(--orange);
+}
+.fixture-strip button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.matchup {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.matchup b {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: inherit;
+}
+.matchup img {
+  flex-shrink: 0;
+  width: 24px;
+  height: 28px;
+  object-fit: contain;
+}
+.matchup i {
+  font:
+    italic 11px Georgia,
+    serif;
+  color: #b5c2c8;
+}
+.strip-status {
+  font-size: 11px;
+  letter-spacing: 0.4px;
+  color: #bcc8c0;
+}
+.awaiting .strip-status {
+  color: #ffc58a;
+  font-weight: 700;
+}
+
+/* The chosen fixture's grid. */
+.pick-grid {
+  /* Fixed widths so the heading row lines up with every member's row. */
+  --pick: 146px;
+  --cols: minmax(130px, 1fr) var(--pick) 72px 64px;
+  --areas: 'member pick margin missed';
+  margin-top: 18px;
+  padding: 18px 20px 20px;
+  border: 1px solid var(--line);
+  background: var(--surface-grain), var(--surface);
+}
+.pick-grid.with-default {
+  --cols: minmax(130px, 1fr) var(--pick) 72px 64px 64px;
+  --areas: 'member pick margin def missed';
+}
+.pick-grid.with-score {
+  --cols: minmax(130px, 1fr) var(--pick) 72px 64px 130px;
+  --areas: 'member pick margin missed score';
+}
+.pick-grid.with-default.with-score {
+  --cols: minmax(130px, 1fr) var(--pick) 72px 64px 64px 130px;
+  --areas: 'member pick margin def missed score';
+}
+.grid-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  font-size: 16px;
+  font-weight: 700;
+}
+.grid-heading .result {
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+.grid-note {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-left: 2px solid var(--orange);
+  background: var(--tint);
+  font-size: 13px;
+}
+.grid-error {
+  margin-top: 10px;
+}
+.grid-error:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.grid-head,
+.grid-row {
+  display: grid;
+  grid-template-columns: var(--cols);
+  grid-template-areas: var(--areas);
+  align-items: center;
+  gap: 8px 14px;
+}
+.grid-head {
+  margin-top: 14px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+}
+.member {
+  grid-area: member;
+}
+.side-picker,
+.pick-head {
+  grid-area: pick;
+}
+.margin {
+  grid-area: margin;
+}
+.default {
+  grid-area: def;
+}
+.missed {
+  grid-area: missed;
+}
+.score {
+  grid-area: score;
+}
+.grid-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.grid-row {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+.grid-row .member {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  --avatar-size: 30px;
+}
+.grid-row .member strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+}
+.grid-row.you .member strong {
+  color: var(--accent);
+}
+.grid-empty {
+  padding: 14px 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* Home, draw, away: a segmented control of native radios. */
+.side-picker {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: #0f1b1e;
+}
+.side {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 46px;
+  min-height: 44px;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+.side + .side {
+  border-left: 1px solid var(--line);
+}
+.side input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.side img {
+  width: 24px;
+  height: 28px;
+  object-fit: contain;
+}
+.side.draw span {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+}
+.side:has(input:checked) {
+  background: color-mix(in srgb, var(--club, #4a5a55) 55%, #0f1b1e);
+  box-shadow: inset 0 -3px var(--orange);
+}
+.side.draw:has(input:checked) {
+  background: var(--tint);
+}
+.side.draw:has(input:checked) span {
+  color: var(--ink);
+}
+.side:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.side:has(input:disabled) {
+  cursor: default;
+}
+.side:has(input:disabled) input {
+  cursor: default;
+}
+.read-only .side:not(:has(input:checked)) {
+  opacity: 0.55;
+}
+.margin {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.margin input {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: #0f1b1e;
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.margin input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.margin input:disabled {
+  opacity: 0.45;
+}
+.margin input[aria-invalid='true'] {
+  border-color: var(--accent);
+}
+/* The column headings label the cells on wide screens; each row's own label on phones. */
+.cell-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.check input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+.check:has(input:disabled) {
+  opacity: 0.5;
+  cursor: default;
+}
+.score {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 10px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.grid-head .score {
+  justify-content: flex-end;
+}
+.score .parts {
+  color: var(--muted);
+}
+.score strong {
+  min-width: 34px;
+  font-size: 15px;
+  text-align: right;
+}
+.grid-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 18px;
+  margin-top: 16px;
+}
+
+/* Derived totals beside the recorded ones. */
+.round-table {
+  margin-top: 28px;
+}
+.round-table h3 {
+  font-size: 16px;
+  font-weight: 700;
+}
+.round-table > .hint {
+  margin: 4px 0 10px;
+  max-width: 620px;
+}
+table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.col-derived {
+  width: 90px;
+}
+.col-recorded {
+  width: 160px;
+}
+.col-action {
+  width: 100px;
+}
+thead th {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-align: left;
+}
+tbody th,
+tbody td {
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--line);
+  font-weight: 400;
+  text-align: left;
+  vertical-align: middle;
+}
+th:first-child,
+td:first-child {
+  padding-left: 0;
+}
+.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+thead .num {
+  text-align: right;
+}
+tbody td.num {
+  text-align: right;
+}
+.round-table .member {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  --avatar-size: 26px;
+}
+.round-table .name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+tr.you .name {
+  color: var(--accent);
+  font-weight: 700;
+}
+.tag.differs {
+  margin-left: 6px;
+  vertical-align: 1px;
+}
+td.action {
+  text-align: right;
+}
+.override-row td {
+  padding: 10px 0 14px;
+}
+.override-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+.override-form label {
+  flex-basis: 100%;
+  font-size: 13px;
+  font-weight: 600;
+}
+.override-form input {
+  width: 130px;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: #0f1b1e;
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+}
+.override-form input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.override-form input[aria-invalid='true'] {
+  border-color: var(--accent);
+}
+.override-form .error-message {
+  flex-basis: 100%;
+}
+.text-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* The round's spoon, with a shortcut to its duty. */
+.spoon-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 20px;
+  margin-top: 20px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  background: var(--surface-grain), var(--surface);
+}
+.spoon-line p {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 700;
+}
+.badge {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+}
+.spoon-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 18px;
+}
+
+@container (max-width: 760px) {
+  .pick-grid {
+    padding: 14px;
+  }
+  .pick-grid,
+  .pick-grid.with-default,
+  .pick-grid.with-score,
+  .pick-grid.with-default.with-score {
+    --cols: minmax(0, 1fr) auto;
+    --areas: 'member score' 'pick margin' 'def missed';
+  }
+  .grid-head {
+    display: none;
+  }
+  .grid-row {
+    padding: 10px 0;
+  }
+  .grid-row .side-picker {
+    align-self: end;
+    justify-self: start;
+  }
+  .margin input {
+    width: 88px;
+  }
+  .cell-label {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
+  }
+  .margin .cell-label {
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .badge {
+    width: 18px;
+    height: 18px;
+  }
+  .round-table .member {
+    --avatar-size: 22px;
+    gap: 8px;
+  }
+  tbody th,
+  tbody td,
+  thead th {
+    padding-left: 4px;
+    padding-right: 4px;
+  }
+  .col-derived {
+    width: 52px;
+  }
+  .col-recorded {
+    width: 70px;
+  }
+  .col-action {
+    width: 88px;
+  }
+  .tag.differs {
+    display: table;
+    margin: 2px 0 0 auto;
+  }
+}

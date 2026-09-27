@@ -1,0 +1,25 @@
+:host {
+  display: block;
+}
+.rules-form {
+  display: grid;
+  gap: 18px;
+  padding: 20px 22px 22px;
+  border: 1px solid var(--line);
+  background: var(--surface-grain), var(--surface);
+}
+.rules-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 22px;
+}
+.text-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+@container (max-width: 500px) {
+  .rules-form {
+    padding: 16px;
+  }
+}

@@ -1,33 +1,72 @@
-<div class="content-tabs" aria-label="Standings measure">
+<div class="content-tabs" aria-label="Standings table">
   <button
     type="button"
-    [class.active]="measure() === 'points'"
-    [attr.aria-pressed]="measure() === 'points'"
-    (click)="measure.set('points')"
+    [class.active]="measure() === 'round'"
+    [attr.aria-pressed]="measure() === 'round'"
+    (click)="select('round')"
   >
-    Superbru points</button
+    Round</button
+  ><button
+    type="button"
+    [class.active]="measure() === 'season'"
+    [attr.aria-pressed]="measure() === 'season'"
+    (click)="select('season')"
+  >
+    Season</button
   ><button
     type="button"
     [class.active]="measure() === 'marks'"
     [attr.aria-pressed]="measure() === 'marks'"
-    (click)="measure.set('marks')"
+    (click)="select('marks')"
   >
     House marks
   </button>
 </div>
 <p class="page-description">
-  {{
-    measure() === 'points'
-      ? view.round().title +
-        ' only. Superbru points and symbolic house marks are separate measures.'
-      : 'Whole season. One house mark per full week a duty stays overdue; separate from Superbru points.'
-  }}
+  @switch (measure()) {
+    @case ('round') {
+      {{ view.round().title }} only. Superbru points and symbolic house marks are separate measures.
+    }
+    @case ('season') {
+      Whole season up to the selected round, computed from every round's picks; recorded totals
+      stand in where the captain has entered a correction.
+    }
+    @default {
+      Whole season. One house mark per full week a duty stays overdue; separate from Superbru
+      points.
+    }
+  }
 </p>
-<section class="honours-board" aria-label="Round standings">
+<section
+  class="honours-board standings-board"
+  [attr.aria-label]="
+    measure() === 'round'
+      ? 'Round standings'
+      : measure() === 'season'
+        ? 'Season standings'
+        : 'House marks'
+  "
+>
   <div class="board-light" aria-hidden="true"></div>
   <div class="honours-heading">
-    <span>{{ view.leagueName().toUpperCase() }} / {{ measure() === 'points' ? 'ROUND ' + view.round().code : 'SEASON' }}</span>
-    <h2>{{ measure() === 'points' ? 'Superbru points' : 'House marks' }}</h2>
+    <span
+      >{{ view.leagueName().toUpperCase() }} /
+      {{ measure() === 'round' ? 'ROUND ' + view.round().code : 'SEASON' }}</span
+    >
+    <h2>
+      {{
+        measure() === 'round'
+          ? 'Superbru points'
+          : measure() === 'season'
+            ? 'Superbru season'
+            : 'House marks'
+      }}
+    </h2>
+    @if (measure() === 'round') {
+      <p class="board-status">
+        <span class="tag" [class.complete]="roundStatus() === 'complete'">{{ roundStatus() }}</span>
+      </p>
+    }
   </div>
   @if (measure() === 'marks') {
     @if (view.marksTable().length) {
@@ -60,29 +99,112 @@
         <p>Marks appear once a duty is on the register.</p>
       </div>
     }
-  } @else if (view.standings().length) {
-    <div class="full-table">
-      <div class="table-label"><span>RANK / MEMBER</span><span>ROUND POINTS</span></div>
-      @for (member of view.standings(); track member.memberId) {
-        <div class="standing-row" [class.you]="member.you">
+  } @else if (rows().length) {
+    <div class="board-tools">
+      <button
+        type="button"
+        class="breakdown-toggle"
+        [attr.aria-pressed]="breakdown()"
+        (click)="toggleBreakdown()"
+      >
+        Show breakdown
+      </button>
+      @if (breakdown()) {
+        <ul class="breakdown-legend" aria-label="Breakdown key">
+          <li><span class="swatch wp" aria-hidden="true"></span><strong>WP</strong> Win points</li>
+          <li>
+            <span class="swatch mp" aria-hidden="true"></span><strong>MP</strong> Margin points
+          </li>
+          <li>
+            <span class="swatch gsp" aria-hidden="true"></span><strong>GSP</strong> Grand slam
+            points
+          </li>
+          <li>
+            <span class="swatch bp" aria-hidden="true"></span><strong>BP</strong> Bonus points
+          </li>
+        </ul>
+      }
+    </div>
+    <div class="full-table points-table" [class.with-breakdown]="breakdown()">
+      <div class="table-label">
+        <span class="member-head">RANK / MEMBER</span>
+        @if (breakdown()) {
+          <abbr class="cell" title="Win points">WP</abbr
+          ><abbr class="cell" title="Margin points">MP</abbr
+          ><abbr class="cell" title="Grand slam points">GSP</abbr
+          ><abbr class="cell" title="Bonus points">BP</abbr>
+        }
+        <span class="total-head">{{
+          measure() === 'round' ? 'ROUND POINTS' : 'SEASON POINTS'
+        }}</span>
+      </div>
+      @for (member of rows(); track member.memberId) {
+        <div class="standing-row points-row" [class.you]="member.you">
           <span class="rank">{{ member.rank | number: '2.0-0' }}</span>
           <app-member-avatar
             [name]="member.name"
             [photo]="member.photo"
             [teamId]="member.teamId"
-          /><span
-            >{{ member.name }}
-            @if (member.you) {
-              <small>YOU</small>
-            }</span
-          ><strong>{{ member.points | number: '1.1-2' }}</strong>
+          /><span class="member-cell"
+            ><span class="member-line"
+              ><span class="member-name">{{ member.name }}</span>
+              @if (member.you) {
+                <small>YOU</small>
+              }
+              @if (member.crown) {
+                <img class="badge" [src]="badges.crown.src" [alt]="badges.crown.alt" />
+              }
+              @if (member.cap) {
+                <img class="badge" [src]="badges.cap.src" [alt]="badges.cap.alt" />
+              }
+              @if (member.spoon) {
+                <img class="badge" [src]="badges.spoon.src" [alt]="badges.spoon.alt" />
+              }
+              @if (member.override !== null) {
+                <small class="override-tag" title="Recorded total differs from the derived one"
+                  >override</small
+                >
+              }
+            </span>
+            @if (member.rounds !== null) {
+              <small class="rounds-count"
+                >{{ member.rounds }} {{ member.rounds === 1 ? 'round' : 'rounds' }}</small
+              >
+            }
+            @if (breakdown()) {
+              <span class="breakdown-bar" aria-hidden="true"
+                ><span class="segment wp" [style.width.%]="member.bar.wp"></span
+                ><span class="segment mp" [style.width.%]="member.bar.mp"></span
+                ><span class="segment gsp" [style.width.%]="member.bar.gsp"></span
+                ><span class="segment bp" [style.width.%]="member.bar.bp"></span
+              ></span>
+              <span class="visually-hidden"
+                >{{ member.wp | number: '1.0-2' }} win points,
+                {{ member.mp | number: '1.0-2' }} margin points,
+                {{ member.gsp | number: '1.0-2' }} grand slam points,
+                {{ member.bp | number: '1.0-2' }} bonus points</span
+              >
+            }
+          </span>
+          @if (breakdown()) {
+            <span class="cell" aria-hidden="true">{{ member.wp | number: '1.0-2' }}</span
+            ><span class="cell" aria-hidden="true">{{ member.mp | number: '1.0-2' }}</span
+            ><span class="cell" aria-hidden="true">{{ member.gsp | number: '1.0-2' }}</span
+            ><span class="cell" aria-hidden="true">{{ member.bp | number: '1.0-2' }}</span>
+          }
+          <strong>{{ member.points | number: '1.1-2' }}</strong>
         </div>
       }
     </div>
+  } @else if (measure() === 'round') {
+    <div class="round-empty">
+      <h2>No picks or results for {{ view.round().title }} yet.</h2>
+      <p>Picks appear once members record them and the matches kick off.</p>
+    </div>
   } @else {
     <div class="round-empty">
-      <h2>No results for {{ view.round().title }} yet.</h2>
-      <p>Round points appear once the captain records the Superbru pool results.</p>
+      <h2>No rounds scored yet.</h2>
+      <p>Season points build up from each round's picks and results.</p>
     </div>
   }
 </section>
