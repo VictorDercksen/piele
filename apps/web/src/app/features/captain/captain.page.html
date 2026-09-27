@@ -95,39 +95,41 @@
                   : 'Any member can claim this name'
             }}</small>
           </span>
-          @if (member.claimed && member.id !== view.memberId()) {
-            <button
-              type="button"
-              class="text-button"
-              (click)="release(member)"
-              [disabled]="memberBusy() === member.id"
-              [attr.aria-label]="'Release ' + member.name"
-            >
-              Release
-            </button>
-          }
-          @if (!member.claimed) {
-            <button
-              type="button"
-              class="text-button"
-              (click)="edit(member)"
-              [disabled]="memberBusy() === member.id"
-              [attr.aria-label]="'Reserve ' + member.name + ' for an email'"
-            >
-              {{ member.email ? 'Change' : 'Reserve' }}
-            </button>
-          }
-          @if (removable(member)) {
-            <button
-              type="button"
-              class="text-button remove"
-              (click)="remove(member)"
-              [disabled]="memberBusy() === member.id"
-              [attr.aria-label]="'Remove ' + member.name"
-            >
-              Remove
-            </button>
-          }
+          <span class="member-actions">
+            @if (member.claimed && member.id !== view.memberId()) {
+              <button
+                type="button"
+                class="text-button"
+                (click)="release(member)"
+                [disabled]="memberBusy() === member.id"
+                [attr.aria-label]="'Release ' + member.name"
+              >
+                Release
+              </button>
+            }
+            @if (!member.claimed) {
+              <button
+                type="button"
+                class="text-button"
+                (click)="edit(member)"
+                [disabled]="memberBusy() === member.id"
+                [attr.aria-label]="'Reserve ' + member.name + ' for an email'"
+              >
+                {{ member.email ? 'Change' : 'Reserve' }}
+              </button>
+            }
+            @if (removable(member)) {
+              <button
+                type="button"
+                class="text-button remove"
+                (click)="remove(member)"
+                [disabled]="memberBusy() === member.id"
+                [attr.aria-label]="'Remove ' + member.name"
+              >
+                Remove
+              </button>
+            }
+          </span>
         }
       </li>
     }
@@ -153,18 +155,20 @@
                 }
               </small>
             </span>
-            <button
-              type="button"
-              class="text-button"
-              (click)="reinstate(member)"
-              [disabled]="memberBusy() === member.id"
-              [attr.aria-label]="'Reinstate ' + member.name"
-            >
-              @if (memberBusy() === member.id) {
-                <app-loader [size]="16" aria-hidden="true" />
-              }
-              Reinstate
-            </button>
+            <span class="member-actions">
+              <button
+                type="button"
+                class="text-button"
+                (click)="reinstate(member)"
+                [disabled]="memberBusy() === member.id"
+                [attr.aria-label]="'Reinstate ' + member.name"
+              >
+                @if (memberBusy() === member.id) {
+                  <app-loader [size]="16" aria-hidden="true" />
+                }
+                Reinstate
+              </button>
+            </span>
           </li>
         }
       </ul>

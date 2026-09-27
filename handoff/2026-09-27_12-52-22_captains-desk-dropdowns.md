@@ -40,3 +40,13 @@
 ## Open
 
 - Nothing known. The section state is not remembered across visits (closed each time), as asked.
+
+## Follow-up: the team sheet on phones
+
+- Each team-sheet row's buttons (and the withdrawn row's "Reinstate") are grouped in
+  `.member-actions`. Below 700 px (container) a row is a grid: name and full name with the
+  status tag top right, the note below, then the actions side by side (equal width, up to
+  160 px each) instead of one stacked button per line. Desktop keeps the single line.
+- Checks: unit tests 43 files, 282 passed; build passed with no warnings; Playwright
+  `leagues.spec.ts` and `season-timeline.spec.ts` 20 passed; screenshots at 390, 320 and
+  1280 px with no horizontal overflow.
