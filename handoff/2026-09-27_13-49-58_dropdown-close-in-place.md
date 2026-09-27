@@ -36,3 +36,16 @@ view (bottom at -182 px). The reader landed on unrelated content with nothing to
 ## Open
 
 - Nothing known.
+
+## Follow-up: CI failure on PR #45
+
+- `web` failed in `match-centre.spec.ts` (hero test): `expectClosesInPlace` found the teamsheets
+  heading 321 px lower after closing. The teamsheets are the last panel on the match page, so
+  once their body folds away there is not enough page left below to keep the heading at the pin
+  line; the browser pulls the scroll back and the heading slides down with the collapse, still
+  in view (measured locally: 235 px to 649 px). The check had passed locally only because it read
+  the position before the animation shrank the page.
+- `e2e/support.ts`: `expectClosesInPlace` now waits for the close animation to finish, then
+  requires the heading unmoved unless the page rests at its end, and in view either way.
+- Checks: `match-centre.spec.ts` and `leagues.spec.ts` 17 passed; the two affected tests
+  repeated four times each, 8 passed.
