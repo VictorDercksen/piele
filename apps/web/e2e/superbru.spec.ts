@@ -56,7 +56,17 @@ test('before kickoff a member sees only the pick form; saving the pick reveals t
   await panel.getByRole('button', { name: 'One point toward Stormers' }).click();
   await expect(marker).toHaveAttribute('aria-valuetext', 'Stormers by 1');
   await expect(marker).toHaveValue('-1');
-  await expect(panel.locator('.reading')).toContainText('Stormers by 1');
+  // The margin field sits on the chosen side of the Draw chip: left for the home side.
+  const draw = panel.getByRole('button', { name: 'Draw', exact: true });
+  const marginBox = panel.getByLabel('Margin (points)');
+  expect((await marginBox.boundingBox())!.x).toBeLessThan((await draw.boundingBox())!.x);
+  await panel.getByRole('button', { name: 'One point toward Sharks' }).click();
+  await panel.getByRole('button', { name: 'One point toward Sharks' }).click();
+  await expect(marker).toHaveAttribute('aria-valuetext', 'Sharks by 1');
+  expect((await marginBox.boundingBox())!.x).toBeGreaterThan((await draw.boundingBox())!.x);
+  await panel.getByRole('button', { name: 'One point toward Stormers' }).click();
+  await panel.getByRole('button', { name: 'One point toward Stormers' }).click();
+  await expect(marker).toHaveAttribute('aria-valuetext', 'Stormers by 1');
   await panel.getByLabel('Margin (points)').fill('200');
   await panel.getByRole('button', { name: 'Save pick' }).click();
   // The new attempt replaces the card rather than stacking another.

@@ -126,32 +126,26 @@
               </div>
             </div>
             <div class="scale-under">
-              <p class="reading" [class.empty]="s.side === null">
-                <span class="reading-label">Reads</span>{{ ' ' }}
-                <strong>{{ s.side === null ? s.hint : s.text }}</strong>
-              </p>
-              <div class="tweaks">
-                <button
-                  type="button"
-                  class="draw-pick"
-                  [attr.aria-pressed]="s.side === 'draw'"
-                  (click)="pickDraw()"
-                >
-                  Draw
-                </button>
-                <div class="field margin-field">
-                  <label for="pick-margin">Margin <span>(points)</span></label>
-                  <input
-                    #marginInput
-                    id="pick-margin"
-                    formControlName="margin"
-                    inputmode="numeric"
-                    autocomplete="off"
-                    maxlength="3"
-                    [attr.aria-invalid]="invalid('margin')"
-                    [attr.aria-describedby]="marginDisabled() ? 'pick-margin-hint' : null"
-                  />
-                </div>
+              <button
+                type="button"
+                class="draw-pick"
+                [attr.aria-pressed]="s.side === 'draw'"
+                (click)="pickDraw()"
+              >
+                Draw
+              </button>
+              <div class="field margin-field" [class.away]="marginSlot() === 'away'">
+                <label for="pick-margin">Margin <span>(points)</span></label>
+                <input
+                  #marginInput
+                  id="pick-margin"
+                  formControlName="margin"
+                  inputmode="numeric"
+                  autocomplete="off"
+                  maxlength="3"
+                  [attr.aria-invalid]="invalid('margin')"
+                  [attr.aria-describedby]="marginDisabled() ? 'pick-margin-hint' : null"
+                />
               </div>
             </div>
             @if (marginDisabled()) {

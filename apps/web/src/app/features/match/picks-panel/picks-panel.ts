@@ -144,7 +144,7 @@ export class PicksPanel {
   /**
    * The scale as drawn from the form: the range's value (home is left, so negative), the marker's
    * position and label, the fill from the middle, and the pick in words for the range's
-   * `aria-valuetext` and the reading line.
+   * `aria-valuetext`.
    */
   readonly scale = computed<ScaleView>(() => {
     this.status();
@@ -172,9 +172,14 @@ export class PicksPanel {
             : parsed === null
               ? `${name}, no margin yet`
               : `${name} by ${parsed}`,
-      hint: 'Drag the marker toward a side, or tap a crest.',
     };
   });
+
+  /**
+   * Which side of the Draw chip the margin field sits: the chosen club's, and the last club's
+   * while a draw is chosen or nothing is yet.
+   */
+  readonly marginSlot = signal<'home' | 'away'>('home');
 
   /** The member's own form: before kickoff, for a member, until the pick is in or while editing. */
   readonly showForm = computed(() => {
@@ -316,6 +321,7 @@ export class PicksPanel {
     this.form.controls.side.valueChanges.pipe(takeUntilDestroyed()).subscribe({
       next: (side) => {
         const margin = this.form.controls.margin;
+        if (side === 'home' || side === 'away') this.marginSlot.set(side);
         if (side === 'draw') {
           margin.setValue('');
           margin.disable();
@@ -489,8 +495,6 @@ export interface ScaleView {
   readonly thumb: string;
   /** The pick in words, e.g. "Bulls by 20", "A draw", "No pick yet". */
   readonly text: string;
-  /** The reading line before a side is chosen. */
-  readonly hint: string;
 }
 
 export interface PickMark {
