@@ -44,3 +44,25 @@ export async function expectPinnedHeading(page: Page, heading: string): Promise<
   expect(gap).toBeLessThan(2);
   await expect(chevron).toBeInViewport();
 }
+
+/**
+ * Closes a pinned dropdown from the middle of its body: once the body has folded away the heading
+ * is where it was on screen, under the round header, unless the page has run out below it (the
+ * last dropdown on a page), when the page rests at its end with the heading still in view.
+ */
+export async function expectClosesInPlace(page: Page, heading: string): Promise<void> {
+  const chevron = page.getByRole('button', { name: heading, exact: true });
+  const head = page.locator('.dropdown-head', { has: chevron });
+  const section = page.locator('section.dropdown', { has: head });
+  const before = await head.evaluate((element) => element.getBoundingClientRect().top);
+  await chevron.click();
+  await expect(chevron).toHaveAttribute('aria-expanded', 'false');
+  await expect(section).not.toHaveClass(/animating/);
+  await expect(head).not.toHaveClass(/stuck/);
+  const { after, atEnd } = await head.evaluate((element) => ({
+    after: element.getBoundingClientRect().top,
+    atEnd: scrollY + innerHeight >= document.documentElement.scrollHeight - 1,
+  }));
+  if (!atEnd) expect(Math.abs(after - before)).toBeLessThan(2);
+  await expect(chevron).toBeInViewport();
+}

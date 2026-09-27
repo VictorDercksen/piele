@@ -1,5 +1,5 @@
 import { expect, test, Page, Route } from '@playwright/test';
-import { expectPinnedHeading, openSection, seedProfile } from './support';
+import { expectClosesInPlace, expectPinnedHeading, openSection, seedProfile } from './support';
 
 // Round 1: Connacht v Stormers (292585) and Benetton v Dragons (292584).
 const STORMERS = '292585';
@@ -129,6 +129,7 @@ test('hero opens the featured fixture with teamsheets and forecast', async ({ pa
   await page.screenshot({ path: testInfo.outputPath('match-centre-mobile.png'), fullPage: true });
   // The open teamsheets keep their heading pinned under the round header on a phone.
   await expectPinnedHeading(page, 'Teamsheets.');
+  await expectClosesInPlace(page, 'Teamsheets.');
 
   const breadcrumb = page.getByRole('navigation', { name: 'Breadcrumb' });
   await breadcrumb.getByRole('link', { name: 'HOME' }).click();
