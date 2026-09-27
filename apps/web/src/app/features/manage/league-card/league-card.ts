@@ -25,6 +25,7 @@ import {
   lucideCopy,
   lucideCrown,
 } from '@ng-icons/lucide';
+import { AlertService } from '../../../core/feedback/alert.service';
 import { AdminLeague, CaptainCandidate, LeagueUpdate } from '../../../core/league/admin.models';
 import { AdminService } from '../../../core/league/admin.service';
 import { LeagueCrest } from '../../../shared/league-crest/league-crest';
@@ -33,12 +34,14 @@ import { Loader } from '../../../shared/loader/loader';
 import { RulesFields } from '../../../shared/rules-fields/rules-fields';
 import {
   resetRules,
+  ruleProblems,
   rulesChange,
   rulesFrom,
   rulesGroup,
   setLastRound,
 } from '../../../shared/rules-fields/rules-form';
 import { ReasonDialog } from '../../duties/reason-dialog/reason-dialog';
+import { FormProblem, problemDetails } from '../form-problems';
 import { notBlank, zoneValidator } from '../manage-validators';
 import { timeZoneGroups } from '../time-zones';
 
@@ -65,8 +68,10 @@ const EYEBROW = 'THE PAVILION / MANAGEMENT CENTRE';
 })
 export class LeagueCard {
   private readonly admin = inject(AdminService);
+  private readonly alerts = inject(AlertService);
   private readonly injector = inject(Injector);
-  private readonly origin = inject(DOCUMENT).location.origin;
+  private readonly document = inject(DOCUMENT);
+  private readonly origin = this.document.location.origin;
   readonly league = input.required<AdminLeague>();
   /** The page's confirmation dialog. */
   readonly dialog = input.required<ReasonDialog>();
@@ -74,7 +79,6 @@ export class LeagueCard {
   readonly changed = output<LeagueChange>();
 
   private readonly renameButton = viewChild<ElementRef<HTMLButtonElement>>('renameButton');
-  private readonly renameInput = viewChild<ElementRef<HTMLInputElement>>('renameInput');
 
   readonly id = computed(() => `league-${this.league().id}`);
   readonly active = computed(() => this.league().status === 'active');
@@ -108,7 +112,6 @@ export class LeagueCard {
 
   readonly expanded = signal(false);
   readonly busy = signal(false);
-  readonly error = signal('');
   readonly copied = signal(false);
   private copiedTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -155,13 +158,15 @@ export class LeagueCard {
     if (!link) return;
     try {
       await navigator.clipboard.writeText(link);
-      this.error.set('');
+      this.alerts.dismissKey(`${this.id()}-copy`);
       this.copied.set(true);
       clearTimeout(this.copiedTimer);
       this.copiedTimer = setTimeout(() => this.copied.set(false), 4000);
     } catch {
       this.copied.set(false);
-      this.error.set(`This browser did not allow copying. The link is ${link}`);
+      this.alerts.error(`This browser did not allow copying. The link is ${link}`, {
+        key: `${this.id()}-copy`,
+      });
     }
   }
 
@@ -228,23 +233,28 @@ export class LeagueCard {
     resetRules(this.renameForm.controls.rules, withDefaultRules(league.rules));
     this.rulesOpen.set(false);
     this.renameSubmitted.set(false);
-    this.error.set('');
     this.renaming.set(true);
-    afterNextRender(() => this.renameInput()?.nativeElement.focus(), { injector: this.injector });
+    this.focus(`${this.id()}-rename-name`);
   }
 
   cancelRename(): void {
     this.renaming.set(false);
-    this.error.set('');
+    this.alerts.dismissKey(`${this.id()}-rename`);
     afterNextRender(() => this.renameButton()?.nativeElement.focus(), { injector: this.injector });
   }
 
   async saveRename(): Promise<void> {
+    if (this.busy()) return;
     this.renameSubmitted.set(true);
-    if (this.renameForm.invalid || this.busy()) {
-      this.focusInvalidRule();
+    const problems = this.renameProblems();
+    if (problems.length) {
+      // The collapsed rules group opens so its fields can be seen and focused.
+      if (this.renameForm.controls.rules.invalid) this.rulesOpen.set(true);
+      this.warn('rename', problems);
       return;
     }
+    if (this.renameForm.invalid) return;
+    this.alerts.dismissKey(`${this.id()}-rename`);
     const league = this.league();
     const name = this.renameForm.controls.name.value.trim();
     const timezone = this.renameForm.controls.timezone.value.trim();
@@ -270,18 +280,18 @@ export class LeagueCard {
     });
   }
 
-  /** Opens the rules group when one of its fields needs fixing, and focuses that field. */
-  private focusInvalidRule(): void {
+  /** What stops the rename form from saving, in the order the form shows it. */
+  private renameProblems(): readonly FormProblem[] {
     const controls = this.renameForm.controls;
-    if (controls.name.invalid || controls.timezone.invalid || controls.rules.valid) return;
-    this.rulesOpen.set(true);
-    afterNextRender(
-      () =>
-        document
-          .querySelector<HTMLElement>(`#${CSS.escape(this.id())}-rules input.ng-invalid`)
-          ?.focus(),
-      { injector: this.injector },
-    );
+    const id = this.id();
+    const problems: FormProblem[] = [];
+    if (controls.name.invalid)
+      problems.push({ id: `${id}-rename-name`, message: 'Give the league a name.' });
+    if (controls.timezone.invalid)
+      problems.push({ id: `${id}-rename-zone`, message: 'Choose a time zone from the list.' });
+    for (const rule of ruleProblems(controls.rules, this.lastRound()))
+      problems.push({ id: `${id}-rules-${rule.field}`, message: rule.message });
+    return problems;
   }
 
   rulesToggled(event: Event): void {
@@ -308,7 +318,11 @@ export class LeagueCard {
     this.captainSubmitted.set(true);
     const league = this.league();
     const choice = this.choices().find((c) => c.id === this.captainChoice.value);
-    if (!choice) return;
+    if (!choice) {
+      this.warn('captain', [{ id: `${this.id()}-captain`, message: 'Choose who takes over.' }]);
+      return;
+    }
+    this.alerts.dismissKey(`${this.id()}-captain`);
     const current = league.captain?.displayName;
     this.dialog().open({
       eyebrow: EYEBROW,
@@ -336,14 +350,32 @@ export class LeagueCard {
   private async run(action: () => Promise<void>): Promise<void> {
     if (this.busy()) return;
     this.busy.set(true);
-    this.error.set('');
+    this.alerts.dismissKey(`${this.id()}-error`);
     try {
       await action();
     } catch (error) {
-      this.error.set(error instanceof Error ? error.message : 'That did not work.');
+      this.alerts.error(error instanceof Error ? error.message : 'That did not work.', {
+        key: `${this.id()}-error`,
+      });
     } finally {
       this.busy.set(false);
     }
+  }
+
+  /** One warning card per attempt, keyed to this card's form, and focus on the first problem. */
+  private warn(form: 'rename' | 'captain', problems: readonly FormProblem[]): void {
+    this.focus(problems[0].id);
+    this.alerts.warn(problems[0].message, {
+      key: `${this.id()}-${form}`,
+      details: problemDetails(problems),
+    });
+  }
+
+  private focus(id: string): void {
+    afterNextRender(
+      () => this.document.getElementById(id)?.focus(),
+      { injector: this.injector },
+    );
   }
 }
 

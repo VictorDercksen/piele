@@ -5,6 +5,11 @@ import { seedProfile } from './support';
 // on the first page makes it a plain member. Sample changes live in memory, so each journey
 // stays inside the app after its first page load.
 
+/** The alert card (warning or success, both `role="status"`) holding `text`; cards stack. */
+function notice(page: Page, text: string) {
+  return page.getByRole('status').filter({ hasText: text });
+}
+
 function card(page: Page, name: string) {
   return page.locator('app-league-card').filter({ has: page.getByRole('heading', { name, exact: true }) });
 }
@@ -97,12 +102,16 @@ test('creating a league adds it to the switcher and opens it', async ({ page }) 
   // The time zone is chosen from the browser's IANA zones.
   await expect(form.getByLabel('Time zone').locator('option[value="Europe/London"]')).toHaveCount(1);
 
-  // A row without a Superbru name is pointed out on submit and stops the form.
+  // A row without a Superbru name is pointed out on submit, on a warning card, and stops the form.
   await expect(form.locator('.member-row')).toHaveCount(3);
   await member(page, 0, 'Doempie', 'Steyn', 'Doempie');
   await member(page, 1, 'Kallie', 'Kruger', '');
   await form.getByRole('button', { name: 'Create league' }).click();
-  await expect(form.locator('#new-league-member-1-error')).toHaveText('Add the Superbru name.');
+  const warning = notice(page, 'Member 2: Add the Superbru name.');
+  await expect(warning).toBeVisible();
+  await expect(warning).toContainText('Yellow card');
+  await expect(warning).toContainText('Choose the captain from the members.');
+  await expect(form.locator('#new-league-member-1-superbru')).toHaveAttribute('aria-invalid', 'true');
   await expect(form.locator('#new-league-member-1-superbru')).toBeFocused();
   await expect(form.locator('.preview-count')).toHaveText('1 member ready, 1 row to fix.');
   await member(page, 1, 'Kallie', 'Kruger', 'Kallie');
@@ -133,7 +142,7 @@ test('creating a league adds it to the switcher and opens it', async ({ page }) 
   ).toContainText('Captain');
 });
 
-test('the form explains a taken slug beside the slug field', async ({ page }) => {
+test('the form warns about a taken slug and focuses the slug field', async ({ page }) => {
   await seedProfile(page);
   await page.goto('/manage');
   const form = await openCreate(page);
@@ -144,10 +153,15 @@ test('the form explains a taken slug beside the slug field', async ({ page }) =>
   const slug = form.getByLabel('Slug');
   await expect(slug).toHaveAttribute('aria-invalid', 'true');
   await expect(slug).toBeFocused();
-  await expect(form.locator('#new-league-slug-error')).toContainText('Another league already uses piele');
+  await expect(notice(page, 'Another league already uses piele')).toBeVisible();
 
   await slug.fill('manage');
-  await expect(form.locator('#new-league-slug-error')).toContainText('app’s own paths');
+  await expect(slug).toHaveAttribute('aria-invalid', 'true');
+  await form.getByRole('button', { name: 'Create league' }).click();
+  // The new attempt's card replaces the last one.
+  await expect(notice(page, 'app’s own paths')).toBeVisible();
+  await expect(notice(page, 'Another league already uses piele')).toHaveCount(0);
+  await expect(slug).toBeFocused();
 });
 
 test('archiving a league takes it out of the switcher; restoring brings it back', async ({ page }) => {
@@ -164,7 +178,7 @@ test('archiving a league takes it out of the switcher; restoring brings it back'
   await archive.click();
   await dialog.getByRole('button', { name: 'Archive' }).click();
   await expect(dialog).toBeHidden();
-  await expect(page.getByRole('status').first()).toHaveText('Pofadder Bowl is archived.');
+  await expect(notice(page, 'Pofadder Bowl is archived.')).toBeVisible();
 
   const archived = page.locator('details.archived-group');
   await expect(archived.locator('summary')).toBeFocused();
@@ -195,7 +209,7 @@ test('rename, add me and appoint a captain from a league’s card', async ({ pag
   await page.goto('/manage');
   const third = await expand(page, 'Sample Third XV');
   await third.getByRole('button', { name: 'Add me to Sample Third XV' }).click();
-  await expect(page.getByRole('status').first()).toContainText('You are a member of Sample Third XV');
+  await expect(notice(page, 'You are a member of Sample Third XV')).toBeVisible();
   await expect(third.getByRole('button', { name: /Add me/ })).toHaveCount(0);
 
   const pofadder = await expand(page, 'Pofadder Bowl');
@@ -205,6 +219,12 @@ test('rename, add me and appoint a captain from a league’s card', async ({ pag
   await expect(name).toBeFocused();
   await expect(pofadder.getByLabel('Time zone')).toHaveValue('Africa/Johannesburg');
   await pofadder.getByLabel('Time zone').selectOption('Europe/London');
+  // A blank name is warned about on a card, marked and focused.
+  await name.fill('');
+  await pofadder.getByRole('button', { name: 'Save' }).click();
+  await expect(notice(page, 'Give the league a name.')).toBeVisible();
+  await expect(name).toHaveAttribute('aria-invalid', 'true');
+  await expect(name).toBeFocused();
   await name.fill('Pofadder Cup');
   await pofadder.getByRole('button', { name: 'Save' }).click();
   const cup = card(page, 'Pofadder Cup');
@@ -228,7 +248,7 @@ test('rename, add me and appoint a captain from a league’s card', async ({ pag
   await dialog.getByRole('button', { name: 'Appoint captain' }).click();
   await expect(dialog).toBeHidden();
   await expect(cup.locator('.facts')).toContainText('Kallie');
-  await expect(page.getByRole('status').first()).toHaveText('Kallie is captain of Pofadder Cup.');
+  await expect(notice(page, 'Kallie is captain of Pofadder Cup.')).toBeVisible();
 
   await cup.getByRole('link', { name: 'Open Pofadder Cup' }).click();
   await expect(page).toHaveURL(/\/pofadder-bowl$/);
@@ -259,6 +279,6 @@ test('the management centre fits a 320 px phone', async ({ page }) => {
   await member(page, 0, 'Kallie', 'Kruger', 'Kallie');
   await member(page, 3, 'No', 'Superbru', '');
   await form.getByRole('button', { name: 'Create league' }).click();
-  await expect(form.locator('#new-league-member-3-error')).toHaveText('Add the Superbru name.');
+  await expect(notice(page, 'Member 4: Add the Superbru name.')).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
 });

@@ -145,16 +145,12 @@
         <div class="field">
           <label [for]="id() + '-rename-name'">League name</label>
           <input
-            #renameInput
             [id]="id() + '-rename-name'"
             formControlName="name"
             maxlength="120"
             autocomplete="off"
             [attr.aria-invalid]="renameSubmitted() && renameForm.controls.name.invalid"
           />
-          @if (renameSubmitted() && renameForm.controls.name.invalid) {
-            <p class="field-error" role="alert">Give the league a name.</p>
-          }
         </div>
         <div class="field">
           <label [for]="id() + '-rename-zone'">Time zone</label>
@@ -171,9 +167,6 @@
               </optgroup>
             }
           </select>
-          @if (renameSubmitted() && renameForm.controls.timezone.invalid) {
-            <p class="field-error" role="alert">Choose a time zone from the list.</p>
-          }
         </div>
         <details
           class="rules-group"
@@ -203,10 +196,6 @@
           </button>
         </div>
       </form>
-    }
-
-    @if (error()) {
-      <p class="error-message" role="alert">{{ error() }}</p>
     }
 
     @if (active()) {
@@ -246,9 +235,6 @@
                 </select>
                 <button type="button" class="primary-button" (click)="appoint()">Appoint</button>
               </div>
-              @if (captainSubmitted() && !captainChoice.value) {
-                <p class="field-error" role="alert">Choose who takes over.</p>
-              }
             </div>
             <p class="hint">Only members who have claimed their name are listed.</p>
           }
