@@ -147,8 +147,18 @@ describe('PicksPanel', () => {
       for (let i = 0; i < 3; i++) await new Promise((resolve) => setTimeout(resolve));
       await fixture.whenStable();
     };
+    // A crest moves the pick one point toward that side; the Draw chip picks a draw.
     const choose = async (side: 'home' | 'draw' | 'away') => {
-      root.querySelector<HTMLInputElement>(`input[type="radio"][value="${side}"]`)!.click();
+      root
+        .querySelector<HTMLButtonElement>(side === 'draw' ? '.draw-pick' : `.end.${side}`)!
+        .click();
+      await settle();
+    };
+    const strip = () => root.querySelector<HTMLElement>('.scale')!;
+    const marker = () => root.querySelector<HTMLInputElement>('#pick-scale')!;
+    const slide = async (value: number) => {
+      marker().value = String(value);
+      marker().dispatchEvent(new Event('input'));
       await settle();
     };
     const margin = () => root.querySelector<HTMLInputElement>('#pick-margin')!;
@@ -170,6 +180,9 @@ describe('PicksPanel', () => {
       current,
       text,
       choose,
+      strip,
+      marker,
+      slide,
       margin,
       typeMargin,
       submit,
@@ -184,13 +197,27 @@ describe('PicksPanel', () => {
     const { root, text, settle } = setup(picksView());
     await settle();
     expect(text('.tag')).toBe('open');
-    const group = root.querySelector('[role="radiogroup"]')!;
-    expect(root.querySelector(`#${group.getAttribute('aria-labelledby')}`)?.textContent).toBe(
+    // The scale: a crest tab at each end, the marker unset in the middle, the reading a hint.
+    const marker = root.querySelector<HTMLInputElement>('#pick-scale')!;
+    expect(marker.type).toBe('range');
+    expect(root.querySelector(`#${marker.getAttribute('aria-labelledby')}`)?.textContent).toBe(
       'Your pick',
     );
-    const labels = Array.from(group.querySelectorAll('.segment-name')).map((l) => l.textContent);
-    expect(labels).toEqual(['Zebre', 'Draw', 'Bulls']);
-    expect(group.querySelectorAll('img.jersey')).toHaveLength(2);
+    expect([marker.min, marker.max, marker.value]).toEqual(['-40', '40', '0']);
+    expect(marker.getAttribute('aria-valuetext')).toBe('No pick yet');
+    const ends = Array.from(root.querySelectorAll('.end')).map((e) => [
+      e.textContent?.trim(),
+      e.getAttribute('aria-label'),
+    ]);
+    expect(ends).toEqual([
+      ['Zebre', 'One point toward Zebre'],
+      ['Bulls', 'One point toward Bulls'],
+    ]);
+    expect(root.querySelectorAll('.end img')).toHaveLength(2);
+    expect(text('.thumb')).toBe('Pick');
+    expect(text('.tick-label.t50')).toBe('Draw');
+    expect(text('.reading')).toBe('Reads Drag the marker toward a side, or tap a crest.');
+    expect(root.querySelector('.draw-pick')?.getAttribute('aria-pressed')).toBe('false');
     expect(root.querySelector('#pick-margin')?.getAttribute('inputmode')).toBe('numeric');
     expect(text('.form-note')).toMatch(
       /^Make your pick to see the pool's picks\. Picks lock at kickoff, \d+ \w{3} \d{2}:\d{2} \S+\.$/,
@@ -201,10 +228,10 @@ describe('PicksPanel', () => {
   });
 
   it('warns once per attempt, marks and highlights the field, and saves the pick', async () => {
-    const { root, text, choose, typeMargin, submit, margin, alerts, warn } = setup(picksView());
-    const group = () => root.querySelector('[role="radiogroup"]')!;
+    const { root, text, choose, typeMargin, submit, strip, marker, margin, alerts, warn } =
+      setup(picksView());
     expect(warn).not.toHaveBeenCalled();
-    expect(group().getAttribute('aria-invalid')).toBe('false');
+    expect(strip().getAttribute('aria-invalid')).toBe('false');
     await submit();
     expect(saved).toEqual([]);
     expect(warn).toHaveBeenCalledOnce();
@@ -212,20 +239,23 @@ describe('PicksPanel', () => {
       key: 'pick-292590',
       details: ['Enter a margin from 1 to 150.'],
     });
-    expect(group().getAttribute('aria-invalid')).toBe('true');
+    expect(strip().getAttribute('aria-invalid')).toBe('true');
+    expect(marker().getAttribute('aria-invalid')).toBe('true');
     expect(margin().getAttribute('aria-invalid')).toBe('true');
-    // The side radios are drawn through their labels: the flag lands on the visible tile.
-    const home = root.querySelector<HTMLInputElement>('input[value="home"]')!;
-    expect(problemTarget(home)).not.toBe(home);
-    expect(problemTarget(home).classList).toContain('problem-flag');
-    expect(document.activeElement).not.toBe(home);
+    // The range lies unseen over the track, so the flag lands on the strip itself.
+    expect(problemTarget(strip())).toBe(strip());
+    expect(strip().classList).toContain('problem-flag');
+    expect(document.activeElement).not.toBe(marker());
     // No inline problem text remains; the hint is the only line under the margin.
     expect(root.querySelector('.field-error, .form-error, [role="alert"]')).toBeNull();
     expect(margin().hasAttribute('aria-describedby')).toBe(false);
 
     await choose('away');
-    expect(group().getAttribute('aria-invalid')).toBe('false');
+    expect(strip().getAttribute('aria-invalid')).toBe('false');
+    expect(text('.reading')).toBe('Reads Bulls by 1');
     await typeMargin('151');
+    expect(text('.reading')).toBe('Reads Bulls, no margin yet');
+    expect(text('.thumb')).toBe('?');
     await submit();
     expect(saved).toEqual([]);
     expect(warn).toHaveBeenCalledTimes(2);
@@ -240,6 +270,7 @@ describe('PicksPanel', () => {
     expect(document.activeElement).not.toBe(margin());
 
     await typeMargin('20');
+    expect(text('.reading')).toBe('Reads Bulls by 20');
     await submit();
     expect(saved).toEqual([['292590', { side: 'away', margin: 20 }]]);
     // The warning is gone and a green card names the saved pick.
@@ -252,6 +283,44 @@ describe('PicksPanel', () => {
     expect(root.querySelectorAll('tbody tr')).toHaveLength(2);
   });
 
+  it('reads the marker as a margin toward a side, with the middle a draw', async () => {
+    const { root, text, slide, choose, typeMargin, marker, margin, strip } = setup(picksView());
+    // Left of the middle is the home side, by the distance.
+    await slide(-12);
+    expect(text('.reading')).toBe('Reads Zebre by 12');
+    expect(marker().getAttribute('aria-valuetext')).toBe('Zebre by 12');
+    expect(margin().value).toBe('12');
+    expect(text('.thumb')).toBe('12');
+    expect(root.querySelector('.thumb')?.getAttribute('style')).toContain('left: 35%');
+    expect(root.querySelector('.fill')?.getAttribute('style')).toContain('left: 35%');
+    expect(root.querySelector('.fill')?.getAttribute('style')).toContain('right: 50%');
+    expect(root.querySelector('.end.home')?.classList).toContain('won');
+    expect(root.querySelector('.end.away')?.classList).toContain('dim');
+    // Right of it is the away side.
+    await slide(3);
+    expect(text('.reading')).toBe('Reads Bulls by 3');
+    expect(root.querySelector('.fill')?.getAttribute('style')).toContain('right: 46.25%');
+    // A typed margin beyond the scale's reach parks the marker at the end.
+    await typeMargin('55');
+    expect(text('.reading')).toBe('Reads Bulls by 55');
+    expect(marker().value).toBe('40');
+    expect(text('.thumb')).toBe('55');
+    // A crest nudges one point toward that side, through the middle to a draw and beyond.
+    await typeMargin('1');
+    await choose('home');
+    expect(text('.reading')).toBe('Reads A draw');
+    expect(marker().value).toBe('0');
+    expect(root.querySelector('.draw-pick')?.getAttribute('aria-pressed')).toBe('true');
+    await choose('home');
+    expect(text('.reading')).toBe('Reads Zebre by 1');
+    expect(root.querySelector('.draw-pick')?.getAttribute('aria-pressed')).toBe('false');
+    // The middle of the range is a draw too.
+    await slide(0);
+    expect(marker().getAttribute('aria-valuetext')).toBe('A draw');
+    expect(text('.thumb')).toBe('Draw');
+    expect(strip().classList).toContain('picked');
+  });
+
   it('disables and clears the margin on a draw and saves a draw as margin 0', async () => {
     const { margin, choose, typeMargin, submit, text, alerts } = setup(picksView());
     await choose('home');
@@ -262,6 +331,7 @@ describe('PicksPanel', () => {
     expect(text('#pick-margin-hint')).toBe('A draw has no margin.');
     await choose('home');
     expect(margin().disabled).toBe(false);
+    expect(margin().value).toBe('1');
     await choose('draw');
     await submit();
     expect(saved).toEqual([['292590', { side: 'draw', margin: 0 }]]);
@@ -303,7 +373,7 @@ describe('PicksPanel', () => {
   });
 
   it('shows the pool, the sway bar and an Edit button once the member has picked', async () => {
-    const { root, text, settle, margin } = setup(OPEN);
+    const { root, text, settle, margin, marker } = setup(OPEN);
     await settle();
     expect(text('.tag')).toBe('open');
     expect(root.querySelector('form')).toBeNull();
@@ -322,7 +392,9 @@ describe('PicksPanel', () => {
 
     root.querySelector<HTMLButtonElement>('.mine .edit')!.click();
     await settle();
-    expect(root.querySelector<HTMLInputElement>('input[value="away"]')!.checked).toBe(true);
+    expect(marker().value).toBe('20');
+    expect(marker().getAttribute('aria-valuetext')).toBe('Bulls by 20');
+    expect(root.querySelector('.end.away')?.classList).toContain('won');
     expect(margin().value).toBe('20');
     expect(text('.form-note')).toMatch(/^Picks lock at kickoff/);
     // The pool stays below the form while editing.

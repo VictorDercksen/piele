@@ -46,74 +46,134 @@
 
       @if (showForm()) {
         @if (sides(); as sides) {
+          @let s = scale();
           <form class="pick-form" [formGroup]="form" (ngSubmit)="save()" novalidate>
-            <fieldset
-              class="choice"
-              role="radiogroup"
-              aria-labelledby="pick-side-legend"
-              [attr.aria-invalid]="invalid('side')"
-            >
-              <legend id="pick-side-legend">Your pick</legend>
-              <div class="segments">
-                <label
-                  class="segment"
-                  [class.selected]="chosen('home')"
+            <div class="scale-field">
+              <span class="legend" id="pick-scale-legend">Your pick</span>
+              <div
+                #scaleStrip
+                class="scale"
+                [class.picked]="s.side !== null"
+                [attr.aria-invalid]="invalid('side')"
+              >
+                <button
+                  type="button"
+                  class="end home"
+                  [class.dim]="s.side !== 'home'"
+                  [class.won]="s.side === 'home'"
                   [style.--club]="sides.home.colour"
                   [style.--club-accent]="sides.home.accent"
+                  [attr.aria-label]="'One point toward ' + sides.home.name"
+                  (click)="nudge('home')"
                 >
-                  <input #firstSide type="radio" formControlName="side" value="home" />
-                  <img class="jersey" [src]="sides.home.jersey" alt="" />
-                  <span class="segment-name">{{ sides.home.name }}</span>
-                </label>
-                <label class="segment draw" [class.selected]="chosen('draw')">
-                  <input type="radio" formControlName="side" value="draw" />
-                  <span class="draw-mark" aria-hidden="true"></span>
-                  <span class="segment-name">Draw</span>
-                </label>
-                <label
-                  class="segment"
-                  [class.selected]="chosen('away')"
+                  <img [src]="sides.home.crest ?? sides.home.jersey" alt="" />
+                  <b>{{ sides.home.name }}</b>
+                </button>
+                <div class="track">
+                  <span class="axis" aria-hidden="true"></span>
+                  <span class="tick t0" aria-hidden="true"></span>
+                  <span class="tick t25" aria-hidden="true"></span>
+                  <span class="tick t50" aria-hidden="true"></span>
+                  <span class="tick t75" aria-hidden="true"></span>
+                  <span class="tick t100" aria-hidden="true"></span>
+                  <span class="tick-label t0" aria-hidden="true">{{ reach }}</span>
+                  <span class="tick-label quarter t25" aria-hidden="true">{{ reach / 2 }}</span>
+                  <span class="tick-label t50" aria-hidden="true">Draw</span>
+                  <span class="tick-label quarter t75" aria-hidden="true">{{ reach / 2 }}</span>
+                  <span class="tick-label t100" aria-hidden="true">{{ reach }}</span>
+                  <span
+                    class="fill"
+                    [style.left.%]="s.fillLeft"
+                    [style.right.%]="s.fillRight"
+                    [style.--club]="s.side === 'away' ? sides.away.banner : sides.home.banner"
+                    aria-hidden="true"
+                  ></span>
+                  <span
+                    class="thumb"
+                    [class.draw]="s.side === 'draw'"
+                    [class.none]="s.side === null"
+                    [style.left.%]="s.pct"
+                    aria-hidden="true"
+                    >{{ s.thumb }}</span
+                  >
+                  <input
+                    #scaleInput
+                    type="range"
+                    id="pick-scale"
+                    [min]="-reach"
+                    [max]="reach"
+                    step="1"
+                    [value]="s.range"
+                    aria-labelledby="pick-scale-legend"
+                    [attr.aria-valuetext]="s.text"
+                    [attr.aria-invalid]="invalid('side')"
+                    (input)="slide($event)"
+                  />
+                </div>
+                <button
+                  type="button"
+                  class="end away"
+                  [class.dim]="s.side !== 'away'"
+                  [class.won]="s.side === 'away'"
                   [style.--club]="sides.away.colour"
                   [style.--club-accent]="sides.away.accent"
+                  [attr.aria-label]="'One point toward ' + sides.away.name"
+                  (click)="nudge('away')"
                 >
-                  <input type="radio" formControlName="side" value="away" />
-                  <img class="jersey" [src]="sides.away.jersey" alt="" />
-                  <span class="segment-name">{{ sides.away.name }}</span>
-                </label>
-              </div>
-            </fieldset>
-            <div class="form-row">
-              <div class="field margin-field">
-                <label for="pick-margin">Margin <span>(points)</span></label>
-                <input
-                  #marginInput
-                  id="pick-margin"
-                  formControlName="margin"
-                  inputmode="numeric"
-                  autocomplete="off"
-                  maxlength="3"
-                  [attr.aria-invalid]="invalid('margin')"
-                  [attr.aria-describedby]="marginDisabled() ? 'pick-margin-hint' : null"
-                />
-              </div>
-              <div class="form-actions">
-                <button type="submit" class="primary-button" [disabled]="saving()">
-                  {{ saving() ? 'Saving' : 'Save pick' }}
+                  <img [src]="sides.away.crest ?? sides.away.jersey" alt="" />
+                  <b>{{ sides.away.name }}</b>
                 </button>
-                @if (editing()) {
-                  <button type="button" class="text-button" (click)="cancel()">Cancel</button>
-                }
+              </div>
+            </div>
+            <div class="scale-under">
+              <p class="reading" [class.empty]="s.side === null">
+                <span class="reading-label">Reads</span>{{ ' ' }}
+                <strong>{{ s.side === null ? s.hint : s.text }}</strong>
+              </p>
+              <div class="tweaks">
+                <button
+                  type="button"
+                  class="draw-pick"
+                  [attr.aria-pressed]="s.side === 'draw'"
+                  (click)="pickDraw()"
+                >
+                  Draw
+                </button>
+                <div class="field margin-field">
+                  <label for="pick-margin">Margin <span>(points)</span></label>
+                  <input
+                    #marginInput
+                    id="pick-margin"
+                    formControlName="margin"
+                    inputmode="numeric"
+                    autocomplete="off"
+                    maxlength="3"
+                    [attr.aria-invalid]="invalid('margin')"
+                    [attr.aria-describedby]="marginDisabled() ? 'pick-margin-hint' : null"
+                  />
+                </div>
               </div>
             </div>
             @if (marginDisabled()) {
               <p id="pick-margin-hint" class="hint">A draw has no margin.</p>
             }
+            <div class="form-actions">
+              <button type="submit" class="primary-button" [disabled]="saving()">
+                {{ saving() ? 'Saving' : 'Save pick' }}
+              </button>
+              @if (editing()) {
+                <button type="button" class="text-button" (click)="cancel()">Cancel</button>
+              }
+            </div>
             <p class="form-note">
               @if (!p.recorded) {
                 Make your pick to see the pool's picks.
               }
-              Picks lock at kickoff{{ p.fixture.kickoffUtc ? ', ' : ''
-              }}{{ p.fixture.kickoffUtc | leagueTime: 'd MMM HH:mm z' : zone() }}.
+              <span class="lock"
+                ><ng-icon name="lucideLock" aria-hidden="true" />Picks lock at kickoff{{
+                  p.fixture.kickoffUtc ? ', ' : ''
+                }}{{ p.fixture.kickoffUtc | leagueTime: 'd MMM HH:mm z' : zone() }}.</span
+              >
             </p>
           </form>
         }

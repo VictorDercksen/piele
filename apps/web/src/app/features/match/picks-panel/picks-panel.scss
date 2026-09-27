@@ -134,96 +134,268 @@
   min-height: 36px;
 }
 
-/* The member's pick form. */
+/*
+ * The member's pick form: the margin scale. A strip in the scoring summary's shape, a crest tab
+ * at each end and the track between them, with the marker's distance from the middle the margin
+ * toward that side. The fill grows from the middle in the club's banner colour, the shape the
+ * pool's split bar takes once the pick is in.
+ */
 .pick-form {
   display: grid;
-  gap: 12px;
+  gap: 14px;
   margin-bottom: 18px;
 }
-.choice {
+.scale-field {
+  display: grid;
+  gap: 8px;
   min-width: 0;
-  margin: 0;
-  padding: 0;
-  border: 0;
 }
-.choice legend {
-  padding: 0;
-  margin-bottom: 8px;
+.legend {
   font-size: 13px;
   font-weight: 600;
 }
-.segments {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(64px, 0.7fr) minmax(0, 1fr);
+.scale {
+  display: flex;
+  align-items: stretch;
+  height: 72px;
   background: var(--deep);
   box-shadow: 0 3px 10px #0005;
 }
-.segment {
+.scale[aria-invalid='true'] {
+  box-shadow:
+    0 0 0 1px var(--problem, #e6b422),
+    0 3px 10px #0005;
+}
+.end {
   position: relative;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 4px;
-  min-width: 0;
-  min-height: 64px;
-  padding: 8px 6px;
-  border: 1px solid #ffffff14;
-  color: var(--muted);
+  width: 72px;
+  padding: 0 4px;
+  border: 0;
+  background: linear-gradient(180deg, #ffffff1f, #0000 60%), var(--club, #2d3f3c);
+  color: var(--chalk);
+  line-height: 1;
   cursor: pointer;
   transition:
-    background-color 0.15s,
-    color 0.15s;
+    filter 0.2s,
+    box-shadow 0.2s;
 }
-.segment:hover {
-  color: var(--ink);
-  background: #ffffff0d;
-}
-.segment input {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
-}
-.segment:has(input:focus-visible) {
-  outline: 3px solid #e77935;
-  outline-offset: -3px;
-}
-.choice[aria-invalid='true'] .segment {
-  border-color: var(--accent);
-}
-.segment.selected {
-  color: #fff;
-  border-color: var(--club-accent, var(--accent));
-  background: linear-gradient(180deg, #ffffff1f, #0000 70%), var(--club, #2d3f3c);
-  box-shadow: inset 0 -3px 0 var(--club-accent, var(--accent));
-}
-.jersey {
-  width: 30px;
-  height: 30px;
+.end img {
+  width: 26px;
+  height: 26px;
   object-fit: contain;
 }
-.draw-mark {
-  width: 20px;
-  height: 30px;
-  background:
-    linear-gradient(currentColor, currentColor) center 11px / 16px 2px no-repeat,
-    linear-gradient(currentColor, currentColor) center 17px / 16px 2px no-repeat;
-}
-.segment-name {
+.end b {
   max-width: 100%;
   overflow: hidden;
-  font-size: 11px;
+  font-size: 9px;
   font-weight: 700;
-  letter-spacing: 0.6px;
+  letter-spacing: 1.2px;
   text-overflow: ellipsis;
   text-transform: uppercase;
   white-space: nowrap;
 }
-.form-row {
+.end.dim {
+  filter: saturate(0.5) brightness(0.65);
+}
+.end:hover {
+  filter: saturate(0.8) brightness(0.9);
+}
+.end.won,
+.end.won:hover {
+  filter: none;
+  box-shadow: inset 0 -3px 0 var(--club-accent, var(--accent));
+}
+.end:focus-visible {
+  outline: 3px solid #e77935;
+  outline-offset: -3px;
+}
+.track {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  margin-inline: 12px;
+}
+.track:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.axis {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  border-top: 1px solid var(--line);
+}
+.tick {
+  position: absolute;
+  top: 14px;
+  bottom: 14px;
+  border-left: 1px solid #f2efdf66;
+  pointer-events: none;
+}
+.tick.t50 {
+  border-left-style: dashed;
+}
+.tick-label {
+  position: absolute;
+  bottom: 4px;
+  transform: translateX(-50%);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  color: var(--muted);
+  pointer-events: none;
+}
+.t0 {
+  left: 0;
+}
+.t25 {
+  left: 25%;
+}
+.t50 {
+  left: 50%;
+}
+.t75 {
+  left: 75%;
+}
+.t100 {
+  left: 100%;
+}
+.fill {
+  position: absolute;
+  top: 24px;
+  bottom: 24px;
+  background: linear-gradient(180deg, #ffffff26, #0000 70%), var(--club, #33413f);
+  pointer-events: none;
+}
+.thumb {
+  position: absolute;
+  top: 50%;
+  min-width: 40px;
+  padding: 4px 8px;
+  transform: translate(-50%, -50%);
+  background: var(--paper);
+  border: 1px solid #f2efdf66;
+  color: var(--chalk);
+  font-size: 13px;
+  font-weight: 900;
+  font-style: italic;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  box-shadow: 0 4px 12px #000a;
+  pointer-events: none;
+  transition: left 0.05s;
+}
+.thumb.draw,
+.thumb.none {
+  font-size: 9px;
+  font-weight: 700;
+  font-style: normal;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
+.thumb.draw {
+  color: var(--muted);
+}
+.thumb.none {
+  border-style: dashed;
+  color: var(--accent);
+}
+/* The native range lies over the track, unseen: its thumb is the hit area, the marker above draws it. */
+.track input[type='range'] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: ew-resize;
+  appearance: none;
+}
+.track input[type='range']::-webkit-slider-thumb {
+  appearance: none;
+  width: 44px;
+  height: 44px;
+}
+.track input[type='range']::-moz-range-thumb {
+  width: 44px;
+  height: 44px;
+  border: 0;
+  opacity: 0;
+}
+
+/* Under the scale: the pick in words, then the draw and the exact margin. */
+.scale-under {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px 20px;
+}
+.reading {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  margin: 0;
+}
+.reading-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: var(--accent);
+  text-transform: uppercase;
+}
+.reading strong {
+  font-size: 20px;
+  font-weight: 900;
+  font-style: italic;
+  letter-spacing: -0.3px;
+  line-height: 1.2;
+  color: var(--chalk);
+  text-wrap: balance;
+}
+.reading.empty strong {
+  font-size: 14px;
+  font-weight: 600;
+  font-style: normal;
+  letter-spacing: 0;
+  color: var(--muted);
+}
+.tweaks {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
   gap: 12px 16px;
+}
+.draw-pick {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid #f2efdf66;
+  background: none;
+  color: var(--chalk);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.draw-pick:hover {
+  background: #ffffff10;
+}
+.draw-pick[aria-pressed='true'] {
+  background: var(--chalk);
+  border-color: var(--chalk);
+  color: var(--paper);
+}
+.draw-pick:focus-visible {
+  outline: 3px solid #e77935;
+  outline-offset: 2px;
 }
 .field {
   display: grid;
@@ -239,12 +411,13 @@
   font-weight: 400;
 }
 .margin-field {
-  width: 120px;
+  width: 104px;
 }
 .margin-field input {
   width: 100%;
   min-height: 44px;
   padding: 8px 12px;
+  text-align: center;
   border: 1px solid var(--line);
   border-radius: 3px;
   background: #0f1b1e;
@@ -281,6 +454,15 @@
   margin: 0;
   font-size: 12px;
   line-height: 1.5;
+}
+.lock {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.lock ng-icon {
+  --ng-icon__size: 12px;
+  flex-shrink: 0;
 }
 
 /* The pool's picks. */
@@ -415,6 +597,29 @@ app-member-avatar {
 }
 
 @container (max-width: 480px) {
+  .scale {
+    height: 64px;
+  }
+  .end {
+    width: 54px;
+  }
+  .end img {
+    width: 20px;
+    height: 20px;
+  }
+  .end b {
+    font-size: 8px;
+    letter-spacing: 0.8px;
+  }
+  .track {
+    margin-inline: 8px;
+  }
+  .tick-label.quarter {
+    display: none;
+  }
+  .reading strong {
+    font-size: 18px;
+  }
   .pool {
     font-size: 13px;
   }

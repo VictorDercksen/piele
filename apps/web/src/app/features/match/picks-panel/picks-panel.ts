@@ -25,7 +25,7 @@ import {
 } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideArrowRight, lucidePencil } from '@ng-icons/lucide';
+import { lucideArrowRight, lucideLock, lucidePencil } from '@ng-icons/lucide';
 import { map } from 'rxjs';
 import { CompetitionService } from '../../../core/competition/competition.service';
 import { LeagueTime } from '../../../core/competition/league-time';
@@ -41,18 +41,31 @@ import { Dropdown } from '../../../shared/dropdown/dropdown';
 import { MemberAvatar } from '../../../shared/member-avatar/member-avatar';
 import { PickChip, PickChipView } from './pick-chip';
 
+/** The widest margin the scale reaches; beyond it the marker sits at the end. */
+export const SCALE_REACH = 40;
+
+/** A typed margin as a number, or null unless it is digits from 1 to 150. */
+export function parseMargin(value: string): number | null {
+  const trimmed = value.trim();
+  if (!/^\d+$/.test(trimmed)) return null;
+  const margin = Number(trimmed);
+  return margin >= 1 && margin <= 150 ? margin : null;
+}
+
 /** A margin from 1 to 150, typed as digits. */
 function marginValidator(control: AbstractControl<string>): ValidationErrors | null {
   const value = control.value.trim();
   if (!value) return null;
-  const margin = Number(value);
-  return /^\d+$/.test(value) && margin >= 1 && margin <= 150 ? null : { margin: true };
+  return parseMargin(value) === null ? { margin: true } : null;
 }
 
 /**
  * The match centre's "Pool picks." panel. Before kickoff a member without a pick sees only
- * their own pick form; once their pick is in they see the pool's split and their own pick, and
- * can edit theirs until kickoff. After kickoff their line carries their points and place. The
+ * their own pick form: the margin scale, a strip in the scoring panel's shape with a crest at
+ * each end and a range between them, where the marker's distance from the middle is the margin
+ * toward that side and the middle is a draw (`slide`, `nudge` from either crest, `pickDraw`,
+ * and the typed margin, all writing the same two form controls). Once their pick is in they see
+ * the pool's split and their own pick, and can edit theirs until kickoff. After kickoff their line carries their points and place. The
  * pool table itself (every pick with its outcome, margin and bonus marks and points, as the
  * view scores them) is the body of the panel's dropdown (`#picks-pool`), closed by default and
  * for every new fixture; the form, split and pick above it are the dropdown's lead. The admin
@@ -74,7 +87,7 @@ function marginValidator(control: AbstractControl<string>): ValidationErrors | n
     NgIcon,
     PickChip,
   ],
-  viewProviders: [provideIcons({ lucideArrowRight, lucidePencil })],
+  viewProviders: [provideIcons({ lucideArrowRight, lucideLock, lucidePencil })],
 })
 export class PicksPanel {
   private readonly alerts = inject(AlertService);
@@ -120,9 +133,48 @@ export class PicksPanel {
   );
   private readonly status = toSignal(this.form.statusChanges, { initialValue: this.form.status });
 
-  private readonly firstSide = viewChild<ElementRef<HTMLInputElement>>('firstSide');
+  private readonly scaleInput = viewChild<ElementRef<HTMLInputElement>>('scaleInput');
+  private readonly scaleStrip = viewChild<ElementRef<HTMLElement>>('scaleStrip');
   private readonly marginInput = viewChild<ElementRef<HTMLInputElement>>('marginInput');
   private readonly mineStrip = viewChild<ElementRef<HTMLElement>>('mineStrip');
+
+  /** How far the scale runs each way; the template draws its ticks from it. */
+  protected readonly reach = SCALE_REACH;
+
+  /**
+   * The scale as drawn from the form: the range's value (home is left, so negative), the marker's
+   * position and label, the fill from the middle, and the pick in words for the range's
+   * `aria-valuetext` and the reading line.
+   */
+  readonly scale = computed<ScaleView>(() => {
+    this.status();
+    const { side, margin } = this.value();
+    const sides = this.sides();
+    const parsed = parseMargin(margin);
+    const club = side === 'home' || side === 'away' ? side : null;
+    const name = club ? (sides?.[club].name ?? (club === 'home' ? 'Home' : 'Away')) : '';
+    const reach = club && parsed !== null ? Math.min(parsed, SCALE_REACH) : 0;
+    const range = club === 'home' ? -reach : reach;
+    const pct = 50 + (range * 50) / SCALE_REACH;
+    return {
+      side,
+      range,
+      pct,
+      fillLeft: club === 'home' ? pct : 50,
+      fillRight: club === 'away' ? 100 - pct : 50,
+      thumb:
+        side === null ? 'Pick' : side === 'draw' ? 'Draw' : parsed === null ? '?' : String(parsed),
+      text:
+        side === null
+          ? 'No pick yet'
+          : side === 'draw'
+            ? 'A draw'
+            : parsed === null
+              ? `${name}, no margin yet`
+              : `${name} by ${parsed}`,
+      hint: 'Drag the marker toward a side, or tap a crest.',
+    };
+  });
 
   /** The member's own form: before kickoff, for a member, until the pick is in or while editing. */
   readonly showForm = computed(() => {
@@ -286,8 +338,33 @@ export class PicksPanel {
     return this.submitted() && this.form.controls[field].invalid;
   }
 
-  chosen(side: PickChoice): boolean {
-    return this.value().side === side;
+  /** The range moved: its distance from the middle is the margin toward that side. */
+  slide(event: Event): void {
+    const signed = Number((event.target as HTMLInputElement).value);
+    this.setSigned(signed);
+  }
+
+  /** A crest tapped: the pick moves one point toward that side (through a draw at the middle). */
+  nudge(side: 'home' | 'away'): void {
+    const { side: current, margin } = this.form.getRawValue();
+    const parsed = parseMargin(margin) ?? 0;
+    const signed = current === 'home' ? -parsed : current === 'away' ? parsed : 0;
+    const step = side === 'home' ? -1 : 1;
+    this.setSigned(Math.max(-150, Math.min(150, signed + step)));
+  }
+
+  pickDraw(): void {
+    this.form.controls.side.setValue('draw');
+  }
+
+  /** A signed margin, negative toward home, zero a draw, onto the side and margin controls. */
+  private setSigned(signed: number): void {
+    if (signed === 0) {
+      this.pickDraw();
+      return;
+    }
+    this.form.controls.side.setValue(signed < 0 ? 'home' : 'away');
+    this.form.controls.margin.setValue(String(Math.abs(signed)));
   }
 
   marginDisabled(): boolean {
@@ -299,7 +376,7 @@ export class PicksPanel {
   edit(): void {
     this.fill(this.picks()?.myPick ?? null);
     this.editing.set(true);
-    afterNextRender(() => this.firstChecked()?.focus(), { injector: this.injector });
+    afterNextRender(() => this.scaleInput()?.nativeElement.focus(), { injector: this.injector });
   }
 
   cancel(): void {
@@ -317,7 +394,7 @@ export class PicksPanel {
       if (this.form.controls.side.invalid) problems.push('Choose a side or a draw.');
       if (this.form.controls.margin.invalid) problems.push('Enter a margin from 1 to 150.');
       highlightProblem(
-        (this.form.controls.side.invalid ? this.firstSide() : this.marginInput())?.nativeElement,
+        (this.form.controls.side.invalid ? this.scaleStrip() : this.marginInput())?.nativeElement,
       );
       const [first = 'Choose a side or a draw.', ...rest] = problems;
       this.alerts.warn(first, { key: this.warningKey(), details: rest });
@@ -383,12 +460,6 @@ export class PicksPanel {
     });
     this.submitted.set(false);
   }
-
-  private firstChecked(): HTMLInputElement | null {
-    const first = this.firstSide()?.nativeElement;
-    const group = first?.closest('fieldset');
-    return group?.querySelector<HTMLInputElement>('input:checked') ?? first ?? null;
-  }
 }
 
 /** The member's choice in the form: a side or a draw. */
@@ -403,6 +474,23 @@ export interface SideLook {
   readonly banner: string | null;
   readonly crest: string | null;
   readonly jersey: string;
+}
+
+/** The margin scale as the template draws it. */
+export interface ScaleView {
+  readonly side: PickChoice | null;
+  /** The range input's value: the margin toward away, negative toward home, 0 a draw. */
+  readonly range: number;
+  /** The marker's position along the track, 0 at home, 100 at away. */
+  readonly pct: number;
+  readonly fillLeft: number;
+  readonly fillRight: number;
+  /** The marker's label: the margin, Draw, or Pick before a side is chosen. */
+  readonly thumb: string;
+  /** The pick in words, e.g. "Bulls by 20", "A draw", "No pick yet". */
+  readonly text: string;
+  /** The reading line before a side is chosen. */
+  readonly hint: string;
 }
 
 export interface PickMark {

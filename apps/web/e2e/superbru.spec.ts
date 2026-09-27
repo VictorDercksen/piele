@@ -34,23 +34,29 @@ test('before kickoff a member sees only the pick form; saving the pick reveals t
   await expect(panel.getByRole('table')).toHaveCount(0);
   await expect(panel.getByRole('img', { name: /The pool's split/ })).toHaveCount(0);
 
-  // An empty submit raises one warning card and points at the side; a draw has no margin.
-  const side = panel.getByRole('radiogroup', { name: 'Your pick' });
+  // An empty submit raises one warning card and points at the scale; a draw has no margin.
+  const scale = panel.locator('.scale');
+  const marker = panel.getByRole('slider', { name: 'Your pick' });
+  await expect(marker).toHaveAttribute('aria-valuetext', 'No pick yet');
   await panel.getByRole('button', { name: 'Save pick' }).click();
   const warning = page.getByRole('status').filter({ hasText: 'Yellow card' });
   await expect(warning.filter({ hasText: 'Choose a side or a draw.' })).toBeVisible();
   await expect(warning).toHaveCount(1);
-  await expect(side).toHaveAttribute('aria-invalid', 'true');
-  // The radios are drawn through their labels, so the first side's tile carries the flag.
-  await expect(side.locator('label', { hasText: 'Stormers' })).toHaveClass(/problem-flag/);
-  await expect(side.getByRole('radio', { name: 'Stormers' })).not.toBeFocused();
-  await side.locator('label', { hasText: 'Draw' }).click();
-  await expect(side.getByRole('radio', { name: 'Draw' })).toBeChecked();
+  await expect(scale).toHaveAttribute('aria-invalid', 'true');
+  // The range lies unseen over the track, so the strip itself carries the flag.
+  await expect(scale).toHaveClass(/problem-flag/);
+  await expect(marker).not.toBeFocused();
+  await panel.getByRole('button', { name: 'Draw', exact: true }).click();
+  await expect(marker).toHaveAttribute('aria-valuetext', 'A draw');
   await expect(panel.getByLabel('Margin (points)')).toBeDisabled();
   await expect(panel.getByText('A draw has no margin.')).toBeVisible();
 
-  // Stormers by 7: an out-of-range margin is refused first.
-  await side.locator('label', { hasText: 'Stormers' }).click();
+  // Stormers by 7: the crest moves the marker a point toward Stormers, the margin is typed,
+  // and an out-of-range margin is refused first.
+  await panel.getByRole('button', { name: 'One point toward Stormers' }).click();
+  await expect(marker).toHaveAttribute('aria-valuetext', 'Stormers by 1');
+  await expect(marker).toHaveValue('-1');
+  await expect(panel.locator('.reading')).toContainText('Stormers by 1');
   await panel.getByLabel('Margin (points)').fill('200');
   await panel.getByRole('button', { name: 'Save pick' }).click();
   // The new attempt replaces the card rather than stacking another.
@@ -67,7 +73,7 @@ test('before kickoff a member sees only the pick form; saving the pick reveals t
   await expect(
     page.getByRole('status').filter({ hasText: 'Pick saved: Stormers by 7.' }),
   ).toBeVisible();
-  await expect(panel.getByRole('radiogroup', { name: 'Your pick' })).toHaveCount(0);
+  await expect(marker).toHaveCount(0);
   const mine = panel.locator('.mine');
   await expect(mine).toBeFocused();
   await expect(mine).toContainText('Your pick');
@@ -94,9 +100,14 @@ test('before kickoff a member sees only the pick form; saving the pick reveals t
 
   // Until kickoff the pick can be edited; the form opens with it filled in.
   await panel.getByRole('button', { name: 'Edit your pick' }).click();
-  await expect(side.getByRole('radio', { name: 'Stormers' })).toBeChecked();
-  await expect(side.getByRole('radio', { name: 'Stormers' })).toBeFocused();
+  await expect(marker).toBeFocused();
+  await expect(marker).toHaveValue('-7');
+  await expect(marker).toHaveAttribute('aria-valuetext', 'Stormers by 7');
   await expect(panel.getByLabel('Margin (points)')).toHaveValue('7');
+  // The keyboard moves the marker a point at a time; right is toward the away side.
+  await marker.press('ArrowRight');
+  await expect(marker).toHaveAttribute('aria-valuetext', 'Stormers by 6');
+  await expect(panel.getByLabel('Margin (points)')).toHaveValue('6');
   await panel.getByRole('button', { name: 'Cancel' }).click();
   await expect(mine).toBeFocused();
   expect(errors).toEqual([]);
@@ -108,7 +119,7 @@ test('a kicked-off fixture shows every pick with its marks, points and the membe
   await page.goto(`/piele/match/${CONNACHT_STORMERS}?round=1`);
   const panel = picksPanel(page);
   await expect(panel.locator('.section-title .tag')).toHaveText('final');
-  await expect(panel.getByRole('radiogroup', { name: 'Your pick' })).toHaveCount(0);
+  await expect(panel.getByRole('slider', { name: 'Your pick' })).toHaveCount(0);
   await expect(panel.getByRole('button', { name: 'Edit your pick' })).toHaveCount(0);
 
   // The member's own line: the pick, its points and the place among the fixture's picks.
