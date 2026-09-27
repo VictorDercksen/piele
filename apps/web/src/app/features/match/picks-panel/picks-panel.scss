@@ -2,6 +2,8 @@
   --deep: #0f1d20;
   --live: #ff6b52;
   --live-ink: #ffb3a3;
+  /* Earned marks in the honours-board brass (shared/league-crest's default, the standings BP). */
+  --mark: #d9b36c;
   display: block;
   container-type: inline-size;
   margin-bottom: 20px;
@@ -415,8 +417,8 @@ app-member-avatar {
   vertical-align: middle;
 }
 .mark.earned {
-  border-color: var(--accent);
-  background: var(--accent);
+  border-color: var(--mark);
+  background: var(--mark);
   box-shadow: 0 0 0 2px #0003;
 }
 .fraction {
@@ -426,8 +428,8 @@ app-member-avatar {
   transform: translateX(-50%);
   padding: 0 3px;
   background: var(--deep);
-  border: 1px solid var(--accent);
-  color: var(--accent);
+  border: 1px solid var(--mark);
+  color: var(--mark);
   font-size: 8px;
   font-weight: 700;
   line-height: 11px;
