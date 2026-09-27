@@ -8,6 +8,8 @@ test.beforeEach(async ({ page }) => {
 test('all published rounds, playoffs, timezone and selection persistence', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
+  // "Current round" follows the date, so hold it before Round 01 kicks off.
+  await page.clock.setFixedTime(new Date('2026-09-20T10:00:00Z'));
   await page.goto('/piele?round=1');
   const stops = page.getByRole('navigation', { name: 'Season timeline' }).locator('.round-stop');
   const choose = (round: number) => stops.nth(round - 1).click();
