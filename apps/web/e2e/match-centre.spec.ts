@@ -85,7 +85,7 @@ test('hero opens the featured fixture with teamsheets and forecast', async ({ pa
   await expect(header).toContainText('YOUR TEAM');
   await expect(header).toContainText('Dexcom Stadium');
   await expect(header).toContainText('20:45');
-  await expect(page.locator('.deadline-banner')).toContainText('house pick deadline');
+  await expect(page.locator('.deadline-banner')).toHaveCount(0);
   await expect(page.locator('.fixture-ribbon button.active')).toContainText('Connacht');
   await expect(header.getByRole('img', { name: 'Ireland' })).toBeVisible();
   await expect(header.getByRole('button', { name: 'Enter the match centre' })).toHaveCount(0);

@@ -123,7 +123,6 @@ export interface Poll {
 
 export interface RoundNote {
   readonly roundId: number;
-  readonly deadline: string;
   readonly activity: string;
 }
 
