@@ -59,7 +59,11 @@ test('before kickoff a member sees only the pick form; saving the pick reveals t
   await panel.getByLabel('Margin (points)').fill('7');
   await panel.getByRole('button', { name: 'Save pick' }).click();
 
-  // The pick is in: the member's strip, the pool's split and the pool table.
+  // The pick is in: a green card names it, then the member's strip, the pool's split and the
+  // pool table.
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Pick saved: Stormers by 7.' }),
+  ).toBeVisible();
   await expect(panel.getByRole('radiogroup', { name: 'Your pick' })).toHaveCount(0);
   const mine = panel.locator('.mine');
   await expect(mine).toBeFocused();
@@ -229,10 +233,22 @@ test('standings show the round and season tables with badges and the breakdown',
 
 test('the desk opens closed, except the section a link names', async ({ page }) => {
   await page.goto('/piele/captain#picks');
-  await expect(page.getByRole('button', { name: 'Superbru picks.' })).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByRole('button', { name: 'Superbru picks.' })).toHaveAttribute(
+    'aria-expanded',
+    'true',
+  );
   await expect(page.locator('#picks').getByRole('group', { name: /fixtures$/ })).toBeVisible();
-  for (const heading of ['Evidence to decide.', 'The team sheet.', 'The join link.', 'Colours and crest.', 'Superbru rules.']) {
-    await expect(page.getByRole('button', { name: heading })).toHaveAttribute('aria-expanded', 'false');
+  for (const heading of [
+    'Evidence to decide.',
+    'The team sheet.',
+    'The join link.',
+    'Colours and crest.',
+    'Superbru rules.',
+  ]) {
+    await expect(page.getByRole('button', { name: heading })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
   }
   await expect(page.getByRole('button', { name: 'Copy link' })).toHaveCount(0);
 });

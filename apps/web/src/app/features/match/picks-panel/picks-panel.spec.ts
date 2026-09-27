@@ -236,7 +236,10 @@ describe('PicksPanel', () => {
     await typeMargin('20');
     await submit();
     expect(saved).toEqual([['292590', { side: 'away', margin: 20 }]]);
-    expect(alerts.alerts()).toEqual([]);
+    // The warning is gone and a green card names the saved pick.
+    expect(alerts.alerts().map((a) => [a.severity, a.message])).toEqual([
+      ['success', 'Pick saved: Bulls by 20.'],
+    ]);
     // The data layer adopted the pick: the panel shows the member's strip and the pool.
     expect(root.querySelector('form')).toBeNull();
     expect(text('.mine .chip')).toBe('Bulls by 20');
@@ -244,7 +247,7 @@ describe('PicksPanel', () => {
   });
 
   it('disables and clears the margin on a draw and saves a draw as margin 0', async () => {
-    const { margin, choose, typeMargin, submit, text } = setup(picksView());
+    const { margin, choose, typeMargin, submit, text, alerts } = setup(picksView());
     await choose('home');
     await typeMargin('7');
     await choose('draw');
@@ -256,6 +259,7 @@ describe('PicksPanel', () => {
     await choose('draw');
     await submit();
     expect(saved).toEqual([['292590', { side: 'draw', margin: 0 }]]);
+    expect(alerts.alerts().map((a) => a.message)).toEqual(['Pick saved: a draw.']);
   });
 
   it('warns with the kickoff when the API says picks are locked', async () => {
@@ -288,7 +292,8 @@ describe('PicksPanel', () => {
     refusal = null;
     await submit();
     expect(saved).toHaveLength(2);
-    expect(alerts.alerts()).toEqual([]);
+    // The red card is gone; only the green card for the saved pick remains.
+    expect(alerts.alerts().map((a) => a.severity)).toEqual(['success']);
   });
 
   it('shows the pool, the sway bar and an Edit button once the member has picked', async () => {

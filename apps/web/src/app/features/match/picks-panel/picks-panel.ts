@@ -330,6 +330,7 @@ export class PicksPanel {
     try {
       await this.view.savePick(this.fixtureId(), pick);
       this.alerts.dismissKey(this.failureKey());
+      this.alerts.success(`Pick saved: ${this.describe(pick)}.`, { key: this.savedKey() });
       this.editing.set(false);
       this.fill(null);
       afterNextRender(() => this.mineStrip()?.nativeElement.focus(), { injector: this.injector });
@@ -361,6 +362,17 @@ export class PicksPanel {
         : 'The pick could not be saved. Try again.',
       { key: this.failureKey() },
     );
+  }
+
+  /** The pick as the chip reads it: "Bulls by 20" or "a draw". */
+  private describe(pick: NewPick): string {
+    if (pick.side !== 'home' && pick.side !== 'away') return 'a draw';
+    const name = this.sides()?.[pick.side].name ?? (pick.side === 'home' ? 'Home' : 'Away');
+    return `${name} by ${pick.margin}`;
+  }
+
+  private savedKey(): string {
+    return `pick-saved-${this.fixtureId()}`;
   }
 
   private fill(pick: MemberPick | null): void {
