@@ -383,6 +383,8 @@
   grid-row: 2;
   grid-column: 1;
   justify-self: end;
+  width: 100%;
+  max-width: 104px;
 }
 .scale-under .margin-field.away {
   grid-column: 3;
@@ -634,8 +636,19 @@ app-member-avatar {
   .tick-label.quarter {
     display: none;
   }
+  /* Three chips a side must fit beside the Draw chip on a 320 px phone. */
+  .quick {
+    gap: 3px;
+  }
+  .quick-pick {
+    min-width: 30px;
+    padding: 0 4px;
+  }
   .quick-pick.far {
     display: none;
+  }
+  .draw-pick {
+    padding: 0 12px;
   }
   .pool {
     font-size: 13px;
