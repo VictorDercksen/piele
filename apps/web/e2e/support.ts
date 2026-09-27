@@ -56,25 +56,31 @@ export async function expectPinnedHeading(page: Page, heading: string): Promise<
 
 /**
  * Closes a pinned dropdown from the middle of its body and watches every frame until it settles:
- * the top bar and round header never move, and the heading stays where it was on screen, under
- * the round header, unless the page has run out below it (the last dropdown on a page), when the
- * page rests at its end with the heading still in view.
+ * the top bar and round header never move; the heading stays where it was on screen, under the
+ * round header, unless the page has run out below it (the last dropdown on a page), when the page
+ * rests at its end with the heading still in view; and the page never scrolls in the same frame
+ * as the body folds (the scroll back to the heading comes first, the fold once the page is at
+ * rest), which is what keeps iOS Safari drawing the shell's sticky bars.
  */
 export async function expectClosesInPlace(page: Page, heading: string): Promise<void> {
   const { section, head, chevron } = dropdown(page, heading);
+  const body = section.locator('.dropdown-body').first();
   await head.evaluate((element) => {
     const bars = [document.querySelector('.top-bar')!, document.querySelector('.round-bar')!];
-    const frames: { bars: number[]; head: number }[] = [];
+    const body = element.parentElement!.querySelector('.dropdown-body')!;
+    const frames: { bars: number[]; head: number; y: number; body: number }[] = [];
     const sample = () =>
       frames.push({
         bars: bars.map((bar) => bar.getBoundingClientRect().top),
         head: element.getBoundingClientRect().top,
+        y: scrollY,
+        body: body.getBoundingClientRect().height,
       });
     sample();
     const started = performance.now();
     const tick = () => {
       sample();
-      if (performance.now() - started < 800) requestAnimationFrame(tick);
+      if (performance.now() - started < 2500) requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
     (window as unknown as { dropdownFrames: typeof frames }).dropdownFrames = frames;
@@ -83,16 +89,26 @@ export async function expectClosesInPlace(page: Page, heading: string): Promise<
   await expect(chevron).toHaveAttribute('aria-expanded', 'false');
   await expect(section).not.toHaveClass(/animating/);
   await expect(head).not.toHaveClass(/stuck/);
-  await page.waitForTimeout(850);
+  await expect(body).toHaveAttribute('inert', '');
+  await page.waitForTimeout(2600);
   const { frames, atEnd } = await page.evaluate(() => ({
-    frames: (window as unknown as { dropdownFrames: { bars: number[]; head: number }[] })
-      .dropdownFrames,
+    frames: (
+      window as unknown as {
+        dropdownFrames: { bars: number[]; head: number; y: number; body: number }[];
+      }
+    ).dropdownFrames,
     atEnd: scrollY + innerHeight >= document.documentElement.scrollHeight - 1,
   }));
   const [first] = frames;
-  for (const frame of frames) {
-    frame.bars.forEach((top, index) => expect(Math.abs(top - first.bars[index])).toBeLessThan(1));
+  frames.forEach((frame, index) => {
+    frame.bars.forEach((top, bar) => expect(Math.abs(top - first.bars[bar])).toBeLessThan(1));
     if (!atEnd) expect(Math.abs(frame.head - first.head)).toBeLessThan(2);
-  }
+    if (index === 0 || atEnd) return;
+    const previous = frames[index - 1];
+    const scrolled = frame.y !== previous.y;
+    const folded = frame.body !== previous.body;
+    // Never both in one frame.
+    expect(scrolled && folded).toBe(false);
+  });
   await expect(chevron).toBeInViewport();
 }

@@ -18,6 +18,14 @@ import { fromEvent, merge, of } from 'rxjs';
 const OPEN_MS = 460;
 const CLOSE_MS = 360;
 const EASING = 'cubic-bezier(0.22, 1, 0.36, 1)';
+/** The longest a scroll back to the heading may take before the body folds regardless. */
+const SCROLL_TIMEOUT_MS = 1500;
+
+const now = () => (typeof performance === 'undefined' ? Date.now() : performance.now());
+const nextFrame = (callback: () => void) =>
+  typeof requestAnimationFrame === 'function'
+    ? requestAnimationFrame(() => callback())
+    : setTimeout(callback, 16);
 
 /** `section`: a page section under the shared double rule. `panel`: a grain card with a chalk top rule. */
 export type DropdownAppearance = 'section' | 'panel';
@@ -27,7 +35,8 @@ export type DropdownAppearance = 'section' | 'panel';
  * row) over a body that is closed by default, inert while closed and animated between its
  * measured heights (skipped under reduced motion). While open, the heading row sticks under the
  * shell's top bar and round header (`--sticky-offset`) so the dropdown can always be closed, and
- * takes a background once it is actually stuck.
+ * takes a background once it is actually stuck. Closed from there, the page first scrolls back
+ * to the heading, then the body folds.
  *
  * Content marked `dropdownSide` sits beside the chevron (a state tag); content marked
  * `dropdownLead` shows between the heading and the body whether open or not, and content marked
@@ -82,8 +91,12 @@ export class Dropdown {
   /** The open heading row is pinned under the shell's bars. */
   readonly stuck = signal(false);
   private readonly head = viewChild.required<ElementRef<HTMLElement>>('head');
+  private readonly lead = viewChild.required<ElementRef<HTMLElement>>('lead');
   private readonly body = viewChild.required<ElementRef<HTMLElement>>('body');
   private animation: Animation | null = null;
+  /** True while the page scrolls back to the heading ahead of a close. */
+  private closing = false;
+  private closeToken = 0;
 
   constructor() {
     if (typeof window === 'undefined') return;
@@ -92,15 +105,77 @@ export class Dropdown {
       .subscribe({ next: () => this.measureStuck() });
   }
 
-  /** Opens or closes the body, animating between its measured heights. */
+  /**
+   * Opens or closes the body. Closing from inside a long body (the heading pinned) first brings
+   * the page back to where the heading pins and only then folds the body: the page scrolls
+   * through its native, compositor-driven scroll while the layout stays as it is, and the layout
+   * changes once the page is at rest. A programmatic scroll and a layout change in the same frame
+   * leave iOS Safari drawing the page over the shell's sticky bars for a moment.
+   */
   toggle(): void {
-    if (!this.collapsible()) return;
+    if (!this.collapsible() || this.closing) return;
+    if (!this.open()) {
+      this.animateBody(true);
+      return;
+    }
+    const gap = this.stuck() ? this.pinGap() : 0;
+    if (gap > 1 && typeof scrollTo === 'function') this.closeAfterScroll(gap);
+    else this.animateBody(false);
+  }
+
+  /** How far the heading's place in the page's flow is above its pinned line (0 when not pinned). */
+  private pinGap(): number {
+    const head = this.head().nativeElement;
+    const lead = this.lead().nativeElement;
+    const pin = parseFloat(getComputedStyle(head).top) || 0;
+    // The lead never moves, so the heading's natural spot sits just above it.
+    const natural =
+      lead.getBoundingClientRect().top -
+      (parseFloat(getComputedStyle(lead).marginTop) || 0) -
+      head.getBoundingClientRect().height;
+    return pin - natural;
+  }
+
+  /** Scrolls the page by `gap` (smoothly unless motion is reduced), then folds the body at rest. */
+  private closeAfterScroll(gap: number): void {
+    const token = ++this.closeToken;
+    this.closing = true;
+    const target = Math.max(0, Math.round(scrollY - gap));
+    const reduced = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    scrollTo({ top: target, behavior: reduced ? 'instant' : 'smooth' });
+    const started = now();
+    let last = scrollY;
+    let still = 0;
+    let frames = 0;
+    const tick = () => {
+      if (token !== this.closeToken) return;
+      if (!this.open()) {
+        // Closed meanwhile (a new reset key).
+        this.closing = false;
+        return;
+      }
+      frames++;
+      if (scrollY === last) still++;
+      else {
+        still = 0;
+        last = scrollY;
+      }
+      // Arrived, or at rest short of the target (the page ran out), or given up waiting.
+      const arrived = frames >= 2 && Math.abs(scrollY - target) <= 1;
+      const settled = still >= 3 && now() - started >= 150;
+      if (arrived || settled || now() - started > SCROLL_TIMEOUT_MS) {
+        this.closing = false;
+        this.animateBody(false);
+        return;
+      }
+      nextFrame(tick);
+    };
+    nextFrame(tick);
+  }
+
+  /** Sets the open state and animates the body between its measured heights. */
+  private animateBody(opening: boolean): void {
     const element = this.body().nativeElement;
-    const opening = !this.open();
-    // Closing from inside a long body scrolls the page back first; the body then goes at once.
-    // Animating the layout straight after a programmatic scroll leaves iOS Safari drawing the
-    // shell's sticky bars out of place (the page shows through them) until the animation ends.
-    const scrolledBack = !opening && this.returnToHeading();
     let from = element.getBoundingClientRect().height;
     // Closing, only the part of the body on screen needs to fold away; below the fold it can go
     // at once.
@@ -112,12 +187,9 @@ export class Dropdown {
     this.open.set(opening);
     if (!opening) this.stuck.set(false);
     const reduced = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    if (reduced || scrolledBack || typeof element.animate !== 'function') {
-      this.animation?.cancel();
-      return;
-    }
-    // The open class leaves the height to the content once the animation ends.
     this.animation?.cancel();
+    if (reduced || typeof element.animate !== 'function') return;
+    // The open class leaves the height to the content once the animation ends.
     const animation = element.animate([{ height: `${from}px` }, { height: `${to}px` }], {
       duration: opening ? OPEN_MS : CLOSE_MS,
       easing: EASING,
@@ -132,25 +204,6 @@ export class Dropdown {
     };
     animation.addEventListener('finish', settle);
     animation.addEventListener('cancel', settle);
-  }
-
-  /**
-   * Closing from inside a long body would leave the reader wherever the page shrinks to, with the
-   * heading gone far above. Instead the page scrolls back to where the heading pins, so the
-   * heading stays where it is on screen and the body goes from under it. True when it scrolled.
-   */
-  private returnToHeading(): boolean {
-    const head = this.head().nativeElement;
-    if (typeof scrollBy !== 'function') return false;
-    const pin = parseFloat(getComputedStyle(head).top) || 0;
-    // Where the heading sits in the page's flow, not where it is pinned.
-    const sticky = head.style.position;
-    head.style.position = 'static';
-    const home = head.getBoundingClientRect().top;
-    head.style.position = sticky;
-    if (home >= pin - 1) return false;
-    scrollBy(0, home - pin);
-    return true;
   }
 
   /** With `tapToOpen`, a tap on the closed dropdown opens it and the open heading or lead close it. */
