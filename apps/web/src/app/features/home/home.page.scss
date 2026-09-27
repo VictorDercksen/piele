@@ -569,3 +569,44 @@
     font-size: 27px;
   }
 }
+
+// The pecking order: round badges, the provisional tag and the season line.
+.standings-panel .board-status {
+  margin: 8px 0 0;
+}
+.standings-panel .board-status .tag {
+  text-transform: uppercase;
+}
+.leaderboard .badge {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  margin-left: 6px;
+  object-fit: contain;
+}
+.season-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 44px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  font-variant-numeric: tabular-nums;
+}
+.season-line span {
+  min-width: 0;
+}
+.season-line .link-icon {
+  flex-shrink: 0;
+}
+@container (max-width: 600px) {
+  .leaderboard .badge {
+    width: 18px;
+    height: 18px;
+  }
+}

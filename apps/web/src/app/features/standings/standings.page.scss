@@ -100,3 +100,223 @@
   letter-spacing: 0;
   text-transform: none;
 }
+
+// Round and season Superbru tables: a grid so the breakdown columns line up with their headings.
+.standings-board {
+  --seg-wp: #7fb2e5;
+  --seg-mp: #74c69d;
+  --seg-gsp: #b8a1e3;
+  --seg-bp: #d9b36c;
+}
+.board-status {
+  margin: 10px 0 0;
+}
+.board-status .tag,
+.override-tag {
+  text-transform: uppercase;
+}
+.board-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 20px;
+  margin-bottom: 14px;
+}
+.breakdown-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+}
+// A small switch: the knob sits right and fills when the breakdown shows.
+.breakdown-toggle::before {
+  content: '';
+  flex-shrink: 0;
+  width: 26px;
+  height: 14px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  background: radial-gradient(circle at 7px 50%, currentColor 0 4px, transparent 4.5px);
+}
+.breakdown-toggle[aria-pressed='true'] {
+  border-color: var(--gilt);
+  color: var(--gilt);
+  background: #f1d39214;
+}
+.breakdown-toggle[aria-pressed='true']::before {
+  background: radial-gradient(circle at 19px 50%, currentColor 0 4px, transparent 4.5px);
+}
+.breakdown-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 11px;
+  color: var(--muted);
+}
+.breakdown-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.breakdown-legend strong {
+  color: var(--ink);
+  letter-spacing: 1px;
+}
+.swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+.wp {
+  background: var(--seg-wp);
+}
+.mp {
+  background: var(--seg-mp);
+}
+.gsp {
+  background: var(--seg-gsp);
+}
+.bp {
+  background: var(--seg-bp);
+}
+.points-table {
+  container: standings-table / inline-size;
+  --rank-col: 22px;
+  --avatar-col: 35px;
+  --cell-col: 44px;
+  --total-col: 72px;
+  --col-gap: 18px;
+}
+.points-table .table-label,
+.points-row {
+  display: grid;
+  grid-template-columns: var(--rank-col) var(--avatar-col) minmax(0, 1fr) var(--total-col);
+  column-gap: var(--col-gap);
+  align-items: center;
+}
+.with-breakdown .table-label,
+.with-breakdown .points-row {
+  grid-template-columns:
+    var(--rank-col) var(--avatar-col) minmax(0, 1fr) repeat(4, var(--cell-col))
+    var(--total-col);
+}
+.points-table .member-head {
+  grid-column: 1 / 4;
+}
+.points-table .total-head,
+.points-table .cell {
+  text-align: right;
+}
+.points-table abbr {
+  text-decoration: none;
+  cursor: help;
+}
+.points-row .cell {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.points-row strong {
+  margin-left: 0;
+  text-align: right;
+}
+.member-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+.member-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.points-row .member-line small {
+  display: inline;
+  margin-left: 0;
+}
+.override-tag {
+  border: 1px solid currentColor;
+  padding: 1px 5px;
+  letter-spacing: 1px;
+  cursor: help;
+  .standing-row & {
+    color: var(--gilt);
+  }
+}
+.badge {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+}
+.points-row .member-cell .rounds-count {
+  display: block;
+  margin: 3px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+.breakdown-bar {
+  display: flex;
+  width: 100%;
+  height: 6px;
+  margin-top: 8px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: #ffffff12;
+}
+.segment {
+  height: 100%;
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+@container standings-table (max-width: 600px) {
+  .points-table .table-label,
+  .points-row {
+    --rank-col: 20px;
+    --avatar-col: 28px;
+    --cell-col: 34px;
+    --total-col: 56px;
+    --col-gap: 10px;
+  }
+  .points-row .cell {
+    font-size: 13px;
+  }
+}
+// Phones: the breakdown columns give way to the bar; the badges shrink.
+@container standings-table (max-width: 440px) {
+  .with-breakdown .table-label,
+  .with-breakdown .points-row {
+    grid-template-columns: var(--rank-col) var(--avatar-col) minmax(0, 1fr) var(--total-col);
+  }
+  .points-table .cell {
+    display: none;
+  }
+  .badge {
+    width: 18px;
+    height: 18px;
+  }
+  .points-row .member-line {
+    gap: 3px 6px;
+  }
+}
