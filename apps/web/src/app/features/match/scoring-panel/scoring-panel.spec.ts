@@ -70,7 +70,11 @@ describe('ScoringPanel', () => {
     const summary = host.querySelector<HTMLElement>('.summary')!;
     expect(summary.getAttribute('aria-expanded')).toBe('false');
     expect(host.querySelector('.drawer')?.hasAttribute('inert')).toBe(true);
-    expect(host.querySelector('.hint')?.textContent?.trim()).toBe('Tap to open the pitch');
+    expect(host.querySelector('.hint')).toBeNull();
+    const chevron = host.querySelector<HTMLButtonElement>('.section-title .chevron')!;
+    expect(chevron.getAttribute('aria-expanded')).toBe('false');
+    expect(chevron.getAttribute('aria-controls')).toBe('scoring-pitch');
+    expect(chevron.getAttribute('aria-label')).toBe('Show the scoring pitch');
 
     host.querySelector<HTMLElement>('.drawer')!.click();
     await fixture.whenStable();
@@ -80,6 +84,20 @@ describe('ScoringPanel', () => {
     expect(host.querySelectorAll('.row')).toHaveLength(2);
     expect(host.querySelector('.row.big .pts')?.textContent).toContain('+5');
     expect(host.querySelector('.row.slim .who')?.textContent?.trim()).toBe('Albornoz');
+  });
+
+  it('opens and closes from the chevron without the host toggling it back', async () => {
+    const { fixture, host } = render();
+    const chevron = host.querySelector<HTMLButtonElement>('.section-title .chevron')!;
+    chevron.click();
+    await fixture.whenStable();
+    expect(host.classList).toContain('open');
+    expect(chevron.getAttribute('aria-expanded')).toBe('true');
+    expect(chevron.getAttribute('aria-label')).toBe('Hide the scoring pitch');
+    chevron.click();
+    await fixture.whenStable();
+    expect(host.classList).not.toContain('open');
+    expect(chevron.getAttribute('aria-expanded')).toBe('false');
   });
 
   it('stays open for taps on the pitch and closes from the heading or keyboard', async () => {

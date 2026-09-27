@@ -7,6 +7,8 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import { lucideChevronDown } from '@ng-icons/lucide';
 import { ScoringView } from '../scoring';
 
 /** Height of the pitch left showing while the panel is closed. */
@@ -17,14 +19,17 @@ const EASING = 'cubic-bezier(0.22, 1, 0.36, 1)';
 
 /**
  * The scoring panel: a summary row with the score and a timeline of the match, over a
- * to-scale pitch that opens from it. Closed by default; a tap anywhere opens it, and the
- * heading or summary closes it again.
+ * to-scale pitch that opens from it. Closed by default; the chevron in the heading opens and
+ * closes it, a tap anywhere on the closed panel opens it, and the heading or summary closes it
+ * again.
  */
 @Component({
   selector: 'app-scoring-panel',
   templateUrl: './scoring-panel.html',
   styleUrl: './scoring-panel.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [NgIcon],
+  viewProviders: [provideIcons({ lucideChevronDown })],
   host: {
     '[class.open]': 'open()',
     '(click)': 'onClick($event)',
@@ -36,6 +41,10 @@ export class ScoringPanel {
 
   private readonly body = viewChild.required<ElementRef<HTMLElement>>('body');
   private animation: Animation | null = null;
+
+  protected readonly chevronLabel = computed(
+    () => `${this.open() ? 'Hide' : 'Show'} the scoring pitch`,
+  );
 
   protected readonly summaryLabel = computed(() => {
     const { home, away, empty } = this.view();
@@ -57,6 +66,12 @@ export class ScoringPanel {
       duration: opening ? OPEN_MS : CLOSE_MS,
       easing: EASING,
     });
+  }
+
+  /** The chevron toggles on its own; the host's open-on-any-tap must not toggle it back. */
+  protected onChevron(event: Event): void {
+    event.stopPropagation();
+    this.toggle();
   }
 
   protected onClick(event: MouseEvent): void {

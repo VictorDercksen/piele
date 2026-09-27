@@ -37,7 +37,19 @@
   <div class="head">
     <div class="section-title">
       <h2 id="scoring-title">Scoring.</h2>
-      <span class="tag" [class.live]="v.live && !v.stale">{{ v.tag }}</span>
+      <div class="title-side">
+        <span class="tag" [class.live]="v.live && !v.stale">{{ v.tag }}</span>
+        <button
+          type="button"
+          class="chevron"
+          aria-controls="scoring-pitch"
+          [attr.aria-expanded]="open()"
+          [attr.aria-label]="chevronLabel()"
+          (click)="onChevron($event)"
+        >
+          <ng-icon name="lucideChevronDown" aria-hidden="true" />
+        </button>
+      </div>
     </div>
 
     <div
@@ -95,12 +107,7 @@
           >Latest: <strong>{{ latest.time }}' {{ latest.label }}</strong
           >{{ latest.player ? ', ' + latest.player : '' }} ({{ latest.team }})</span
         >
-      } @else {
-        <span></span>
       }
-      <span class="hint" aria-hidden="true">{{
-        open() ? 'Tap to close' : 'Tap to open the pitch'
-      }}</span>
     </div>
   </div>
 
