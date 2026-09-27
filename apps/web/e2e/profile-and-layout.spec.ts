@@ -9,6 +9,9 @@ async function join(page: Page, team = 'DHL Stormers') {
 test('first visit requires a favourite team and saves a personal identity', async ({
   page,
 }, testInfo) => {
+  // The featured match is the favourite team's in the current round, so hold the date
+  // before Round 01 kicks off.
+  await page.clock.setFixedTime(new Date('2026-09-20T10:00:00Z'));
   await page.goto('/');
   await expect(page).toHaveURL(/\/piele\/welcome\?returnUrl=%2Fpiele$/);
   await expect(page.getByRole('radio')).toHaveCount(16);

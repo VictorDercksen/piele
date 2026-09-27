@@ -97,6 +97,8 @@ export class Shell {
   private readonly leaguePath = computed(() => this.context.within(this.navigated()));
   readonly isHome = computed(() => this.leaguePath() === '/');
   readonly isMatch = computed(() => this.leaguePath().startsWith('/match/'));
+  /** The fixture ribbon features or opens a match, so it only shows where that happens. */
+  readonly showRibbon = computed(() => this.isHome() || this.isMatch());
   readonly pageBackground = computed(() => {
     const path = this.leaguePath();
     const stadiums = this.competition.current().stadiums;

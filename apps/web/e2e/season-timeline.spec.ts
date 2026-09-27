@@ -8,6 +8,8 @@ test.beforeEach(async ({ page }) => {
 test('all published rounds, playoffs, timezone and selection persistence', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
+  // "Current round" follows the date, so hold it before Round 01 kicks off.
+  await page.clock.setFixedTime(new Date('2026-09-20T10:00:00Z'));
   await page.goto('/piele?round=1');
   const stops = page.getByRole('navigation', { name: 'Season timeline' }).locator('.round-stop');
   const choose = (round: number) => stops.nth(round - 1).click();
@@ -198,8 +200,13 @@ test('fixture strip sits under the round header and features a match on the home
     .getByRole('navigation', { name: 'League navigation', exact: true })
     .getByRole('link', { name: 'Duties', exact: true })
     .click();
-  await expect(strip).toBeVisible();
+  await expect(strip).toBeHidden();
   await expect(page.getByText('ROUND 02 →')).toHaveCount(0);
+  await page
+    .getByRole('navigation', { name: 'League navigation', exact: true })
+    .getByRole('link', { name: 'Home', exact: true })
+    .click();
+  await expect(strip).toBeVisible();
 });
 
 test('captain creates, records and decides duties; the feed follows', async ({ page }) => {

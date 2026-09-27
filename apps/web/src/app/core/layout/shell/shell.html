@@ -110,7 +110,9 @@
         </div>
       </section>
       @if (view.fixtures().length) {
-        <app-fixture-ribbon />
+        <div class="ribbon-drawer" [class.open]="showRibbon()">
+          <app-fixture-ribbon />
+        </div>
       }
     </div>
     <div class="page-heading" [class.without-divider]="isHome() || isMatch()">

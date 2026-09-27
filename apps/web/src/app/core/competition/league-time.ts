@@ -84,6 +84,7 @@ export function zoneAbbreviation(zone = DEFAULT_ZONE, at: Instant = Date.now()):
 }
 
 const DATE_ONLY: Intl.DateTimeFormatOptions = { day: '2-digit', month: 'short', year: 'numeric' };
+const TIME_ONLY: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' };
 
 /** `11 Oct 2026 · 20:00 SAST`, or the fallback when the instant is unknown. */
 export function formatLeagueTime(
@@ -93,16 +94,10 @@ export function formatLeagueTime(
 ): string {
   const date = toDate(iso);
   if (!date) return fallback;
-  const [day, time] = formatter(zone, {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  })
-    .format(date)
-    .split(', ');
+  // Date and time are formatted apart: the joiner between them differs by engine
+  // ("09 Oct 2026, 20:45" in V8, "09 Oct 2026 at 20:45" in Safari).
+  const day = formatter(zone, DATE_ONLY).format(date);
+  const time = formatter(zone, TIME_ONLY).format(date);
   return `${day} · ${time} ${zoneAbbreviation(zone, date)}`;
 }
 
@@ -132,7 +127,7 @@ export function fixtureDayAndTime(iso: string, zone = DEFAULT_ZONE): { day: stri
     day: formatter(zone, { weekday: 'short', day: '2-digit', month: 'short' })
       .format(date)
       .toUpperCase(),
-    time: formatter(zone, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(date),
+    time: formatter(zone, TIME_ONLY).format(date),
   };
 }
 
