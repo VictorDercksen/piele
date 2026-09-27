@@ -117,21 +117,28 @@
   box-shadow: 0 22px 48px #000a;
   color: var(--ink);
   text-align: left;
-  visibility: hidden;
+  // Closed, the panel is not rendered at all. A hidden panel hanging under the sticky top bar
+  // (or the sticky rail) still extends the page's scrollable area, and iOS Safari measures it
+  // at the bar's stuck position, so the page could scroll on past its end. The display switch
+  // waits for the fade out (allow-discrete) and the fade in starts from @starting-style.
+  display: none;
   opacity: 0;
   transform: translateY(-6px);
   transition:
     opacity 0.16s,
     transform 0.16s,
-    visibility 0s 0.16s;
+    display 0.16s allow-discrete;
 }
 :host(.open) .switcher-panel {
-  visibility: visible;
+  display: block;
   opacity: 1;
   transform: none;
-  transition:
-    opacity 0.16s,
-    transform 0.16s;
+}
+@starting-style {
+  :host(.open) .switcher-panel {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
 }
 .panel-top {
   display: flex;
@@ -319,25 +326,29 @@ h2 {
   :host(:not(.rail)) .brand-text small {
     display: none;
   }
+  // The scrim is a viewport tall under the bar, so while closed it is not rendered (see the
+  // panel above).
   :host(:not(.rail)) .scrim {
     position: absolute;
     top: 100%;
     left: 0;
     right: 0;
     z-index: 1;
-    display: block;
     height: 100dvh;
     background: #050b0dcc;
-    visibility: hidden;
     opacity: 0;
     transition:
       opacity 0.2s,
-      visibility 0s 0.2s;
+      display 0.2s allow-discrete;
   }
   :host(.open:not(.rail)) .scrim {
-    visibility: visible;
+    display: block;
     opacity: 1;
-    transition: opacity 0.2s;
+  }
+  @starting-style {
+    :host(.open:not(.rail)) .scrim {
+      opacity: 0;
+    }
   }
   :host(:not(.rail)) .switcher-panel {
     top: 100%;
@@ -356,6 +367,11 @@ h2 {
   }
   :host(.open:not(.rail)) .switcher-panel {
     transform: none;
+  }
+  @starting-style {
+    :host(.open:not(.rail)) .switcher-panel {
+      transform: translateY(-16px);
+    }
   }
 }
 @container (max-width: 350px) {
