@@ -1,5 +1,6 @@
 <a class="skip-link" href="#main-content">Skip to clubhouse</a>
 <div
+  #league
   class="league"
   [style.--member-colour]="favouriteTeam()?.colour"
   [style.--member-accent]="favouriteTeam()?.accent"
@@ -166,7 +167,8 @@
     </div>
     <footer class="club-footer" aria-hidden="true"></footer>
   </main>
-  <nav class="mobile-nav" aria-label="Mobile league navigation">
+</div>
+<nav class="mobile-nav" #navBar aria-label="Mobile league navigation">
     @for (item of mobileNav; track item.path) {
       <a
         [routerLink]="item.path | leaguePath"
@@ -180,5 +182,4 @@
         <app-icon [name]="item.icon" /><span>{{ item.label }}</span>
       </a>
     }
-  </nav>
-</div>
+</nav>

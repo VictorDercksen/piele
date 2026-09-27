@@ -2,8 +2,6 @@ import { DecimalPipe } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
-  Injector,
-  afterNextRender,
   computed,
   effect,
   inject,
@@ -149,7 +147,6 @@ export class MatchPage {
     return weather?.status === 'ok' ? weatherSky(weather, this.zone()) : null;
   });
 
-  private readonly injector = inject(Injector);
   private lastFixtureId: string | null = null;
 
   constructor() {
@@ -197,15 +194,7 @@ export class MatchPage {
       return;
     }
     const roundChanged = this.lastFixtureId === id;
-    // Another fixture from the ribbon starts at the top: its panels close again (their dropdowns
-    // reset per fixture), so the old scroll position would land somewhere in the page's end. The
-    // scroll waits for the frame after the new fixture has rendered: a programmatic scroll in
-    // the same frame as a layout change leaves iOS Safari mis-drawing the shell's sticky bars.
-    if (this.lastFixtureId !== null && this.lastFixtureId !== id && scrollY > 0) {
-      afterNextRender(() => requestAnimationFrame(() => scrollTo(0, 0)), {
-        injector: this.injector,
-      });
-    }
+    // Another fixture starts at the top: the shell scrolls up before any page or fixture change.
     this.lastFixtureId = id;
     if (located.round.id === this.selected.id()) {
       this.view.feature(id);

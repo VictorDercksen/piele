@@ -8,7 +8,7 @@ import {
   inject,
   viewChild,
 } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import {
   ActivatedRouteSnapshot,
   Event,
@@ -125,25 +125,50 @@ export class Shell {
     return route.data as PageData;
   });
 
+  private readonly league = viewChild.required<ElementRef<HTMLElement>>('league');
   private readonly topBar = viewChild.required<ElementRef<HTMLElement>>('topBar');
   private readonly roundBar = viewChild.required<ElementRef<HTMLElement>>('roundBar');
   private readonly main = viewChild.required<ElementRef<HTMLElement>>('main');
+  private readonly navBar = viewChild.required<ElementRef<HTMLElement>>('navBar');
 
   constructor() {
     // Open dropdowns pin their heading under the top bar and the round header; both change
-    // height (the breakpoint, the fixture ribbon sliding), so the offset follows them.
+    // height (the breakpoint, the fixture ribbon sliding), so the offset follows them. The
+    // fixed bottom navigation's height pads the grid the same way.
     const destroyRef = inject(DestroyRef);
     afterNextRender(() => {
       if (typeof ResizeObserver === 'undefined') return;
       const bars = [this.topBar().nativeElement, this.roundBar().nativeElement];
+      const nav = this.navBar().nativeElement;
       const main = this.main().nativeElement;
+      const league = this.league().nativeElement;
       const observer = new ResizeObserver(() => {
         const offset = bars.reduce((sum, bar) => sum + bar.offsetHeight, 0);
         main.style.setProperty('--sticky-offset', `${offset}px`);
+        league.style.setProperty('--nav-height', `${nav.offsetHeight}px`);
       });
-      bars.forEach((bar) => observer.observe(bar));
+      [...bars, nav].forEach((element) => observer.observe(element));
       destroyRef.onDestroy(() => observer.disconnect());
     });
+    // Another page starts at the top. The scroll happens now, while the page that is leaving
+    // still fills the document: scrolling once a shorter page is in would leave the document
+    // ending above the viewport, which iOS then animates back into range.
+    this.router.events
+      .pipe(
+        filter((event): event is NavigationStart => event instanceof NavigationStart),
+        takeUntilDestroyed(),
+      )
+      .subscribe({
+        next: (event) => {
+          if (
+            event.navigationTrigger !== 'popstate' &&
+            this.path(event.url) !== this.path(this.router.url) &&
+            scrollY > 0
+          ) {
+            scrollTo(0, 0);
+          }
+        },
+      });
   }
 
   /** A page change that is still loading after 150 ms. Round changes only update the query. */
