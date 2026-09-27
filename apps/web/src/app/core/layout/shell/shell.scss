@@ -33,6 +33,12 @@
   position: sticky;
   top: 0;
   z-index: 4;
+  /*
+   * The sticky bars get layers of their own: without them iOS Safari can paint the page over
+   * them for a moment when a script scrolls the page while its layout changes (a dropdown
+   * closing from inside its body).
+   */
+  transform: translateZ(0);
   display: flex;
   align-items: center;
   gap: 26px;
@@ -229,6 +235,7 @@ app-season-timeline {
   position: sticky;
   top: 76px;
   z-index: 3;
+  transform: translateZ(0);
   margin: 0 calc(-1 * var(--gutter)) 22px;
   background: var(--surface-grain), linear-gradient(100deg, #162529, #101b1d);
   box-shadow: 0 8px 24px #0004;
