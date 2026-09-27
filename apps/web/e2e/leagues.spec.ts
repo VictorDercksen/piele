@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { seedProfile } from './support';
+import { openSection, seedProfile } from './support';
 
 // The sample build's leagues: Piele (the sample member captains it), the Pofadder Bowl
 // (Doempie captains it; the sample member plays) and the Sample Third XV (the sample account
@@ -166,6 +166,7 @@ test('the captain’s desk shows the join link, copies it, rotates it and closes
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   await seedProfile(page);
   await page.goto('/piele/captain');
+  await openSection(page, 'The join link.');
   const card = page.locator('app-join-link-card');
   const link = card.getByLabel('Join link', { exact: true });
   await expect(link).toHaveValue(`${baseURL}/join/${PIELE_JOIN_CODE}`);
@@ -195,7 +196,8 @@ test('removing a member moves them to Withdrawn and reinstating brings them back
 }) => {
   await seedProfile(page);
   await page.goto('/piele/captain');
-  const sheet = page.locator('section.members > .member-list');
+  await openSection(page, 'The team sheet.');
+  const sheet = page.locator('.members .body > .member-list');
   await expect(sheet.locator('li')).toHaveCount(6);
   // The captain's own row has no Remove button.
   await expect(sheet.locator('li').filter({ hasText: 'You' }).getByRole('button', { name: /Remove/ })).toHaveCount(0);
@@ -227,6 +229,7 @@ test('removing a member moves them to Withdrawn and reinstating brings them back
 test('the appearance card changes the league crest', async ({ page }) => {
   await seedProfile(page);
   await page.goto('/piele/captain');
+  await openSection(page, 'Colours and crest.');
   const card = page.locator('app-appearance-card');
   const crest = page.locator('.rail-brand .switcher-trigger app-league-crest');
   await expect(crest.locator('img')).toHaveAttribute('src', /piele-crest\.png/);

@@ -1,0 +1,21 @@
+<section [class.open]="open()" [class.animating]="animating()" [attr.aria-labelledby]="headingId()">
+  <div class="section-title">
+    <h2 [id]="headingId()">{{ heading() }}</h2>
+    <div class="title-side">
+      <ng-content select="[sectionSide]" />
+      <button
+        type="button"
+        class="chevron"
+        [attr.aria-labelledby]="headingId()"
+        [attr.aria-controls]="bodyId()"
+        [attr.aria-expanded]="open()"
+        (click)="toggle()"
+      >
+        <ng-icon name="lucideChevronDown" aria-hidden="true" />
+      </button>
+    </div>
+  </div>
+  <div class="body" #body [id]="bodyId()" [attr.inert]="open() ? null : ''">
+    <ng-content />
+  </div>
+</section>

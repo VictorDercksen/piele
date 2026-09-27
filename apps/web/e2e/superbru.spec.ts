@@ -1,5 +1,5 @@
 import { expect, Page, test } from '@playwright/test';
-import { seedProfile } from './support';
+import { openSection, seedProfile } from './support';
 
 // Superbru picks, scoring and standings in the sample build. The sample results score URC
 // rounds 1 and 2 (a fixture with one counts as kicked off); round 3 is still open, so hold the
@@ -221,10 +221,21 @@ test('standings show the round and season tables with badges and the breakdown',
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
+test('the desk opens closed, except the section a link names', async ({ page }) => {
+  await page.goto('/piele/captain#picks');
+  await expect(page.getByRole('button', { name: 'Superbru picks.' })).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.locator('#picks').getByRole('group', { name: /fixtures$/ })).toBeVisible();
+  for (const heading of ['Evidence to decide.', 'The team sheet.', 'The join link.', 'Colours and crest.', 'Superbru rules.']) {
+    await expect(page.getByRole('button', { name: heading })).toHaveAttribute('aria-expanded', 'false');
+  }
+  await expect(page.getByRole('button', { name: 'Copy link' })).toHaveCount(0);
+});
+
 test('the captain records a pick, overrides a round total and clears it', async ({ page }) => {
   await page.goto('/piele/captain?round=2');
   const card = page.locator('app-picks-card');
   await expect(card.getByRole('heading', { name: 'Superbru picks.' })).toBeVisible();
+  await openSection(page, 'Superbru picks.');
 
   // Liam missed Cardiff v Zebre (32–10); record Cardiff by 10 for him.
   const strip = card.getByRole('group', { name: 'Round 02 fixtures' });
@@ -269,6 +280,7 @@ test('the captain records a pick, overrides a round total and clears it', async 
   await expect(top).toContainText('20.0');
   await expect(top.locator('.override-tag')).toHaveText('override');
   await page.goBack();
+  await openSection(page, 'Superbru picks.');
 
   // Clearing the override puts the derived total back.
   await card.getByRole('button', { name: "Override Liam's total" }).click();
@@ -336,6 +348,7 @@ test('a new league takes its Superbru rules from the form', async ({ page }) => 
   await expect(page).toHaveURL(/\/bokkie-bru\/captain/);
   const card = page.locator('app-rules-card');
   await expect(card.getByRole('heading', { name: 'Superbru rules.' })).toBeVisible();
+  await openSection(page, 'Superbru rules.');
   await expect(card.getByRole('switch', { name: /Default picks/ })).not.toBeChecked();
   await expect(card.getByLabel('Starting round')).toHaveValue('3');
   await expect(card.getByLabel('Margin window')).toHaveValue('5');

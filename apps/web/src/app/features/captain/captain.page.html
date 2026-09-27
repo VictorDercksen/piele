@@ -1,8 +1,7 @@
-<section aria-labelledby="review-heading">
-  <div class="section-title">
-    <h2 id="review-heading">Evidence to decide.</h2>
-    <span>ROUND {{ view.round().code }}</span>
-  </div>
+<app-collapsible-section heading="Evidence to decide." headingId="review-heading">
+  @if (view.reviewCount()) {
+    <span class="tag" sectionSide>{{ view.reviewCount() }} PENDING</span>
+  }
   <p class="page-description">
     {{ view.reviewCount() }} {{ view.reviewCount() === 1 ? 'item' : 'items' }} for
     {{ view.round().title }}. Accepting sets the completion time; rejecting keeps the duty open.
@@ -42,15 +41,11 @@
   @if (playbackError()) {
     <p class="error-message" role="alert">{{ playbackError() }}</p>
   }
-</section>
+</app-collapsible-section>
 
 <app-picks-card [dialog]="reasonDialog()" [dutyDialog]="dutyDialog()" />
 
-<section class="members" aria-labelledby="members-heading">
-  <div class="section-title">
-    <h2 id="members-heading">The team sheet.</h2>
-    <span>SEASON</span>
-  </div>
+<app-collapsible-section class="members" heading="The team sheet." headingId="members-heading">
   <p class="page-description">
     Members sign in with Google or a password and claim their own name. Reserving a name for an
     email is optional: only a sign-in with that address can then take it. Release a name if the
@@ -100,39 +95,41 @@
                   : 'Any member can claim this name'
             }}</small>
           </span>
-          @if (member.claimed && member.id !== view.memberId()) {
-            <button
-              type="button"
-              class="text-button"
-              (click)="release(member)"
-              [disabled]="memberBusy() === member.id"
-              [attr.aria-label]="'Release ' + member.name"
-            >
-              Release
-            </button>
-          }
-          @if (!member.claimed) {
-            <button
-              type="button"
-              class="text-button"
-              (click)="edit(member)"
-              [disabled]="memberBusy() === member.id"
-              [attr.aria-label]="'Reserve ' + member.name + ' for an email'"
-            >
-              {{ member.email ? 'Change' : 'Reserve' }}
-            </button>
-          }
-          @if (removable(member)) {
-            <button
-              type="button"
-              class="text-button remove"
-              (click)="remove(member)"
-              [disabled]="memberBusy() === member.id"
-              [attr.aria-label]="'Remove ' + member.name"
-            >
-              Remove
-            </button>
-          }
+          <span class="member-actions">
+            @if (member.claimed && member.id !== view.memberId()) {
+              <button
+                type="button"
+                class="text-button"
+                (click)="release(member)"
+                [disabled]="memberBusy() === member.id"
+                [attr.aria-label]="'Release ' + member.name"
+              >
+                Release
+              </button>
+            }
+            @if (!member.claimed) {
+              <button
+                type="button"
+                class="text-button"
+                (click)="edit(member)"
+                [disabled]="memberBusy() === member.id"
+                [attr.aria-label]="'Reserve ' + member.name + ' for an email'"
+              >
+                {{ member.email ? 'Change' : 'Reserve' }}
+              </button>
+            }
+            @if (removable(member)) {
+              <button
+                type="button"
+                class="text-button remove"
+                (click)="remove(member)"
+                [disabled]="memberBusy() === member.id"
+                [attr.aria-label]="'Remove ' + member.name"
+              >
+                Remove
+              </button>
+            }
+          </span>
         }
       </li>
     }
@@ -146,7 +143,8 @@
         @for (member of view.withdrawn(); track member.id) {
           <li>
             <span class="member-name"
-              ><strong>{{ member.name }}</strong><small>{{ member.fullName }}</small></span
+              ><strong>{{ member.name }}</strong
+              ><small>{{ member.fullName }}</small></span
             >
             <span class="member-status">
               <span class="tag withdrawn-tag">WITHDRAWN</span>
@@ -157,18 +155,20 @@
                 }
               </small>
             </span>
-            <button
-              type="button"
-              class="text-button"
-              (click)="reinstate(member)"
-              [disabled]="memberBusy() === member.id"
-              [attr.aria-label]="'Reinstate ' + member.name"
-            >
-              @if (memberBusy() === member.id) {
-                <app-loader [size]="16" aria-hidden="true" />
-              }
-              Reinstate
-            </button>
+            <span class="member-actions">
+              <button
+                type="button"
+                class="text-button"
+                (click)="reinstate(member)"
+                [disabled]="memberBusy() === member.id"
+                [attr.aria-label]="'Reinstate ' + member.name"
+              >
+                @if (memberBusy() === member.id) {
+                  <app-loader [size]="16" aria-hidden="true" />
+                }
+                Reinstate
+              </button>
+            </span>
           </li>
         }
       </ul>
@@ -203,7 +203,7 @@
       Add member
     </button>
   </form>
-</section>
+</app-collapsible-section>
 
 <app-join-link-card [dialog]="reasonDialog()" />
 

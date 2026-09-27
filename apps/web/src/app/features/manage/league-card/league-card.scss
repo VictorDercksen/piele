@@ -21,6 +21,7 @@
 /* The whole head opens and closes the card. */
 /* A bare chevron, like "Start a league.", not the shared pill icon button. */
 .card-head .expand-button {
+  position: static;
   background: none;
   box-shadow: none;
   color: var(--ink);
@@ -33,6 +34,7 @@
   content: '';
   position: absolute;
   inset: -6px;
+  border: 0;
 }
 .expand-button ng-icon {
   --ng-icon__size: 20px;

@@ -1,0 +1,80 @@
+:host {
+  display: block;
+}
+.section-title {
+  position: relative;
+  align-items: center;
+}
+/* The fragment's target lands below the sticky top bar and round header. */
+:host([id]) {
+  scroll-margin-top: 170px;
+}
+.section-title h2 {
+  min-width: 0;
+}
+.title-side {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+.chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: #ffffff0a;
+  color: var(--ink);
+  cursor: pointer;
+  transition:
+    transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+    background 0.2s,
+    border-color 0.2s;
+}
+/* The whole heading row opens and closes the section. */
+.chevron::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+.chevron ng-icon {
+  font-size: 18px;
+}
+.section-title:hover .chevron {
+  background: #ffffff1a;
+  border-color: var(--muted);
+}
+.chevron:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.open .chevron {
+  transform: rotate(180deg);
+}
+/* Closed to nothing, open to its content. */
+.body {
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
+}
+.open .body,
+.animating .body {
+  visibility: visible;
+}
+.open .body {
+  height: auto;
+}
+/* Settled open, focus rings and wide content are not clipped. */
+.open:not(.animating) .body {
+  overflow: visible;
+}
+@media (prefers-reduced-motion: reduce) {
+  .chevron {
+    transition: none;
+  }
+}

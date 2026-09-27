@@ -28,6 +28,7 @@ import {
   PickRowView,
   RoundViewService,
 } from '../../../core/league/round-view.service';
+import { CollapsibleSection } from '../../../shared/collapsible-section/collapsible-section';
 import { Loader } from '../../../shared/loader/loader';
 import { MemberAvatar } from '../../../shared/member-avatar/member-avatar';
 import { CreateDutyDialog } from '../../duties/create-duty-dialog/create-duty-dialog';
@@ -56,7 +57,7 @@ const REFUSALS: Readonly<Record<string, string>> = {
   templateUrl: './picks-card.html',
   styleUrl: './picks-card.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, NgIcon, Loader, MemberAvatar],
+  imports: [ReactiveFormsModule, NgIcon, CollapsibleSection, Loader, MemberAvatar],
   viewProviders: [provideIcons({ lucideArrowRight })],
 })
 export class PicksCard {

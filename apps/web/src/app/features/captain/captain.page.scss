@@ -1,10 +1,26 @@
-section + section,
+app-collapsible-section,
 app-picks-card,
 app-join-link-card,
 app-appearance-card,
 app-rules-card {
   display: block;
-  margin-top: 44px;
+}
+/* The desk's sections, each closed to its heading. */
+:is(
+    app-collapsible-section,
+    app-picks-card,
+    app-join-link-card,
+    app-appearance-card,
+    app-rules-card
+  )
+  + :is(
+    app-collapsible-section,
+    app-picks-card,
+    app-join-link-card,
+    app-appearance-card,
+    app-rules-card
+  ) {
+  margin-top: 28px;
 }
 .review-row {
   display: flex;
@@ -81,6 +97,15 @@ app-rules-card {
   font-size: 12px;
   overflow-wrap: anywhere;
 }
+.member-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.member-actions:empty {
+  display: none;
+}
 .tag.claimed {
   background: #1d3f36;
   color: #7fe0c2;
@@ -149,10 +174,40 @@ app-rules-card {
   .add-grid {
     grid-template-columns: 1fr;
   }
+  /* A row reads as a compact card: name and tag, the note, then the actions side by side. */
   .member-list li {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 8px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 6px 12px;
+    padding: 16px 0;
+  }
+  .member-name {
+    min-width: 0;
+  }
+  .member-name strong {
+    overflow-wrap: anywhere;
+  }
+  .member-status {
+    display: contents;
+  }
+  .member-status .tag {
+    grid-column: 2;
+    grid-row: 1;
+    margin-top: 3px;
+  }
+  .member-status small,
+  .member-actions,
+  .member-edit {
+    grid-column: 1 / -1;
+  }
+  .member-actions {
+    margin-top: 6px;
+  }
+  .member-actions .text-button {
+    flex: 1 1 0;
+    justify-content: center;
+    max-width: 160px;
   }
 }
 

@@ -1,12 +1,8 @@
-<section class="join-link" aria-labelledby="join-link-heading">
-  <div class="section-title">
-    <h2 id="join-link-heading">The join link.</h2>
-    <span>LEAGUE</span>
-  </div>
+<app-collapsible-section heading="The join link." headingId="join-link-heading">
   @if (link(); as link) {
     <p class="page-description">
-      Anyone with this link can sign in and claim an open name on the team sheet. Names reserved
-      for an email stay with that address.
+      Anyone with this link can sign in and claim an open name on the team sheet. Names reserved for
+      an email stay with that address.
     </p>
     <label class="field-label" for="join-link-url">Join link</label>
     <div class="link-row">
@@ -53,4 +49,4 @@
       <p class="error-message" role="alert">{{ error() }}</p>
     }
   }
-</section>
+</app-collapsible-section>

@@ -1,4 +1,4 @@
-import { Page } from '@playwright/test';
+import { expect, Page } from '@playwright/test';
 
 /**
  * A returning sample member: the browser-kept name and photo shared by every league, and a
@@ -16,4 +16,11 @@ export function seedProfile(
     },
     { displayName, teamId, leagues },
   );
+}
+
+/** Opens a captain's desk section, closed by default, from the chevron named by its heading. */
+export async function openSection(page: Page, heading: string): Promise<void> {
+  const chevron = page.getByRole('button', { name: heading, exact: true });
+  await chevron.click();
+  await expect(chevron).toHaveAttribute('aria-expanded', 'true');
 }
