@@ -1,19 +1,31 @@
+// The scope tabs and "New duty" share one row above the register; the toolbar
+// carries the tab rule so it runs under the button too.
 .register-toolbar {
   display: flex;
-  align-items: flex-start;
+  align-items: stretch;
   justify-content: space-between;
-  gap: 16px;
+  gap: 8px 16px;
   flex-wrap: wrap;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 25px;
 }
 .register-toolbar .content-tabs {
-  flex: 1;
-  min-width: 220px;
+  flex: 1 1 auto;
+  border-bottom: 0;
+  margin-bottom: 0;
 }
 .register-toolbar .primary-button {
-  margin-top: 2px;
+  align-self: center;
+  margin-block: 8px;
 }
 .duty-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 520px), 1fr));
   gap: 20px;
+}
+@container (max-width:600px) {
+  .register-toolbar .primary-button {
+    padding-inline: 16px;
+    gap: 8px;
+  }
 }
