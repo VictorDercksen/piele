@@ -442,6 +442,71 @@ export interface paths {
         readonly patch?: never;
         readonly trace?: never;
     };
+    readonly "/v1/leagues/{leagueId}/evidence/cases": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        /**
+         * List Cases
+         * @description The active season's evidence cases, newest first; one round's with `round`. Cases
+         *     whose window has closed are settled first.
+         */
+        readonly get: operations["list_cases_v1_leagues__leagueId__evidence_cases_get"];
+        readonly put?: never;
+        readonly post?: never;
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
+    readonly "/v1/leagues/{leagueId}/evidence/cases/{case_id}/response": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly get?: never;
+        readonly put?: never;
+        /**
+         * Respond To Case
+         * @description An eligible voter accepts or vetoes while voting is open: 403 `not_a_voter`, 409
+         *     `voting_closed`, 409 `veto_final` (a veto cannot be changed). A veto sends the case to
+         *     review; the accept that makes a majority accepts the evidence.
+         */
+        readonly post: operations["respond_to_case_v1_leagues__leagueId__evidence_cases__case_id__response_post"];
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
+    readonly "/v1/leagues/{leagueId}/evidence/cases/{case_id}/review": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly get?: never;
+        readonly put?: never;
+        /**
+         * Review Case
+         * @description Rules on the pending veto: 409 `not_in_review`, 403 `not_reviewer` for anyone but the
+         *     uninvolved captain, the stand-in when the captain is involved, or the admin. Upheld
+         *     rejects the evidence; dismissed reopens voting on the original timer.
+         */
+        readonly post: operations["review_case_v1_leagues__leagueId__evidence_cases__case_id__review_post"];
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
     readonly "/v1/leagues/{leagueId}/evidence/links/{link_id}/decision": {
         readonly parameters: {
             readonly query?: never;
@@ -451,7 +516,11 @@ export interface paths {
         };
         readonly get?: never;
         readonly put?: never;
-        /** Decide */
+        /**
+         * Decide
+         * @description The captain's (or admin's) override: decides the evidence at any time and closes its
+         *     case with resolution `captain`. 403 `self_review` for the captain's own evidence.
+         */
         readonly post: operations["decide_v1_leagues__leagueId__evidence_links__link_id__decision_post"];
         readonly delete?: never;
         readonly options?: never;
@@ -891,6 +960,27 @@ export interface paths {
         readonly patch?: never;
         readonly trace?: never;
     };
+    readonly "/v1/leagues/{leagueId}/stand-in-reviewer": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        /** Get Stand In Reviewer */
+        readonly get: operations["get_stand_in_reviewer_v1_leagues__leagueId__stand_in_reviewer_get"];
+        /**
+         * Set Stand In Reviewer
+         * @description 404 `unknown_member`, 409 `captain_cannot_stand_in`, 409 `not_claimed`.
+         */
+        readonly put: operations["set_stand_in_reviewer_v1_leagues__leagueId__stand_in_reviewer_put"];
+        readonly post?: never;
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
     readonly "/v1/leagues/{leagueId}/standings": {
         readonly parameters: {
             readonly query?: never;
@@ -1057,6 +1147,19 @@ export interface components {
              * Format: uuid
              */
             readonly membershipId: string;
+        };
+        /** CaseResponse */
+        readonly CaseResponse: {
+            /**
+             * Choice
+             * @enum {string}
+             */
+            readonly choice: "accept" | "veto";
+            /**
+             * Reason
+             * @default
+             */
+            readonly reason: string;
         };
         /** Claim */
         readonly Claim: {
@@ -1287,6 +1390,127 @@ export interface components {
             /** Sizebytes */
             readonly sizeBytes: number;
         };
+        /**
+         * EvidenceCase
+         * @description One piece of evidence under the league's vote. Nothing here says who voted how:
+         *     members see participation (respondedCount of eligibleCount), their own response, and
+         *     once closed the outcome (status) and how it came about (resolution).
+         */
+        readonly EvidenceCase: {
+            /**
+             * Assetid
+             * Format: uuid
+             */
+            readonly assetId: string;
+            /** Canrespond */
+            readonly canRespond: boolean;
+            /** Canreview */
+            readonly canReview: boolean;
+            /**
+             * Closesat
+             * Format: date-time
+             */
+            readonly closesAt: string;
+            /**
+             * Dutyid
+             * Format: uuid
+             */
+            readonly dutyId: string;
+            /** Dutytitle */
+            readonly dutyTitle: string;
+            /**
+             * Dutytype
+             * @enum {string}
+             */
+            readonly dutyType: "spoon" | "pick_confirmation";
+            /** Eligiblecount */
+            readonly eligibleCount: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            readonly id: string;
+            /** Isvoter */
+            readonly isVoter: boolean;
+            /**
+             * Linkid
+             * Format: uuid
+             */
+            readonly linkId: string;
+            /** Myresponse */
+            readonly myResponse: ("accept" | "veto") | null;
+            /** Myvetoreason */
+            readonly myVetoReason: string | null;
+            /** Needsreviewer */
+            readonly needsReviewer: boolean;
+            /** Note */
+            readonly note: string;
+            /**
+             * Openedat
+             * Format: date-time
+             */
+            readonly openedAt: string;
+            /** Resolution */
+            readonly resolution: ("majority" | "auto" | "no_voters" | "veto_upheld" | "captain") | null;
+            /** Resolvedat */
+            readonly resolvedAt: string | null;
+            /** Respondedcount */
+            readonly respondedCount: number;
+            /** Roundnumber */
+            readonly roundNumber: number | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            readonly status: "open" | "in_review" | "accepted" | "rejected" | "superseded";
+            /**
+             * Subjectid
+             * Format: uuid
+             */
+            readonly subjectId: string;
+            /** Subjectname */
+            readonly subjectName: string;
+            /**
+             * Submissionid
+             * Format: uuid
+             */
+            readonly submissionId: string;
+            /**
+             * Submittedat
+             * Format: date-time
+             */
+            readonly submittedAt: string;
+            /** Submittername */
+            readonly submitterName: string;
+            /** Vetoreason */
+            readonly vetoReason: string | null;
+        };
+        /**
+         * EvidenceCaseSummary
+         * @description The evidence's case, for the duty card. resolution and resolvedAt are set once it is
+         *     accepted or rejected (resolvedAt also once superseded).
+         */
+        readonly EvidenceCaseSummary: {
+            /**
+             * Closesat
+             * Format: date-time
+             */
+            readonly closesAt: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            readonly id: string;
+            /** Resolution */
+            readonly resolution: ("majority" | "auto" | "no_voters" | "veto_upheld" | "captain") | null;
+            /** Resolvedat */
+            readonly resolvedAt: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            readonly status: "open" | "in_review" | "accepted" | "rejected" | "superseded";
+        };
         /** EvidenceLink */
         readonly EvidenceLink: {
             /**
@@ -1302,6 +1526,7 @@ export interface components {
             readonly decision: string;
             /** Effectivecompletedat */
             readonly effectiveCompletedAt: string | null;
+            readonly evidenceCase: components["schemas"]["EvidenceCaseSummary"] | null;
             /**
              * Id
              * Format: uuid
@@ -2045,6 +2270,11 @@ export interface components {
             /** Url */
             readonly url: string;
         };
+        /** StandInChange */
+        readonly StandInChange: {
+            /** Memberid */
+            readonly memberId: string | null;
+        };
         /** Standing */
         readonly Standing: {
             /**
@@ -2070,6 +2300,16 @@ export interface components {
             readonly memberId: string;
             /** Points */
             readonly points: number | string;
+        };
+        /**
+         * StandInReviewer
+         * @description Reviews vetoes when the captain is involved. Both null when none is named.
+         */
+        readonly StandInReviewer: {
+            /** Memberid */
+            readonly memberId: string | null;
+            /** Membername */
+            readonly memberName: string | null;
         };
         /** StewardPick */
         readonly StewardPick: {
@@ -2192,6 +2432,16 @@ export interface components {
             readonly msg: string;
             /** Error Type */
             readonly type: string;
+        };
+        /** VetoReview */
+        readonly VetoReview: {
+            /** Reason */
+            readonly reason: string;
+            /**
+             * Ruling
+             * @enum {string}
+             */
+            readonly ruling: "upheld" | "dismissed";
         };
         /** WinPoints */
         readonly WinPoints: {
@@ -3064,6 +3314,111 @@ export interface operations {
             };
         };
     };
+    readonly list_cases_v1_leagues__leagueId__evidence_cases_get: {
+        readonly parameters: {
+            readonly query?: {
+                readonly round?: number | null;
+            };
+            readonly header?: never;
+            readonly path: {
+                readonly leagueId: string;
+            };
+            readonly cookie?: never;
+        };
+        readonly requestBody?: never;
+        readonly responses: {
+            /** @description Successful Response */
+            readonly 200: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": readonly components["schemas"]["EvidenceCase"][];
+                };
+            };
+            /** @description Validation Error */
+            readonly 422: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    readonly respond_to_case_v1_leagues__leagueId__evidence_cases__case_id__response_post: {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path: {
+                readonly case_id: string;
+                readonly leagueId: string;
+            };
+            readonly cookie?: never;
+        };
+        readonly requestBody: {
+            readonly content: {
+                readonly "application/json": components["schemas"]["CaseResponse"];
+            };
+        };
+        readonly responses: {
+            /** @description Successful Response */
+            readonly 200: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["EvidenceCase"];
+                };
+            };
+            /** @description Validation Error */
+            readonly 422: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    readonly review_case_v1_leagues__leagueId__evidence_cases__case_id__review_post: {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path: {
+                readonly case_id: string;
+                readonly leagueId: string;
+            };
+            readonly cookie?: never;
+        };
+        readonly requestBody: {
+            readonly content: {
+                readonly "application/json": components["schemas"]["VetoReview"];
+            };
+        };
+        readonly responses: {
+            /** @description Successful Response */
+            readonly 200: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["EvidenceCase"];
+                };
+            };
+            /** @description Validation Error */
+            readonly 422: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     readonly decide_v1_leagues__leagueId__evidence_links__link_id__decision_post: {
         readonly parameters: {
             readonly query?: never;
@@ -3875,6 +4230,72 @@ export interface operations {
                 };
                 content: {
                     readonly "application/json": components["schemas"]["Rules"];
+                };
+            };
+            /** @description Validation Error */
+            readonly 422: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    readonly get_stand_in_reviewer_v1_leagues__leagueId__stand_in_reviewer_get: {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path: {
+                readonly leagueId: string;
+            };
+            readonly cookie?: never;
+        };
+        readonly requestBody?: never;
+        readonly responses: {
+            /** @description Successful Response */
+            readonly 200: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["StandInReviewer"];
+                };
+            };
+            /** @description Validation Error */
+            readonly 422: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    readonly set_stand_in_reviewer_v1_leagues__leagueId__stand_in_reviewer_put: {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path: {
+                readonly leagueId: string;
+            };
+            readonly cookie?: never;
+        };
+        readonly requestBody: {
+            readonly content: {
+                readonly "application/json": components["schemas"]["StandInChange"];
+            };
+        };
+        readonly responses: {
+            /** @description Successful Response */
+            readonly 200: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["StandInReviewer"];
                 };
             };
             /** @description Validation Error */
