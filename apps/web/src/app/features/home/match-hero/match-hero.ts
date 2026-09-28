@@ -1,3 +1,4 @@
+import { HlmButton } from '@spartan-ng/helm/button';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -22,7 +23,11 @@ import { Icon } from '../../../shared/icon/icon';
   templateUrl: './match-hero.html',
   styleUrl: './match-hero.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Icon],
+  /* prettier-ignore */
+  imports: [
+    Icon,
+    HlmButton,
+  ],
 })
 export class MatchHero {
   private readonly artwork = inject(MatchArtwork);

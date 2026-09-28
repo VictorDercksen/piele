@@ -8,6 +8,7 @@
     <div class="fixture-strip" role="group" [attr.aria-label]="view.round().title + ' fixtures'">
       @for (item of strip(); track item.fixture.id) {
         <button
+          hlmBtn
           type="button"
           [class.active]="chosen()?.fixture?.id === item.fixture.id"
           [class.awaiting]="item.awaiting"
@@ -76,46 +77,36 @@
               />
               <strong>{{ name }}</strong>
             </span>
-            <div class="side-picker" role="radiogroup" [attr.aria-label]="name + '\'s pick'">
+            <div
+              hlmRadioGroup
+              [formControl]="c.side"
+              [name]="rowId"
+              class="side-picker"
+              [attr.aria-label]="name + '\'s pick'"
+            >
               <label
+                hlmLabel
                 class="side"
                 [title]="item.homeName"
                 [style.--club]="item.home?.colour ?? null"
               >
-                <input
-                  type="radio"
-                  [name]="rowId"
-                  [attr.name]="rowId"
-                  value="home"
-                  [formControl]="c.side"
-                />
+                <hlm-radio value="home" />
                 <img [src]="jersey(item.fixture.homeAsset)" alt="" /><span
                   class="visually-hidden"
                   >{{ item.homeName }}</span
                 >
               </label>
-              <label class="side draw">
-                <input
-                  type="radio"
-                  [name]="rowId"
-                  [attr.name]="rowId"
-                  value="draw"
-                  [formControl]="c.side"
-                />
+              <label hlmLabel class="side draw">
+                <hlm-radio value="draw" />
                 <span>Draw</span>
               </label>
               <label
+                hlmLabel
                 class="side"
                 [title]="item.awayName"
                 [style.--club]="item.away?.colour ?? null"
               >
-                <input
-                  type="radio"
-                  [name]="rowId"
-                  [attr.name]="rowId"
-                  value="away"
-                  [formControl]="c.side"
-                />
+                <hlm-radio value="away" />
                 <img [src]="jersey(item.fixture.awayAsset)" alt="" /><span
                   class="visually-hidden"
                   >{{ item.awayName }}</span
@@ -123,29 +114,30 @@
               </label>
             </div>
             <span class="margin">
-              <label class="cell-label" [for]="rowId + '-margin'"
+              <label hlmLabel class="cell-label" [for]="rowId + '-margin'"
                 >Margin<span class="visually-hidden"> for {{ name }}</span></label
               >
               <input
+                hlmInput
                 [id]="rowId + '-margin'"
                 type="text"
                 inputmode="numeric"
                 maxlength="3"
                 autocomplete="off"
                 [formControl]="c.margin"
-                [attr.aria-invalid]="invalidRows().has(row.memberId)"
+                [aria-invalid]="invalidRows().has(row.memberId)"
               />
             </span>
             @if (defaultPicks()) {
-              <label class="check default">
-                <input type="checkbox" [formControl]="c.isDefault" />
+              <label hlmLabel class="check default">
+                <hlm-checkbox [formControl]="c.isDefault" />
                 <span class="cell-label"
                   >Default<span class="visually-hidden"> pick for {{ name }}</span></span
                 >
               </label>
             }
-            <label class="check missed">
-              <input type="checkbox" [formControl]="c.missed" />
+            <label hlmLabel class="check missed">
+              <hlm-checkbox [formControl]="c.missed" />
               <span class="cell-label"
                 >Missed<span class="visually-hidden"> by {{ name }}</span></span
               >
@@ -177,6 +169,7 @@
       @if (!readOnly()) {
         <div class="grid-actions">
           <button
+            hlmBtn
             type="button"
             class="primary-button"
             [disabled]="busy()"
@@ -227,6 +220,7 @@
             </td>
             <td class="action">
               <button
+                hlmBtn
                 type="button"
                 class="text-button"
                 [id]="'override-button-' + row.memberId"
@@ -243,10 +237,11 @@
             <tr class="override-row">
               <td colspan="4">
                 <form class="override-form" novalidate (submit)="submitOverride($event, row)">
-                  <label [for]="'override-' + row.memberId"
+                  <label hlmLabel [for]="'override-' + row.memberId"
                     >Recorded total for {{ row.name }}</label
                   >
                   <input
+                    hlmInput
                     [id]="'override-' + row.memberId"
                     type="number"
                     inputmode="decimal"
@@ -254,9 +249,10 @@
                     max="99999.99"
                     step="0.25"
                     [formControl]="overrideControl"
-                    [attr.aria-invalid]="overrideSubmitted() && overrideControl.invalid"
+                    [aria-invalid]="overrideSubmitted() && overrideControl.invalid"
                   />
                   <button
+                    hlmBtn
                     type="submit"
                     class="primary-button"
                     [disabled]="overrideBusy()"
@@ -266,6 +262,7 @@
                   </button>
                   @if (row.recorded !== null) {
                     <button
+                      hlmBtn
                       type="button"
                       class="text-button"
                       [disabled]="overrideBusy()"
@@ -276,6 +273,7 @@
                     </button>
                   }
                   <button
+                    hlmBtn
                     type="button"
                     class="text-button"
                     [disabled]="overrideBusy()"
@@ -302,6 +300,7 @@
       <div class="spoon-actions">
         @for (member of spoon(); track member.id) {
           <button
+            hlmBtn
             type="button"
             class="text-button"
             [attr.aria-label]="'Propose Spoon duty for ' + member.name"

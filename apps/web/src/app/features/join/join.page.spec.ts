@@ -64,14 +64,14 @@ describe('JoinPage', () => {
     await fixture.whenStable();
     expect(root.querySelector('.eyebrow')?.textContent).toContain('POFADDER BOWL');
     expect(root.querySelector('app-member-avatar')?.textContent).toContain('PB');
-    const names = Array.from(root.querySelectorAll<HTMLButtonElement>('.name'));
+    const names = Array.from(root.querySelectorAll<HTMLLabelElement>('.name'));
     expect(names.map((n) => n.querySelector('strong')?.textContent)).toEqual(['Trokkie', 'Annas']);
     const submit = root.querySelector<HTMLButtonElement>('.primary-button')!;
     expect(submit.disabled).toBe(true);
 
     names[1].click();
     await fixture.whenStable();
-    expect(names[1].getAttribute('aria-checked')).toBe('true');
+    expect(String(names[1].querySelector<HTMLInputElement>('input')?.checked)).toBe('true');
     submit.click();
     await fixture.whenStable();
     expect(claimed).toEqual([]);
@@ -97,7 +97,7 @@ describe('JoinPage', () => {
     const alerts = TestBed.inject(AlertService);
     const error = vi.spyOn(alerts, 'error');
     await fixture.whenStable();
-    root.querySelectorAll<HTMLButtonElement>('.name')[0].click();
+    root.querySelectorAll<HTMLLabelElement>('.name')[0].click();
     await fixture.whenStable();
     const submit = root.querySelector<HTMLButtonElement>('.primary-button')!;
     submit.click();

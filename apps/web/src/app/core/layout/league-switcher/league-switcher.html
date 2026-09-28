@@ -1,4 +1,5 @@
 <button
+  hlmBtn
   #trigger
   type="button"
   class="switcher-trigger"
@@ -38,7 +39,7 @@
 >
   <div class="panel-top">
     <h2 [id]="id + '-title'">Switch league</h2>
-    <button type="button" class="close" aria-label="Close league switcher" (click)="close()">
+    <button hlmBtn type="button" class="close" aria-label="Close league switcher" (click)="close()">
       <app-icon name="close" />
     </button>
   </div>
@@ -88,9 +89,10 @@
   }
   <form class="join" (submit)="join($event)">
     <h3 class="group-title">Join a league</h3>
-    <label [for]="id + '-code'">Join link or code</label>
+    <label hlmLabel [for]="id + '-code'">Join link or code</label>
     <div class="join-row">
       <input
+        hlmInput
         [id]="id + '-code'"
         #codeInput
         name="code"
@@ -99,10 +101,10 @@
         spellcheck="false"
         maxlength="300"
         placeholder="Paste the link from your captain"
-        [attr.aria-invalid]="joinInvalid()"
+        [aria-invalid]="joinInvalid()"
         (input)="joinInvalid.set(false)"
       />
-      <button type="submit" class="primary-button">
+      <button hlmBtn type="submit" class="primary-button">
         Join<ng-icon class="link-icon" name="lucideArrowRight" />
       </button>
     </div>

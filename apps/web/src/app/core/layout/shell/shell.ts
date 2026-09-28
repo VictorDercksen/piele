@@ -1,3 +1,4 @@
+import { HlmButton } from '@spartan-ng/helm/button';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -39,6 +40,7 @@ import { FixtureRibbon } from '../fixture-ribbon/fixture-ribbon';
 import { LeagueSwitcher } from '../league-switcher/league-switcher';
 import { NotificationsFlag } from '../notifications-flag/notifications-flag';
 import { SeasonTimeline } from '../season-timeline/season-timeline';
+import { RoundPicker } from '../round-picker/round-picker';
 import { Breadcrumbs, FROM_NAV_BAR } from './breadcrumbs';
 import { PageData } from './page-data';
 
@@ -51,6 +53,7 @@ const LEAGUE_LOAD_ALERT = 'league-load';
   templateUrl: './shell.html',
   styleUrl: './shell.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  /* prettier-ignore */
   imports: [
     RouterOutlet,
     RouterLink,
@@ -58,11 +61,13 @@ const LEAGUE_LOAD_ALERT = 'league-load';
     Icon,
     BallLoader,
     SeasonTimeline,
+    RoundPicker,
     NotificationsFlag,
     FixtureRibbon,
     StadiumBackdrop,
     LeagueSwitcher,
     LeaguePathPipe,
+    HlmButton,
   ],
 })
 export class Shell {
@@ -83,7 +88,6 @@ export class Shell {
   readonly round = this.selectedRound.round;
   /** `26 / 27`. */
   readonly season = computed(() => shortSeason(this.competition.season, ' / '));
-  readonly competitionShortName = computed(() => this.competition.shortName);
   readonly emblem = computed(() => this.competition.current().emblem);
   readonly competitionName = computed(() => this.competition.current().name);
   readonly regularRounds = computed(() => this.competition.regularRounds);
@@ -154,8 +158,10 @@ export class Shell {
       const observer = new ResizeObserver(() => {
         const offset = bars.reduce((sum, bar) => sum + bar.offsetHeight, 0);
         main.style.setProperty('--sticky-offset', `${offset}px`);
-        league.style.setProperty('--nav-height', `${nav.offsetHeight}px`);
-        this.insets.bottom.set(nav.offsetHeight);
+        const bottomGap = nav.offsetHeight ? parseFloat(getComputedStyle(nav).bottom) || 0 : 0;
+        const navInset = nav.offsetHeight + bottomGap;
+        league.style.setProperty('--nav-height', `${navInset}px`);
+        this.insets.bottom.set(navInset);
       });
       [...bars, nav].forEach((element) => observer.observe(element));
       destroyRef.onDestroy(() => observer.disconnect());

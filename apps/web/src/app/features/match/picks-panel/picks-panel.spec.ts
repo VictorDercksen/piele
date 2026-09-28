@@ -156,10 +156,13 @@ describe('PicksPanel', () => {
       await settle();
     };
     const strip = () => root.querySelector<HTMLElement>('.scale')!;
-    const marker = () => root.querySelector<HTMLInputElement>('#pick-scale')!;
+    const marker = () => root.querySelector<HTMLElement>('#pick-scale [role=slider]')!;
     const slide = async (value: number) => {
-      marker().value = String(value);
-      marker().dispatchEvent(new Event('input'));
+      const current = Number(marker().getAttribute('aria-valuenow'));
+      const key = value > current ? 'ArrowRight' : 'ArrowLeft';
+      for (let i = 0; i < Math.abs(value - current); i++) {
+        marker().dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+      }
       await settle();
     };
     const margin = () => root.querySelector<HTMLInputElement>('#pick-margin')!;
@@ -199,12 +202,14 @@ describe('PicksPanel', () => {
     await settle();
     expect(text('.tag')).toBe('open');
     // The scale: a crest tab at each end, the marker unset in the middle.
-    const marker = root.querySelector<HTMLInputElement>('#pick-scale')!;
-    expect(marker.type).toBe('range');
+    const marker = root.querySelector<HTMLElement>('#pick-scale [role=slider]')!;
+    expect(marker.getAttribute('role')).toBe('slider');
     expect(root.querySelector(`#${marker.getAttribute('aria-labelledby')}`)?.textContent).toBe(
       'Your pick',
     );
-    expect([marker.min, marker.max, marker.value]).toEqual(['-40', '40', '0']);
+    expect(
+      ['aria-valuemin', 'aria-valuemax', 'aria-valuenow'].map((name) => marker.getAttribute(name)),
+    ).toEqual(['-40', '40', '0']);
     expect(marker.getAttribute('aria-valuetext')).toBe('No pick yet');
     const ends = Array.from(root.querySelectorAll('.end')).map((e) => [
       e.textContent?.trim(),
@@ -326,13 +331,13 @@ describe('PicksPanel', () => {
     // A typed margin beyond the scale's reach parks the marker at the end.
     await typeMargin('55');
     expect(marker().getAttribute('aria-valuetext')).toBe('Bulls by 55');
-    expect(marker().value).toBe('40');
+    expect(marker().getAttribute('aria-valuenow')).toBe('40');
     expect(text('.thumb')).toBe('55');
     // A crest nudges one point toward that side, through the middle to a draw and beyond.
     await typeMargin('1');
     await choose('home');
     expect(marker().getAttribute('aria-valuetext')).toBe('A draw');
-    expect(marker().value).toBe('0');
+    expect(marker().getAttribute('aria-valuenow')).toBe('0');
     expect(root.querySelector('.draw-pick')?.getAttribute('aria-pressed')).toBe('true');
     // The disabled field stays on the last club's side of Draw.
     expect(field().classList).toContain('away');
@@ -361,7 +366,7 @@ describe('PicksPanel', () => {
     root.querySelector<HTMLButtonElement>('.quick.home .quick-pick:first-child')!.click();
     await settle();
     expect(marker().getAttribute('aria-valuetext')).toBe('Zebre by 21');
-    expect(marker().value).toBe('-21');
+    expect(marker().getAttribute('aria-valuenow')).toBe('-21');
     expect(field().classList).not.toContain('away');
     expect(pressed()).toEqual(['Zebre by 21']);
   });
@@ -439,7 +444,7 @@ describe('PicksPanel', () => {
 
     root.querySelector<HTMLButtonElement>('.mine .edit')!.click();
     await settle();
-    expect(marker().value).toBe('20');
+    expect(marker().getAttribute('aria-valuenow')).toBe('20');
     expect(marker().getAttribute('aria-valuetext')).toBe('Bulls by 20');
     expect(root.querySelector('.end.away')?.classList).toContain('won');
     expect(root.querySelector('.margin-field')?.classList).toContain('away');

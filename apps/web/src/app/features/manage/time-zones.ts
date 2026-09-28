@@ -80,3 +80,11 @@ function gmtOffset(id: string): string {
     return '';
   }
 }
+
+/** Options for the shared searchable Spartan select, retaining saved IANA aliases. */
+export function timeZoneSelectGroups(current = '') {
+  return timeZoneGroups(current).map((group) => ({
+    label: group.region,
+    options: group.zones.map((zone) => ({ value: zone.id, label: zone.label })),
+  }));
+}

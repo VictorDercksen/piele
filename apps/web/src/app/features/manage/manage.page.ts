@@ -1,3 +1,7 @@
+import { HlmCollapsibleTrigger } from '@spartan-ng/helm/collapsible';
+import { HlmCollapsible } from '@spartan-ng/helm/collapsible';
+import { HlmCollapsibleContent } from '@spartan-ng/helm/collapsible';
+import { HlmButton } from '@spartan-ng/helm/button';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -30,7 +34,7 @@ import { LeagueCard, LeagueChange } from './league-card/league-card';
   templateUrl: './manage.page.html',
   styleUrl: './manage.page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  // prettier-ignore
+  /* prettier-ignore */
   imports: [
     RouterLink,
     NgIcon,
@@ -38,6 +42,10 @@ import { LeagueCard, LeagueChange } from './league-card/league-card';
     ReasonDialog,
     CreateLeagueForm,
     LeagueCard,
+    HlmButton,
+    HlmCollapsibleTrigger,
+    HlmCollapsible,
+    HlmCollapsibleContent,
   ],
   viewProviders: [
     provideIcons({ lucideArrowRight, lucideChevronDown, lucidePlus, lucideRotateCcw }),
@@ -48,7 +56,7 @@ export class ManagePage {
   private readonly alerts = inject(AlertService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly injector = inject(Injector);
-  private readonly archivedGroup = viewChild<ElementRef<HTMLDetailsElement>>('archivedGroup');
+  private readonly archivedGroup = viewChild<ElementRef<HTMLElement>>('archivedGroup');
   readonly dialog = viewChild.required(ReasonDialog);
 
   readonly leagues = this.admin.leagues;
@@ -78,7 +86,9 @@ export class ManagePage {
     afterNextRender(
       () => {
         if (change.moved === 'archived') {
-          this.archivedGroup()?.nativeElement.querySelector('summary')?.focus();
+          this.archivedGroup()
+            ?.nativeElement.querySelector<HTMLButtonElement>('.disclosure-trigger')
+            ?.focus();
         } else {
           this.host.nativeElement
             .querySelector<HTMLElement>(`#${CSS.escape(`league-${change.id}-name`)}`)

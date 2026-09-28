@@ -21,6 +21,7 @@
       active() ? 'Active' : 'Archived'
     }}</span>
     <button
+      hlmBtn
       type="button"
       class="icon-button expand-button"
       [attr.aria-expanded]="expanded()"
@@ -60,6 +61,7 @@
             <code>{{ code }}</code>
             @if (active()) {
               <button
+                hlmBtn
                 type="button"
                 class="icon-button copy-button"
                 [attr.aria-label]="'Copy the join link of ' + league().name"
@@ -86,6 +88,7 @@
     <div class="card-actions">
       @if (active()) {
         <a
+          hlmBtn
           class="primary-button"
           [routerLink]="['/', league().slug]"
           [attr.aria-label]="'Open ' + league().name"
@@ -93,6 +96,7 @@
         /></a>
         @if (!league().myMemberId) {
           <button
+            hlmBtn
             type="button"
             class="text-button"
             [disabled]="busy()"
@@ -105,6 +109,7 @@
         }
       }
       <button
+        hlmBtn
         #renameButton
         type="button"
         class="text-button"
@@ -118,6 +123,7 @@
       </button>
       @if (active()) {
         <button
+          hlmBtn
           type="button"
           class="text-button"
           [disabled]="busy()"
@@ -129,6 +135,7 @@
         </button>
       } @else {
         <button
+          hlmBtn
           type="button"
           class="text-button"
           [disabled]="busy()"
@@ -147,41 +154,49 @@
     @if (renaming()) {
       <form class="rename-form" [formGroup]="renameForm" (ngSubmit)="saveRename()">
         <div class="field">
-          <label [for]="id() + '-rename-name'">League name</label>
+          <label hlmLabel [for]="id() + '-rename-name'">League name</label>
           <input
+            hlmInput
             [id]="id() + '-rename-name'"
             formControlName="name"
             maxlength="120"
             autocomplete="off"
-            [attr.aria-invalid]="renameSubmitted() && renameForm.controls.name.invalid"
+            [aria-invalid]="renameSubmitted() && renameForm.controls.name.invalid"
           />
         </div>
         <div class="field">
-          <label [for]="id() + '-rename-zone'">Time zone</label>
-          <select
-            appTimeZoneSelect
-            [currentZone]="league().timezone"
-            [id]="id() + '-rename-zone'"
+          <label hlmLabel [for]="id() + '-rename-zone'">Time zone</label>
+          <app-search-select
+            [selectId]="id() + '-rename-zone'"
             formControlName="timezone"
-            [attr.aria-invalid]="renameSubmitted() && renameForm.controls.timezone.invalid"
-          ></select>
+            [aria-invalid]="renameSubmitted() && renameForm.controls.timezone.invalid"
+            [groups]="zoneGroups()"
+            placeholder="Choose a time zone"
+            searchLabel="Search time zones"
+          />
         </div>
-        <details
+        <div
+          hlmCollapsible
           class="rules-group"
           [id]="id() + '-rules'"
-          [open]="rulesOpen()"
-          (toggle)="rulesToggled($event)"
+          [expanded]="rulesOpen()"
+          (expandedChange)="rulesToggled($event)"
         >
-          <summary>Superbru rules</summary>
-          <app-rules-fields
-            [idPrefix]="id() + '-rules'"
-            [group]="renameForm.controls.rules"
-            [lastRound]="lastRound()"
-            [submitted]="renameSubmitted()"
-          />
-        </details>
+          <button hlmBtn hlmCollapsibleTrigger class="disclosure-trigger" type="button">
+            Superbru rules
+          </button>
+          <div hlmCollapsibleContent class="disclosure-content">
+            <app-rules-fields
+              [idPrefix]="id() + '-rules'"
+              [group]="renameForm.controls.rules"
+              [lastRound]="lastRound()"
+              [submitted]="renameSubmitted()"
+            />
+          </div>
+        </div>
         <div class="form-actions">
           <button
+            hlmBtn
             type="submit"
             class="primary-button"
             [disabled]="busy()"
@@ -189,7 +204,13 @@
           >
             Save
           </button>
-          <button type="button" class="text-button" [disabled]="busy()" (click)="cancelRename()">
+          <button
+            hlmBtn
+            type="button"
+            class="text-button"
+            [disabled]="busy()"
+            (click)="cancelRename()"
+          >
             Cancel
             <ng-icon class="link-icon" name="lucideX" />
           </button>
@@ -198,48 +219,50 @@
     }
 
     @if (active()) {
-      <details class="captain-panel" (toggle)="loadCandidates($event)">
-        <summary>
+      <div hlmCollapsible class="captain-panel" (expandedChange)="loadCandidates($event)">
+        <button hlmBtn hlmCollapsibleTrigger class="disclosure-trigger" type="button">
           <ng-icon class="summary-icon" name="lucideCrown" aria-hidden="true" />Appoint a
           captain<ng-icon class="chevron" name="lucideChevronDown" aria-hidden="true" />
-        </summary>
-        <div class="panel-body">
-          @if (candidatesError()) {
-            <p class="error-message" role="alert">{{ candidatesError() }}</p>
-            <button type="button" class="text-button" (click)="reloadCandidates()">
-              Try again
-              <ng-icon class="link-icon" name="lucideRotateCcw" />
-            </button>
-          } @else if (candidates() === null) {
-            <p class="hint">
-              <app-loader [size]="16" aria-hidden="true" /> Loading the team sheet…
-            </p>
-          } @else if (!choices().length) {
-            <p class="hint">
-              Nobody else has claimed a name yet. A captain must be a member who has signed in and
-              claimed their name.
-            </p>
-          } @else {
-            <div class="field captain-field">
-              <label [for]="id() + '-captain'">New captain</label>
-              <div class="inline-row">
-                <select
-                  [id]="id() + '-captain'"
-                  [formControl]="captainChoice"
-                  [attr.aria-invalid]="captainSubmitted() && !captainChoice.value"
-                >
-                  <option value="">Choose a claimed member</option>
-                  @for (candidate of choices(); track candidate.id) {
-                    <option [value]="candidate.id">{{ candidate.displayName }}</option>
-                  }
-                </select>
-                <button type="button" class="primary-button" (click)="appoint()">Appoint</button>
+        </button>
+        <div hlmCollapsibleContent class="disclosure-content">
+          <div class="panel-body">
+            @if (candidatesError()) {
+              <p class="error-message" role="alert">{{ candidatesError() }}</p>
+              <button hlmBtn type="button" class="text-button" (click)="reloadCandidates()">
+                Try again
+                <ng-icon class="link-icon" name="lucideRotateCcw" />
+              </button>
+            } @else if (candidates() === null) {
+              <p class="hint">
+                <app-loader [size]="16" aria-hidden="true" /> Loading the team sheet…
+              </p>
+            } @else if (!choices().length) {
+              <p class="hint">
+                Nobody else has claimed a name yet. A captain must be a member who has signed in and
+                claimed their name.
+              </p>
+            } @else {
+              <div class="field captain-field">
+                <label hlmLabel [for]="id() + '-captain'">New captain</label>
+                <div class="inline-row">
+                  <app-search-select
+                    [selectId]="id() + '-captain'"
+                    [formControl]="captainChoice"
+                    [aria-invalid]="captainSubmitted() && !captainChoice.value"
+                    [options]="captainSelectOptions()"
+                    placeholder="Choose a claimed member"
+                    searchLabel="Search members"
+                  />
+                  <button hlmBtn type="button" class="primary-button" (click)="appoint()">
+                    Appoint
+                  </button>
+                </div>
               </div>
-            </div>
-            <p class="hint">Only members who have claimed their name are listed.</p>
-          }
+              <p class="hint">Only members who have claimed their name are listed.</p>
+            }
+          </div>
         </div>
-      </details>
+      </div>
     }
   </div>
 </article>

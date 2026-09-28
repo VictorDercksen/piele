@@ -3,26 +3,28 @@
     <legend>The league</legend>
     <div class="grid two">
       <div class="field">
-        <label for="new-league-name">League name</label>
+        <label hlmLabel for="new-league-name">League name</label>
         <input
+          hlmInput
           id="new-league-name"
           formControlName="name"
           maxlength="120"
           autocomplete="off"
           placeholder="Sample Name"
-          [attr.aria-invalid]="invalid('name')"
+          [aria-invalid]="invalid('name')"
         />
       </div>
       <div class="field">
-        <label for="new-league-slug">Slug <span>(its address)</span></label>
+        <label hlmLabel for="new-league-slug">Slug <span>(its address)</span></label>
         <input
+          hlmInput
           id="new-league-slug"
           formControlName="slug"
           maxlength="40"
           autocomplete="off"
           autocapitalize="off"
           spellcheck="false"
-          [attr.aria-invalid]="invalid('slug')"
+          [aria-invalid]="invalid('slug')"
           aria-describedby="new-league-slug-hint"
           (input)="slugTyped($event)"
         />
@@ -37,20 +39,18 @@
     <legend>The season</legend>
     <div class="grid three">
       <div class="field">
-        <label for="new-league-competitionId">Competition</label>
+        <label hlmLabel for="new-league-competitionId">Competition</label>
         @if (competitions(); as list) {
-          <select
-            id="new-league-competitionId"
+          <app-search-select
+            selectId="new-league-competitionId"
             formControlName="competitionId"
-            [attr.aria-invalid]="invalid('competitionId')"
-          >
-            @for (option of list; track option.id) {
-              <option [value]="option.id">{{ option.name }}</option>
-            }
-          </select>
+            [aria-invalid]="invalid('competitionId')"
+            [options]="competitionOptions()"
+            searchLabel="Search competitions"
+          />
         } @else if (competitionsError()) {
           <p class="field-error" role="alert">{{ competitionsError() }}</p>
-          <button type="button" class="text-button" (click)="loadCompetitions()">
+          <button hlmBtn type="button" class="text-button" (click)="loadCompetitions()">
             Try again<ng-icon class="link-icon" name="lucideRotateCcw" />
           </button>
         } @else {
@@ -58,26 +58,28 @@
         }
       </div>
       <div class="field">
-        <label for="new-league-timezone">Time zone</label>
-        <select
-          appTimeZoneSelect
-          [currentZone]="value().timezone"
-          id="new-league-timezone"
+        <label hlmLabel for="new-league-timezone">Time zone</label>
+        <app-search-select
+          selectId="new-league-timezone"
           formControlName="timezone"
-          [attr.aria-invalid]="invalid('timezone')"
+          [aria-invalid]="invalid('timezone')"
           aria-describedby="new-league-timezone-hint"
-          (change)="zoneChosen()"
-        ></select>
+          (selectionChange)="zoneChosen()"
+          [groups]="zoneGroups()"
+          placeholder="Choose a time zone"
+          searchLabel="Search time zones"
+        />
         <p id="new-league-timezone-hint" class="hint">Kick-offs show in this zone.</p>
       </div>
       <div class="field">
-        <label for="new-league-seasonName">Season name</label>
+        <label hlmLabel for="new-league-seasonName">Season name</label>
         <input
+          hlmInput
           id="new-league-seasonName"
           formControlName="seasonName"
           maxlength="80"
           autocomplete="off"
-          [attr.aria-invalid]="invalid('seasonName')"
+          [aria-invalid]="invalid('seasonName')"
           (input)="seasonTyped()"
         />
       </div>
@@ -97,44 +99,48 @@
           <li class="member-row" [formGroupName]="i">
             <span class="row-number" aria-hidden="true">{{ i + 1 }}</span>
             <div class="field">
-              <label class="row-label" [for]="rowId + '-name'"
+              <label hlmLabel class="row-label" [for]="rowId + '-name'"
                 >Name<span class="visually-hidden"> of member {{ i + 1 }}</span></label
               >
               <input
+                hlmInput
                 [id]="rowId + '-name'"
                 formControlName="name"
                 maxlength="120"
                 autocomplete="off"
-                [attr.aria-invalid]="rowInvalid(i, 'name')"
+                [aria-invalid]="rowInvalid(i, 'name')"
               />
             </div>
             <div class="field">
-              <label class="row-label" [for]="rowId + '-surname'"
+              <label hlmLabel class="row-label" [for]="rowId + '-surname'"
                 >Surname<span class="visually-hidden"> of member {{ i + 1 }}</span
                 ><span>&nbsp;(optional)</span></label
               >
               <input
+                hlmInput
                 [id]="rowId + '-surname'"
                 formControlName="surname"
                 maxlength="120"
                 autocomplete="off"
-                [attr.aria-invalid]="rowInvalid(i, 'surname')"
+                [aria-invalid]="rowInvalid(i, 'surname')"
               />
             </div>
             <div class="field">
-              <label class="row-label" [for]="rowId + '-superbru'"
+              <label hlmLabel class="row-label" [for]="rowId + '-superbru'"
                 >Superbru name<span class="visually-hidden"> of member {{ i + 1 }}</span></label
               >
               <input
+                hlmInput
                 [id]="rowId + '-superbru'"
                 formControlName="superbru"
                 maxlength="50"
                 autocomplete="off"
                 spellcheck="false"
-                [attr.aria-invalid]="rowInvalid(i, 'superbru')"
+                [aria-invalid]="rowInvalid(i, 'superbru')"
               />
             </div>
             <button
+              hlmBtn
               type="button"
               class="icon-button remove-row"
               [disabled]="controls.members.length <= 1"
@@ -147,7 +153,7 @@
         }
       </ol>
       <div class="members-foot">
-        <button type="button" class="add-row" [disabled]="!canAddRow()" (click)="addRow()">
+        <button hlmBtn type="button" class="add-row" [disabled]="!canAddRow()" (click)="addRow()">
           <ng-icon name="lucidePlus" aria-hidden="true" />Add member
         </button>
         <p class="preview-count" aria-live="polite">{{ summaryLine() }}</p>
@@ -162,30 +168,27 @@
     <legend>The captain</legend>
     <div class="grid two">
       <div class="field">
-        <label for="new-league-captain">Captain</label>
-        <select
-          id="new-league-captain"
+        <label hlmLabel for="new-league-captain">Captain</label>
+        <app-search-select
+          selectId="new-league-captain"
           formControlName="captain"
-          [attr.aria-invalid]="invalid('captain')"
+          [aria-invalid]="invalid('captain')"
           aria-describedby="new-league-captain-hint"
-        >
-          <option value="">
-            {{ captainOptions().length ? 'Choose a member' : 'Add members first' }}
-          </option>
-          @for (name of captainOptions(); track name) {
-            <option [value]="name">{{ name }}</option>
-          }
-        </select>
+          [options]="captainSelectOptions()"
+          placeholder="Choose a captain"
+          searchLabel="Search members"
+        />
         <p id="new-league-captain-hint" class="hint">One of the members above.</p>
       </div>
       <div class="field">
-        <label class="check">
-          <input type="checkbox" formControlName="captainIsMe" />
+        <label hlmLabel class="check">
+          <hlm-checkbox formControlName="captainIsMe" />
           <span>The captain is me <small>(my sign-in claims this name now)</small></span>
         </label>
         @if (!value().captainIsMe) {
-          <label for="new-league-captainEmail">Captain's email</label>
+          <label hlmLabel for="new-league-captainEmail">Captain's email</label>
           <input
+            hlmInput
             id="new-league-captainEmail"
             type="email"
             formControlName="captainEmail"
@@ -193,13 +196,13 @@
             autocomplete="off"
             spellcheck="false"
             aria-describedby="new-league-captainEmail-hint"
-            [attr.aria-invalid]="invalid('captainEmail')"
+            [aria-invalid]="invalid('captainEmail')"
           />
           <p id="new-league-captainEmail-hint" class="hint">
             The captain's name is kept for this address until they sign in with it.
           </p>
-          <label class="check">
-            <input type="checkbox" formControlName="addMe" />
+          <label hlmLabel class="check">
+            <hlm-checkbox formControlName="addMe" />
             <span>Also add me as a member <small>(outside the season)</small></span>
           </label>
         }
@@ -228,14 +231,15 @@
           (chosen)="choosePreset($event)"
         />
         @if (value().emblemPreset) {
-          <button type="button" class="text-button" (click)="clearPreset()">
+          <button hlmBtn type="button" class="text-button" (click)="clearPreset()">
             Use the monogram
             <ng-icon class="link-icon" name="lucideUserRound" />
           </button>
         }
         <div class="accent-row">
-          <label for="new-league-accent">Accent colour</label>
+          <label hlmLabel for="new-league-accent">Accent colour</label>
           <input
+            hlmInput
             id="new-league-accent"
             type="color"
             [value]="accentValue()"
@@ -243,7 +247,7 @@
           />
           <span class="accent-value">{{ accentValue() }}</span>
           @if (value().accentColour) {
-            <button type="button" class="text-button" (click)="defaultAccent()">
+            <button hlmBtn type="button" class="text-button" (click)="defaultAccent()">
               Use the default
               <ng-icon class="link-icon" name="lucideRotateCcw" />
             </button>
@@ -253,27 +257,38 @@
     </div>
   </fieldset>
 
-  <details
+  <div
+    hlmCollapsible
     id="new-league-rules"
     class="group rules-group"
-    [open]="rulesOpen()"
-    (toggle)="rulesToggled($event)"
+    [expanded]="rulesOpen()"
+    (expandedChange)="rulesToggled($event)"
   >
-    <summary>Superbru rules <span>Piele's unless changed</span></summary>
-    <p class="hint">
-      These mirror the pool's settings on Superbru and drive the scoring in the clubhouse. The
-      captain can change them later.
-    </p>
-    <app-rules-fields
-      idPrefix="new-league-rules"
-      [group]="controls.rules"
-      [lastRound]="lastRound()"
-      [submitted]="submitted()"
-    />
-  </details>
+    <button hlmBtn hlmCollapsibleTrigger class="disclosure-trigger" type="button">
+      Superbru rules <span>Piele's unless changed</span>
+    </button>
+    <div hlmCollapsibleContent class="disclosure-content">
+      <p class="hint">
+        These mirror the pool's settings on Superbru and drive the scoring in the clubhouse. The
+        captain can change them later.
+      </p>
+      <app-rules-fields
+        idPrefix="new-league-rules"
+        [group]="controls.rules"
+        [lastRound]="lastRound()"
+        [submitted]="submitted()"
+      />
+    </div>
+  </div>
 
   <div class="form-actions submit-row">
-    <button type="submit" class="primary-button" [disabled]="busy()" [attr.aria-busy]="busy()">
+    <button
+      hlmBtn
+      type="submit"
+      class="primary-button"
+      [disabled]="busy()"
+      [attr.aria-busy]="busy()"
+    >
       @if (busy()) {
         <app-loader [size]="16" aria-hidden="true" />
       }

@@ -1,3 +1,5 @@
+import { By } from '@angular/platform-browser';
+import { SearchSelect } from '../../../shared/search-select/search-select';
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { AlertService } from '../../../core/feedback/alert.service';
@@ -70,32 +72,29 @@ describe('RulesCard', () => {
   }
 
   it('shows the saved rules, with the champion among the members', async () => {
-    const { field, root } = setup();
+    const { field, root, fixture } = setup();
     await settle();
-    expect(field<HTMLInputElement>('bonusPoint').checked).toBe(true);
+    expect(field<HTMLElement>('bonusPoint').getAttribute('aria-checked') === 'true').toBe(true);
     expect(field<HTMLInputElement>('startingRound').value).toBe('1');
     expect(field<HTMLInputElement>('win-final').value).toBe('3');
-    const champion = field<HTMLSelectElement>('previousChampionMemberId');
-    expect(Array.from(champion.options).map((o) => o.textContent?.trim())).toEqual([
-      'None',
-      'Annas',
-      'Deon',
-    ]);
-    expect(champion.value).toBe('m-annas');
+    const champion = fixture.debugElement.query(By.directive(SearchSelect))
+      .componentInstance as SearchSelect;
+    expect(champion.allOptions().map((option) => option.label)).toEqual(['None', 'Annas', 'Deon']);
+    expect(champion.value()).toBe('m-annas');
     expect(root.textContent).toContain(
       "These mirror the pool's settings on Superbru and drive the scoring in the clubhouse.",
     );
   });
 
   it('sends only the rules that changed', async () => {
-    const { field, type, submit, saved } = setup();
+    const { field, type, submit, saved, fixture } = setup();
     await settle();
     field<HTMLInputElement>('bonusPointSplit').click();
     type('marginWindow', '7');
     type('win-semiFinal', '2.5');
-    const champion = field<HTMLSelectElement>('previousChampionMemberId');
-    champion.value = '';
-    champion.dispatchEvent(new Event('change'));
+    const champion = fixture.debugElement.query(By.directive(SearchSelect))
+      .componentInstance as SearchSelect;
+    champion.choose('');
     await submit();
     expect(saved).toEqual([
       {

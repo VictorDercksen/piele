@@ -25,7 +25,7 @@
         </p>
       }
       <div class="actions">
-        <a class="primary-button" [routerLink]="leagueLink()"
+        <a hlmBtn class="primary-button" [routerLink]="leagueLink()"
           >Open {{ league.name }}<ng-icon class="link-icon" name="lucideArrowRight"
         /></a>
       </div>
@@ -38,18 +38,18 @@
       </p>
       @if (names(); as list) {
         @if (list.length) {
-          <div class="names" role="radiogroup" aria-label="Superbru names">
+          <div
+            hlmRadioGroup
+            [value]="chosen()"
+            (valueChange)="choose($event ?? '')"
+            class="names"
+            aria-label="Superbru names"
+          >
             @for (name of list; track name.id) {
-              <button
-                type="button"
-                role="radio"
-                class="name"
-                [class.chosen]="chosen() === name.id"
-                [attr.aria-checked]="chosen() === name.id"
-                (click)="choose(name.id)"
-              >
+              <label hlmLabel class="name" [class.chosen]="chosen() === name.id">
+                <hlm-radio [value]="name.id" [aria-label]="name.displayName" />
                 <strong>{{ name.displayName }}</strong>
-              </button>
+              </label>
             }
           </div>
         } @else {
@@ -61,6 +61,7 @@
       }
       <div class="actions">
         <button
+          hlmBtn
           type="button"
           class="primary-button"
           [disabled]="!chosen() || busy()"
@@ -73,7 +74,7 @@
           {{ confirming() ? 'Yes, I am ' + chosenName() : 'This is me' }}
         </button>
         @if (canSignOut) {
-          <button type="button" class="text-button" (click)="signOut()" [disabled]="busy()">
+          <button hlmBtn type="button" class="text-button" (click)="signOut()" [disabled]="busy()">
             Wrong account? Sign out
             <ng-icon class="link-icon" name="lucideLogOut" />
           </button>
@@ -90,7 +91,7 @@
     <h1>That link does not work.</h1>
     <p class="lead">{{ invalid() }}</p>
     <div class="actions">
-      <a class="text-button" routerLink="/no-league"
+      <a hlmBtn class="text-button" routerLink="/no-league"
         >Enter another code<ng-icon class="link-icon" name="lucideArrowRight"
       /></a>
     </div>
@@ -99,7 +100,7 @@
     <h1>Not just now.</h1>
     <p class="error" role="alert">{{ error() }}</p>
     <div class="actions">
-      <button type="button" class="primary-button" (click)="load()">Try again</button>
+      <button hlmBtn type="button" class="primary-button" (click)="load()">Try again</button>
     </div>
   } @else {
     <div class="loading"><app-ball-loader [size]="44" label="Loading the team sheet" /></div>

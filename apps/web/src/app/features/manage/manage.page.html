@@ -24,7 +24,7 @@
       @if (error(); as message) {
         <div class="load-error">
           <p class="error-message" role="alert">{{ message }}</p>
-          <button type="button" class="text-button" (click)="retry()">
+          <button hlmBtn type="button" class="text-button" (click)="retry()">
             Try again<ng-icon class="link-icon" name="lucideRotateCcw" />
           </button>
         </div>
@@ -47,22 +47,24 @@
           <p class="empty">No active leagues. Start one below or restore an archived one.</p>
         }
         @if (archived().length) {
-          <details #archivedGroup class="archived-group">
-            <summary>
+          <div hlmCollapsible #archivedGroup class="archived-group">
+            <button hlmBtn hlmCollapsibleTrigger class="disclosure-trigger" type="button">
               Archived <span class="count">{{ archived().length }}</span>
-            </summary>
-            <ul class="league-list" aria-label="Archived leagues">
-              @for (league of archived(); track league.id) {
-                <li>
-                  <app-league-card
-                    [league]="league"
-                    [dialog]="dialog()"
-                    (changed)="onChanged($event)"
-                  />
-                </li>
-              }
-            </ul>
-          </details>
+            </button>
+            <div hlmCollapsibleContent class="disclosure-content">
+              <ul class="league-list" aria-label="Archived leagues">
+                @for (league of archived(); track league.id) {
+                  <li>
+                    <app-league-card
+                      [league]="league"
+                      [dialog]="dialog()"
+                      (changed)="onChanged($event)"
+                    />
+                  </li>
+                }
+              </ul>
+            </div>
+          </div>
         }
       }
     </section>
@@ -70,6 +72,7 @@
     <section class="create" aria-labelledby="create-heading">
       <h2 id="create-heading" class="create-heading">
         <button
+          hlmBtn
           type="button"
           class="create-toggle"
           [class.open]="creating()"

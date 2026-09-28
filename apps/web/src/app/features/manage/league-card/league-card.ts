@@ -1,3 +1,10 @@
+import { SearchSelect } from '../../../shared/search-select/search-select';
+import { HlmCollapsibleTrigger } from '@spartan-ng/helm/collapsible';
+import { HlmCollapsible } from '@spartan-ng/helm/collapsible';
+import { HlmCollapsibleContent } from '@spartan-ng/helm/collapsible';
+import { HlmButton } from '@spartan-ng/helm/button';
+import { HlmInput } from '@spartan-ng/helm/input';
+import { HlmLabel } from '@spartan-ng/helm/label';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -50,7 +57,7 @@ import {
 import { ReasonDialog } from '../../duties/reason-dialog/reason-dialog';
 import { FormProblem, problemDetails } from '../form-problems';
 import { notBlank, zoneValidator } from '../manage-validators';
-import { TimeZoneSelect } from '../time-zone-select/time-zone-select';
+import { timeZoneSelectGroups } from '../time-zones';
 
 /** The eyebrow of the management centre's confirmation dialogs. */
 const EYEBROW = 'THE PAVILION / MANAGEMENT CENTRE';
@@ -68,14 +75,21 @@ const EYEBROW = 'THE PAVILION / MANAGEMENT CENTRE';
   templateUrl: './league-card.html',
   styleUrls: ['../manage-fields.scss', './league-card.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  /* prettier-ignore */
   imports: [
-    TimeZoneSelect,
+    SearchSelect,
     ReactiveFormsModule,
     RouterLink,
     NgIcon,
     LeagueCrest,
     Loader,
     RulesFields,
+    HlmButton,
+    HlmInput,
+    HlmLabel,
+    HlmCollapsibleTrigger,
+    HlmCollapsible,
+    HlmCollapsibleContent,
   ],
   viewProviders: [
     provideIcons({
@@ -94,6 +108,7 @@ const EYEBROW = 'THE PAVILION / MANAGEMENT CENTRE';
   ],
 })
 export class LeagueCard {
+  readonly zoneGroups = computed(() => timeZoneSelectGroups(this.league().timezone));
   private readonly admin = inject(AdminService);
   private readonly alerts = inject(AlertService);
   private readonly injector = inject(Injector);
@@ -164,6 +179,10 @@ export class LeagueCard {
   /** Everyone who could take over, leaving out the current captain. */
   readonly choices = computed(() =>
     (this.candidates() ?? []).filter((c) => c.id !== this.league().captain?.memberId),
+  );
+
+  readonly captainSelectOptions = computed(() =>
+    this.choices().map((member) => ({ value: member.id, label: member.displayName })),
   );
 
   constructor() {
@@ -328,14 +347,13 @@ export class LeagueCard {
     return problems;
   }
 
-  rulesToggled(event: Event): void {
-    if (event.target instanceof HTMLDetailsElement) this.rulesOpen.set(event.target.open);
+  rulesToggled(expanded: boolean): void {
+    this.rulesOpen.set(expanded);
   }
 
   /** Loads the claimed members the first time the captain panel opens. */
-  async loadCandidates(event: Event): Promise<void> {
-    const details = event.target instanceof HTMLDetailsElement ? event.target : null;
-    if (!details?.open || this.candidates()) return;
+  async loadCandidates(expanded: boolean): Promise<void> {
+    if (!expanded || this.candidates()) return;
     await this.reloadCandidates();
   }
 

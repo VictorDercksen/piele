@@ -1,3 +1,6 @@
+import { HlmButton } from '@spartan-ng/helm/button';
+import { HlmInput } from '@spartan-ng/helm/input';
+import { HlmLabel } from '@spartan-ng/helm/label';
 import { lucideRotateCcw, lucideTrash2, lucideX } from '@ng-icons/lucide';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
@@ -36,13 +39,16 @@ const ALERT_KEY = 'captain-appearance';
   styleUrl: './appearance-card.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
   viewProviders: [provideIcons({ lucideRotateCcw, lucideTrash2, lucideX })],
-  // prettier-ignore
+  /* prettier-ignore */
   imports: [
     NgIcon,
     Dropdown,
     EmblemPicker,
     LeagueCrest,
     Loader,
+    HlmButton,
+    HlmInput,
+    HlmLabel,
   ],
 })
 export class AppearanceCard {

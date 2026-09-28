@@ -20,6 +20,7 @@
   </aside>
   <header class="top-bar" #topBar>
     <app-league-switcher class="club-brand" />
+    <app-round-picker />
     <nav class="desktop-nav" aria-label="League navigation">
       @for (item of nav; track item.path) {
         <a
@@ -79,25 +80,20 @@
         <app-icon name="shield" />Admin view. You are not a member of this league.
       </p>
     }
-    <div class="round-bar" #roundBar>
+    <div
+      class="round-bar"
+      [class.mobile-empty]="!showRibbon() || !view.fixtures().length"
+      #roundBar
+    >
       <section class="round-context" aria-label="Selected round" aria-live="polite">
         <div>
           <strong
             >{{ round().title }} <span class="tag">{{ round().status }}</span></strong
           >
-          <p>
-            {{ round().dates }} ·
-            {{
-              view.sample
-                ? 'Sample league records'
-                : view.source === 'api'
-                  ? 'League records'
-                  : 'Published ' + competitionShortName() + ' schedule'
-            }}
-          </p>
         </div>
         <div class="context-pager">
           <button
+            hlmBtn
             type="button"
             aria-label="Previous round"
             [disabled]="round().id === 1"
@@ -105,6 +101,7 @@
           >
             <img src="assets/images/arrows/arrow-left.webp" alt="" /></button
           ><button
+            hlmBtn
             type="button"
             aria-label="Next round"
             [disabled]="round().id === rounds().length"
@@ -143,10 +140,8 @@
         }
         <h1>{{ page().title }}</h1>
       </div>
-      @if (!isHome() && !isMatch()) {
-        <span class="scope-note">{{
-          page().seasonWide ? 'Applies to the whole season.' : 'Viewing ' + round().title + '.'
-        }}</span>
+      @if (page().seasonWide) {
+        <span class="scope-note">Applies to the whole season.</span>
       }
     </div>
     @if (pageLoading()) {

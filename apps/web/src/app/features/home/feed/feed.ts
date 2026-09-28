@@ -1,3 +1,6 @@
+import { HlmToggleGroup } from '@spartan-ng/helm/toggle-group';
+import { HlmToggleGroupItem } from '@spartan-ng/helm/toggle-group';
+import { HlmButton } from '@spartan-ng/helm/button';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { LeagueTime } from '../../../core/competition/league-time';
@@ -13,11 +16,14 @@ import { Icon } from '../../../shared/icon/icon';
   templateUrl: './feed.html',
   styleUrl: './feed.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  // prettier-ignore
+  /* prettier-ignore */
   imports: [
     RouterLink,
     LeaguePathPipe,
     Icon,
+    HlmButton,
+    HlmToggleGroup,
+    HlmToggleGroupItem,
   ],
 })
 export class Feed {
@@ -34,6 +40,10 @@ export class Feed {
       roundLabel: this.roundLabel(item),
     })),
   );
+
+  selectScope(value: unknown): void {
+    if (value === 'round' || value === 'season') this.scope.set(value);
+  }
 
   private roundLabel(item: FeedItem): string | null {
     if (item.roundId === null || this.scope() === 'round') return null;

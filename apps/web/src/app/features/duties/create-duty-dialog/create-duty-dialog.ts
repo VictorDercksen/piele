@@ -1,3 +1,11 @@
+import { SearchSelect } from '../../../shared/search-select/search-select';
+import { HlmDialogImports } from '@spartan-ng/helm/dialog';
+import { HlmDialog } from '@spartan-ng/helm/dialog';
+import { HlmButton } from '@spartan-ng/helm/button';
+import { HlmInput } from '@spartan-ng/helm/input';
+import { HlmTextarea } from '@spartan-ng/helm/textarea';
+import { HlmLabel } from '@spartan-ng/helm/label';
+import { HlmCheckbox } from '@spartan-ng/helm/checkbox';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -34,11 +42,18 @@ export const CREATE_DUTY_FAILURE = 'create-duty-failed';
   templateUrl: './create-duty-dialog.html',
   styleUrl: './create-duty-dialog.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  // prettier-ignore
+  /* prettier-ignore */
   imports: [
+    SearchSelect,
     ReactiveFormsModule,
     Icon,
     Loader,
+    HlmButton,
+    HlmInput,
+    HlmTextarea,
+    HlmLabel,
+    HlmCheckbox,
+    HlmDialogImports,
   ],
 })
 export class CreateDutyDialog {
@@ -49,8 +64,11 @@ export class CreateDutyDialog {
   /** The display zone's abbreviation, for the deadline label. */
   readonly zoneName = this.time.abbreviation;
   readonly view = inject(RoundViewService);
-  private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
-  private readonly memberSelect = viewChild.required<ElementRef<HTMLSelectElement>>('memberSelect');
+  private readonly dialog = viewChild.required(HlmDialog);
+  private readonly memberSelect = viewChild.required<unknown, ElementRef<HTMLElement>>(
+    'memberSelect',
+    { read: ElementRef },
+  );
   private readonly deadlineInput =
     viewChild.required<ElementRef<HTMLInputElement>>('deadlineInput');
   readonly created = output<{ title: string; memberName: string; deadlineAt: string | null }>();
@@ -107,6 +125,17 @@ export class CreateDutyDialog {
     });
   });
 
+  readonly dutyOptions = [
+    { value: 'spoon', label: 'Spoon duty' },
+    { value: 'pick_confirmation', label: 'Pick confirmation' },
+  ] as const;
+  readonly memberOptions = computed(() =>
+    this.members().map((member) => ({ value: member.id, label: member.name })),
+  );
+  readonly roundOptions = computed(() =>
+    this.rounds().map((round) => ({ value: round.id, label: round.title })),
+  );
+
   constructor() {
     for (const name of ['memberId', 'deadline'] as const) {
       this.form.controls[name].valueChanges.pipe(takeUntilDestroyed()).subscribe({
@@ -131,11 +160,10 @@ export class CreateDutyDialog {
     });
     this.unticked.set(new Set());
     this.invalid.set(new Set());
-    this.dialog().nativeElement.showModal();
+    this.dialog().open();
   }
 
-  togglePickFixture(fixtureId: string, event: Event): void {
-    const checked = event.target instanceof HTMLInputElement && event.target.checked;
+  togglePickFixture(fixtureId: string, checked: boolean): void {
     this.unticked.update((ids) => {
       const next = new Set(ids);
       if (checked) next.delete(fixtureId);
@@ -145,10 +173,14 @@ export class CreateDutyDialog {
   }
 
   close(): void {
-    this.dialog().nativeElement.close();
+    this.dialog().close();
   }
 
   /** The dialog closed, however: its warning goes with it; a failure card stays to be read. */
+  dialogChanged(state: 'open' | 'closed'): void {
+    if (state === 'closed') this.closed();
+  }
+
   closed(): void {
     this.alerts.dismissKey(CREATE_DUTY_WARNING);
   }
@@ -179,7 +211,9 @@ export class CreateDutyDialog {
       const [first, ...rest] = problems;
       if (first) {
         highlightProblem(
-          (first.control === 'memberId' ? this.memberSelect() : this.deadlineInput()).nativeElement,
+          first.control === 'memberId'
+            ? this.memberSelect().nativeElement.querySelector('[role=combobox]')
+            : this.deadlineInput().nativeElement,
         );
         this.alerts.warn(first.message, {
           key: CREATE_DUTY_WARNING,

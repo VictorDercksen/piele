@@ -49,15 +49,19 @@
           duty.display === 'overdue' ||
           duty.display === 'pending_deadline'
         ) {
-          <button type="button" class="primary-button" (click)="upload.emit(duty)">
+          <button hlmBtn type="button" class="primary-button" (click)="upload.emit(duty)">
             <app-icon name="upload" />Upload evidence
           </button>
         } @else {
-          <button type="button" class="primary-button" (click)="duties.emit()">
+          <button hlmBtn type="button" class="primary-button" (click)="duties.emit()">
             <app-icon name="duties" />View duty
           </button>
         }
-        <a class="text-button" [routerLink]="'/duties' | leaguePath" queryParamsHandling="preserve"
+        <a
+          hlmBtn
+          class="text-button"
+          [routerLink]="'/duties' | leaguePath"
+          queryParamsHandling="preserve"
           >Duty details<ng-icon class="link-icon" name="lucideArrowRight"
         /></a>
       </div>
@@ -75,6 +79,7 @@
       }}
     </p>
     <a
+      hlmBtn
       class="text-button"
       [routerLink]="'/duties' | leaguePath"
       [queryParams]="{ scope: 'league' }"

@@ -1,3 +1,9 @@
+import { HlmDialogImports } from '@spartan-ng/helm/dialog';
+import { HlmDialog } from '@spartan-ng/helm/dialog';
+import { HlmButton } from '@spartan-ng/helm/button';
+import { HlmInput } from '@spartan-ng/helm/input';
+import { HlmTextarea } from '@spartan-ng/helm/textarea';
+import { HlmLabel } from '@spartan-ng/helm/label';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -34,11 +40,16 @@ export const EVIDENCE_FAILURE = 'evidence-failed';
   templateUrl: './evidence-dialog.html',
   styleUrl: './evidence-dialog.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  // prettier-ignore
+  /* prettier-ignore */
   imports: [
     ReactiveFormsModule,
     Icon,
     Loader,
+    HlmButton,
+    HlmInput,
+    HlmTextarea,
+    HlmLabel,
+    HlmDialogImports,
   ],
 })
 export class EvidenceDialog {
@@ -48,7 +59,7 @@ export class EvidenceDialog {
   /** The display zone's abbreviation, for the completion time label. */
   readonly zoneName = this.time.abbreviation;
   readonly view = inject(RoundViewService);
-  private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
+  private readonly dialog = viewChild.required(HlmDialog);
   private readonly fileInput = viewChild.required<ElementRef<HTMLInputElement>>('fileInput');
   private readonly completedInput = viewChild<ElementRef<HTMLInputElement>>('completedInput');
   readonly duty = signal<RoundDutyView | null>(null);
@@ -80,14 +91,18 @@ export class EvidenceDialog {
     this.invalid.set(null);
     this.note.reset();
     this.completedAt.reset();
-    this.dialog().nativeElement.showModal();
+    this.dialog().open();
   }
 
   close(): void {
-    this.dialog().nativeElement.close();
+    this.dialog().close();
   }
 
   /** The dialog closed, however: its warning goes with it; a failure card stays to be read. */
+  dialogChanged(state: 'open' | 'closed'): void {
+    if (state === 'closed') this.closed();
+  }
+
   closed(): void {
     this.alerts.dismissKey(EVIDENCE_WARNING);
   }

@@ -1,3 +1,4 @@
+import { HlmButton } from '@spartan-ng/helm/button';
 import { ChangeDetectionStrategy, Component, computed, inject, input, output } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { CompetitionService } from '../../../core/competition/competition.service';
@@ -23,12 +24,13 @@ import { lucideArrowRight, lucidePlay, lucideRotateCcw, lucideX } from '@ng-icon
     '[class.spoon-duty]': 'duty().spoon',
     '[class.closed-duty]': 'duty().status === "voided" || duty().status === "completed"',
   },
-  // prettier-ignore
+  /* prettier-ignore */
   imports: [
     Icon,
     LeaguePathPipe,
     NgIcon,
     RouterLink,
+    HlmButton,
   ],
   viewProviders: [provideIcons({ lucideArrowRight, lucidePlay, lucideRotateCcw, lucideX })],
 })

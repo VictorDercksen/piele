@@ -1,3 +1,8 @@
+import { HlmDialogImports } from '@spartan-ng/helm/dialog';
+import { HlmDialog } from '@spartan-ng/helm/dialog';
+import { HlmButton } from '@spartan-ng/helm/button';
+import { HlmTextarea } from '@spartan-ng/helm/textarea';
+import { HlmLabel } from '@spartan-ng/helm/label';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -29,16 +34,20 @@ export const REASON_FAILURE = 'reason-failed';
   templateUrl: './reason-dialog.html',
   styleUrl: './reason-dialog.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  // prettier-ignore
+  /* prettier-ignore */
   imports: [
     ReactiveFormsModule,
     Icon,
     Loader,
+    HlmButton,
+    HlmTextarea,
+    HlmLabel,
+    HlmDialogImports,
   ],
 })
 export class ReasonDialog {
   private readonly alerts = inject(AlertService);
-  private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
+  private readonly dialog = viewChild.required(HlmDialog);
   private readonly reasonInput = viewChild<ElementRef<HTMLTextAreaElement>>('reasonInput');
   readonly leagueName = inject(LeagueContext).name;
   readonly request = signal<ReasonRequest | null>(null);
@@ -70,14 +79,18 @@ export class ReasonDialog {
         : [Validators.maxLength(500)],
     );
     this.reason.updateValueAndValidity();
-    this.dialog().nativeElement.showModal();
+    this.dialog().open();
   }
 
   close(): void {
-    this.dialog().nativeElement.close();
+    this.dialog().close();
   }
 
   /** The dialog closed, however: the warning goes with it (a failure card stays to be read). */
+  dialogChanged(state: 'open' | 'closed'): void {
+    if (state === 'closed') this.closed();
+  }
+
   closed(): void {
     this.alerts.dismissKey(REASON_WARNING);
     this.restoreFocus();

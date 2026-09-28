@@ -95,7 +95,7 @@ describe('CaptainPage notices', () => {
       key: 'captain-add-member',
       details: [],
     });
-    expect(input('#new-member-name').getAttribute('aria-invalid')).toBe('false');
+    expect(input('#new-member-name').getAttribute('aria-invalid')).not.toBe('true');
     expect(input('#new-member-email').getAttribute('aria-invalid')).toBe('true');
     expect(input('#new-member-email').classList).toContain('problem-flag');
     expect(document.activeElement).not.toBe(input('#new-member-email'));

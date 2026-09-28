@@ -1,3 +1,7 @@
+import { HlmSlider } from '@spartan-ng/helm/slider';
+import { HlmButton } from '@spartan-ng/helm/button';
+import { HlmInput } from '@spartan-ng/helm/input';
+import { HlmLabel } from '@spartan-ng/helm/label';
 import { PoolPicksTable } from '../pool-picks-table/pool-picks-table';
 import { ordinal } from '../../../shared/format/ordinal';
 import { DecimalPipe } from '@angular/common';
@@ -81,6 +85,7 @@ function marginValidator(control: AbstractControl<string>): ValidationErrors | n
   templateUrl: './picks-panel.html',
   styleUrl: './picks-panel.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  /* prettier-ignore */
   imports: [
     PoolPicksTable,
     DecimalPipe,
@@ -91,6 +96,10 @@ function marginValidator(control: AbstractControl<string>): ValidationErrors | n
     LeagueTimePipe,
     NgIcon,
     PickChip,
+    HlmButton,
+    HlmInput,
+    HlmLabel,
+    HlmSlider,
   ],
   viewProviders: [provideIcons({ lucideArrowRight, lucideLock, lucidePencil, lucideX })],
 })
@@ -138,7 +147,7 @@ export class PicksPanel {
   );
   private readonly status = toSignal(this.form.statusChanges, { initialValue: this.form.status });
 
-  private readonly scaleInput = viewChild<ElementRef<HTMLInputElement>>('scaleInput');
+  private readonly scaleInput = viewChild<HlmSlider>('scaleInput');
   private readonly scaleStrip = viewChild<ElementRef<HTMLElement>>('scaleStrip');
   private readonly marginInput = viewChild<ElementRef<HTMLInputElement>>('marginInput');
   private readonly mineStrip = viewChild<ElementRef<HTMLElement>>('mineStrip');
@@ -318,9 +327,8 @@ export class PicksPanel {
   }
 
   /** The range moved: its distance from the middle is the margin toward that side. */
-  slide(event: Event): void {
-    const signed = Number((event.target as HTMLInputElement).value);
-    this.setSigned(signed);
+  slide(values: number[]): void {
+    this.setSigned(values[0] ?? 0);
   }
 
   /** A crest tapped: the pick moves one point toward that side (through a draw at the middle). */
@@ -360,7 +368,7 @@ export class PicksPanel {
   edit(): void {
     this.fill(this.picks()?.myPick ?? null);
     this.editing.set(true);
-    afterNextRender(() => this.scaleInput()?.nativeElement.focus(), { injector: this.injector });
+    afterNextRender(() => this.scaleInput()?.focus(), { injector: this.injector });
   }
 
   cancel(): void {

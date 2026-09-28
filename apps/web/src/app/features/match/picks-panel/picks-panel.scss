@@ -221,7 +221,7 @@
   min-width: 0;
   margin-inline: 12px;
 }
-.track:has(input:focus-visible) {
+.track:focus-within {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
@@ -308,26 +308,14 @@
   color: var(--accent);
 }
 /* The native range lies over the track, unseen: its thumb is the hit area, the marker above draws it. */
-.track input[type='range'] {
+.track hlm-slider {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  margin: 0;
+  justify-content: center;
   opacity: 0;
   cursor: ew-resize;
-  appearance: none;
-}
-.track input[type='range']::-webkit-slider-thumb {
-  appearance: none;
-  width: 44px;
-  height: 44px;
-}
-.track input[type='range']::-moz-range-thumb {
-  width: 44px;
-  height: 44px;
-  border: 0;
-  opacity: 0;
 }
 
 /*

@@ -13,7 +13,7 @@
     @if (poll.status === 'Open') {
       <div class="poll-bottom">
         <span>Closes {{ poll.closes }}</span
-        ><button type="button" class="primary-button" (click)="voteDialog().open(poll)">
+        ><button hlmBtn type="button" class="primary-button" (click)="voteDialog().open(poll)">
           {{ poll.myChoice ? 'Review your vote' : 'Have your say' }}<app-icon name="arrow" />
         </button>
       </div>

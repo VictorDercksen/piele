@@ -11,14 +11,20 @@
       [submitted]="submitted()"
     />
     <div class="rules-actions">
-      <button type="submit" class="primary-button" [disabled]="busy()" [attr.aria-busy]="busy()">
+      <button
+        hlmBtn
+        type="submit"
+        class="primary-button"
+        [disabled]="busy()"
+        [attr.aria-busy]="busy()"
+      >
         @if (busy()) {
           <app-loader [size]="16" aria-hidden="true" />
         }
         Save rules
       </button>
       @if (dirty()) {
-        <button type="button" class="text-button" [disabled]="busy()" (click)="undo()">
+        <button hlmBtn type="button" class="text-button" [disabled]="busy()" (click)="undo()">
           Undo changes
           <ng-icon class="link-icon" name="lucideRotateCcw" />
         </button>

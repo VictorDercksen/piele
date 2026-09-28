@@ -310,7 +310,7 @@ h2 {
 
 // Phones: the top bar holds the block, and the switcher drops as a sheet across the screen
 // from under the bar (the bar is the sheet's containing block).
-@container (max-width: 800px) {
+@container (max-width: 1050px) {
   :host(:not(.rail)) {
     position: static;
   }
@@ -391,5 +391,20 @@ h2 {
   .scrim {
     transition: none;
     transform: none;
+  }
+}
+
+@container (max-width: 1050px) {
+  :host(:not(.rail)) .switcher-trigger {
+    width: 44px;
+    min-height: 44px;
+    margin: 0;
+    padding: 3px;
+    border-radius: 12px;
+    justify-content: center;
+  }
+  :host(:not(.rail)) .brand-text,
+  :host(:not(.rail)) .switch-glyph {
+    display: none;
   }
 }

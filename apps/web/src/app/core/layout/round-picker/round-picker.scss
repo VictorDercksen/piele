@@ -1,0 +1,111 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+.round-picker-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid #607b7155;
+  border-radius: 13px;
+  background: #ffffff05;
+  color: #f2efdf;
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+.round-picker-trigger:hover {
+  background: #ffffff0c;
+  border-color: #ffa17c80;
+}
+.round-picker-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.round-picker-trigger ng-icon {
+  flex-shrink: 0;
+  margin-left: auto;
+  color: #ffa17c;
+}
+.round-sheet {
+  display: flex;
+  flex-direction: column;
+  width: min(100vw, 560px);
+  height: min(760px, 85dvh);
+  padding: 20px 18px max(12px, env(safe-area-inset-bottom));
+  border: 1px solid #536c65;
+  border-bottom: 0;
+  border-radius: 24px 24px 0 0;
+  background: var(--surface-grain), #142628;
+  box-shadow: 0 -16px 60px #0006;
+  overflow: hidden;
+}
+.sheet-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.sheet-heading .eyebrow {
+  margin: 0 0 3px;
+  color: #ffa17c;
+}
+.sheet-heading h2 {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.2;
+}
+.sheet-close,
+.sheet-pager button {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border: 1px solid #61766a66;
+  border-radius: 12px;
+  color: #f2efdf;
+  background: #ffffff06;
+  cursor: pointer;
+}
+.sheet-close:hover,
+.sheet-pager button:hover:not(:disabled) {
+  background: #ffffff12;
+}
+.sheet-pager {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 18px;
+}
+.sheet-pager div {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+}
+.sheet-pager strong {
+  display: block;
+  font-size: 17px;
+}
+.sheet-pager span {
+  color: #b8c4bd;
+  font-size: 11px;
+}
+.sheet-pager button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.sheet-pager img {
+  width: 26px;
+  height: auto;
+}
+app-season-timeline {
+  flex: 1;
+  min-height: 0;
+}

@@ -1,3 +1,4 @@
+import { HlmButton } from '@spartan-ng/helm/button';
 import { ChangeDetectionStrategy, Component, effect, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { Fixture } from '../../competition/competition.models';
@@ -20,6 +21,7 @@ import { RoundViewService } from '../../league/round-view.service';
   >
     @for (match of view.fixtures(); track match.id) {
       <button
+        hlmBtn
         type="button"
         [class.active]="view.featured()?.id === match.id"
         [class.live]="match.state === 'live' || match.state === 'half_time'"
@@ -41,6 +43,7 @@ import { RoundViewService } from '../../league/round-view.service';
   </div>`,
   styleUrl: './fixture-ribbon.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [HlmButton],
 })
 export class FixtureRibbon {
   private readonly router = inject(Router);

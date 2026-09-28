@@ -1,23 +1,34 @@
 <div class="register-toolbar">
-  <div class="content-tabs" aria-label="Duty scope">
-    <a
-      routerLink="."
-      [queryParams]="{ scope: null }"
-      queryParamsHandling="merge"
+  <div
+    hlmToggleGroup
+    type="single"
+    [nullable]="false"
+    [value]="scope()"
+    (valueChange)="selectScope($event)"
+    class="content-tabs"
+    aria-label="Duty scope"
+  >
+    <button
+      hlmBtn
+      hlmToggleGroupItem
+      type="button"
+      value="mine"
       [class.active]="scope() === 'mine'"
-      [attr.aria-current]="scope() === 'mine' ? 'true' : null"
-      >My duties</a
-    ><a
-      routerLink="."
-      [queryParams]="{ scope: 'league' }"
-      queryParamsHandling="merge"
-      [class.active]="scope() === 'league'"
-      [attr.aria-current]="scope() === 'league' ? 'true' : null"
-      >League duties</a
     >
+      My duties
+    </button>
+    <button
+      hlmBtn
+      hlmToggleGroupItem
+      type="button"
+      value="league"
+      [class.active]="scope() === 'league'"
+    >
+      League duties
+    </button>
   </div>
   @if (view.administers()) {
-    <button type="button" class="primary-button" (click)="createDialog().open()">
+    <button hlmBtn type="button" class="primary-button" (click)="createDialog().open()">
       <app-icon name="duties" />New duty
     </button>
   }

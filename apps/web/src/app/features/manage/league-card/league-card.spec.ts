@@ -130,7 +130,7 @@ describe('LeagueCard', () => {
     expect(field('rename-name').classList).toContain('problem-flag');
     expect(document.activeElement).not.toBe(field('rename-name'));
     // The rules group opens so the marked rule shows.
-    expect(field<HTMLDetailsElement>('rules').open).toBe(true);
+    expect(field<HTMLElement>('rules').getAttribute('data-state') === 'open').toBe(true);
     expect(field('rules-startingRound').getAttribute('aria-invalid')).toBe('true');
   });
 
@@ -189,8 +189,7 @@ describe('LeagueCard', () => {
     card.expanded.set(true);
     await settle();
     const panel = root.querySelector<HTMLDetailsElement>('.captain-panel')!;
-    panel.open = true;
-    panel.dispatchEvent(new Event('toggle'));
+    panel.querySelector<HTMLButtonElement>('.disclosure-trigger')!.click();
     await settle();
     root.querySelector<HTMLButtonElement>('.captain-field .primary-button')!.click();
     await settle();

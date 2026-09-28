@@ -1,0 +1,63 @@
+<div
+  brnCombobox
+  brnPopover
+  [value]="value()"
+  [disabled]="isDisabled()"
+  [itemToString]="itemLabel"
+  [filter]="filter"
+  (valueChange)="choose($event)"
+>
+  <button
+    type="button"
+    hlmBtn
+    [disabled]="isDisabled()"
+    appSearchSelectTrigger
+    brnComboboxAnchor
+    brnComboboxPopoverTrigger
+    class="pavilion-select-trigger"
+    [id]="selectId()"
+    [attr.aria-label]="ariaLabel()"
+    [attr.aria-describedby]="ariaDescribedby()"
+    [aria-invalid]="ariaInvalid()"
+    [attr.data-value]="value()"
+    (blur)="touch()"
+  >
+    <span [class.placeholder]="!selected()">{{ selected()?.label ?? placeholder() }}</span>
+    <ng-icon name="lucideChevronDown" aria-hidden="true" />
+  </button>
+  <div *brnPopoverContent brnComboboxContent class="pavilion-select-popover">
+    <div class="pavilion-select-search">
+      <ng-icon name="lucideSearch" aria-hidden="true" />
+      <input
+        brnComboboxInput
+        [id]="selectId() + '-search'"
+        [placeholder]="searchLabel()"
+        [attr.aria-label]="searchLabel()"
+        autocomplete="off"
+      />
+    </div>
+    <div brnComboboxEmpty class="pavilion-select-empty">No matching options.</div>
+    <div brnComboboxList class="pavilion-select-list">
+      @for (group of optionGroups(); track group.label) {
+        <div brnComboboxGroup>
+          @if (group.label) {
+            <div brnComboboxLabel class="pavilion-select-group">{{ group.label }}</div>
+          }
+          @for (option of group.options; track option.value) {
+            <div
+              brnComboboxItem
+              [value]="option.value"
+              [disabled]="option.disabled ?? false"
+              class="pavilion-select-option"
+            >
+              <span>{{ option.label }}</span>
+              @if (value() === option.value) {
+                <ng-icon name="lucideCheck" aria-hidden="true" />
+              }
+            </div>
+          }
+        </div>
+      }
+    </div>
+  </div>
+</div>

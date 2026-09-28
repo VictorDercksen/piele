@@ -7,17 +7,6 @@ import { RoundViewService } from '../../../core/league/round-view.service';
 import { CreateDutyDialog } from './create-duty-dialog';
 
 describe('CreateDutyDialog', () => {
-  beforeAll(() => {
-    // jsdom has no modal dialogs.
-    HTMLDialogElement.prototype.showModal ??= function (this: HTMLDialogElement) {
-      this.setAttribute('open', '');
-    };
-    HTMLDialogElement.prototype.close ??= function (this: HTMLDialogElement) {
-      this.removeAttribute('open');
-      this.dispatchEvent(new Event('close'));
-    };
-  });
-
   function setup() {
     const created: NewDuty[] = [];
     let refusal: Error | null = null;
@@ -46,7 +35,7 @@ describe('CreateDutyDialog', () => {
     const fixture = TestBed.createComponent(CreateDutyDialog);
     fixture.detectChanges();
     const dialog = fixture.componentInstance;
-    const root = fixture.nativeElement as HTMLElement;
+    const root = document.body;
     const alerts = TestBed.inject(AlertService);
     const warn = vi.spyOn(alerts, 'warn');
     const error = vi.spyOn(alerts, 'error');
@@ -59,7 +48,9 @@ describe('CreateDutyDialog', () => {
       await settle();
     };
     const member = () =>
-      root.querySelector<HTMLSelectElement>('select[formControlName="memberId"]')!;
+      root.querySelector<HTMLButtonElement>(
+        'app-search-select[formControlName="memberId"] [role=combobox]',
+      )!;
     const deadline = () => root.querySelector<HTMLInputElement>('input[type="datetime-local"]')!;
     const refuse = (next: Error | null) => (refusal = next);
     return {
@@ -82,7 +73,7 @@ describe('CreateDutyDialog', () => {
     const { dialog, root, settle, submit, member, warn, created } = setup();
     dialog.open();
     await settle();
-    expect(member().getAttribute('aria-invalid')).toBe('false');
+    expect(member().getAttribute('aria-invalid')).not.toBe('true');
     await submit();
     expect(created).toEqual([]);
     expect(warn).toHaveBeenCalledOnce();
@@ -110,7 +101,7 @@ describe('CreateDutyDialog', () => {
 
     dialog.form.controls.memberId.setValue('member-johan');
     await settle();
-    expect(member().getAttribute('aria-invalid')).toBe('false');
+    expect(member().getAttribute('aria-invalid')).not.toBe('true');
     await submit();
     expect(warn).toHaveBeenLastCalledWith('A pick confirmation needs a deadline.', {
       key: 'create-duty',

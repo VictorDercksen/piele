@@ -41,6 +41,7 @@
         @for (fixture of pickFixtures(); track fixture.id) {
           <li>
             <a
+              hlmBtn
               class="text-button"
               [routerLink]="'/match/' + fixture.id | leaguePath"
               queryParamsHandling="preserve"
@@ -68,7 +69,7 @@
             <span class="evidence-note">Reviewer: {{ evidence.reason }}</span>
           }
           @if (!sample()) {
-            <button type="button" class="text-button" (click)="watch(evidence)">
+            <button hlmBtn type="button" class="text-button" (click)="watch(evidence)">
               Watch video<ng-icon class="link-icon" name="lucidePlay" />
             </button>
           }
@@ -78,22 +79,22 @@
   }
   <div class="card-actions">
     @if (canUpload()) {
-      <button type="button" class="primary-button" (click)="upload.emit()">
+      <button hlmBtn type="button" class="primary-button" (click)="upload.emit()">
         <app-icon name="upload" />Upload evidence
       </button>
     }
     @if (canRecord()) {
-      <button type="button" class="primary-button" (click)="record.emit()">
+      <button hlmBtn type="button" class="primary-button" (click)="record.emit()">
         <app-icon name="upload" />Record evidence
       </button>
     }
     @if (canReset()) {
-      <button type="button" class="text-button" (click)="resetClock.emit()">
+      <button hlmBtn type="button" class="text-button" (click)="resetClock.emit()">
         Reset clock<ng-icon class="link-icon" name="lucideRotateCcw" />
       </button>
     }
     @if (captain() && live()) {
-      <button type="button" class="text-button" (click)="voided.emit()">
+      <button hlmBtn type="button" class="text-button" (click)="voided.emit()">
         Void duty<ng-icon class="link-icon" name="lucideX" />
       </button>
     }

@@ -277,7 +277,7 @@ app-season-timeline {
   display: flex;
   align-items: center;
   gap: 15px;
-  padding: 18px var(--gutter) 16px;
+  padding: 10px var(--gutter);
   border-bottom: 1px solid var(--line);
 }
 .round-context strong {
@@ -285,15 +285,10 @@ app-season-timeline {
   flex-wrap: wrap;
   align-items: center;
   gap: 13px;
-  margin: 5px 0;
-  font-size: 24px;
+  margin: 0;
+  font-size: 22px;
   font-weight: 700;
   line-height: 1.2;
-}
-.round-context p {
-  margin-top: 6px;
-  font-size: 11px;
-  color: var(--muted);
 }
 .round-context .tag {
   font-size: 8px;
@@ -516,10 +511,6 @@ app-season-timeline {
     padding: 4px 6px;
     font-size: 7px;
   }
-  .round-context p {
-    font-size: 9px;
-    overflow-wrap: anywhere;
-  }
   .context-pager {
     flex-shrink: 0;
     gap: 3px;
@@ -561,14 +552,21 @@ app-season-timeline {
 @media (max-width: 1050px) {
   .mobile-nav {
     position: fixed;
-    inset: auto 0 0;
+    inset: auto 12px max(12px, env(safe-area-inset-bottom));
+    max-width: 520px;
+    margin-inline: auto;
     z-index: 3;
     display: flex;
     justify-content: space-around;
-    padding: 8px 7px max(8px, env(safe-area-inset-bottom));
-    border-top: 1px solid var(--line);
-    background: var(--surface-grain), #132226;
-    box-shadow: 0 -8px 30px #0006;
+    padding: 7px;
+    gap: 4px;
+    border: 1px solid #8da99b45;
+    border-radius: 24px;
+    background: var(--surface-grain), #132d2bf2;
+    backdrop-filter: blur(16px);
+    box-shadow:
+      0 10px 32px #0008,
+      inset 0 1px 0 #ffffff0d;
   }
   .mobile-nav a {
     position: relative;
@@ -576,8 +574,13 @@ app-season-timeline {
     flex-direction: column;
     align-items: center;
     gap: 5px;
-    min-width: 50px;
+    flex: 1;
+    min-width: 0;
     min-height: 46px;
+    border-radius: 17px;
+    transition:
+      color 150ms,
+      background-color 150ms;
     padding: 5px 7px;
     color: var(--muted);
     font-family: inherit;
@@ -585,16 +588,18 @@ app-season-timeline {
     text-decoration: none;
     touch-action: manipulation;
   }
-  .mobile-nav a.selected {
-    color: var(--accent);
+  .mobile-nav a:hover {
+    color: var(--ink);
+    background: #ffffff09;
   }
-  .mobile-nav a.selected::before {
-    content: '';
-    position: absolute;
-    top: -9px;
-    width: 25px;
-    height: 2px;
-    background: var(--orange);
+  .mobile-nav a.selected {
+    color: #ffc3a3;
+    background: #f3976d19;
+    box-shadow: inset 0 0 0 1px #f3976d2e;
+  }
+  .mobile-nav a:focus-visible {
+    outline: 2px solid #ffc3a3;
+    outline-offset: 2px;
   }
   .mobile-nav a app-icon {
     width: 19px;
@@ -604,5 +609,62 @@ app-season-timeline {
 @media (max-width: 350px) {
   .mobile-nav a {
     font-size: 10px;
+  }
+}
+
+// Mobile has one context bar. Round browsing moves into its modal sheet.
+app-round-picker {
+  display: none;
+}
+@container (max-width: 1050px) {
+  .league {
+    grid-template: 'top' auto 'main' 1fr / minmax(0, 1fr);
+  }
+  .season-rail,
+  .desktop-nav,
+  .round-context {
+    display: none;
+  }
+  .top-bar {
+    height: 64px;
+    padding-inline: 12px;
+    gap: 10px;
+  }
+  .top-bar .club-brand {
+    flex: 0 0 44px;
+  }
+  app-round-picker {
+    display: block;
+    flex: 1;
+    min-width: 0;
+    max-width: 230px;
+  }
+  .header-right {
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  .header-profile {
+    width: 44px;
+    height: 44px;
+    padding: 3px;
+    border-radius: 50%;
+    justify-content: center;
+  }
+  .header-profile .identity-avatar {
+    width: 34px;
+    height: 34px;
+  }
+  .profile-text,
+  .demo-label {
+    display: none;
+  }
+  .round-bar {
+    top: 64px;
+  }
+  .round-bar.mobile-empty {
+    display: none;
+  }
+  .round-bar.mobile-empty + .page-heading {
+    padding-top: 22px;
   }
 }

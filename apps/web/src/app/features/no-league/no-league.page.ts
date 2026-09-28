@@ -1,3 +1,6 @@
+import { HlmButton } from '@spartan-ng/helm/button';
+import { HlmInput } from '@spartan-ng/helm/input';
+import { HlmLabel } from '@spartan-ng/helm/label';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -27,12 +30,15 @@ import { Loader } from '../../shared/loader/loader';
   templateUrl: './no-league.page.html',
   styleUrls: ['../join/join.page.scss', './no-league.page.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  // prettier-ignore
+  /* prettier-ignore */
   imports: [
     ReactiveFormsModule,
     RouterLink,
     NgIcon,
     Loader,
+    HlmButton,
+    HlmInput,
+    HlmLabel,
   ],
   viewProviders: [provideIcons({ lucideArrowRight, lucideLogOut })],
 })

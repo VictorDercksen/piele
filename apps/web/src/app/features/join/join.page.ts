@@ -1,3 +1,7 @@
+import { HlmLabel } from '@spartan-ng/helm/label';
+import { HlmRadioGroup } from '@spartan-ng/helm/radio-group';
+import { HlmRadio } from '@spartan-ng/helm/radio-group';
+import { HlmButton } from '@spartan-ng/helm/button';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -29,13 +33,17 @@ import { Loader } from '../../shared/loader/loader';
   templateUrl: './join.page.html',
   styleUrl: './join.page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  // prettier-ignore
+  /* prettier-ignore */
   imports: [
     RouterLink,
     NgIcon,
     BallLoader,
     LeagueCrest,
     Loader,
+    HlmButton,
+    HlmLabel,
+    HlmRadioGroup,
+    HlmRadio,
   ],
   viewProviders: [provideIcons({ lucideArrowRight, lucideLogOut })],
 })

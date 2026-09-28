@@ -1,3 +1,6 @@
+import { HlmButton } from '@spartan-ng/helm/button';
+import { HlmInput } from '@spartan-ng/helm/input';
+import { HlmLabel } from '@spartan-ng/helm/label';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -30,12 +33,15 @@ const ALERT_KEY = 'captain-join-link';
   templateUrl: './join-link-card.html',
   styleUrl: './join-link-card.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  // prettier-ignore
+  /* prettier-ignore */
   imports: [
     Dropdown,
     Icon,
     NgIcon,
     Loader,
+    HlmButton,
+    HlmInput,
+    HlmLabel,
   ],
   viewProviders: [provideIcons({ lucideCopy, lucideLockKeyhole, lucideRefreshCw })],
 })

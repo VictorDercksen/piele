@@ -1,3 +1,4 @@
+import { HlmButton } from '@spartan-ng/helm/button';
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideExternalLink, lucideRotateCcw } from '@ng-icons/lucide';
@@ -22,11 +23,12 @@ import { previewView } from './preview-view';
     '[style.--home-accent]': 'view()?.sides?.[0]?.accent',
     '[style.--away-accent]': 'view()?.sides?.[1]?.accent',
   },
-  // prettier-ignore
+  /* prettier-ignore */
   imports: [
     Dropdown,
     LeagueTimePipe,
     NgIcon,
+    HlmButton,
   ],
   viewProviders: [provideIcons({ lucideExternalLink, lucideRotateCcw })],
 })

@@ -1,3 +1,6 @@
+import { HlmButton } from '@spartan-ng/helm/button';
+import { HlmInput } from '@spartan-ng/helm/input';
+import { HlmLabel } from '@spartan-ng/helm/label';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -45,12 +48,15 @@ let nextId = 0;
     '(document:keydown.escape)': 'onEscape()',
     '(document:pointerdown)': 'onPointerDown($event)',
   },
-  // prettier-ignore
+  /* prettier-ignore */
   imports: [
     RouterLink,
     LeagueCrest,
     Icon,
     NgIcon,
+    HlmButton,
+    HlmInput,
+    HlmLabel,
   ],
   viewProviders: [provideIcons({ lucideArrowRight, lucideChevronsUpDown })],
 })

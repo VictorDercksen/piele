@@ -1,3 +1,11 @@
+import { SearchSelect } from '../../../shared/search-select/search-select';
+import { HlmCollapsibleTrigger } from '@spartan-ng/helm/collapsible';
+import { HlmCollapsible } from '@spartan-ng/helm/collapsible';
+import { HlmCollapsibleContent } from '@spartan-ng/helm/collapsible';
+import { HlmButton } from '@spartan-ng/helm/button';
+import { HlmInput } from '@spartan-ng/helm/input';
+import { HlmLabel } from '@spartan-ng/helm/label';
+import { HlmCheckbox } from '@spartan-ng/helm/checkbox';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -48,7 +56,7 @@ import {
 import { FormProblem, problemDetails } from '../form-problems';
 import { membersValidator, notBlank, slugValidator, zoneValidator } from '../manage-validators';
 import { MAX_MEMBERS, MemberRow, MemberRowError, checkMembers } from '../member-rows';
-import { TimeZoneSelect } from '../time-zone-select/time-zone-select';
+import { timeZoneSelectGroups } from '../time-zones';
 
 /** API refusals that concern one field (a warning that highlights it); any other code is an error. */
 const FIELD_OF_CODE: Readonly<Partial<Record<string, ApiField>>> = {
@@ -78,20 +86,29 @@ const STARTING_ROWS = 3;
   templateUrl: './create-league-form.html',
   styleUrls: ['../manage-fields.scss', './create-league-form.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  /* prettier-ignore */
   imports: [
-    TimeZoneSelect,
+    SearchSelect,
     ReactiveFormsModule,
     NgIcon,
     EmblemPicker,
     LeagueCrest,
     Loader,
     RulesFields,
+    HlmButton,
+    HlmInput,
+    HlmLabel,
+    HlmCheckbox,
+    HlmCollapsibleTrigger,
+    HlmCollapsible,
+    HlmCollapsibleContent,
   ],
   viewProviders: [
     provideIcons({ lucideArrowRight, lucidePlus, lucideRotateCcw, lucideUserRound, lucideX }),
   ],
 })
 export class CreateLeagueForm {
+  readonly zoneGroups = computed(() => timeZoneSelectGroups(this.value().timezone));
   private readonly admin = inject(AdminService);
   private readonly alerts = inject(AlertService);
   private readonly router = inject(Router);
@@ -175,6 +192,9 @@ export class CreateLeagueForm {
 
   readonly competitions = signal<readonly CompetitionOption[] | null>(null);
   readonly competitionsError = signal('');
+  readonly competitionOptions = computed(() =>
+    (this.competitions() ?? []).map((option) => ({ value: option.id, label: option.name })),
+  );
   readonly submitted = signal(false);
   readonly busy = signal(false);
   /** The field an API refusal concerns, marked invalid until it changes. */
@@ -186,6 +206,10 @@ export class CreateLeagueForm {
   private slugEdited = false;
   private zoneEdited = false;
   private seasonEdited = false;
+
+  readonly captainSelectOptions = computed(() =>
+    this.captainOptions().map((name) => ({ value: name, label: name })),
+  );
 
   constructor() {
     const c = this.controls;
@@ -256,8 +280,8 @@ export class CreateLeagueForm {
     this.seasonEdited = true;
   }
 
-  rulesToggled(event: Event): void {
-    if (event.target instanceof HTMLDetailsElement) this.rulesOpen.set(event.target.open);
+  rulesToggled(expanded: boolean): void {
+    this.rulesOpen.set(expanded);
   }
 
   /** Adds a blank row at the bottom and puts the cursor in its name. */

@@ -17,17 +17,22 @@
         }
         <div class="review-actions">
           @if (!view.sample) {
-            <button type="button" class="text-button" (click)="watch(review)">
+            <button hlmBtn type="button" class="text-button" (click)="watch(review)">
               Watch video<ng-icon class="link-icon" name="lucidePlay" />
             </button>
           }
           @if (review.selfReview) {
             <span class="tag">NEEDS AN UNINVOLVED REVIEWER</span>
           } @else {
-            <button type="button" class="primary-button" (click)="decide(review, 'accepted')">
+            <button
+              hlmBtn
+              type="button"
+              class="primary-button"
+              (click)="decide(review, 'accepted')"
+            >
               <app-icon name="check" />Accept
             </button>
-            <button type="button" class="text-button" (click)="decide(review, 'rejected')">
+            <button hlmBtn type="button" class="text-button" (click)="decide(review, 'rejected')">
               Reject
               <ng-icon class="link-icon" name="lucideX" />
             </button>

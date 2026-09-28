@@ -50,7 +50,9 @@ describe('ProfileEditor', () => {
     expect(name.classList).toContain('problem-flag');
     expect(document.activeElement).not.toBe(name);
     expect(name.getAttribute('aria-invalid')).toBe('true');
-    expect(radios().every((radio) => radio.getAttribute('aria-invalid') === 'true')).toBe(true);
+    expect(root.querySelector('[role=radiogroup]')?.getAttribute('aria-invalid') === 'true').toBe(
+      true,
+    );
     expect(root.querySelector('.validation, [role=alert]')).toBeNull();
 
     name.value = 'Victor';

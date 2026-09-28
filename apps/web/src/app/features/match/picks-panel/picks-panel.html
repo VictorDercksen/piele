@@ -23,6 +23,7 @@
                 [attr.aria-invalid]="invalid('side')"
               >
                 <button
+                  hlmBtn
                   type="button"
                   class="end home"
                   [class.dim]="s.side !== 'home'"
@@ -62,21 +63,21 @@
                     aria-hidden="true"
                     >{{ s.thumb }}</span
                   >
-                  <input
+                  <hlm-slider
                     #scaleInput
-                    type="range"
                     id="pick-scale"
                     [min]="-reach"
                     [max]="reach"
-                    step="1"
-                    [value]="s.range"
+                    [step]="1"
+                    [value]="[s.range]"
                     aria-labelledby="pick-scale-legend"
-                    [attr.aria-valuetext]="s.text"
-                    [attr.aria-invalid]="invalid('side')"
-                    (input)="slide($event)"
+                    [valueText]="s.text"
+                    [aria-invalid]="invalid('side')"
+                    (valueChange)="slide($event)"
                   />
                 </div>
                 <button
+                  hlmBtn
                   type="button"
                   class="end away"
                   [class.dim]="s.side !== 'away'"
@@ -99,6 +100,7 @@
               >
                 @for (m of homeQuick; track m; let first = $first) {
                   <button
+                    hlmBtn
                     type="button"
                     class="quick-pick"
                     [class.far]="first"
@@ -117,6 +119,7 @@
               >
                 @for (m of awayQuick; track m; let last = $last) {
                   <button
+                    hlmBtn
                     type="button"
                     class="quick-pick"
                     [class.far]="last"
@@ -129,6 +132,7 @@
                 }
               </div>
               <button
+                hlmBtn
                 type="button"
                 class="draw-pick"
                 [attr.aria-pressed]="s.side === 'draw'"
@@ -137,15 +141,16 @@
                 Draw
               </button>
               <div class="field margin-field" [class.away]="marginSlot() === 'away'">
-                <label for="pick-margin">Margin <span>(points)</span></label>
+                <label hlmLabel for="pick-margin">Margin <span>(points)</span></label>
                 <input
+                  hlmInput
                   #marginInput
                   id="pick-margin"
                   formControlName="margin"
                   inputmode="numeric"
                   autocomplete="off"
                   maxlength="3"
-                  [attr.aria-invalid]="invalid('margin')"
+                  [aria-invalid]="invalid('margin')"
                   [attr.aria-describedby]="marginDisabled() ? 'pick-margin-hint' : null"
                 />
               </div>
@@ -154,11 +159,11 @@
               <p id="pick-margin-hint" class="hint">A draw has no margin.</p>
             }
             <div class="form-actions">
-              <button type="submit" class="primary-button" [disabled]="saving()">
+              <button hlmBtn type="submit" class="primary-button" [disabled]="saving()">
                 {{ saving() ? 'Saving' : 'Save pick' }}
               </button>
               @if (editing()) {
-                <button type="button" class="text-button" (click)="cancel()">
+                <button hlmBtn type="button" class="text-button" (click)="cancel()">
                   Cancel<ng-icon class="link-icon" name="lucideX" />
                 </button>
               }
@@ -194,7 +199,7 @@
               <span class="mine-place">{{ place }} in this match</span>
             }
           } @else {
-            <button type="button" class="text-button edit" (click)="edit()">
+            <button hlmBtn type="button" class="text-button edit" (click)="edit()">
               Edit<span class="visually-hidden"> your pick</span
               ><ng-icon class="link-icon" name="lucidePencil" />
             </button>
@@ -238,6 +243,7 @@
       <app-pool-picks-table [picks]="p" [rules]="view.rules()" />
       @if (missingPicks()) {
         <a
+          hlmBtn
           class="text-button record"
           [routerLink]="'/captain' | leaguePath"
           queryParamsHandling="preserve"

@@ -146,7 +146,7 @@ test('Floodlights layouts and club assets work from desktop to 320px', async ({
   const standingsBounds = await page.locator('.standings-panel').boundingBox();
   expect(heroBounds!.y).toBeLessThan(standingsBounds!.y);
   await page.screenshot({ path: testInfo.outputPath('floodlights-desktop.png'), fullPage: true });
-  for (const width of [1440, 1280, 1051, 900, 801, 768, 390, 320]) {
+  for (const width of [1440, 1280, 1051, 1050, 900, 801, 768, 390, 320]) {
     await page.setViewportSize({ width, height: 950 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
@@ -166,10 +166,19 @@ test('Floodlights layouts and club assets work from desktop to 320px', async ({
           ),
       )
       .toBe(true);
+    const mobile = width <= 1050;
     const nav = page.getByRole('navigation', {
-      name: width <= 768 ? 'Mobile league navigation' : 'League navigation',
+      name: mobile ? 'Mobile league navigation' : 'League navigation',
       exact: true,
     });
+    await expect(nav).toBeVisible();
+    await expect(
+      page.getByRole('navigation', {
+        name: mobile ? 'League navigation' : 'Mobile league navigation',
+        exact: true,
+        includeHidden: true,
+      }),
+    ).toBeHidden();
     await expect(nav.getByRole('link', { name: 'Rounds', exact: true })).toHaveCount(0);
     await expect(page.locator('.fixture-ribbon button')).toHaveCount(8);
     expect(

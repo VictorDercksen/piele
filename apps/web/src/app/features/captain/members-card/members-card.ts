@@ -1,3 +1,9 @@
+import { HlmCollapsibleTrigger } from '@spartan-ng/helm/collapsible';
+import { HlmCollapsible } from '@spartan-ng/helm/collapsible';
+import { HlmCollapsibleContent } from '@spartan-ng/helm/collapsible';
+import { HlmButton } from '@spartan-ng/helm/button';
+import { HlmInput } from '@spartan-ng/helm/input';
+import { HlmLabel } from '@spartan-ng/helm/label';
 import {
   lucidePencil,
   lucideRotateCcw,
@@ -41,12 +47,18 @@ const ALERT_KEYS = {
   viewProviders: [
     provideIcons({ lucidePencil, lucideRotateCcw, lucideTrash2, lucideUnlink, lucideX }),
   ],
-  // prettier-ignore
+  /* prettier-ignore */
   imports: [
     NgIcon,
     ReactiveFormsModule,
     Dropdown,
     Loader,
+    HlmButton,
+    HlmInput,
+    HlmLabel,
+    HlmCollapsibleTrigger,
+    HlmCollapsible,
+    HlmCollapsibleContent,
   ],
 })
 export class MembersCard {
@@ -57,7 +69,7 @@ export class MembersCard {
   private readonly injector = inject(Injector);
   readonly reasonDialog = input.required<ReasonDialog>();
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
-  private readonly withdrawnGroup = viewChild<ElementRef<HTMLDetailsElement>>('withdrawnGroup');
+  private readonly withdrawnGroup = viewChild<ElementRef<HTMLElement>>('withdrawnGroup');
   /** Whether the add-member form's last attempt was refused, so its bad fields show. */
   readonly addAttempted = signal(false);
   /** Whether the email being edited was refused, so its input shows it. */
@@ -166,8 +178,9 @@ export class MembersCard {
         afterNextRender(
           () =>
             (
-              this.withdrawnGroup()?.nativeElement.querySelector('summary') ??
-              document.getElementById('members-heading')
+              this.withdrawnGroup()?.nativeElement.querySelector<HTMLButtonElement>(
+                '.disclosure-trigger',
+              ) ?? document.getElementById('members-heading')
             )?.focus(),
           { injector: this.injector },
         );

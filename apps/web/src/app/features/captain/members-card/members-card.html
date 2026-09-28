@@ -13,17 +13,19 @@
         >
         @if (editing() === member.id) {
           <span class="member-edit">
-            <label class="visually-hidden" for="email-{{ member.id }}"
+            <label hlmLabel class="visually-hidden" for="email-{{ member.id }}"
               >Email for {{ member.name }}</label
             >
             <input
+              hlmInput
               id="email-{{ member.id }}"
               type="email"
               [formControl]="emailControl"
               placeholder="name@example.com"
-              [attr.aria-invalid]="emailAttempted() && emailControl.invalid"
+              [aria-invalid]="emailAttempted() && emailControl.invalid"
             />
             <button
+              hlmBtn
               type="button"
               class="primary-button"
               (click)="saveEmail(member)"
@@ -34,7 +36,7 @@
               }
               Save
             </button>
-            <button type="button" class="text-button" (click)="cancelEdit()">
+            <button hlmBtn type="button" class="text-button" (click)="cancelEdit()">
               Cancel<ng-icon class="link-icon" name="lucideX" />
             </button>
           </span>
@@ -54,6 +56,7 @@
           <span class="member-actions">
             @if (member.claimed && member.id !== view.memberId()) {
               <button
+                hlmBtn
                 type="button"
                 class="text-button"
                 (click)="release(member)"
@@ -66,6 +69,7 @@
             }
             @if (!member.claimed) {
               <button
+                hlmBtn
                 type="button"
                 class="text-button"
                 (click)="edit(member)"
@@ -78,6 +82,7 @@
             }
             @if (removable(member)) {
               <button
+                hlmBtn
                 type="button"
                 class="text-button remove"
                 (click)="remove(member)"
@@ -94,82 +99,88 @@
     }
   </ul>
   @if (view.withdrawn().length) {
-    <details class="withdrawn" #withdrawnGroup>
-      <summary>
+    <div hlmCollapsible class="withdrawn" #withdrawnGroup>
+      <button hlmBtn hlmCollapsibleTrigger class="disclosure-trigger" type="button">
         Withdrawn <span class="count">{{ view.withdrawn().length }}</span>
-      </summary>
-      <ul class="member-list">
-        @for (member of view.withdrawn(); track member.id) {
-          <li>
-            <span class="member-name"
-              ><strong>{{ member.name }}</strong
-              ><small>{{ member.fullName }}</small></span
-            >
-            <span class="member-status">
-              <span class="tag withdrawn-tag">WITHDRAWN</span>
-              <small
-                >{{ member.leftAt ? 'Removed ' + removedOn(member) : 'Removed' }}
-                @if (member.withdrawalReason) {
-                  · {{ member.withdrawalReason }}
-                }
-              </small>
-            </span>
-            <span class="member-actions">
-              <button
-                type="button"
-                class="text-button"
-                (click)="reinstate(member)"
-                [disabled]="memberBusy() === member.id"
-                [attr.aria-label]="'Reinstate ' + member.name"
+      </button>
+      <div hlmCollapsibleContent class="disclosure-content">
+        <ul class="member-list">
+          @for (member of view.withdrawn(); track member.id) {
+            <li>
+              <span class="member-name"
+                ><strong>{{ member.name }}</strong
+                ><small>{{ member.fullName }}</small></span
               >
-                @if (memberBusy() === member.id) {
-                  <app-loader [size]="16" aria-hidden="true" />
-                }
-                Reinstate
-                <ng-icon class="link-icon" name="lucideRotateCcw" />
-              </button>
-            </span>
-          </li>
-        }
-      </ul>
-    </details>
+              <span class="member-status">
+                <span class="tag withdrawn-tag">WITHDRAWN</span>
+                <small
+                  >{{ member.leftAt ? 'Removed ' + removedOn(member) : 'Removed' }}
+                  @if (member.withdrawalReason) {
+                    · {{ member.withdrawalReason }}
+                  }
+                </small>
+              </span>
+              <span class="member-actions">
+                <button
+                  hlmBtn
+                  type="button"
+                  class="text-button"
+                  (click)="reinstate(member)"
+                  [disabled]="memberBusy() === member.id"
+                  [attr.aria-label]="'Reinstate ' + member.name"
+                >
+                  @if (memberBusy() === member.id) {
+                    <app-loader [size]="16" aria-hidden="true" />
+                  }
+                  Reinstate
+                  <ng-icon class="link-icon" name="lucideRotateCcw" />
+                </button>
+              </span>
+            </li>
+          }
+        </ul>
+      </div>
+    </div>
   }
   <form class="add-member" [formGroup]="newMember" (ngSubmit)="addMember()">
     <h3>Add a member</h3>
     <div class="add-grid">
       @let controls = newMember.controls;
-      <label>
+      <label hlmLabel>
         <span>Nickname</span>
         <input
+          hlmInput
           id="new-member-name"
           formControlName="name"
           maxlength="50"
           placeholder="As shown on Superbru"
-          [attr.aria-invalid]="addAttempted() && controls.name.invalid"
+          [aria-invalid]="addAttempted() && controls.name.invalid"
         />
       </label>
-      <label>
+      <label hlmLabel>
         <span>Full name</span>
         <input
+          hlmInput
           id="new-member-fullName"
           formControlName="fullName"
           maxlength="120"
           placeholder="Surname, First name"
-          [attr.aria-invalid]="addAttempted() && controls.fullName.invalid"
+          [aria-invalid]="addAttempted() && controls.fullName.invalid"
         />
       </label>
-      <label>
+      <label hlmLabel>
         <span>Email <em>(optional)</em></span>
         <input
+          hlmInput
           id="new-member-email"
           formControlName="email"
           type="email"
           maxlength="320"
-          [attr.aria-invalid]="addAttempted() && controls.email.invalid"
+          [aria-invalid]="addAttempted() && controls.email.invalid"
         />
       </label>
     </div>
-    <button type="submit" class="primary-button" [disabled]="addingMember()">
+    <button hlmBtn type="submit" class="primary-button" [disabled]="addingMember()">
       @if (addingMember()) {
         <app-loader [size]="16" aria-hidden="true" />
       }

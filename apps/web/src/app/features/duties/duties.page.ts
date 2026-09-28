@@ -1,6 +1,8 @@
+import { HlmButton } from '@spartan-ng/helm/button';
+import { HlmToggleGroupImports } from '@spartan-ng/helm/toggle-group';
 import { ChangeDetectionStrategy, Component, computed, inject, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { map } from 'rxjs';
 import { LeagueTime } from '../../core/competition/league-time';
 import { AlertService } from '../../core/feedback/alert.service';
@@ -17,17 +19,20 @@ import { ReasonDialog } from './reason-dialog/reason-dialog';
   templateUrl: './duties.page.html',
   styleUrl: './duties.page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  // prettier-ignore
+  /* prettier-ignore */
   imports: [
-    RouterLink,
+    HlmToggleGroupImports,
     Icon,
     DutyCard,
     EvidenceDialog,
     CreateDutyDialog,
     ReasonDialog,
+    HlmButton,
   ],
 })
 export class DutiesPage {
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
   private readonly alerts = inject(AlertService);
   private readonly time = inject(LeagueTime);
   readonly view = inject(RoundViewService);
@@ -35,7 +40,7 @@ export class DutiesPage {
   readonly createDialog = viewChild.required(CreateDutyDialog);
   readonly reasonDialog = viewChild.required(ReasonDialog);
   readonly scope = toSignal(
-    inject(ActivatedRoute).queryParamMap.pipe(
+    this.route.queryParamMap.pipe(
       map((params) => (params.get('scope') === 'league' ? 'league' : 'mine')),
     ),
     { initialValue: 'mine' },
@@ -43,6 +48,15 @@ export class DutiesPage {
   readonly visibleDuties = computed(() =>
     this.scope() === 'mine' ? this.view.duties().filter((duty) => duty.mine) : this.view.duties(),
   );
+
+  selectScope(scope: unknown): void {
+    if (scope !== 'mine' && scope !== 'league') return;
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { scope: scope === 'league' ? 'league' : null },
+      queryParamsHandling: 'merge',
+    });
+  }
 
   voidDuty(duty: RoundDutyView): void {
     this.reasonDialog().open({

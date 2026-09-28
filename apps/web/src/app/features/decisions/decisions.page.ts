@@ -1,3 +1,4 @@
+import { HlmButton } from '@spartan-ng/helm/button';
 import { ChangeDetectionStrategy, Component, computed, inject, viewChild } from '@angular/core';
 import { RoundViewService } from '../../core/league/round-view.service';
 import { Icon } from '../../shared/icon/icon';
@@ -9,10 +10,11 @@ import { VoteDialog } from './vote-dialog/vote-dialog';
   templateUrl: './decisions.page.html',
   styleUrl: './decisions.page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  // prettier-ignore
+  /* prettier-ignore */
   imports: [
     Icon,
     VoteDialog,
+    HlmButton,
   ],
 })
 export class DecisionsPage {

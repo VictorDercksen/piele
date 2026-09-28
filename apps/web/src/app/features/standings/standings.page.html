@@ -1,23 +1,34 @@
-<div class="content-tabs" aria-label="Standings table">
+<div
+  hlmToggleGroup
+  type="single"
+  [nullable]="false"
+  [value]="measure()"
+  (valueChange)="select($event)"
+  class="content-tabs"
+  aria-label="Standings table"
+>
   <button
+    hlmBtn
     type="button"
     [class.active]="measure() === 'round'"
-    [attr.aria-pressed]="measure() === 'round'"
-    (click)="select('round')"
+    hlmToggleGroupItem
+    value="round"
   >
     Round</button
   ><button
+    hlmBtn
     type="button"
     [class.active]="measure() === 'season'"
-    [attr.aria-pressed]="measure() === 'season'"
-    (click)="select('season')"
+    hlmToggleGroupItem
+    value="season"
   >
     Season</button
   ><button
+    hlmBtn
     type="button"
     [class.active]="measure() === 'marks'"
-    [attr.aria-pressed]="measure() === 'marks'"
-    (click)="select('marks')"
+    hlmToggleGroupItem
+    value="marks"
   >
     House marks
   </button>
@@ -102,10 +113,12 @@
   } @else if (rows().length) {
     <div class="board-tools">
       <button
+        hlmBtn
         type="button"
         class="breakdown-toggle"
-        [attr.aria-pressed]="breakdown()"
-        (click)="toggleBreakdown()"
+        hlmToggle
+        [state]="breakdown() ? 'on' : 'off'"
+        (stateChange)="toggleBreakdown()"
       >
         Show breakdown
       </button>

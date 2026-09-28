@@ -37,7 +37,7 @@ export async function openSection(page: Page, heading: string): Promise<void> {
 
 /**
  * Scrolls an open dropdown's body up under the shell's bars and checks its heading row stays
- * pinned just below the round header, drawn as a bar.
+ * pinned just below the visible shell bars.
  */
 export async function expectPinnedHeading(page: Page, heading: string): Promise<void> {
   const { head, chevron } = dropdown(page, heading);
@@ -47,7 +47,10 @@ export async function expectPinnedHeading(page: Page, heading: string): Promise<
   });
   await expect(head).toHaveClass(/stuck/);
   const gap = await head.evaluate((element) => {
-    const bar = document.querySelector('.round-bar')!.getBoundingClientRect().bottom;
+    const bar = Math.max(
+      document.querySelector('.top-bar')!.getBoundingClientRect().bottom,
+      document.querySelector('.round-bar')!.getBoundingClientRect().bottom,
+    );
     return Math.abs(element.getBoundingClientRect().top - bar);
   });
   expect(gap).toBeLessThan(2);
@@ -99,7 +102,7 @@ export async function expectClosesInPlace(page: Page, heading: string): Promise<
   await expect(chevron).toHaveAttribute('aria-expanded', 'false');
   await expect(section).not.toHaveClass(/animating/);
   await expect(head).not.toHaveClass(/stuck/);
-  await expect(body).toHaveAttribute('inert', '');
+  await expect(body).toHaveAttribute('inert');
   await page.waitForTimeout(2600);
   const { frames, marks, atEnd } = await page.evaluate(() => {
     const w = window as unknown as {
@@ -136,4 +139,24 @@ export async function expectClosesInPlace(page: Page, heading: string): Promise<
     }
   });
   await expect(chevron).toBeInViewport();
+}
+
+/** Selects through the searchable Spartan popup, including options rendered in an overlay. */
+export async function chooseOption(
+  control: Locator,
+  option: string | { label: string },
+): Promise<void> {
+  if ((await control.getAttribute('aria-expanded')) !== 'true') await control.click();
+  const page = control.page();
+  await page
+    .locator('.pavilion-select-search input')
+    .fill(typeof option === 'string' ? option : option.label);
+  const item =
+    typeof option === 'string'
+      ? page.locator('.pavilion-select-option').and(page.locator(`[data-value="${option}"]`))
+      : page.getByRole('option', { name: option.label, exact: true });
+  await item.click();
+  await expect(control).toHaveAttribute('aria-expanded', 'false');
+  if (typeof option === 'string') await expect(control).toHaveAttribute('data-value', option);
+  else await expect(control).toContainText(option.label);
 }

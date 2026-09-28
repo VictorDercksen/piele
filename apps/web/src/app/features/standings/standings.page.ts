@@ -1,3 +1,7 @@
+import { HlmToggle } from '@spartan-ng/helm/toggle';
+import { HlmToggleGroup } from '@spartan-ng/helm/toggle-group';
+import { HlmToggleGroupItem } from '@spartan-ng/helm/toggle-group';
+import { HlmButton } from '@spartan-ng/helm/button';
 import { DecimalPipe } from '@angular/common';
 import {
   ChangeDetectionStrategy,
@@ -31,10 +35,14 @@ const MEASURES: readonly StandingsMeasure[] = ['round', 'season', 'marks'];
   templateUrl: './standings.page.html',
   styleUrl: './standings.page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  // prettier-ignore
+  /* prettier-ignore */
   imports: [
+    HlmToggle,
     DecimalPipe,
     MemberAvatar,
+    HlmButton,
+    HlmToggleGroup,
+    HlmToggleGroupItem,
   ],
 })
 export class StandingsPage {
@@ -88,7 +96,8 @@ export class StandingsPage {
   });
 
   /** Shows a tab and records it in the `table` query parameter. */
-  select(measure: StandingsMeasure): void {
+  select(measure: unknown): void {
+    if (measure !== 'round' && measure !== 'season' && measure !== 'marks') return;
     if (measure === this.measure()) return;
     this.measure.set(measure);
     void this.router.navigate([], {
