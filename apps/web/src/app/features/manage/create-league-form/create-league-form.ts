@@ -17,7 +17,7 @@ import {
   signal,
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
-import { FormArray, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
@@ -28,10 +28,9 @@ import {
   lucideX,
 } from '@ng-icons/lucide';
 import { map } from 'rxjs';
-import { COMPETITIONS } from '../../../core/competition/registry';
 import { AlertService } from '../../../core/feedback/alert.service';
 import { highlightProblem } from '../../../core/feedback/problem-highlight';
-import { CompetitionOption, NewLeague } from '../../../core/league/admin/admin.models';
+import { CompetitionOption } from '../../../core/league/admin/admin.models';
 import { AdminLeagueControlService } from '../../../core/league/admin/admin-league-control.service';
 import { AdminLeagueService } from '../../../core/league/admin/admin-league.service';
 import {
@@ -47,31 +46,24 @@ import { EmblemPicker } from '../../../shared/emblem-picker/emblem-picker';
 import { LeagueCrest } from '../../../shared/league-crest/league-crest';
 import { Loader } from '../../../shared/loader/loader';
 import { RulesFields } from '../../../shared/rules-fields/rules-fields';
-import {
-  ruleProblems,
-  rulesChange,
-  rulesFrom,
-  rulesGroup,
-  setLastRound,
-} from '../../../shared/rules-fields/rules-form';
+import { setLastRound } from '../../../shared/rules-fields/rules-form';
 import { FormProblem, problemDetails } from '../form-problems';
-import { membersValidator, notBlank, slugValidator, zoneValidator } from '../manage-validators';
 import { MAX_MEMBERS, MemberRow, MemberRowError, checkMembers } from '../member-rows';
 import { timeZoneSelectGroups } from '../time-zones';
-
-/** API refusals that concern one field (a warning that highlights it); any other code is an error. */
-const FIELD_OF_CODE: Readonly<Partial<Record<string, ApiField>>> = {
-  slug_taken: 'slug',
-  invalid_slug: 'slug',
-  duplicate_member: 'members',
-  unknown_captain: 'captain',
-};
+import {
+  captainEmailValidators,
+  createLeagueGroup,
+  createLeagueProblems,
+  defaultSeasonName,
+  freshRepeat,
+  memberRow,
+  newLeagueBody,
+} from './create-league-form.form';
+import { ApiField, MarkedField } from './create-league-form.models';
+import { FIELD_OF_CODE } from './create-league-form.refusals';
 
 /** The key of the form's alert card: a new attempt replaces the last one's. */
 const ALERT_KEY = 'create-league';
-
-/** Blank rows the team sheet starts with. */
-const STARTING_ROWS = 3;
 
 /**
  * The management centre's new-league form: name and slug (derived from the name until
@@ -117,37 +109,7 @@ export class CreateLeagueForm {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly injector = inject(Injector);
 
-  readonly form = new FormGroup({
-    name: new FormControl('', {
-      nonNullable: true,
-      validators: [Validators.required, notBlank, Validators.maxLength(120)],
-    }),
-    slug: new FormControl('', { nonNullable: true, validators: [slugValidator] }),
-    competitionId: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
-    timezone: new FormControl('', {
-      nonNullable: true,
-      validators: [Validators.required, zoneValidator, Validators.maxLength(64)],
-    }),
-    seasonName: new FormControl('', {
-      nonNullable: true,
-      validators: [Validators.required, notBlank, Validators.maxLength(80)],
-    }),
-    members: new FormArray(
-      Array.from({ length: STARTING_ROWS }, () => memberRow()),
-      { validators: [membersValidator] },
-    ),
-    captain: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
-    captainIsMe: new FormControl(true, { nonNullable: true }),
-    captainEmail: new FormControl('', {
-      nonNullable: true,
-      validators: [Validators.email, Validators.maxLength(254)],
-    }),
-    addMe: new FormControl(false, { nonNullable: true }),
-    emblemPreset: new FormControl<string | null>(null),
-    accentColour: new FormControl<string | null>(null),
-    // Bounded by the default starting round until the competition list arrives.
-    rules: rulesGroup(DEFAULT_RULES, DEFAULT_RULES.startingRound),
-  });
+  readonly form = createLeagueGroup();
   readonly controls = this.form.controls;
   /** The form's whole value, as a signal for the template's conditions and previews. */
   readonly value = toSignal(this.form.valueChanges.pipe(map(() => this.form.getRawValue())), {
@@ -242,11 +204,7 @@ export class CreateLeagueForm {
     });
     c.captainIsMe.valueChanges.pipe(takeUntilDestroyed()).subscribe({
       next: (isMe) => {
-        c.captainEmail.setValidators(
-          isMe
-            ? [Validators.email, Validators.maxLength(254)]
-            : [Validators.required, Validators.email, Validators.maxLength(254)],
-        );
+        c.captainEmail.setValidators(captainEmailValidators(isMe));
         c.captainEmail.updateValueAndValidity();
         if (isMe) c.addMe.setValue(false);
       },
@@ -335,41 +293,18 @@ export class CreateLeagueForm {
     return this.submitted() && this.controls[field].invalid;
   }
 
-  private slugMessage(): string {
-    const errors = this.controls.slug.errors;
-    return typeof errors?.['slug'] === 'string' ? errors['slug'] : 'Check the slug.';
-  }
-
   async submit(): Promise<void> {
     if (this.busy()) return;
     this.submitted.set(true);
     this.apiField.set(null);
     this.form.markAllAsTouched();
-    const problems = this.problems();
+    const problems = createLeagueProblems(this.form, this.lastRound());
     if (problems.length || this.form.invalid) {
       this.warn(problems);
       return;
     }
     this.alerts.dismissKey(ALERT_KEY);
-    const v = this.form.getRawValue();
-    const rules = rulesChange(rulesFrom(this.controls.rules), DEFAULT_RULES, { champion: false });
-    const body: NewLeague = {
-      name: v.name.trim(),
-      slug: v.slug,
-      timezone: v.timezone.trim(),
-      competitionId: v.competitionId,
-      seasonName: v.seasonName.trim(),
-      members: this.checked().members.map(({ fullName, displayName }) => ({
-        fullName,
-        displayName,
-      })),
-      captainDisplayName: v.captain,
-      captainEmail: v.captainIsMe ? null : v.captainEmail.trim(),
-      emblemPreset: v.emblemPreset,
-      accentColour: v.accentColour,
-      addMe: !v.captainIsMe && v.addMe,
-      ...(Object.keys(rules).length ? { rules } : {}),
-    };
+    const body = newLeagueBody(this.form, this.checked().members);
     this.busy.set(true);
     try {
       const league = await this.adminControl.create(body);
@@ -404,28 +339,6 @@ export class CreateLeagueForm {
     if (this.apiField() === field) this.apiField.set(null);
   }
 
-  /** Everything the form cannot be sent with, in the order the form shows it. */
-  private problems(): readonly FormProblem[] {
-    const c = this.controls;
-    const problems: FormProblem[] = [];
-    const add = (id: string, message: string) => problems.push({ id: `new-league-${id}`, message });
-    if (c.name.invalid) add('name', 'Give the league a name.');
-    if (c.slug.invalid) add('slug', this.slugMessage());
-    if (c.competitionId.invalid) add('competitionId', 'Choose a competition.');
-    if (c.timezone.invalid) add('timezone', "Choose the league's time zone.");
-    if (c.seasonName.invalid) add('seasonName', 'Name the season.');
-    const checked = checkMembers(c.members.getRawValue());
-    for (const error of checked.errors)
-      add(`member-${error.row}-${error.field}`, `Member ${error.row + 1}: ${error.message}`);
-    if (!checked.errors.length && !checked.members.length)
-      add('member-0-name', 'Add at least one member.');
-    if (c.captain.invalid) add('captain', 'Choose the captain from the members.');
-    if (c.captainEmail.invalid) add('captainEmail', "Give the captain's email address.");
-    for (const rule of ruleProblems(c.rules, this.lastRound()))
-      add(`rules-${rule.field}`, rule.message);
-    return problems;
-  }
-
   /** One warning card for the attempt and a highlight on the first problem; a rule opens the rules. */
   private warn(problems: readonly FormProblem[]): void {
     if (!problems.length) return;
@@ -441,9 +354,7 @@ export class CreateLeagueForm {
    * first appears, none for the keystrokes after it.
    */
   private warnRepeats(errors: readonly MemberRowError[]): void {
-    const repeats = errors.filter((error) => error.duplicate);
-    const seen = new Set(repeats.map((error) => `${error.row}:${error.message}`));
-    const fresh = repeats.find((error) => !this.warnedRepeats.has(`${error.row}:${error.message}`));
+    const { fresh, seen } = freshRepeat(errors, this.warnedRepeats);
     this.warnedRepeats = seen;
     if (fresh) this.alerts.warn(`Member ${fresh.row + 1}: ${fresh.message}`, { key: ALERT_KEY });
   }
@@ -461,31 +372,4 @@ export class CreateLeagueForm {
       { injector: this.injector },
     );
   }
-}
-
-/** A field an API refusal concerns. */
-type ApiField = 'slug' | 'members' | 'captain';
-
-/** The single controls the template marks invalid. */
-type MarkedField =
-  'name' | 'slug' | 'competitionId' | 'timezone' | 'seasonName' | 'captain' | 'captainEmail';
-
-function memberRow() {
-  return new FormGroup({
-    name: new FormControl('', { nonNullable: true }),
-    surname: new FormControl('', { nonNullable: true }),
-    superbru: new FormControl('', { nonNullable: true }),
-  });
-}
-
-/**
- * `URC 2026/27`: the competition's short name and season. The web registry knows the season
- * of the competitions it ships; otherwise the season at the end of the name is used.
- */
-export function defaultSeasonName(
-  option: Pick<CompetitionOption, 'id' | 'name' | 'shortName'>,
-): string {
-  const season =
-    COMPETITIONS.get(option.id)?.season ?? option.name.match(/\d{4}(?:\/\d{2,4})?$/)?.[0] ?? '';
-  return season ? `${option.shortName} ${season}` : option.shortName;
 }

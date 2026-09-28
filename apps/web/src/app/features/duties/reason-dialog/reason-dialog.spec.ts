@@ -2,7 +2,8 @@ import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { AlertService } from '../../../core/feedback/alert.service';
 import { LeagueContext } from '../../../core/league/league-context';
-import { ReasonDialog, ReasonRequest } from './reason-dialog';
+import { ReasonDialog } from './reason-dialog';
+import { ReasonRequest } from './reason-dialog.models';
 
 describe('ReasonDialog', () => {
   function setup() {

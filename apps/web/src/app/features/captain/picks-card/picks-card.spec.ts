@@ -120,6 +120,15 @@ function setup(options: { locked?: boolean; result?: FixtureResult | null; refus
       removed.push(`${fixtureId}/${memberId}`);
       return Promise.resolve();
     },
+    /** Like the service: records the changes, then removes the cleared picks one by one. */
+    correctPicks: async (
+      fixtureId: string,
+      record: readonly StewardPick[],
+      remove: readonly string[],
+    ) => {
+      if (record.length) await pickControl.recordPicks(fixtureId, record);
+      for (const memberId of remove) await pickControl.removePick(fixtureId, memberId);
+    },
   };
   const standingControl = {
     recordStandings: (roundId: number, entries: readonly StandingEntry[]) => {

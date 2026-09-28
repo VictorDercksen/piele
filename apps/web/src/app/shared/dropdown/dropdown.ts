@@ -17,6 +17,7 @@ import { ActivatedRoute } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideChevronDown } from '@ng-icons/lucide';
 import { fromEvent, merge, of } from 'rxjs';
+import { DropdownAppearance } from './dropdown.models';
 
 const OPEN_MS = 460;
 const CLOSE_MS = 360;
@@ -31,9 +32,6 @@ const nextFrame = (callback: () => void) =>
   typeof requestAnimationFrame === 'function'
     ? requestAnimationFrame(() => callback())
     : setTimeout(callback, 16);
-
-/** `section`: a page section under the shared double rule. `panel`: a grain card with a chalk top rule. */
-export type DropdownAppearance = 'section' | 'panel';
 
 /**
  * The app's one dropdown: a heading with a chevron top right (its hit area the whole heading

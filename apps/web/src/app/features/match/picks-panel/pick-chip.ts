@@ -1,5 +1,5 @@
-import type { PickRowView } from '../../../core/league/picks/pick.models';
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
+import { PickChipView } from './pick-chip.models';
 
 /**
  * A two-part pick chip: the picked club's colour block with its short name, then the margin
@@ -33,26 +33,4 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 })
 export class PickChip {
   readonly chip = input.required<PickChipView>();
-}
-
-/** A pick chip: the club block and margin, a draw, or no pick. */
-export interface PickChipView {
-  readonly kind: 'club' | 'draw' | 'missed';
-  readonly label: string;
-  readonly margin: number | null;
-  readonly colour: string | null;
-  readonly accent: string | null;
-  readonly isDefault: boolean;
-}
-
-export function chipOf(row: PickRowView): PickChipView {
-  const kind = row.side === 'missed' ? 'missed' : row.side === 'draw' ? 'draw' : 'club';
-  return {
-    kind,
-    label: kind === 'club' ? (row.clubShortName ?? '') : kind === 'draw' ? 'Draw' : 'No pick',
-    margin: kind === 'club' ? row.margin : null,
-    colour: row.clubColour,
-    accent: row.clubAccent,
-    isDefault: row.isDefault,
-  };
 }

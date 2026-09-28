@@ -22,7 +22,7 @@ import {
   untracked,
   viewChild,
 } from '@angular/core';
-import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
@@ -40,25 +40,19 @@ import {
 } from '@ng-icons/lucide';
 import { AlertService } from '../../../core/feedback/alert.service';
 import { highlightProblem } from '../../../core/feedback/problem-highlight';
-import { AdminLeague, CaptainCandidate, LeagueUpdate } from '../../../core/league/admin/admin.models';
+import { AdminLeague, CaptainCandidate } from '../../../core/league/admin/admin.models';
 import { AdminLeagueControlService } from '../../../core/league/admin/admin-league-control.service';
 import { AdminLeagueService } from '../../../core/league/admin/admin-league.service';
 import { LeagueCrest } from '../../../shared/league-crest/league-crest';
 import { withDefaultRules } from '../../../core/league/superbru';
 import { Loader } from '../../../shared/loader/loader';
 import { RulesFields } from '../../../shared/rules-fields/rules-fields';
-import {
-  resetRules,
-  ruleProblems,
-  rulesChange,
-  rulesFrom,
-  rulesGroup,
-  setLastRound,
-} from '../../../shared/rules-fields/rules-form';
+import { resetRules, setLastRound } from '../../../shared/rules-fields/rules-form';
 import { ReasonDialog } from '../../duties/reason-dialog/reason-dialog';
 import { FormProblem, problemDetails } from '../form-problems';
-import { notBlank, zoneValidator } from '../manage-validators';
 import { timeZoneSelectGroups } from '../time-zones';
+import { renameGroup, renamePatch, renameProblems } from './league-card.form';
+import { LeagueChange } from './league-card.models';
 
 /** The eyebrow of the management centre's confirmation dialogs. */
 const EYEBROW = 'THE PAVILION / MANAGEMENT CENTRE';
@@ -162,17 +156,7 @@ export class LeagueCard {
   /** The rename form's "Superbru rules" group is open. */
   readonly rulesOpen = signal(false);
   readonly renameSubmitted = signal(false);
-  readonly renameForm = new FormGroup({
-    name: new FormControl('', {
-      nonNullable: true,
-      validators: [Validators.required, notBlank, Validators.maxLength(120)],
-    }),
-    timezone: new FormControl('', {
-      nonNullable: true,
-      validators: [Validators.required, zoneValidator, Validators.maxLength(64)],
-    }),
-    rules: rulesGroup(withDefaultRules(null), withDefaultRules(null).startingRound),
-  });
+  readonly renameForm = renameGroup();
 
   readonly candidates = signal<readonly CaptainCandidate[] | null>(null);
   readonly candidatesError = signal('');
@@ -301,7 +285,7 @@ export class LeagueCard {
   async saveRename(): Promise<void> {
     if (this.busy()) return;
     this.renameSubmitted.set(true);
-    const problems = this.renameProblems();
+    const problems = renameProblems(this.renameForm, this.id(), this.lastRound());
     if (problems.length) {
       // The collapsed rules group opens so its fields can be seen and highlighted.
       if (this.renameForm.controls.rules.invalid) this.rulesOpen.set(true);
@@ -312,18 +296,7 @@ export class LeagueCard {
     this.alerts.dismissKey(`${this.id()}-rename`);
     const league = this.league();
     const name = this.renameForm.controls.name.value.trim();
-    const timezone = this.renameForm.controls.timezone.value.trim();
-    // The champion is kept as it is: the captain's desk sets it among the members.
-    const rules = rulesChange(
-      rulesFrom(this.renameForm.controls.rules),
-      withDefaultRules(league.rules),
-      { champion: false },
-    );
-    const patch: LeagueUpdate = {
-      ...(name !== league.name ? { name } : {}),
-      ...(timezone !== league.timezone ? { timezone } : {}),
-      ...(Object.keys(rules).length ? { rules } : {}),
-    };
+    const patch = renamePatch(this.renameForm, league);
     if (!Object.keys(patch).length) {
       this.cancelRename();
       return;
@@ -333,20 +306,6 @@ export class LeagueCard {
       this.cancelRename();
       this.changed.emit({ id: league.id, message: `${name} is saved.` });
     });
-  }
-
-  /** What stops the rename form from saving, in the order the form shows it. */
-  private renameProblems(): readonly FormProblem[] {
-    const controls = this.renameForm.controls;
-    const id = this.id();
-    const problems: FormProblem[] = [];
-    if (controls.name.invalid)
-      problems.push({ id: `${id}-rename-name`, message: 'Give the league a name.' });
-    if (controls.timezone.invalid)
-      problems.push({ id: `${id}-rename-zone`, message: 'Choose a time zone from the list.' });
-    for (const rule of ruleProblems(controls.rules, this.lastRound()))
-      problems.push({ id: `${id}-rules-${rule.field}`, message: rule.message });
-    return problems;
   }
 
   rulesToggled(expanded: boolean): void {
@@ -432,11 +391,4 @@ export class LeagueCard {
   private focus(id: string): void {
     afterNextRender(() => this.document.getElementById(id)?.focus(), { injector: this.injector });
   }
-}
-
-export interface LeagueChange {
-  readonly id: string;
-  readonly message: string;
-  /** Set when the league moved to the archived group or back. */
-  readonly moved?: 'archived' | 'active';
 }

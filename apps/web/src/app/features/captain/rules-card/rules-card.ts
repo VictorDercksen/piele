@@ -15,7 +15,6 @@ import {
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { map } from 'rxjs';
-import { LeagueRules } from '../../../core/league/league.models';
 import { CompetitionService } from '../../../core/competition/competition.service';
 import { AlertService } from '../../../core/feedback/alert.service';
 import { highlightProblem } from '../../../core/feedback/problem-highlight';
@@ -25,7 +24,8 @@ import { RulesControlService } from '../../../core/league/rules/rules-control.se
 import { RulesService } from '../../../core/league/rules/rules.service';
 import { Dropdown } from '../../../shared/dropdown/dropdown';
 import { Loader } from '../../../shared/loader/loader';
-import { RuleChampion, RulesFields } from '../../../shared/rules-fields/rules-fields';
+import { RulesFields } from '../../../shared/rules-fields/rules-fields';
+import { RuleChampion } from '../../../shared/rules-fields/rules-fields.models';
 import {
   resetRules,
   ruleProblems,
@@ -35,15 +35,8 @@ import {
   setLastRound,
 } from '../../../shared/rules-fields/rules-form';
 import { alertDetails } from '../alert-details';
-
-/** The key of the rules form's card, so a new attempt replaces the last one's. */
-const ALERT_KEY = 'captain-rules';
-
-/** Refusals worth their own words; any other code shows the API's message. */
-const REFUSALS: Readonly<Record<string, string>> = {
-  unknown_member: "The previous season's champion must be a member of this league.",
-  captain_only: 'Only the captain or the admin can change the rules.',
-};
+import { ALERT_KEY, REFUSALS } from './rules-card.alerts';
+import { RulesBaseline } from './rules-card.models';
 
 /**
  * The season's Superbru rules on the captain's desk: the switches, starting round, points and
@@ -175,9 +168,4 @@ export class RulesCard {
       { injector: this.injector },
     );
   }
-}
-
-interface RulesBaseline {
-  readonly rules: LeagueRules;
-  readonly lastRound: number;
 }

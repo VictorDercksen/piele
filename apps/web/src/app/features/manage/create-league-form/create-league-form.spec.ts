@@ -7,7 +7,8 @@ import { NewLeague } from '../../../core/league/admin/admin.models';
 import { AdminLeagueControlService } from '../../../core/league/admin/admin-league-control.service';
 import { AdminLeagueService } from '../../../core/league/admin/admin-league.service';
 import { ApiError } from '../../../core/api/api-error';
-import { CreateLeagueForm, defaultSeasonName } from './create-league-form';
+import { CreateLeagueForm } from './create-league-form';
+import { defaultSeasonName } from './create-league-form.form';
 
 const URC = {
   id: 'urc-2026-27',

@@ -14,7 +14,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { NavigationEnd, Params, Router, RouterLink } from '@angular/router';
+import { NavigationEnd, Router, RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideArrowRight, lucideChevronsUpDown } from '@ng-icons/lucide';
 import { filter, map } from 'rxjs';
@@ -26,6 +26,7 @@ import { LeagueContext } from '../../league/league-context';
 import { LeagueSummary } from '../../league/league.models';
 import { Icon } from '../../../shared/icon/icon';
 import { LeagueCrest } from '../../../shared/league-crest/league-crest';
+import { LeagueGroup, LeagueTarget } from './league-switcher.models';
 
 let nextId = 0;
 
@@ -206,13 +207,3 @@ export class LeagueSwitcher {
 /** The join field's one card, shared with the no-league page's field. */
 const ALERT_KEY = 'join-code';
 const JOIN_CODE_PROBLEM = 'That is not a join link or code. Paste the whole link the captain sent.';
-
-interface LeagueGroup {
-  readonly title: string | null;
-  readonly leagues: readonly LeagueSummary[];
-}
-
-interface LeagueTarget {
-  readonly path: string;
-  readonly queryParams: Params;
-}

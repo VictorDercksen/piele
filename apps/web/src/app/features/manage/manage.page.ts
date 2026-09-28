@@ -21,7 +21,8 @@ import { AdminLeagueService } from '../../core/league/admin/admin-league.service
 import { BallLoader } from '../../shared/ball-loader/ball-loader';
 import { ReasonDialog } from '../duties/reason-dialog/reason-dialog';
 import { CreateLeagueForm } from './create-league-form/create-league-form';
-import { LeagueCard, LeagueChange } from './league-card/league-card';
+import { LeagueCard } from './league-card/league-card';
+import { LeagueChange } from './league-card/league-card.models';
 
 /**
  * `/manage`, the management centre (the admin only; the API decides): every league as a card

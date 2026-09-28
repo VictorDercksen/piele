@@ -22,11 +22,8 @@ import { LeagueContext } from '../../core/league/league-context';
 import { MarkService } from '../../core/league/marks/mark.service';
 import { StandingService } from '../../core/league/standings/standing.service';
 import { MemberAvatar } from '../../shared/member-avatar/member-avatar';
-
-/** The standings tables: the selected round, the season up to it, and house marks. */
-export type StandingsMeasure = 'round' | 'season' | 'marks';
-
-const MEASURES: readonly StandingsMeasure[] = ['round', 'season', 'marks'];
+import { PointsRow, StandingsMeasure } from './standings.page.models';
+import { measureFrom, pointsRows } from './standings.page.rows';
 
 /**
  * Round and season Superbru standings with an optional points breakdown, and the season's
@@ -75,30 +72,7 @@ export class StandingsPage {
   readonly rows = computed<readonly PointsRow[]>(() => {
     const season = this.measure() === 'season';
     const rows = season ? this.standings.seasonStandings() : this.standings.roundTable();
-    const top = Math.max(
-      0,
-      ...rows.map((row) => Math.max(row.points, row.wp + row.mp + row.gsp + row.bp)),
-    );
-    const share = (value: number) => (top > 0 ? (Math.max(0, value) / top) * 100 : 0);
-    return rows.map((row) => ({
-      memberId: row.memberId,
-      rank: row.rank,
-      name: row.name,
-      photo: row.photo,
-      teamId: row.teamId,
-      you: row.you,
-      points: row.points,
-      wp: row.wp,
-      mp: row.mp,
-      gsp: row.gsp,
-      bp: row.bp,
-      cap: row.cap,
-      spoon: row.spoon,
-      crown: 'crown' in row ? row.crown : false,
-      rounds: 'rounds' in row ? row.rounds : null,
-      override: 'override' in row ? row.override : null,
-      bar: { wp: share(row.wp), mp: share(row.mp), gsp: share(row.gsp), bp: share(row.bp) },
-    }));
+    return pointsRows(rows);
   });
 
   /** Shows a tab and records it in the `table` query parameter. */
@@ -119,37 +93,4 @@ export class StandingsPage {
     this.breakdown.set(next);
     this.preferences.saveBreakdown(next);
   }
-}
-
-function measureFrom(value: string | null): StandingsMeasure {
-  return MEASURES.find((measure) => measure === value) ?? 'round';
-}
-
-/** One line of the round or season table as the page draws it. */
-export interface PointsRow {
-  readonly memberId: string;
-  readonly rank: number;
-  readonly name: string;
-  readonly photo: string | null;
-  readonly teamId: string;
-  readonly you: boolean;
-  readonly points: number;
-  readonly wp: number;
-  readonly mp: number;
-  readonly gsp: number;
-  readonly bp: number;
-  readonly cap: boolean;
-  readonly spoon: boolean;
-  readonly crown: boolean;
-  /** Rounds counted, on the season table. */
-  readonly rounds: number | null;
-  /** The recorded total where it differs from the derived one, on the round table. */
-  readonly override: number | null;
-  /** Breakdown bar segment widths, in percent of the table's top total. */
-  readonly bar: {
-    readonly wp: number;
-    readonly mp: number;
-    readonly gsp: number;
-    readonly bp: number;
-  };
 }

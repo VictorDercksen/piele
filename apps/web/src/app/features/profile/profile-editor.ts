@@ -16,7 +16,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { AuthService } from '../../core/auth/auth.service';
@@ -33,6 +33,12 @@ import { lucideArrowRight, lucideCheck } from '@ng-icons/lucide';
 import { Loader } from '../../shared/loader/loader';
 import { LeagueCrest } from '../../shared/league-crest/league-crest';
 import { StadiumBackdrop } from '../../shared/stadium-backdrop/stadium-backdrop';
+import {
+  createProfileForm,
+  initialsOf,
+  profileFrom,
+  profileProblems,
+} from './profile-editor.form';
 
 /** Onboarding and profile form: display name, favourite team and optional photo. */
 @Component({
@@ -90,16 +96,10 @@ export class ProfileEditor {
   );
   readonly saved = output<void>();
   readonly cancel = output<void>();
-  readonly form = new FormGroup({
-    displayName: new FormControl(this.leagueName ?? this.start?.displayName ?? '', {
-      nonNullable: true,
-      validators: [Validators.required, Validators.maxLength(50), Validators.pattern(/\S/)],
-    }),
-    teamId: new FormControl(this.start?.teamId ?? '', {
-      nonNullable: true,
-      validators: [Validators.required],
-    }),
-  });
+  readonly form = createProfileForm(
+    this.leagueName ?? this.start?.displayName ?? '',
+    this.start?.teamId ?? '',
+  );
   readonly teamId = toSignal(this.form.controls.teamId.valueChanges, {
     initialValue: this.form.controls.teamId.value,
   });
@@ -107,14 +107,7 @@ export class ProfileEditor {
     initialValue: this.form.controls.displayName.value,
   });
   readonly selectedTeam = computed(() => this.competition.current().team(this.teamId()));
-  readonly initials = computed(() =>
-    (this.name().trim() || 'You')
-      .split(/\s+/)
-      .slice(0, 2)
-      .map((word) => word[0])
-      .join('')
-      .toUpperCase(),
-  );
+  readonly initials = computed(() => initialsOf(this.name()));
   readonly photo = signal(this.start?.photo ?? null);
   readonly busy = signal(false);
   readonly saving = signal(false);
@@ -178,11 +171,7 @@ export class ProfileEditor {
     }
     this.saving.set(true);
     try {
-      await this.profileControl.save({
-        displayName: this.form.controls.displayName.value.trim(),
-        teamId: this.form.controls.teamId.value,
-        photo: this.photo(),
-      });
+      await this.profileControl.save(profileFrom(this.form.getRawValue(), this.photo()));
       this.alerts.dismissKey(ALERT_KEY);
       this.saved.emit();
     } catch (error) {
@@ -197,21 +186,17 @@ export class ProfileEditor {
 
   /** One warning for the attempt, naming each field to fix, and a highlight on the first. */
   private reportProblems(): void {
-    const problems: { message: string; control: () => HTMLElement | null }[] = [];
-    if (this.form.controls.displayName.invalid)
-      problems.push({
-        message: 'Enter your name to continue.',
-        control: () => this.nameInput().nativeElement,
-      });
-    if (this.form.controls.teamId.invalid)
-      problems.push({
-        message: 'Choose the team you support.',
-        control: () =>
-          this.host.nativeElement.querySelector<HTMLInputElement>('.team-options input'),
-      });
+    const problems = profileProblems({
+      displayName: this.form.controls.displayName.invalid,
+      teamId: this.form.controls.teamId.invalid,
+    });
     const [first, ...rest] = problems;
     if (!first) return;
-    highlightProblem(first.control());
+    highlightProblem(
+      first.field === 'displayName'
+        ? this.nameInput().nativeElement
+        : this.host.nativeElement.querySelector<HTMLInputElement>('.team-options input'),
+    );
     this.alerts.warn(first.message, {
       key: ALERT_KEY,
       details: rest.map((problem) => problem.message),

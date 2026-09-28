@@ -34,4 +34,28 @@ describe('PickControlService', () => {
     await expect(service.removePick('f-1', 'm-1')).resolves.toEqual(undefined);
     expect(data.removePick).toHaveBeenCalledWith('f-1', 'm-1');
   });
+
+  it('correctPicks records the changes, then removes the cleared picks in order', async () => {
+    const { service, data } = setup();
+    const calls: string[] = [];
+    data.recordPicks.mockImplementation(async () => void calls.push('record'));
+    data.removePick.mockImplementation(async (_: string, id: string) => void calls.push(id));
+    await service.correctPicks(
+      'f-1',
+      [{ memberId: 'm-1', side: 'draw', margin: 0 }],
+      ['m-2', 'm-3'],
+    );
+    expect(data.recordPicks).toHaveBeenCalledWith('f-1', [
+      { memberId: 'm-1', side: 'draw', margin: 0 },
+    ]);
+    expect(calls).toEqual(['record', 'm-2', 'm-3']);
+  });
+
+  it('correctPicks skips an empty record and stops at the first refusal', async () => {
+    const { service, data } = setup();
+    data.removePick.mockRejectedValueOnce(new Error('refused'));
+    await expect(service.correctPicks('f-1', [], ['m-2', 'm-3'])).rejects.toThrow('refused');
+    expect(data.recordPicks).not.toHaveBeenCalled();
+    expect(data.removePick).toHaveBeenCalledTimes(1);
+  });
 });
