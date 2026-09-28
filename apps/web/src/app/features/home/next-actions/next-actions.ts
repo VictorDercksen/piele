@@ -5,13 +5,17 @@ import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideArrowRight } from '@ng-icons/lucide';
 import { FixtureService } from '../../../core/competition/fixture.service';
 import { LeagueTime } from '../../../core/competition/league-time';
+import { CaseService } from '../../../core/league/cases/case.service';
 import { RoundDutyView } from '../../../core/league/duties/duty.models';
 import { DutyService } from '../../../core/league/duties/duty.service';
 import { LeaguePathPipe } from '../../../core/league/league-path.pipe';
 import { MemberService } from '../../../core/league/members/member.service';
 import { Icon } from '../../../shared/icon/icon';
 
-/** The current member's next duty and the steward's review queue. */
+/**
+ * The current member's next duty, evidence waiting for the member's vote or ruling, and the
+ * steward's review queue.
+ */
 @Component({
   selector: 'app-next-actions',
   templateUrl: './next-actions.html',
@@ -32,9 +36,14 @@ export class NextActions {
   readonly fixtures = inject(FixtureService);
   readonly members = inject(MemberService);
   readonly dutyService = inject(DutyService);
+  readonly cases = inject(CaseService);
   readonly upload = output<RoundDutyView>();
   readonly duties = output<void>();
   deadline(duty: RoundDutyView): string {
     return this.time.format(duty.deadlineAt, 'Deadline to be confirmed');
+  }
+
+  closes(duty: RoundDutyView): string {
+    return this.time.format(duty.liveCase?.closesAt);
   }
 }

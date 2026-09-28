@@ -138,7 +138,7 @@ describe('EvidenceDialog', () => {
     await submit();
     expect(submitted).toHaveLength(1);
     expect(alerts.alerts().map((a) => [a.severity, a.message])).toEqual([
-      ['success', "Evidence recorded for Johan. Accept it from the captain's desk."],
+      ['success', 'Evidence recorded for Johan. Members vote on it next.'],
     ]);
   });
 

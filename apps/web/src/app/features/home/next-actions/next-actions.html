@@ -31,8 +31,22 @@
           {{ duty.marks.marks === 1 ? 'mark' : 'marks' }} so far, one more every full week.
         </p>
       } @else if (duty.display === 'under_review') {
-        <h3>Over to the captain.</h3>
-        <p>{{ duty.title }}. Your evidence is waiting for an uninvolved reviewer.</p>
+        @if (duty.liveCase?.status === 'in_review') {
+          <h3>Vetoed. Awaiting a ruling.</h3>
+          <p>
+            {{ duty.title }}. A member vetoed your evidence; an uninvolved reviewer rules on the
+            veto.
+          </p>
+        } @else if (duty.liveCase?.status === 'open') {
+          <h3>Over to the league.</h3>
+          <p>
+            {{ duty.title }}. Members accept or veto your evidence until {{ closes(duty) }}; with no
+            veto it is accepted then.
+          </p>
+        } @else {
+          <h3>Over to the captain.</h3>
+          <p>{{ duty.title }}. Your evidence is waiting for an uninvolved reviewer.</p>
+        }
       } @else if (duty.display === 'voided') {
         <h3>Duty voided.</h3>
         <p>{{ duty.title }}. {{ duty.voidReason || 'Closed by the captain.' }}</p>
@@ -89,6 +103,34 @@
         name="lucideArrowRight"
     /></a>
   </article>
+}
+@if (cases.roundAwaitingResponse().length; as count) {
+  <a class="captain-queue" [routerLink]="'/decisions' | leaguePath" queryParamsHandling="preserve">
+    <app-icon name="decisions" /><span
+      ><strong>Evidence awaits your vote.</strong
+      ><small
+        >{{ count }} {{ count === 1 ? 'case' : 'cases' }} to accept or veto in Round
+        {{ fixtures.round().code }}</small
+      ></span
+    ><span class="queue-count">{{ count }}</span
+    ><ng-icon class="link-icon" name="lucideArrowRight" />
+  </a>
+}
+@if (cases.roundAwaitingReview().length; as count) {
+  <a
+    class="captain-queue"
+    [routerLink]="(members.administers() ? '/captain' : '/decisions') | leaguePath"
+    queryParamsHandling="preserve"
+  >
+    <app-icon name="shield" /><span
+      ><strong>A veto awaits your ruling.</strong
+      ><small
+        >{{ count }} {{ count === 1 ? 'veto' : 'vetoes' }} to uphold or dismiss in Round
+        {{ fixtures.round().code }}</small
+      ></span
+    ><span class="queue-count">{{ count }}</span
+    ><ng-icon class="link-icon" name="lucideArrowRight" />
+  </a>
 }
 @if (members.administers() && dutyService.reviewCount()) {
   <a class="captain-queue" [routerLink]="'/captain' | leaguePath" queryParamsHandling="preserve">

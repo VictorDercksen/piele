@@ -1,16 +1,18 @@
 import type { components } from '../../api/generated';
 import { HttpClient } from '@angular/common/http';
-import { Injectable, computed, inject, signal } from '@angular/core';
+import { DestroyRef, Injectable, computed, inject, signal } from '@angular/core';
 import { Subject, firstValueFrom } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { ApiError, toApiError } from '../../api/api-error';
 import { AuthService } from '../../auth/auth.service';
 import { jpegBlob, jpegDataUrl } from '../../profile/profile-photo';
 import type { Profile } from '../../profile/profile.models';
-import { LeagueData } from './league-data';
+import { LeagueData, NO_STAND_IN } from './league-data';
 import {
   AppearanceChange,
+  CaseChoice,
   Duty,
+  EvidenceCase,
   EvidenceSubmission,
   FeedItem,
   FixturePicks,
@@ -26,8 +28,10 @@ import {
   Poll,
   RoundNote,
   RoundStanding,
+  StandInReviewer,
   StandingEntry,
   StewardPick,
+  VetoRuling,
 } from '../league.models';
 import { DEFAULT_RULES, withDefaultRules } from '../superbru';
 
@@ -47,6 +51,11 @@ type ApiFixturePicks = Schemas['FixturePicks'];
 type ApiFeedItem = Schemas['FeedItem'];
 type ApiStanding = Schemas['Standing'];
 type UploadGrant = Schemas['UploadGrant'];
+
+/** A read this soon after an evidence case's window closes finds it settled. */
+export const SETTLE_DELAY_MS = 2_000;
+/** A case still open after its window (a clock off from the API's) is read again this often. */
+export const SETTLE_RETRY_MS = 60_000;
 
 export type MembershipState = 'unknown' | 'loading' | 'member' | 'not_member' | 'error';
 
@@ -107,6 +116,10 @@ export class HttpLeagueData extends LeagueData {
   readonly marks = this.markRecords.asReadonly();
   private readonly dutyRecords = signal<readonly Duty[]>([]);
   readonly duties = this.dutyRecords.asReadonly();
+  private readonly caseRecords = signal<readonly EvidenceCase[]>([]);
+  readonly cases = this.caseRecords.asReadonly();
+  private readonly standIn = signal<StandInReviewer>(NO_STAND_IN);
+  readonly standInReviewer = this.standIn.asReadonly();
   readonly polls = signal<readonly Poll[]>([]).asReadonly();
   readonly notes = signal<readonly RoundNote[]>([]).asReadonly();
   private readonly feedRecords = signal<readonly FeedItem[]>([]);
@@ -119,6 +132,23 @@ export class HttpLeagueData extends LeagueData {
   private readonly errorState = signal<string | null>(null);
   readonly error = this.errorState.asReadonly();
   private pending: Promise<MembershipState> | null = null;
+  /** Reads the records again once the earliest open case's voting window has closed. */
+  private settleTimer: ReturnType<typeof setTimeout> | undefined;
+
+  constructor() {
+    super();
+    // The API settles closed voting windows when read; coming back to the tab reads again
+    // when a window closed meanwhile (timers are throttled or paused in hidden tabs).
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && this.caseDue())
+        void this.refresh().catch(() => undefined);
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    inject(DestroyRef).onDestroy(() => {
+      clearTimeout(this.settleTimer);
+      document.removeEventListener('visibilitychange', onVisible);
+    });
+  }
 
   selectLeague(league: LeagueSummary): void {
     void this.load(league.id);
@@ -169,6 +199,9 @@ export class HttpLeagueData extends LeagueData {
     this.rulesState.set(DEFAULT_RULES);
     this.markRecords.set([]);
     this.dutyRecords.set([]);
+    this.caseRecords.set([]);
+    this.standIn.set(NO_STAND_IN);
+    clearTimeout(this.settleTimer);
     this.feedRecords.set([]);
     this.read.set({ readAt: null, readKeys: [] });
     this.errorState.set(null);
@@ -245,6 +278,33 @@ export class HttpLeagueData extends LeagueData {
     reason: string,
   ): Promise<void> {
     await this.request('POST', `/evidence/links/${linkId}/decision`, { decision, reason });
+    await this.refresh();
+  }
+
+  /** `POST /evidence/cases/{id}/response`; the outcome may complete a duty, so all reload. */
+  async respondToCase(caseId: string, choice: CaseChoice, reason: string): Promise<void> {
+    await this.request('POST', `/evidence/cases/${encodeURIComponent(caseId)}/response`, {
+      choice,
+      reason,
+    });
+    await this.refresh();
+  }
+
+  /** `POST /evidence/cases/{id}/review`: upholding rejects the evidence, dismissing reopens. */
+  async reviewCase(caseId: string, ruling: VetoRuling, reason: string): Promise<void> {
+    await this.request('POST', `/evidence/cases/${encodeURIComponent(caseId)}/review`, {
+      ruling,
+      reason,
+    });
+    await this.refresh();
+  }
+
+  /** `PUT /stand-in-reviewer`; who may review a pending veto changes, so the cases reload. */
+  async setStandInReviewer(memberId: string | null): Promise<void> {
+    const standIn = await this.request<StandInReviewer>('PUT', '/stand-in-reviewer', {
+      memberId,
+    });
+    this.standIn.set(standIn);
     await this.refresh();
   }
 
@@ -400,6 +460,26 @@ export class HttpLeagueData extends LeagueData {
     );
   }
 
+  /** An open case whose voting window has closed: the API settles it on the next read. */
+  private caseDue(now = Date.now()): boolean {
+    return this.caseRecords().some((c) => c.status === 'open' && Date.parse(c.closesAt) <= now);
+  }
+
+  /** Reads the records again just after the earliest open case's window closes. */
+  private scheduleSettlement(leagueId: string): void {
+    clearTimeout(this.settleTimer);
+    const closes = this.caseRecords()
+      .filter((c) => c.status === 'open')
+      .map((c) => Date.parse(c.closesAt))
+      .filter((at) => Number.isFinite(at));
+    if (!closes.length) return;
+    const wait = Math.min(...closes) - Date.now();
+    const delay = wait > 0 ? wait + SETTLE_DELAY_MS : SETTLE_RETRY_MS;
+    this.settleTimer = setTimeout(() => {
+      if (this.league() === leagueId) void this.refresh(leagueId).catch(() => undefined);
+    }, delay);
+  }
+
   /** Every fixture's picks (`GET /picks`). */
   private async loadPicks(leagueId = this.league()): Promise<void> {
     const picks = await this.request<ApiFixturePicks[]>('GET', '/picks', undefined, leagueId);
@@ -536,15 +616,20 @@ export class HttpLeagueData extends LeagueData {
 
   private async refresh(leagueId = this.league()): Promise<void> {
     if (!leagueId) return;
-    const [, standings, duties, marks, feed, picks] = await Promise.all([
+    const [, standings, duties, marks, feed, picks, cases, standIn] = await Promise.all([
       this.loadMembers(this.administers(), leagueId),
       this.request<ApiStanding[]>('GET', '/standings', undefined, leagueId),
       this.request<ApiDuty[]>('GET', '/duties', undefined, leagueId),
       this.request<MemberMarks[]>('GET', '/marks', undefined, leagueId),
       this.request<ApiFeedItem[]>('GET', '/feed?limit=200', undefined, leagueId),
       this.request<ApiFixturePicks[]>('GET', '/picks', undefined, leagueId),
+      this.request<EvidenceCase[]>('GET', '/evidence/cases', undefined, leagueId),
+      this.request<StandInReviewer>('GET', '/stand-in-reviewer', undefined, leagueId),
     ]);
     if (this.league() !== leagueId) return;
+    this.caseRecords.set(cases);
+    this.standIn.set(standIn);
+    this.scheduleSettlement(leagueId);
     this.standingRecords.set(standings.map(toStanding));
     this.pickRecords.set(picks.map(toFixturePicks));
     this.dutyRecords.set(

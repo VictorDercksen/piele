@@ -1,0 +1,102 @@
+@let c = evidenceCase();
+<div class="register-heading">
+  <span class="tag" [class.warn]="c.status === 'in_review'">{{ c.statusLabel }}</span
+  ><span class="eyebrow">ROUND {{ roundCode() }} / {{ c.subjectName }}</span>
+</div>
+<h3>{{ c.dutyTitle }}</h3>
+<p class="submitted">Submitted by {{ c.submitterName }} · {{ submitted() }}</p>
+@if (c.note) {
+  <p class="note">“{{ c.note }}”</p>
+}
+<dl>
+  <div>
+    <dt>{{ c.status === 'open' ? 'Voting closes' : 'Voting window' }}</dt>
+    <dd>
+      {{ c.closes }}
+      @if (c.status === 'open') {
+        <small>{{ cases.countdown(c) }}</small>
+      }
+    </dd>
+  </div>
+  <div>
+    <dt>Participation</dt>
+    <dd>{{ c.respondedCount }} of {{ c.eligibleCount }} members responded</dd>
+  </div>
+  <div>
+    <dt>Your response</dt>
+    <dd>{{ myResponse() }}</dd>
+  </div>
+</dl>
+<div class="participation-track" aria-hidden="true">
+  <span [style.width.%]="turnout()"></span>
+</div>
+@switch (c.status) {
+  @case ('open') {
+    <p class="context-note">
+      Accepted once {{ majority() }} of {{ c.eligibleCount }} members accept, or automatically when
+      voting closes unless someone vetoes. Nobody sees who responded how.
+    </p>
+  }
+  @case ('in_review') {
+    @if (c.canReview) {
+      <p class="veto-reason"><strong>Veto:</strong> “{{ c.vetoReason }}”</p>
+      <p class="context-note">
+        You may rule on this veto. Upholding rejects the evidence; dismissing reopens voting until
+        {{ c.closes }}.
+      </p>
+    } @else if (c.needsReviewer) {
+      <p class="review-flag">
+        <span class="tag warn">NEEDS AN UNINVOLVED REVIEWER</span>
+        The captain is involved and no uninvolved stand-in reviewer is named. Name one on the
+        captain's desk, or ask the admin to rule.
+      </p>
+    } @else {
+      <p class="context-note">Voting stopped on a veto. An uninvolved reviewer will rule on it.</p>
+    }
+  }
+  @default {
+    <p class="closed-result">
+      {{ c.outcome }}
+      @if (resolved(); as at) {
+        · {{ at }}
+      }
+    </p>
+  }
+}
+<div class="case-actions">
+  @if (c.canRespond && c.myResponse !== 'accept') {
+    <button
+      hlmBtn
+      type="button"
+      class="primary-button"
+      [disabled]="accepting()"
+      [attr.aria-busy]="accepting()"
+      (click)="accept()"
+    >
+      @if (accepting()) {
+        <app-loader [size]="16" aria-hidden="true" />
+      } @else {
+        <app-icon name="check" />
+      }
+      Accept
+    </button>
+  }
+  @if (c.canRespond) {
+    <button hlmBtn type="button" class="text-button" (click)="veto()">
+      Veto<ng-icon class="link-icon" name="lucideX" />
+    </button>
+  }
+  @if (c.canReview) {
+    <button hlmBtn type="button" class="primary-button" (click)="rule('upheld')">
+      <app-icon name="shield" />Uphold veto
+    </button>
+    <button hlmBtn type="button" class="text-button" (click)="rule('dismissed')">
+      Dismiss veto<ng-icon class="link-icon" name="lucideX" />
+    </button>
+  }
+  @if (!sample()) {
+    <button hlmBtn type="button" class="text-button" (click)="watch()">
+      Watch video<ng-icon class="link-icon" name="lucidePlay" />
+    </button>
+  }
+</div>

@@ -49,11 +49,11 @@ describe('NotificationsFlag', () => {
     return harness.routeNativeElement!.querySelector('app-notifications-flag') as HTMLElement;
   }
 
-  it('lists the round’s log under the pinned duty and poll and counts the log as unread', async () => {
+  it('lists the round’s log under the pinned duty, poll and veto and counts the log as unread', async () => {
     const flag = await mount();
     const trigger = flag.querySelector<HTMLButtonElement>('.flag-trigger')!;
     expect(trigger.getAttribute('aria-expanded')).toBe('false');
-    expect(flag.querySelector('.badge')?.textContent).toBe('7');
+    expect(flag.querySelector('.badge')?.textContent).toBe('8');
     expect(flag.querySelector('.cloth')?.hasAttribute('inert')).toBe(true);
 
     trigger.click();
@@ -64,19 +64,22 @@ describe('NotificationsFlag', () => {
     expect(pinned.map((item) => item.querySelector('h3')?.textContent)).toEqual([
       'Round 02 Spoon duty',
       'Accept the Round 2 result correction?',
+      'Liam: Round 02 Pick confirmation',
     ]);
     expect(pinned[0].classList.contains('spoon-duty')).toBe(true);
+    expect(pinned[2].textContent).toContain('A veto is waiting for your ruling.');
     const items = Array.from(flag.querySelectorAll('.notification-item:not(.pinned)'));
-    expect(items.length).toBe(7);
-    expect(items[1].querySelector('h3')?.textContent).toBe('7 more matches kicked off.');
+    expect(items.length).toBe(8);
+    expect(items[2].querySelector('h3')?.textContent).toBe('7 more matches kicked off.');
     expect(items.every((item) => item.classList.contains('unread'))).toBe(true);
-    expect(items[0].querySelector('.tag')?.textContent).toContain('EVIDENCE');
-    expect(items[0].querySelector('h3')?.textContent).toContain('Liam submitted evidence');
+    expect(items[0].querySelector('.tag')?.textContent).toContain('EVIDENCE VETOED');
+    expect(items[0].querySelector('h3')?.textContent).toContain('evidence vetoed');
+    expect(items[1].querySelector('h3')?.textContent).toContain('Liam submitted evidence');
     expect(flag.querySelector('.divider')?.textContent).toBe('New');
     // The old round status card is gone; kick-offs link to the match centre instead.
     expect(items.some((item) => item.querySelector('h3')?.textContent === 'Current')).toBe(false);
-    expect(items[5].textContent).toContain('Edinburgh v Stormers kicked off.');
-    expect(items[5].textContent).toContain('Open the match centre');
+    expect(items[6].textContent).toContain('Edinburgh v Stormers kicked off.');
+    expect(items[6].textContent).toContain('Open the match centre');
   });
 
   it('follows one item and reads only that one, then marks the rest read at once', async () => {
@@ -91,7 +94,7 @@ describe('NotificationsFlag', () => {
     last.click();
     await Promise.resolve();
     TestBed.tick();
-    expect(flag.querySelector('.badge')?.textContent).toBe('6');
+    expect(flag.querySelector('.badge')?.textContent).toBe('7');
     expect(flag.classList.contains('open')).toBe(false);
 
     flag.querySelector<HTMLButtonElement>('.flag-trigger')!.click();

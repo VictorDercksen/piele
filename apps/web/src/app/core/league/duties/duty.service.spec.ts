@@ -19,6 +19,7 @@ const evidence = (id: string, decision: string): DutyEvidence => ({
   submittedAt: '2026-09-20T10:00:00Z',
   submitterId: 'm-other',
   submitterName: 'Other',
+  evidenceCase: null,
 });
 
 const duty = (id: string, change: Partial<Duty>): Duty => ({
@@ -122,6 +123,42 @@ describe('DutyService', () => {
       ['d-other', 'e-1', false],
     ]);
     expect(duties.reviewCount()).toBe(1);
+  });
+
+  it('carries the pending evidence’s live case, and none once it closed', () => {
+    const { duties, data } = setup();
+    const summary = {
+      id: 'c-1',
+      status: 'open' as const,
+      resolution: null,
+      closesAt: '2026-09-21T10:00:00Z',
+      resolvedAt: null,
+    };
+    data.duties.update((all) =>
+      all.map((d) =>
+        d.id === 'd-other'
+          ? { ...d, evidence: [{ ...evidence('e-1', 'pending'), evidenceCase: summary }] }
+          : d,
+      ),
+    );
+    expect(duties.duties().find((d) => d.id === 'd-other')?.liveCase).toEqual(summary);
+    expect(duties.duties().find((d) => d.id === 'd-done')?.liveCase).toBeNull();
+    data.duties.update((all) =>
+      all.map((d) =>
+        d.id === 'd-other'
+          ? {
+              ...d,
+              evidence: [
+                {
+                  ...evidence('e-1', 'accepted'),
+                  evidenceCase: { ...summary, status: 'accepted', resolution: 'majority' },
+                },
+              ],
+            }
+          : d,
+      ),
+    );
+    expect(duties.duties().find((d) => d.id === 'd-other')?.liveCase).toBeNull();
   });
 
   it('asks the league for a playback URL', async () => {

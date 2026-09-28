@@ -7,11 +7,13 @@ import { CompetitionService } from '../../competition/competition.service';
 import { FixtureService } from '../../competition/fixture.service';
 import { DEFAULT_ZONE, LeagueTime, zoneAbbreviation } from '../../competition/league-time';
 import { ProfileService } from '../../profile/profile.service';
+import { CaseService } from '../cases/case.service';
 import { LeagueData } from '../data/league-data';
 import { DutyService } from '../duties/duty.service';
 import { feedIcon, feedLabel, feedPath } from '../feed-presentation';
 import { FeedService } from '../feed/feed.service';
 import { FeedItem, NotificationsRead } from '../league.models';
+import { MemberService } from '../members/member.service';
 import { PollService } from '../polls/poll.service';
 import { LocatedFixture, Notice, PinnedNotice } from './notification.models';
 
@@ -33,6 +35,8 @@ export class NotificationService {
   private readonly fixtures = inject(FixtureService);
   private readonly duties = inject(DutyService);
   private readonly polls = inject(PollService);
+  private readonly cases = inject(CaseService);
+  private readonly members = inject(MemberService);
   private readonly feed = inject(FeedService);
   private readonly competition = inject(CompetitionService);
   private readonly time = inject(LeagueTime);
@@ -79,7 +83,10 @@ export class NotificationService {
 
   readonly read = this.league.notificationsRead;
 
-  /** The member's live duties and the current round's poll, kept at the top and never counted. */
+  /**
+   * The member's live duties, the current round's poll, and evidence waiting for the member's
+   * response or ruling, kept at the top and never counted.
+   */
   readonly pinned = computed<PinnedNotice[]>(() => {
     const current = this.currentRound();
     const items: PinnedNotice[] = this.duties
@@ -109,6 +116,28 @@ export class NotificationService {
         path: '/decisions',
         round: poll.roundId,
         spoon: false,
+      });
+    for (const c of this.cases.awaitingResponse())
+      items.push({
+        key: `case:${c.id}:vote`,
+        icon: 'decisions',
+        title: `${c.subjectName}: ${c.dutyTitle}`,
+        detail: `Accept or veto the evidence · voting closes ${c.closes}`,
+        action: 'Have your say',
+        path: '/decisions',
+        round: c.roundNumber,
+        spoon: c.spoon,
+      });
+    for (const c of this.cases.awaitingReview())
+      items.push({
+        key: `case:${c.id}:review`,
+        icon: 'shield',
+        title: `${c.subjectName}: ${c.dutyTitle}`,
+        detail: 'A veto is waiting for your ruling.',
+        action: 'Rule on the veto',
+        path: this.members.administers() ? '/captain' : '/decisions',
+        round: c.roundNumber,
+        spoon: c.spoon,
       });
     return items;
   });

@@ -152,11 +152,19 @@ describe('NotificationService', () => {
 
   afterEach(() => vi.useRealTimers());
 
-  it('shows the current round and the last week, with the member’s duty and poll pinned', async () => {
+  it('shows the current round and the last week, with the member’s duty, poll and veto pinned', async () => {
     const service = await setup('2026-10-05T10:00:00Z', 2);
     // Round 3 kicks off within the week, so its teamsheets and previews are followed too.
     expect(service.rounds().map((r) => r.id)).toEqual([2, 3]);
-    expect(service.pinned().map((p) => p.key)).toEqual(['duty:duty-2', 'poll:poll-2']);
+    // As captain, the member rules on the veto of Liam's evidence.
+    expect(service.pinned().map((p) => p.key)).toEqual([
+      'duty:duty-2',
+      'poll:poll-2',
+      'case:case-3:review',
+    ]);
+    expect(service.pinned()[2]).toEqual(
+      expect.objectContaining({ path: '/captain', action: 'Rule on the veto', round: 2 }),
+    );
     // Round 2 has been played: the Stormers match (the favourite team) gets its own kick-off
     // line and the other seven fold into one, between the league entries by time.
     const stormers = [...located(2).values()].find(
@@ -165,6 +173,7 @@ describe('NotificationService', () => {
     const others = [...located(2).keys()].filter((id) => id !== stormers.id).sort();
     const keys = service.stream().map((n) => n.key);
     expect(keys).toEqual([
+      'feed:feed-10',
       'feed:feed-9',
       `round:2:kicked_off:${others.join('.')}`,
       'feed:feed-7',
@@ -173,10 +182,12 @@ describe('NotificationService', () => {
       `fixture:${stormers.id}:kicked_off`,
       'feed:feed-5',
     ]);
-    expect(service.unread()).toBe(7);
-    expect(service.stream()[1].title).toBe('7 more matches kicked off.');
-    expect(service.stream()[0].label).toBe('EVIDENCE');
-    expect(service.stream()[0].action).toBe('View duties');
+    expect(service.unread()).toBe(8);
+    expect(service.stream()[2].title).toBe('7 more matches kicked off.');
+    expect(service.stream()[0].label).toBe('EVIDENCE VETOED');
+    // Evidence under the league's vote leads to the decisions page.
+    expect(service.stream()[1].label).toBe('EVIDENCE');
+    expect(service.stream()[1].action).toBe('View decision');
     expect(service.stream().every((n) => n.roundLabel === null)).toBe(true);
   });
 

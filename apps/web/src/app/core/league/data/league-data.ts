@@ -1,7 +1,9 @@
 import { Injectable, Signal, signal } from '@angular/core';
 import {
   AppearanceChange,
+  CaseChoice,
   Duty,
+  EvidenceCase,
   EvidenceSubmission,
   FeedItem,
   FixturePicks,
@@ -17,8 +19,10 @@ import {
   Poll,
   RoundNote,
   RoundStanding,
+  StandInReviewer,
   StandingEntry,
   StewardPick,
+  VetoRuling,
 } from '../league.models';
 import { loadStoredRead, storeRead } from '../notifications/notifications-read';
 import { DEFAULT_RULES } from '../superbru';
@@ -54,6 +58,14 @@ export abstract class LeagueData {
   abstract readonly rules: Signal<LeagueRules>;
   abstract readonly marks: Signal<readonly MemberMarks[]>;
   abstract readonly duties: Signal<readonly Duty[]>;
+  /**
+   * The season's evidence cases, newest first, as the current viewer may see them. A case
+   * whose window closed is settled (auto-accepted) when the records are next read; providers
+   * read again once the earliest open case's window has passed.
+   */
+  abstract readonly cases: Signal<readonly EvidenceCase[]>;
+  /** The member who reviews vetoes when the captain is involved. */
+  abstract readonly standInReviewer: Signal<StandInReviewer>;
   abstract readonly polls: Signal<readonly Poll[]>;
   abstract readonly notes: Signal<readonly RoundNote[]>;
   abstract readonly feed: Signal<readonly FeedItem[]>;
@@ -82,6 +94,15 @@ export abstract class LeagueData {
     decision: 'accepted' | 'rejected',
     reason: string,
   ): Promise<void>;
+  /**
+   * An eligible voter accepts the evidence, or vetoes it with a reason, while voting is
+   * open. An accept may become a veto; a veto is final.
+   */
+  abstract respondToCase(caseId: string, choice: CaseChoice, reason: string): Promise<void>;
+  /** The permitted reviewer upholds (rejects the evidence) or dismisses the pending veto. */
+  abstract reviewCase(caseId: string, ruling: VetoRuling, reason: string): Promise<void>;
+  /** Captain or admin: names the stand-in reviewer, or clears it with null. */
+  abstract setStandInReviewer(memberId: string | null): Promise<void>;
   /** A short-lived playback URL for a submitted video. */
   abstract playbackUrl(assetId: string): Promise<string>;
   abstract addMember(member: NewMember): Promise<void>;
@@ -116,6 +137,9 @@ export abstract class LeagueData {
   abstract clearStanding(roundId: number, memberId: string): Promise<void>;
 }
 
+/** No stand-in reviewer named. */
+export const NO_STAND_IN: StandInReviewer = { memberId: null, memberName: null };
+
 /** No league records. Used when neither the API nor sample data is configured. */
 @Injectable()
 export class EmptyLeagueData extends LeagueData {
@@ -133,6 +157,8 @@ export class EmptyLeagueData extends LeagueData {
   readonly rules = this.rulesState.asReadonly();
   readonly marks = signal<readonly MemberMarks[]>([]).asReadonly();
   readonly duties = signal<readonly Duty[]>([]).asReadonly();
+  readonly cases = signal<readonly EvidenceCase[]>([]).asReadonly();
+  readonly standInReviewer = signal<StandInReviewer>(NO_STAND_IN).asReadonly();
   readonly polls = signal<readonly Poll[]>([]).asReadonly();
   readonly notes = signal<readonly RoundNote[]>([]).asReadonly();
   readonly feed = signal<readonly FeedItem[]>([]).asReadonly();
@@ -178,6 +204,18 @@ export class EmptyLeagueData extends LeagueData {
 
   decideEvidence(): Promise<void> {
     return unavailable('Evidence review');
+  }
+
+  respondToCase(): Promise<void> {
+    return unavailable('Evidence votes');
+  }
+
+  reviewCase(): Promise<void> {
+    return unavailable('Veto reviews');
+  }
+
+  setStandInReviewer(): Promise<void> {
+    return unavailable('Stand-in reviewers');
   }
 
   playbackUrl(): Promise<string> {

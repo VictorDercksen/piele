@@ -1,0 +1,40 @@
+<app-dropdown heading="The stand-in reviewer." headingId="stand-in-heading">
+  @if (standIn().memberName; as name) {
+    <span class="tag" dropdownSide>{{ name }}</span>
+  }
+  <p class="page-description">
+    Rules on vetoes when the captain is involved: the captain's own duty, or the captain's own veto.
+    Not when the stand-in is involved too; then only the admin can rule.
+  </p>
+  <label hlmLabel class="field">
+    <span>Stand-in reviewer</span>
+    <app-search-select
+      [formControl]="choice"
+      aria-label="Stand-in reviewer"
+      [options]="options()"
+      placeholder="Choose a member"
+      searchLabel="Search members"
+    />
+  </label>
+  <p class="context-note">
+    {{
+      standIn().memberName
+        ? standIn().memberName + ' reviews vetoes that involve the captain.'
+        : 'None named. Vetoes that involve the captain wait for the admin.'
+    }}
+    Only members who have claimed their name can be chosen.
+  </p>
+  <button
+    hlmBtn
+    type="button"
+    class="primary-button"
+    [disabled]="!changed() || saving()"
+    [attr.aria-busy]="saving()"
+    (click)="save()"
+  >
+    @if (saving()) {
+      <app-loader [size]="16" aria-hidden="true" />
+    }
+    Save stand-in
+  </button>
+</app-dropdown>

@@ -163,7 +163,7 @@ export class EvidenceDialog {
       this.alerts.dismissKey(EVIDENCE_FAILURE);
       this.close();
       const outcome = this.onBehalf()
-        ? `Evidence recorded for ${duty.memberName}. Accept it from the captain's desk.`
+        ? `Evidence recorded for ${duty.memberName}. Members vote on it next.`
         : 'Evidence submitted for review.';
       this.alerts.success(
         this.records.sample ? `Sample only: ${outcome} No file was uploaded.` : outcome,

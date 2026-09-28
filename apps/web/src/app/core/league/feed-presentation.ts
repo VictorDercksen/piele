@@ -16,6 +16,8 @@ export const FEED_ICONS: Record<string, string> = {
   evidence_submitted: 'upload',
   evidence_accepted: 'check',
   evidence_rejected: 'close',
+  evidence_vetoed: 'shield',
+  evidence_veto_dismissed: 'decisions',
   standings_recorded: 'standings',
   rules_updated: 'standings',
   match_result: 'standings',
@@ -39,6 +41,8 @@ export const FEED_LABELS: Record<string, string> = {
   evidence_submitted: 'EVIDENCE',
   evidence_accepted: 'DUTY COMPLETED',
   evidence_rejected: 'EVIDENCE REJECTED',
+  evidence_vetoed: 'EVIDENCE VETOED',
+  evidence_veto_dismissed: 'VETO DISMISSED',
   standings_recorded: 'SUPERBRU TABLE',
   rules_updated: 'RULES',
   match_result: 'RESULT',
@@ -55,8 +59,16 @@ export function feedLabel(kind: string): string {
   return FEED_LABELS[kind] ?? kind.replace(/_/g, ' ').toUpperCase();
 }
 
+/** Evidence the league votes on, or a veto on it: the decisions page holds the case. */
+const CASE_KINDS: ReadonlySet<string> = new Set([
+  'evidence_submitted',
+  'evidence_vetoed',
+  'evidence_veto_dismissed',
+]);
+
 /** The page a feed item leads to, or null for items that are only news. */
 export function feedPath(item: Pick<FeedItem, 'kind'>): string | null {
+  if (CASE_KINDS.has(item.kind)) return '/decisions';
   if (item.kind.startsWith('duty') || item.kind.startsWith('evidence')) return '/duties';
   if (item.kind.startsWith('poll')) return '/decisions';
   if (item.kind === 'match_result' || item.kind === 'standings_recorded') return '/standings';

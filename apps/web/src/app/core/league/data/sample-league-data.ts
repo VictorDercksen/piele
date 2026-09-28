@@ -2,12 +2,15 @@ import { Injectable, Signal, WritableSignal, computed, inject, signal } from '@a
 import { CompetitionService } from '../../competition/competition.service';
 import { isAccentColour, isEmblemPreset } from '../emblems';
 import { ApiError } from '../../api/api-error';
-import { LeagueData } from './league-data';
+import { LeagueData, NO_STAND_IN } from './league-data';
 import {
   Account,
   AppearanceChange,
+  CaseChoice,
+  CaseResolution,
   Duty,
   DutyEvidence,
+  EvidenceCase,
   EvidenceSubmission,
   FeedItem,
   FixturePicks,
@@ -25,8 +28,10 @@ import {
   Poll,
   RoundNote,
   RoundStanding,
+  StandInReviewer,
   StandingEntry,
   StewardPick,
+  VetoRuling,
 } from '../league.models';
 import { loadStoredRead, storeRead } from '../notifications/notifications-read';
 import { sampleMarks } from '../marks';
@@ -34,12 +39,15 @@ import {
   SAMPLE_ACCOUNT,
   SAMPLE_LEAGUES,
   SAMPLE_ME as ME,
+  SampleCaseRecord as CaseRecord,
   SampleDutyRecord as DutyRecord,
   SampleLeagueSeed,
   SamplePickRecord,
+  VOTING_HOURS,
   feedItem,
   memberRecord,
   sampleResults,
+  votingCloses,
 } from './sample-leagues';
 import { rankRows, withDefaultRules } from '../superbru';
 
@@ -64,13 +72,13 @@ export class SampleLeagueData extends LeagueData {
   private readonly leagues = new Map<string, SampleLeague>();
   /** Every sample league, including those made in the management centre this session. */
   private readonly seeds = signal<readonly SampleLeagueSeed[]>(SAMPLE_LEAGUES);
-  private readonly active = signal<SampleLeague>(this.league(SAMPLE_LEAGUES[0]));
-  readonly source = 'sample';
   /**
    * Whether the sample account is the admin. Read once from the first page's address:
    * `?sampleAdmin=0` makes it a plain member of Piele and the Pofadder Bowl.
    */
   readonly isAdmin = sampleAdmin();
+  private readonly active = signal<SampleLeague>(this.league(SAMPLE_LEAGUES[0]));
+  readonly source = 'sample';
   /** The slug of the league whose records are showing. */
   readonly slug = computed(() => this.active().seed.summary.slug);
   /** The sample member, or null in the league the sample account sees only as the admin. */
@@ -92,6 +100,8 @@ export class SampleLeagueData extends LeagueData {
   readonly picks = this.from((league) => league.picks);
   readonly rules = this.from((league) => league.rules);
   readonly duties = this.from((league) => league.duties);
+  readonly cases = this.from((league) => league.cases);
+  readonly standInReviewer = this.from((league) => league.standInReviewer);
   readonly marks = this.from((league) => league.marks);
   readonly polls = this.from((league) => league.polls);
   readonly notes = this.from((league) => league.notes);
@@ -101,7 +111,10 @@ export class SampleLeagueData extends LeagueData {
   /** Switches to a sample league's records. Unknown slugs keep the current league. */
   selectLeague(league: LeagueSummary): void {
     const seed = this.seed(league.slug);
-    if (seed) this.active.set(this.league(seed));
+    if (!seed) return;
+    const next = this.league(seed);
+    next.settleDue();
+    this.active.set(next);
   }
 
   /** The sample league with this slug, whether or not it is showing. */
@@ -165,6 +178,18 @@ export class SampleLeagueData extends LeagueData {
 
   decideEvidence(linkId: string, decision: 'accepted' | 'rejected', reason: string): Promise<void> {
     return this.active().decideEvidence(linkId, decision, reason);
+  }
+
+  respondToCase(caseId: string, choice: CaseChoice, reason: string): Promise<void> {
+    return this.active().respondToCase(caseId, choice, reason);
+  }
+
+  reviewCase(caseId: string, ruling: VetoRuling, reason: string): Promise<void> {
+    return this.active().reviewCase(caseId, ruling, reason);
+  }
+
+  setStandInReviewer(memberId: string | null): Promise<void> {
+    return this.steward() ?? this.active().setStandIn(memberId);
   }
 
   playbackUrl(): Promise<string> {
@@ -264,7 +289,7 @@ export class SampleLeagueData extends LeagueData {
   private league(seed: SampleLeagueSeed): SampleLeague {
     let league = this.leagues.get(seed.summary.slug);
     if (!league) {
-      league = new SampleLeague(seed, this.competition);
+      league = new SampleLeague(seed, this.competition, this.isAdmin);
       this.leagues.set(seed.summary.slug, league);
     }
     return league;
@@ -312,11 +337,20 @@ export class SampleLeague {
   private readonly look: WritableSignal<LeagueAppearance>;
   readonly appearance: Signal<LeagueAppearance>;
   private readonly clock = signal(Date.now());
+  /** Whether the sample account is the admin, which lets it review vetoes it is not part of. */
+  private readonly isAdmin: boolean;
+  private readonly caseRecords: WritableSignal<readonly CaseRecord[]>;
+  private readonly standInState: WritableSignal<string | null>;
+  /** Settles the earliest open case when its voting window closes. */
+  private settleTimer: ReturnType<typeof setTimeout> | undefined;
+  /** Keeps feed ids unique when several entries are posted in the same millisecond. */
+  private feedSequence = 0;
   readonly duties = computed<readonly Duty[]>(() => {
     const now = new Date(this.clock());
     const members = this.memberRecords();
     const active = new Set(members.map((m) => m.id));
     const picks = this.pickRecords();
+    const caseOf = new Map(this.caseRecords().map((c) => [c.linkId, c]));
     return this.dutyRecords()
       .filter((record) => active.has(record.memberId))
       .map((record) => {
@@ -338,6 +372,21 @@ export class SampleLeague {
                 : 'open';
         return {
           ...record,
+          evidence: record.evidence.map((e) => {
+            const c = caseOf.get(e.id);
+            return c
+              ? {
+                  ...e,
+                  evidenceCase: {
+                    id: c.id,
+                    status: c.status,
+                    resolution: c.resolution,
+                    closesAt: c.closesAt,
+                    resolvedAt: c.resolvedAt,
+                  },
+                }
+              : e;
+          }),
           memberName: members.find((m) => m.id === record.memberId)?.name ?? 'Unknown member',
           title: this.title(record.type, record.roundId),
           display,
@@ -366,6 +415,70 @@ export class SampleLeague {
       (a, b) => b.marks - a.marks || a.memberName.localeCompare(b.memberName),
     );
   });
+  /**
+   * The season's cases as the API lists them to the sample member: newest first, with
+   * participation and the member's own ballot, never another voter's. The pending veto's
+   * reason goes only to whoever may rule on it.
+   */
+  readonly cases = computed<readonly EvidenceCase[]>(() => {
+    const me = this.me();
+    const captain = this.captain();
+    const standIn = this.standInState();
+    const manages = this.isAdmin || (!!me && (captain === me || standIn === me));
+    const names = new Map(
+      [...this.memberRecords(), ...this.withdrawnRecords()].map((m) => [m.id, m.name]),
+    );
+    const duties = this.dutyRecords();
+    return [...this.caseRecords()]
+      .sort((a, b) => b.openedAt.localeCompare(a.openedAt) || a.id.localeCompare(b.id))
+      .flatMap((record) => {
+        const duty = duties.find((d) => d.id === record.dutyId);
+        const link = duty?.evidence.find((e) => e.id === record.linkId);
+        if (!duty || !link) return [];
+        const ballot = me ? record.voters.find((v) => v.memberId === me) : undefined;
+        const veto =
+          record.status === 'in_review'
+            ? record.voters.find((v) => v.review === 'pending')
+            : undefined;
+        const canReview = !!veto && this.mayReview(record, veto.memberId);
+        return [
+          {
+            id: record.id,
+            dutyId: duty.id,
+            linkId: link.id,
+            submissionId: link.submissionId,
+            assetId: link.assetId,
+            roundNumber: duty.roundId,
+            dutyType: duty.type,
+            dutyTitle: this.title(duty.type, duty.roundId),
+            subjectId: record.subjectId,
+            subjectName: names.get(record.subjectId) ?? 'Unknown member',
+            submitterName: link.submitterName,
+            submittedAt: link.submittedAt,
+            note: link.note,
+            openedAt: record.openedAt,
+            closesAt: record.closesAt,
+            status: record.status,
+            resolution: record.resolution,
+            resolvedAt: record.resolvedAt,
+            eligibleCount: record.voters.length,
+            respondedCount: record.voters.filter((v) => v.choice !== null).length,
+            isVoter: !!ballot,
+            myResponse: ballot?.choice ?? null,
+            myVetoReason: ballot?.vetoReason ?? null,
+            canRespond: !!ballot && record.status === 'open' && ballot.choice !== 'veto',
+            canReview,
+            vetoReason: canReview ? (veto?.vetoReason ?? null) : null,
+            needsReviewer: manages && !!veto && this.needsReviewer(record, veto.memberId),
+          },
+        ];
+      });
+  });
+  readonly standInReviewer = computed<StandInReviewer>(() => {
+    const id = this.standInState();
+    const member = id ? this.memberRecords().find((m) => m.id === id) : undefined;
+    return member ? { memberId: member.id, memberName: member.name } : NO_STAND_IN;
+  });
   private readonly pollRecords: WritableSignal<readonly Poll[]>;
   readonly polls: Signal<readonly Poll[]>;
   readonly notes: Signal<readonly RoundNote[]>;
@@ -374,8 +487,11 @@ export class SampleLeague {
   private readonly readState: WritableSignal<NotificationsRead>;
   readonly read: Signal<NotificationsRead>;
 
-  constructor(seed: SampleLeagueSeed, competition: CompetitionService) {
+  constructor(seed: SampleLeagueSeed, competition: CompetitionService, isAdmin = false) {
     this.seed = seed;
+    this.isAdmin = isAdmin;
+    this.caseRecords = signal<readonly CaseRecord[]>(seed.cases ?? []);
+    this.standInState = signal<string | null>(seed.standInReviewerId ?? null);
     this.me = signal(seed.summary.memberId);
     this.captainState = signal(seed.captainId);
     this.captain = this.captainState.asReadonly();
@@ -403,6 +519,7 @@ export class SampleLeague {
     this.feed = this.feedRecords.asReadonly();
     this.readState = signal<NotificationsRead>(loadStoredRead(seed.summary.slug));
     this.read = this.readState.asReadonly();
+    this.settleDue();
   }
 
   /** The sample member here, or null where the sample account is only the admin. */
@@ -464,6 +581,7 @@ export class SampleLeague {
   });
 
   reload(): void {
+    this.settleDue();
     this.clock.set(Date.now());
   }
 
@@ -482,6 +600,8 @@ export class SampleLeague {
   appoint(memberId: string): void {
     const member = this.memberRecords().find((m) => m.id === memberId);
     this.captainState.set(memberId);
+    // The captain cannot also be the stand-in reviewer.
+    if (this.standInState() === memberId) this.standInState.set(null);
     if (member) this.post('captain_appointed', null, `${member.name} is captain.`, '', member.name);
   }
 
@@ -517,6 +637,11 @@ export class SampleLeague {
     return Promise.resolve();
   }
 
+  /**
+   * Evidence opens a case on each duty, as the API does it: newer evidence supersedes the
+   * duty's pending evidence and its case, and the active members other than the duty's member
+   * and the submitter vote for 24 hours. With nobody to vote the evidence is accepted at once.
+   */
   submitEvidence({
     dutyIds,
     note,
@@ -524,16 +649,22 @@ export class SampleLeague {
     claimedCompletedAt,
   }: EvidenceSubmission): Promise<void> {
     if (!this.memberId) return notAMember();
+    this.settleDue();
     const subject = subjectMemberId ?? ME;
     const now = new Date().toISOString();
-    const submissionId = `sub-${Date.now()}`;
+    const stamp = `${Date.now()}-${++this.feedSequence}`;
+    const submissionId = `sub-${stamp}`;
+    const electorate = this.memberRecords()
+      .map((m) => m.id)
+      .filter((id) => id !== subject && id !== ME);
+    const superseded: string[] = [];
     let touched: DutyRecord[] = [];
     this.dutyRecords.update((duties) =>
       duties.map((duty) => {
         if (!dutyIds.includes(duty.id) || duty.memberId !== subject || duty.status !== 'open')
           return duty;
         const evidence: DutyEvidence = {
-          id: `link-${duty.id}-${Date.now()}`,
+          id: `link-${duty.id}-${stamp}`,
           submissionId,
           assetId: `asset-${submissionId}`,
           decision: 'pending',
@@ -545,21 +676,67 @@ export class SampleLeague {
           note,
           submitterId: ME,
           submitterName: 'You',
+          evidenceCase: null,
         };
-        const next = { ...duty, evidence: [evidence, ...duty.evidence] };
+        const prior = duty.evidence.map((e) => {
+          if (e.decision !== 'pending') return e;
+          superseded.push(e.id);
+          return { ...e, decision: 'superseded' };
+        });
+        const next = { ...duty, evidence: [evidence, ...prior] };
         touched = [...touched, next];
         return next;
       }),
     );
     if (!touched.length) return Promise.reject(new Error('That duty is no longer open.'));
+    this.supersedeCases(superseded, now);
+    const opened: CaseRecord[] = touched.map((duty) => ({
+      id: `case-${duty.id}-${stamp}`,
+      dutyId: duty.id,
+      linkId: duty.evidence[0].id,
+      subjectId: subject,
+      openedAt: now,
+      closesAt: votingCloses(now),
+      status: 'open',
+      resolution: null,
+      resolvedAt: null,
+      voters: electorate.map((memberId) => ({
+        memberId,
+        choice: null,
+        vetoReason: null,
+        review: null,
+      })),
+    }));
+    this.caseRecords.update((records) => [...opened, ...records]);
     const name = this.memberRecords().find((m) => m.id === subject)?.name ?? 'Member';
-    this.post(
-      'evidence_submitted',
-      touched[0].roundId,
-      `${name} submitted evidence for ${touched.map((d) => this.title(d.type, d.roundId)).join(', ')}.`,
-      subject === ME ? 'Waiting for an uninvolved reviewer.' : 'Recorded by the captain.',
-      name,
-    );
+    const titles = touched.map((d) => this.title(d.type, d.roundId)).join(', ');
+    const recorded = subject === ME ? '' : 'Recorded by the captain. ';
+    if (electorate.length) {
+      this.post(
+        'evidence_submitted',
+        touched[0].roundId,
+        `${name} submitted evidence for ${titles}.`,
+        `${recorded}Members have ${VOTING_HOURS} hours to accept or veto it.`,
+        name,
+      );
+    } else {
+      for (const record of opened) {
+        this.applyDecision(record, 'accepted', 'No other member could vote.', now);
+        this.updateCase(record.id, () => ({
+          status: 'accepted',
+          resolution: 'no_voters',
+          resolvedAt: now,
+        }));
+      }
+      this.post(
+        'evidence_accepted',
+        touched[0].roundId,
+        `${name}: ${titles} completed.`,
+        `${recorded}Accepted: no other member could vote on it.`,
+        name,
+      );
+    }
+    this.scheduleSettlement();
     return Promise.resolve();
   }
 
@@ -637,6 +814,7 @@ export class SampleLeague {
     const duty = this.dutyRecords().find((d) => d.id === dutyId);
     if (!duty || duty.status === 'voided' || duty.status === 'completed')
       return Promise.reject(new Error('A completed or voided duty cannot be voided.'));
+    this.settleDue();
     this.dutyRecords.update((duties) =>
       duties.map((d) =>
         d.id === dutyId
@@ -650,6 +828,10 @@ export class SampleLeague {
             }
           : d,
       ),
+    );
+    this.supersedeCases(
+      duty.evidence.filter((e) => e.decision === 'pending').map((e) => e.id),
+      new Date().toISOString(),
     );
     const name = this.memberRecords().find((m) => m.id === duty.memberId)?.name ?? 'Member';
     this.post(
@@ -685,43 +867,25 @@ export class SampleLeague {
     return Promise.resolve();
   }
 
+  /** The captain's override: decides the evidence at any time and closes its case. */
   decideEvidence(linkId: string, decision: 'accepted' | 'rejected', reason: string): Promise<void> {
     if (!this.memberId) return notAMember();
+    this.settleDue();
     const duty = this.dutyRecords().find((d) => d.evidence.some((e) => e.id === linkId));
     const link = duty?.evidence.find((e) => e.id === linkId);
     if (!duty || !link || link.decision !== 'pending')
       return Promise.reject(new Error('This evidence was already decided.'));
     if (duty.memberId === ME)
       return Promise.reject(new Error('Your own evidence needs an uninvolved reviewer.'));
-    const effective =
-      link.submitterId === duty.memberId
-        ? link.submittedAt
-        : (link.claimedCompletedAt ?? link.submittedAt);
     const now = new Date().toISOString();
-    this.dutyRecords.update((duties) =>
-      duties.map((d) =>
-        d.id !== duty.id
-          ? d
-          : {
-              ...d,
-              status: decision === 'accepted' ? 'completed' : d.status,
-              completedAt: decision === 'accepted' ? effective : d.completedAt,
-              evidence: d.evidence.map((e) =>
-                e.id === linkId
-                  ? {
-                      ...e,
-                      decision,
-                      decidedAt: now,
-                      reason,
-                      effectiveCompletedAt: decision === 'accepted' ? effective : null,
-                    }
-                  : decision === 'accepted' && e.decision === 'pending'
-                    ? { ...e, decision: 'superseded' }
-                    : e,
-              ),
-            },
-      ),
-    );
+    this.applyDecision({ dutyId: duty.id, linkId }, decision, reason, now);
+    const live = this.caseRecords().find((c) => c.linkId === linkId && isLive(c));
+    if (live)
+      this.updateCase(live.id, () => ({
+        status: decision,
+        resolution: 'captain',
+        resolvedAt: now,
+      }));
     const name = this.memberRecords().find((m) => m.id === duty.memberId)?.name ?? 'Member';
     this.post(
       decision === 'accepted' ? 'evidence_accepted' : 'evidence_rejected',
@@ -730,7 +894,139 @@ export class SampleLeague {
       reason,
       name,
     );
+    this.scheduleSettlement();
     return Promise.resolve();
+  }
+
+  /**
+   * An eligible voter accepts, or vetoes with a reason, while voting is open, as
+   * `POST /evidence/cases/{id}/response` does it. The accept that makes a majority accepts
+   * the evidence; a veto stops voting until an uninvolved reviewer rules on it.
+   */
+  respondToCase(caseId: string, choice: CaseChoice, reason: string): Promise<void> {
+    const me = this.memberId;
+    if (!me) return notAMember();
+    const text = reason.trim();
+    if (choice === 'veto' && !text)
+      return refuse(422, 'reason_required', 'Say why you veto this evidence.');
+    if (text.length > 500) return refuse(422, 'validation', 'Keep the reason to 500 characters.');
+    this.settleDue();
+    const record = this.caseRecords().find((c) => c.id === caseId);
+    if (!record) return refuse(404, 'unknown_case', 'Unknown evidence case.');
+    const ballot = record.voters.find((v) => v.memberId === me);
+    if (!ballot) return refuse(403, 'not_a_voter', 'You cannot vote on this evidence.');
+    if (record.status !== 'open')
+      return refuse(409, 'voting_closed', 'Voting on this evidence has closed.');
+    if (ballot.choice === 'veto')
+      return refuse(409, 'veto_final', 'Your veto stands and cannot be changed.');
+    const now = new Date().toISOString();
+    if (choice === 'accept') {
+      if (ballot.choice === 'accept') return Promise.resolve();
+      const next = this.updateCase(caseId, (c) => ({
+        voters: c.voters.map((v) => (v.memberId === me ? { ...v, choice: 'accept' } : v)),
+      }));
+      if (majority(next))
+        this.closeCase(next, 'accepted', 'majority', now, 'Accepted by a majority of members.');
+      this.scheduleSettlement();
+      return Promise.resolve();
+    }
+    const next = this.updateCase(caseId, (c) => ({
+      status: 'in_review',
+      voters: c.voters.map((v) =>
+        v.memberId === me ? { ...v, choice: 'veto', vetoReason: text, review: 'pending' } : v,
+      ),
+    }));
+    const { name, heading, roundId } = this.describe(next);
+    this.post(
+      'evidence_vetoed',
+      roundId,
+      `${name}: ${heading} evidence vetoed.`,
+      'Waiting for an uninvolved reviewer.',
+      name,
+      { actorName: null },
+    );
+    this.scheduleSettlement();
+    return Promise.resolve();
+  }
+
+  /**
+   * Rules on the case's pending veto, as `POST /evidence/cases/{id}/review` does it. Upheld
+   * rejects the evidence (the duty stays open); dismissed reopens voting on the original timer
+   * and accepts at once when a majority already accepted or the window has closed.
+   */
+  reviewCase(caseId: string, ruling: VetoRuling, reason: string): Promise<void> {
+    const text = reason.trim();
+    if (!text) return refuse(422, 'reason_required', 'Give a reason for the ruling.');
+    if (text.length > 500) return refuse(422, 'validation', 'Keep the reason to 500 characters.');
+    this.settleDue();
+    const record = this.caseRecords().find((c) => c.id === caseId);
+    if (!record) return refuse(404, 'unknown_case', 'Unknown evidence case.');
+    const veto = record.voters.find((v) => v.review === 'pending');
+    if (record.status !== 'in_review' || !veto)
+      return refuse(409, 'not_in_review', 'This evidence has no veto waiting for review.');
+    if (!this.mayReview(record, veto.memberId))
+      return refuse(403, 'not_reviewer', 'This veto needs an uninvolved reviewer.');
+    const now = new Date().toISOString();
+    const ruled = this.updateCase(caseId, (c) => ({
+      voters: c.voters.map((v) => (v.memberId === veto.memberId ? { ...v, review: ruling } : v)),
+    }));
+    if (ruling === 'upheld') {
+      this.closeCase(ruled, 'rejected', 'veto_upheld', now, text, { actorName: this.actor() });
+    } else {
+      const reopened = this.updateCase(caseId, () => ({ status: 'open' }));
+      const detail = `Veto dismissed: ${text}`;
+      if (majority(reopened))
+        this.closeCase(reopened, 'accepted', 'majority', now, detail, { reason: text });
+      else if (Date.now() >= Date.parse(reopened.closesAt))
+        this.closeCase(reopened, 'accepted', 'auto', now, detail, { reason: text });
+      else {
+        const { name, heading, roundId } = this.describe(reopened);
+        this.post(
+          'evidence_veto_dismissed',
+          roundId,
+          `${name}: ${heading} veto dismissed.`,
+          `${text} Voting reopens until the original closing time.`,
+          name,
+          { actorName: null },
+        );
+      }
+    }
+    this.scheduleSettlement();
+    return Promise.resolve();
+  }
+
+  /**
+   * Names the stand-in reviewer, or clears it with null, as `PUT /stand-in-reviewer` does:
+   * an active member who has claimed their name, and not the captain.
+   */
+  setStandIn(memberId: string | null): Promise<void> {
+    if (memberId !== null) {
+      const member = this.memberRecords().find((m) => m.id === memberId);
+      if (!member) return refuse(404, 'unknown_member', 'Unknown member.');
+      if (memberId === this.captain())
+        return refuse(
+          409,
+          'captain_cannot_stand_in',
+          'The captain cannot be the stand-in reviewer.',
+        );
+      if (!member.claimed)
+        return refuse(409, 'not_claimed', 'Only a member who has claimed their name can review.');
+    }
+    this.standInState.set(memberId);
+    return Promise.resolve();
+  }
+
+  /**
+   * Accepts every open case whose voting window has closed, dated when it closed. Reading
+   * the records, and every case or evidence change, settles first, like the API.
+   */
+  settleDue(now = Date.now()): void {
+    for (const record of this.caseRecords()) {
+      if (record.status !== 'open' || Date.parse(record.closesAt) > now) continue;
+      const reason = `No veto within ${VOTING_HOURS} hours.`;
+      this.closeCase(record, 'accepted', 'auto', record.closesAt, reason);
+    }
+    this.scheduleSettlement();
   }
 
   addMember(member: NewMember): Promise<void> {
@@ -753,6 +1049,7 @@ export class SampleLeague {
     this.memberRecords.update((members) =>
       members.map((m) => (m.id === memberId ? { ...m, claimed: false } : m)),
     );
+    if (this.standInState() === memberId) this.standInState.set(null);
     return Promise.resolve();
   }
 
@@ -804,13 +1101,27 @@ export class SampleLeague {
       { ...member, leftAt: new Date().toISOString(), withdrawalReason: text },
       ...members,
     ]);
+    const live = (d: DutyRecord) =>
+      d.memberId === memberId && (d.status === 'open' || d.status === 'pending_deadline');
+    const pending = this.dutyRecords()
+      .filter(live)
+      .flatMap((d) => d.evidence.filter((e) => e.decision === 'pending').map((e) => e.id));
     this.dutyRecords.update((duties) =>
       duties.map((d) =>
-        d.memberId === memberId && (d.status === 'open' || d.status === 'pending_deadline')
-          ? { ...d, status: 'voided', voidReason: 'Member withdrawn' }
+        live(d)
+          ? {
+              ...d,
+              status: 'voided',
+              voidReason: 'Member withdrawn',
+              evidence: d.evidence.map((e) =>
+                e.decision === 'pending' ? { ...e, decision: 'superseded' } : e,
+              ),
+            }
           : d,
       ),
     );
+    this.supersedeCases(pending, new Date().toISOString());
+    if (this.standInState() === memberId) this.standInState.set(null);
     this.post('member_left', null, `${member.name} left the clubhouse.`, '', member.name);
     return Promise.resolve();
   }
@@ -1049,26 +1360,208 @@ export class SampleLeague {
     return title(type, roundId, (id) => competition.roundCode(id));
   }
 
+  /**
+   * Adds a feed entry. Case outcomes name no actor (`actorName: null`), so nobody learns who
+   * voted; a settled case is dated when its window closed (`at`).
+   */
   private post(
     kind: FeedItem['kind'],
     roundId: number | null,
     titleText: string,
     detail: string,
     subjectName: string | null,
+    { at = new Date().toISOString(), actorName = 'You' }: FeedOptions = {},
   ): void {
     this.feedRecords.update((items) => [
       feedItem(
-        `feed-${Date.now()}`,
+        `feed-${Date.now()}-${++this.feedSequence}`,
         kind,
         roundId,
         titleText,
         detail,
-        new Date().toISOString(),
+        at,
         subjectName,
+        actorName,
       ),
       ...items,
     ]);
   }
+
+  /** The case's duty member, duty title and round, for its feed entries. */
+  private describe(record: CaseRecord): { name: string; heading: string; roundId: number | null } {
+    const duty = this.dutyRecords().find((d) => d.id === record.dutyId);
+    const name = [...this.memberRecords(), ...this.withdrawnRecords()].find(
+      (m) => m.id === record.subjectId,
+    )?.name;
+    return {
+      name: name ?? 'Member',
+      heading: duty ? this.title(duty.type, duty.roundId) : 'Duty',
+      roundId: duty?.roundId ?? null,
+    };
+  }
+
+  /** How the sample member is named when attributed: the admin without a membership as such. */
+  private actor(): string {
+    return this.memberId ? 'You' : 'Admin';
+  }
+
+  /**
+   * Whether the sample member may rule on the case's pending veto: the admin without a
+   * membership always; nobody on their own duty or veto; the captain (or the admin holding
+   * a membership) when uninvolved; the stand-in only when the captain is involved.
+   */
+  private mayReview(record: CaseRecord, vetoerId: string): boolean {
+    const me = this.me();
+    if (!me) return this.isAdmin;
+    const involved = [record.subjectId, vetoerId];
+    if (involved.includes(me)) return false;
+    if (this.captain() === me || this.isAdmin) return true;
+    return involved.includes(this.captain()) && this.standInState() === me;
+  }
+
+  /** No member may rule: the captain is involved and there is no uninvolved stand-in. */
+  private needsReviewer(record: CaseRecord, vetoerId: string): boolean {
+    const involved = [record.subjectId, vetoerId];
+    const standIn = this.standInState();
+    return involved.includes(this.captain()) && (!standIn || involved.includes(standIn));
+  }
+
+  /** Changes one case and returns it as changed. */
+  private updateCase(id: string, change: (record: CaseRecord) => Partial<CaseRecord>): CaseRecord {
+    let changed: CaseRecord | undefined;
+    this.caseRecords.update((records) =>
+      records.map((c) => (c.id === id ? (changed = { ...c, ...change(c) }) : c)),
+    );
+    return changed!;
+  }
+
+  /** Closes the live cases of evidence that was superseded. */
+  private supersedeCases(linkIds: readonly string[], at: string): void {
+    if (!linkIds.length) return;
+    this.caseRecords.update((records) =>
+      records.map((c) =>
+        linkIds.includes(c.linkId) && isLive(c)
+          ? { ...c, status: 'superseded', resolvedAt: at }
+          : c,
+      ),
+    );
+  }
+
+  /**
+   * Accepts or rejects one piece of evidence, for the captain's decision and a case's outcome
+   * alike: accepted evidence completes the duty from its effective time (the member's own
+   * submission from when it was submitted, the captain's from the recorded completion) and
+   * supersedes the duty's other pending evidence; rejected evidence leaves the duty open.
+   */
+  private applyDecision(
+    { dutyId, linkId }: Pick<CaseRecord, 'dutyId' | 'linkId'>,
+    decision: 'accepted' | 'rejected',
+    reason: string,
+    at: string,
+  ): void {
+    const accepted = decision === 'accepted';
+    const superseded: string[] = [];
+    this.dutyRecords.update((duties) =>
+      duties.map((d) => {
+        const link = d.id === dutyId ? d.evidence.find((e) => e.id === linkId) : undefined;
+        if (!link) return d;
+        const effective =
+          link.submitterId === d.memberId
+            ? link.submittedAt
+            : (link.claimedCompletedAt ?? link.submittedAt);
+        return {
+          ...d,
+          status: accepted ? 'completed' : d.status,
+          completedAt: accepted ? effective : d.completedAt,
+          evidence: d.evidence.map((e) => {
+            if (e.id === linkId)
+              return {
+                ...e,
+                decision,
+                decidedAt: at,
+                reason,
+                effectiveCompletedAt: accepted ? effective : null,
+              };
+            if (!accepted || e.decision !== 'pending') return e;
+            superseded.push(e.id);
+            return { ...e, decision: 'superseded' };
+          }),
+        };
+      }),
+    );
+    this.supersedeCases(superseded, at);
+  }
+
+  /**
+   * Decides the case's evidence and closes the case, with a feed entry dated `at` that names
+   * no voter. Evidence no longer pending, or a duty no longer open, only supersedes it.
+   */
+  private closeCase(
+    record: CaseRecord,
+    decision: 'accepted' | 'rejected',
+    resolution: CaseResolution,
+    at: string,
+    detail: string,
+    { reason = detail, actorName = null }: { reason?: string; actorName?: string | null } = {},
+  ): void {
+    const duty = this.dutyRecords().find((d) => d.id === record.dutyId);
+    const link = duty?.evidence.find((e) => e.id === record.linkId);
+    if (
+      !duty ||
+      !link ||
+      link.decision !== 'pending' ||
+      !['open', 'pending_deadline'].includes(duty.status)
+    ) {
+      this.supersedeCases([record.linkId], at);
+      return;
+    }
+    this.applyDecision(record, decision, reason, at);
+    this.updateCase(record.id, () => ({ status: decision, resolution, resolvedAt: at }));
+    const { name, heading, roundId } = this.describe(record);
+    const accepted = decision === 'accepted';
+    this.post(
+      accepted ? 'evidence_accepted' : 'evidence_rejected',
+      roundId,
+      `${name}: ${heading} ${accepted ? 'completed' : 'evidence rejected'}.`,
+      detail,
+      name,
+      { at, actorName },
+    );
+  }
+
+  /** Settles the earliest open case just after its window closes. */
+  private scheduleSettlement(): void {
+    clearTimeout(this.settleTimer);
+    const closes = this.caseRecords()
+      .filter((c) => c.status === 'open')
+      .map((c) => Date.parse(c.closesAt));
+    if (!closes.length) return;
+    const delay = Math.max(Math.min(...closes) - Date.now(), 0) + SETTLE_DELAY_MS;
+    this.settleTimer = setTimeout(() => {
+      this.settleDue();
+      this.clock.set(Date.now());
+    }, delay);
+  }
+}
+
+interface FeedOptions {
+  /** When the entry happened; now by default. */
+  readonly at?: string;
+  /** Null for case outcomes, which name no voter. */
+  readonly actorName?: string | null;
+}
+
+/** A settled case's records change this soon after its window closes. */
+const SETTLE_DELAY_MS = 1_000;
+
+/** Open for voting or waiting for a reviewer. */
+function isLive(record: CaseRecord): boolean {
+  return record.status === 'open' || record.status === 'in_review';
+}
+
+/** More than half of the electorate accepted. */
+function majority(record: CaseRecord): boolean {
+  return record.voters.filter((v) => v.choice === 'accept').length * 2 > record.voters.length;
 }
 
 /** `?sampleAdmin=0` on the first page makes the sample account a plain member. */
