@@ -5,10 +5,10 @@ import { provideRouter } from '@angular/router';
 import { environment } from '../../../environments/environment';
 import { AdminLeague, NewLeague } from './admin.models';
 import { AdminService, HttpAdminService, SampleAdminService } from './admin.service';
-import { ApiError } from './http-league-data';
+import { ApiError } from '../api/api-error';
 import { LeagueContext } from './league-context';
-import { LeagueData } from './league-data';
-import { SampleLeagueData } from './sample-league-data';
+import { LeagueData } from './data/league-data';
+import { SampleLeagueData } from './data/sample-league-data';
 import { DEFAULT_RULES } from './superbru';
 
 const ADMIN = `${environment.apiUrl}/v1/admin/leagues`;

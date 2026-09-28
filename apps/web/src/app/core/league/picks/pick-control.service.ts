@@ -1,0 +1,24 @@
+import { Service, inject } from '@angular/core';
+import { LeagueData } from '../data/league-data';
+import { NewPick, StewardPick } from '../league.models';
+
+/** The member's own picks and the steward's pick corrections. */
+@Service()
+export class PickControlService {
+  private readonly data = inject(LeagueData);
+
+  /** The member's own pick for a fixture, before its kickoff. */
+  savePick(fixtureId: string, pick: NewPick): Promise<void> {
+    return this.data.savePick(fixtureId, pick);
+  }
+
+  /** Steward: records or corrects the listed members' picks at any time; others stay. */
+  recordPicks(fixtureId: string, picks: readonly StewardPick[]): Promise<void> {
+    return this.data.recordPicks(fixtureId, picks);
+  }
+
+  /** Steward: removes a member's pick. */
+  removePick(fixtureId: string, memberId: string): Promise<void> {
+    return this.data.removePick(fixtureId, memberId);
+  }
+}

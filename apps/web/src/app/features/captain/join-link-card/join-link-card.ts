@@ -15,7 +15,7 @@ import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideCopy, lucideLockKeyhole, lucideRefreshCw } from '@ng-icons/lucide';
 import { AlertService } from '../../../core/feedback/alert.service';
 import { LeagueContext } from '../../../core/league/league-context';
-import { LeagueData } from '../../../core/league/league-data';
+import { LeagueData } from '../../../core/league/data/league-data';
 import { Dropdown } from '../../../shared/dropdown/dropdown';
 import { Icon } from '../../../shared/icon/icon';
 import { Loader } from '../../../shared/loader/loader';

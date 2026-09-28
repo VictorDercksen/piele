@@ -29,7 +29,7 @@ import { LeagueTime } from '../../../core/competition/league-time';
 import { AlertService } from '../../../core/feedback/alert.service';
 import { highlightProblem } from '../../../core/feedback/problem-highlight';
 import { BADGES } from '../../../core/league/badges';
-import { ApiError } from '../../../core/league/http-league-data';
+import { ApiError } from '../../../core/api/api-error';
 import { MemberPick, StewardPick } from '../../../core/league/league.models';
 import {
   DerivedVsRecorded,

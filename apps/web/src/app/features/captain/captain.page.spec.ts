@@ -6,8 +6,8 @@ import { RouterTestingHarness } from '@angular/router/testing';
 import { AlertService } from '../../core/feedback/alert.service';
 import { problemTarget } from '../../core/feedback/problem-highlight';
 import { LeagueContext } from '../../core/league/league-context';
-import { LeagueData } from '../../core/league/league-data';
-import { SampleLeagueData } from '../../core/league/sample-league-data';
+import { LeagueData } from '../../core/league/data/league-data';
+import { SampleLeagueData } from '../../core/league/data/sample-league-data';
 import { CaptainPage } from './captain.page';
 
 async function settle() {

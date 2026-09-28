@@ -13,13 +13,14 @@ import {
   NewLeague,
 } from './admin.models';
 import { isAccentColour, isEmblemPreset } from './emblems';
-import { ApiError, leagueBase, toApiError } from './http-league-data';
+import { ApiError, toApiError } from '../api/api-error';
+import { leagueBase } from './data/http-league-data';
 import { LeagueContext } from './league-context';
-import { LeagueData } from './league-data';
+import { LeagueData } from './data/league-data';
 import { LeagueMember } from './league.models';
 import { slugProblem } from './league-slugs';
-import { SampleLeague, SampleLeagueData } from './sample-league-data';
-import { SAMPLE_ME, feedItem, memberRecord } from './sample-leagues';
+import { SampleLeague, SampleLeagueData } from './data/sample-league-data';
+import { SAMPLE_ME, feedItem, memberRecord } from './data/sample-leagues';
 import { withDefaultRules } from './superbru';
 
 /**

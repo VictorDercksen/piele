@@ -2,7 +2,7 @@ import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { AlertService } from '../../../core/feedback/alert.service';
 import { problemTarget } from '../../../core/feedback/problem-highlight';
-import { LeagueData } from '../../../core/league/league-data';
+import { LeagueData } from '../../../core/league/data/league-data';
 import { RoundDutyView, RoundViewService } from '../../../core/league/round-view.service';
 import { EvidenceDialog } from './evidence-dialog';
 

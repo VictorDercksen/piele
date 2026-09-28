@@ -1,7 +1,7 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { AlertService } from '../../../core/feedback/alert.service';
-import { LeagueData } from '../../../core/league/league-data';
+import { LeagueData } from '../../../core/league/data/league-data';
 import { NewDuty } from '../../../core/league/league.models';
 import { RoundViewService } from '../../../core/league/round-view.service';
 import { CreateDutyDialog } from './create-duty-dialog';

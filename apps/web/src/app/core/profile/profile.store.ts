@@ -2,9 +2,9 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { AuthService } from '../auth/auth.service';
 import { Competition } from '../competition/competition.models';
 import { CompetitionService } from '../competition/competition.service';
-import { HttpLeagueData } from '../league/http-league-data';
+import { HttpLeagueData } from '../league/data/http-league-data';
 import { LeagueContext } from '../league/league-context';
-import { LeagueData } from '../league/league-data';
+import { LeagueData } from '../league/data/league-data';
 import { FIRST_LEAGUE_SLUG } from '../league/notifications-read';
 
 /** Browser-kept name and photo, shared by every league (the photo is account-wide). */

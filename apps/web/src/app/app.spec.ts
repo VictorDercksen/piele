@@ -3,7 +3,7 @@ import { provideRouter, Router } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { routes } from './app.routes';
 import { LeagueContext } from './core/league/league-context';
-import { EmptyLeagueData, LeagueData } from './core/league/league-data';
+import { EmptyLeagueData, LeagueData } from './core/league/data/league-data';
 import { ProfileStore } from './core/profile/profile.store';
 
 describe('App routes', () => {

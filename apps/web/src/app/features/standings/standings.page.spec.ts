@@ -10,8 +10,8 @@ import { CompetitionService } from '../../core/competition/competition.service';
 import { competition } from '../../core/competition/registry';
 import { BADGES } from '../../core/league/badges';
 import { LeagueContext } from '../../core/league/league-context';
-import { LeagueData } from '../../core/league/league-data';
-import { SampleLeagueData } from '../../core/league/sample-league-data';
+import { LeagueData } from '../../core/league/data/league-data';
+import { SampleLeagueData } from '../../core/league/data/sample-league-data';
 import { ProfileStore } from '../../core/profile/profile.store';
 import { BREAKDOWN_STORAGE_KEY, StandingsPage } from './standings.page';
 

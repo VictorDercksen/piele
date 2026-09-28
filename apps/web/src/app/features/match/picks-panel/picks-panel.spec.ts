@@ -4,7 +4,7 @@ import { provideRouter } from '@angular/router';
 import { competition } from '../../../core/competition/registry';
 import { AlertService } from '../../../core/feedback/alert.service';
 import { problemTarget } from '../../../core/feedback/problem-highlight';
-import { ApiError } from '../../../core/league/http-league-data';
+import { ApiError } from '../../../core/api/api-error';
 import { LeagueContext } from '../../../core/league/league-context';
 import { LeagueMember, MemberPick, NewPick, PickSide } from '../../../core/league/league.models';
 import {

@@ -22,7 +22,7 @@ import { CompetitionService } from '../../../core/competition/competition.servic
 import { LeagueTime } from '../../../core/competition/league-time';
 import { AlertService } from '../../../core/feedback/alert.service';
 import { highlightProblem } from '../../../core/feedback/problem-highlight';
-import { LeagueData } from '../../../core/league/league-data';
+import { LeagueData } from '../../../core/league/data/league-data';
 import { DutyType } from '../../../core/league/league.models';
 import { RoundViewService } from '../../../core/league/round-view.service';
 import { Icon } from '../../../shared/icon/icon';

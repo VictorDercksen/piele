@@ -2,10 +2,11 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { ApiError, HttpLeagueData, toApiError } from './http-league-data';
-import { LeagueData } from './league-data';
+import { ApiError, toApiError } from '../api/api-error';
+import { HttpLeagueData } from './data/http-league-data';
+import { LeagueData } from './data/league-data';
 import { JoinPreview } from './league.models';
-import { SampleLeagueData } from './sample-league-data';
+import { SampleLeagueData } from './data/sample-league-data';
 
 /**
  * Join links (`/join/{code}`): the league a code belongs to, its unclaimed names and the

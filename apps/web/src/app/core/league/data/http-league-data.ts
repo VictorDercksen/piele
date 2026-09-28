@@ -1,11 +1,12 @@
-import type { components } from '../api/generated';
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import type { components } from '../../api/generated';
+import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Subject, firstValueFrom } from 'rxjs';
-import { environment } from '../../../environments/environment';
-import { AuthService } from '../auth/auth.service';
-import { jpegBlob, jpegDataUrl } from '../profile/profile-photo';
-import type { Profile } from '../profile/profile.store';
+import { environment } from '../../../../environments/environment';
+import { ApiError, toApiError } from '../../api/api-error';
+import { AuthService } from '../../auth/auth.service';
+import { jpegBlob, jpegDataUrl } from '../../profile/profile-photo';
+import type { Profile } from '../../profile/profile.store';
 import { LeagueData } from './league-data';
 import {
   AppearanceChange,
@@ -27,8 +28,8 @@ import {
   RoundStanding,
   StandingEntry,
   StewardPick,
-} from './league.models';
-import { DEFAULT_RULES, withDefaultRules } from './superbru';
+} from '../league.models';
+import { DEFAULT_RULES, withDefaultRules } from '../superbru';
 
 /** Generated transport contracts. Optional keys retain support for older API responses. */
 type Schemas = components['schemas'];
@@ -579,17 +580,6 @@ export class HttpLeagueData extends LeagueData {
   }
 }
 
-/** An API failure with the safe message the API sent, or a generic one. */
-export class ApiError extends Error {
-  constructor(
-    readonly status: number,
-    readonly code: string,
-    message: string,
-  ) {
-    super(message);
-  }
-}
-
 /** The emblem and accent colour from a league-scoped `me`. */
 export function appearanceOf(me: Me): LeagueAppearance {
   return {
@@ -634,28 +624,6 @@ function isRefusal(error: unknown): boolean {
     ((error.status === 403 && error.code === 'not_a_member') ||
       (error.status === 404 && error.code === 'unknown_league'))
   );
-}
-
-export function toApiError(error: unknown): ApiError {
-  if (error instanceof HttpErrorResponse) {
-    const detail: unknown = error.error?.detail;
-    if (detail && typeof detail === 'object' && 'message' in detail) {
-      const { code, message } = detail as { code?: string; message?: string };
-      return new ApiError(
-        error.status,
-        code ?? 'error',
-        message ?? 'The league could not do that.',
-      );
-    }
-    if (Array.isArray(detail) && detail[0]?.msg)
-      return new ApiError(error.status, 'validation', String(detail[0].msg));
-    if (error.status === 0)
-      return new ApiError(0, 'offline', 'The league is unreachable. Check your connection.');
-    if (error.status === 401)
-      return new ApiError(401, 'unauthenticated', 'Your session has expired. Sign in again.');
-    return new ApiError(error.status, 'error', 'The league could not do that right now.');
-  }
-  return new ApiError(0, 'error', error instanceof Error ? error.message : 'Something went wrong.');
 }
 
 function describe(error: unknown): string {

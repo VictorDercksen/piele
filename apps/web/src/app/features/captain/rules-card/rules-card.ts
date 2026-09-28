@@ -19,7 +19,7 @@ import { LeagueRules } from '../../../core/league/league.models';
 import { CompetitionService } from '../../../core/competition/competition.service';
 import { AlertService } from '../../../core/feedback/alert.service';
 import { highlightProblem } from '../../../core/feedback/problem-highlight';
-import { ApiError } from '../../../core/league/http-league-data';
+import { ApiError } from '../../../core/api/api-error';
 import { RoundViewService } from '../../../core/league/round-view.service';
 import { Dropdown } from '../../../shared/dropdown/dropdown';
 import { Loader } from '../../../shared/loader/loader';

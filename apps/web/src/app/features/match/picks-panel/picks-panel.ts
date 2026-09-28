@@ -38,7 +38,7 @@ import { LeagueTime } from '../../../core/competition/league-time';
 import { LeagueTimePipe } from '../../../core/competition/league-time.pipe';
 import { AlertService } from '../../../core/feedback/alert.service';
 import { highlightProblem } from '../../../core/feedback/problem-highlight';
-import { ApiError } from '../../../core/league/http-league-data';
+import { ApiError } from '../../../core/api/api-error';
 import { LeaguePathPipe } from '../../../core/league/league-path.pipe';
 import { MemberPick, NewPick } from '../../../core/league/league.models';
 import { RoundViewService } from '../../../core/league/round-view.service';

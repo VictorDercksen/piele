@@ -4,7 +4,7 @@ import { RouterLink } from '@angular/router';
 import { CompetitionService } from '../../../core/competition/competition.service';
 import { LeagueTime } from '../../../core/competition/league-time';
 import { AlertService } from '../../../core/feedback/alert.service';
-import { LeagueData } from '../../../core/league/league-data';
+import { LeagueData } from '../../../core/league/data/league-data';
 import { LeaguePathPipe } from '../../../core/league/league-path.pipe';
 import { DutyEvidence } from '../../../core/league/league.models';
 import { RoundDutyView } from '../../../core/league/round-view.service';

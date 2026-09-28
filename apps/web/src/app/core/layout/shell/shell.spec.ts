@@ -3,8 +3,8 @@ import { provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { routes } from '../../../app.routes';
 import { LeagueContext } from '../../league/league-context';
-import { LeagueData } from '../../league/league-data';
-import { SampleLeagueData } from '../../league/sample-league-data';
+import { LeagueData } from '../../league/data/league-data';
+import { SampleLeagueData } from '../../league/data/sample-league-data';
 import { ProfileStore } from '../../profile/profile.store';
 
 describe('Shell', () => {

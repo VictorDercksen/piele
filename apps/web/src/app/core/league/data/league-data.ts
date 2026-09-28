@@ -19,9 +19,9 @@ import {
   RoundStanding,
   StandingEntry,
   StewardPick,
-} from './league.models';
-import { loadStoredRead, storeRead } from './notifications-read';
-import { DEFAULT_RULES } from './superbru';
+} from '../league.models';
+import { loadStoredRead, storeRead } from '../notifications-read';
+import { DEFAULT_RULES } from '../superbru';
 
 /**
  * League records: members, Superbru picks, rules and recorded standings, duties, marks, polls

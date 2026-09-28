@@ -8,7 +8,7 @@ import { CompetitionService } from '../competition/competition.service';
 import { competition } from '../competition/registry';
 import { ProfileStore } from '../profile/profile.store';
 import { LeagueContext } from './league-context';
-import { LeagueData } from './league-data';
+import { LeagueData } from './data/league-data';
 import {
   IDLE_REFRESH_MS,
   LIVE_REFRESH_MS,
@@ -18,7 +18,7 @@ import {
   isUnread,
   withScheduledKickoffs,
 } from './notifications.service';
-import { SampleLeagueData } from './sample-league-data';
+import { SampleLeagueData } from './data/sample-league-data';
 
 const URC = competition('urc-2026-27');
 

@@ -1,7 +1,7 @@
 import { Injectable, Signal, WritableSignal, computed, inject, signal } from '@angular/core';
-import { CompetitionService } from '../competition/competition.service';
-import { isAccentColour, isEmblemPreset } from './emblems';
-import { ApiError } from './http-league-data';
+import { CompetitionService } from '../../competition/competition.service';
+import { isAccentColour, isEmblemPreset } from '../emblems';
+import { ApiError } from '../../api/api-error';
 import { LeagueData } from './league-data';
 import {
   Account,
@@ -27,9 +27,9 @@ import {
   RoundStanding,
   StandingEntry,
   StewardPick,
-} from './league.models';
-import { loadStoredRead, storeRead } from './notifications-read';
-import { sampleMarks } from './marks';
+} from '../league.models';
+import { loadStoredRead, storeRead } from '../notifications-read';
+import { sampleMarks } from '../marks';
 import {
   SAMPLE_ACCOUNT,
   SAMPLE_LEAGUES,
@@ -41,7 +41,7 @@ import {
   memberRecord,
   sampleResults,
 } from './sample-leagues';
-import { rankRows, withDefaultRules } from './superbru';
+import { rankRows, withDefaultRules } from '../superbru';
 
 function title(
   type: Duty['type'],

@@ -3,7 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { Subject } from 'rxjs';
 import { competition } from '../../../core/competition/registry';
 import { AlertService } from '../../../core/feedback/alert.service';
-import { ApiError } from '../../../core/league/http-league-data';
+import { ApiError } from '../../../core/api/api-error';
 import {
   FixtureResult,
   LeagueMember,

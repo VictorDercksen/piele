@@ -9,7 +9,7 @@ import { AlertService } from '../feedback/alert.service';
 import { ProfileStore } from '../profile/profile.store';
 import { feedIcon, feedLabel, feedPath } from './feed-presentation';
 import { LeagueContext } from './league-context';
-import { LeagueData } from './league-data';
+import { LeagueData } from './data/league-data';
 import { FeedItem, NotificationsRead } from './league.models';
 import { RoundViewService } from './round-view.service';
 

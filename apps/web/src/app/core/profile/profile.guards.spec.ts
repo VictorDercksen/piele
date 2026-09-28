@@ -8,9 +8,9 @@ import {
   UrlTree,
 } from '@angular/router';
 import { AuthService } from '../auth/auth.service';
-import { HttpLeagueData, MembershipState } from '../league/http-league-data';
+import { HttpLeagueData, MembershipState } from '../league/data/http-league-data';
 import { LeagueContext } from '../league/league-context';
-import { LeagueData } from '../league/league-data';
+import { LeagueData } from '../league/data/league-data';
 import { profileMissing, profileRequired } from './profile.guards';
 import { Profile } from './profile.store';
 

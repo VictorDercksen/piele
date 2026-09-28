@@ -15,7 +15,7 @@ import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideArrowRight, lucideLogOut } from '@ng-icons/lucide';
 import { AuthService } from '../../core/auth/auth.service';
 import { AlertService } from '../../core/feedback/alert.service';
-import { ApiError } from '../../core/league/http-league-data';
+import { ApiError } from '../../core/api/api-error';
 import { JoinService } from '../../core/league/join.service';
 import { LeagueContext } from '../../core/league/league-context';
 import { JoinPreview } from '../../core/league/league.models';

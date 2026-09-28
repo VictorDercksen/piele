@@ -27,7 +27,7 @@ import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { LeagueTime } from '../../../core/competition/league-time';
 import { AlertService } from '../../../core/feedback/alert.service';
 import { highlightProblem } from '../../../core/feedback/problem-highlight';
-import { LeagueData } from '../../../core/league/league-data';
+import { LeagueData } from '../../../core/league/data/league-data';
 import { LeagueMember } from '../../../core/league/league.models';
 import { RoundViewService } from '../../../core/league/round-view.service';
 import { Dropdown } from '../../../shared/dropdown/dropdown';

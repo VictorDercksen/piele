@@ -3,7 +3,7 @@ import { SearchSelect } from '../../../shared/search-select/search-select';
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { AlertService } from '../../../core/feedback/alert.service';
-import { ApiError } from '../../../core/league/http-league-data';
+import { ApiError } from '../../../core/api/api-error';
 import { LeagueMember, LeagueRules } from '../../../core/league/league.models';
 import { RoundViewService } from '../../../core/league/round-view.service';
 import { DEFAULT_RULES } from '../../../core/league/superbru';

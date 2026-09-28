@@ -3,9 +3,9 @@ import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/
 import { provideRouter } from '@angular/router';
 import { environment } from '../environments/environment';
 import { authInterceptor } from './core/auth/auth.interceptor';
-import { EmptyLeagueData, LeagueData } from './core/league/league-data';
-import { HttpLeagueData } from './core/league/http-league-data';
-import { SampleLeagueData } from './core/league/sample-league-data';
+import { EmptyLeagueData, LeagueData } from './core/league/data/league-data';
+import { HttpLeagueData } from './core/league/data/http-league-data';
+import { SampleLeagueData } from './core/league/data/sample-league-data';
 import { routes } from './app.routes';
 
 /** Sample records in development, the API when it is configured, otherwise an empty league. */

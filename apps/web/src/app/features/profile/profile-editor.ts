@@ -23,7 +23,7 @@ import { AuthService } from '../../core/auth/auth.service';
 import { AlertService } from '../../core/feedback/alert.service';
 import { highlightProblem } from '../../core/feedback/problem-highlight';
 import { LeagueContext } from '../../core/league/league-context';
-import { LeagueData } from '../../core/league/league-data';
+import { LeagueData } from '../../core/league/data/league-data';
 import { preparePhoto } from '../../core/profile/profile-photo';
 import { ProfileStore } from '../../core/profile/profile.store';
 import { CompetitionService, shortSeason } from '../../core/competition/competition.service';

@@ -1,10 +1,10 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { environment } from '../../../environments/environment';
-import { AuthService } from '../auth/auth.service';
+import { environment } from '../../../../environments/environment';
+import { AuthService } from '../../auth/auth.service';
 import { HttpLeagueData } from './http-league-data';
-import { DEFAULT_RULES } from './superbru';
+import { DEFAULT_RULES } from '../superbru';
 
 const API = `${environment.apiUrl}/v1/leagues/l-1`;
 const OTHER = `${environment.apiUrl}/v1/leagues/l-2`;

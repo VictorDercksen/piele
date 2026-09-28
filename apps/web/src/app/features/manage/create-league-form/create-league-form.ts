@@ -39,7 +39,7 @@ import {
   isAccentColour,
   isEmblemPreset,
 } from '../../../core/league/emblems';
-import { ApiError } from '../../../core/league/http-league-data';
+import { ApiError } from '../../../core/api/api-error';
 import { deriveSlug } from '../../../core/league/league-slugs';
 import { DEFAULT_RULES } from '../../../core/league/superbru';
 import { EmblemPicker } from '../../../shared/emblem-picker/emblem-picker';

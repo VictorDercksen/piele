@@ -4,7 +4,7 @@ import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucidePlay, lucideX } from '@ng-icons/lucide';
 import { LeagueTime } from '../../../core/competition/league-time';
 import { AlertService } from '../../../core/feedback/alert.service';
-import { LeagueData } from '../../../core/league/league-data';
+import { LeagueData } from '../../../core/league/data/league-data';
 import { ReviewView, RoundViewService } from '../../../core/league/round-view.service';
 import { Dropdown } from '../../../shared/dropdown/dropdown';
 import { Icon } from '../../../shared/icon/icon';

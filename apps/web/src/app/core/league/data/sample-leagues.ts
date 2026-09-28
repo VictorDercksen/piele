@@ -1,4 +1,4 @@
-import { competition } from '../competition/registry';
+import { competition } from '../../competition/registry';
 import {
   Account,
   DutyEvidence,
@@ -12,8 +12,8 @@ import {
   Poll,
   RoundNote,
   RoundStanding,
-} from './league.models';
-import { DEFAULT_RULES } from './superbru';
+} from '../league.models';
+import { DEFAULT_RULES } from '../superbru';
 
 /**
  * Illustrative leagues for local development only. Names, points, duties and votes are

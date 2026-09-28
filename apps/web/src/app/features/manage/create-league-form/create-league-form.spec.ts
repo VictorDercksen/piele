@@ -5,7 +5,7 @@ import { Router, provideRouter } from '@angular/router';
 import { AlertService } from '../../../core/feedback/alert.service';
 import { NewLeague } from '../../../core/league/admin.models';
 import { AdminService } from '../../../core/league/admin.service';
-import { ApiError } from '../../../core/league/http-league-data';
+import { ApiError } from '../../../core/api/api-error';
 import { CreateLeagueForm, defaultSeasonName } from './create-league-form';
 
 const URC = {

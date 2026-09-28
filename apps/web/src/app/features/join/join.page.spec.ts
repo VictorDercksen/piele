@@ -1,13 +1,13 @@
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
 import { AlertService } from '../../core/feedback/alert.service';
-import { ApiError } from '../../core/league/http-league-data';
+import { ApiError } from '../../core/api/api-error';
 import { JoinService, joinCodeFrom } from '../../core/league/join.service';
 import { LeagueContext } from '../../core/league/league-context';
-import { LeagueData } from '../../core/league/league-data';
+import { LeagueData } from '../../core/league/data/league-data';
 import { JoinPreview } from '../../core/league/league.models';
-import { SampleLeagueData } from '../../core/league/sample-league-data';
-import { SAMPLE_LEAGUES } from '../../core/league/sample-leagues';
+import { SampleLeagueData } from '../../core/league/data/sample-league-data';
+import { SAMPLE_LEAGUES } from '../../core/league/data/sample-leagues';
 import { JoinPage } from './join.page';
 
 const LEAGUE: JoinPreview['league'] = {
