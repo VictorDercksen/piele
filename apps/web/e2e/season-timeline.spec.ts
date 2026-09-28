@@ -206,6 +206,8 @@ test('a short page opened from deep in a long one starts at the top, the bottom 
 test('a page ends where its content ends: closed overlays and dropdowns add no scroll', async ({
   page,
 }) => {
+  // Eight pages at three sizes.
+  test.setTimeout(90_000);
   // The league switcher's sheet and scrim and the notifications cloth hang under the sticky
   // top bar (the switcher's popover under the sticky rail), and a closed dropdown's body holds
   // its visually hidden table text. Left rendered while closed, they extended the document,
@@ -236,11 +238,15 @@ test('a page ends where its content ends: closed overlays and dropdowns add no s
     });
   for (const [width, height] of [
     [390, 700],
+    [390, 664],
     [1440, 1100],
   ]) {
     await page.setViewportSize({ width, height });
     for (const path of [
       '/piele/duties?round=1',
+      '/piele/decisions?round=3',
+      '/piele/more?round=3',
+      '/piele/standings?round=3',
       '/piele/constitution?round=1',
       '/piele/captain?round=1',
       '/piele/match/292585?round=1',
@@ -256,6 +262,58 @@ test('a page ends where its content ends: closed overlays and dropdowns add no s
       expect(Math.abs((await overhang()).excess), `${path} at ${width}px`).toBeLessThanOrEqual(1);
     }
   }
+});
+
+test('a short page does not scroll on a phone', async ({ page }) => {
+  // The shell fills the screen with a minimum height. On iOS Safari 100vh is the viewport with
+  // its toolbars collapsed, taller than the area visible with them shown, so a short page could
+  // be scrolled by the toolbars' height (its heading under the top bar, a blank strip below).
+  // Chromium has no collapsing toolbars, so the guard below also checks that no box around the
+  // page takes its minimum height from the large viewport.
+  await page.setViewportSize({ width: 390, height: 664 });
+  for (const path of ['/piele/duties?round=3', '/piele/constitution?round=3']) {
+    await page.goto(path);
+    await expect(page.locator('.page-loading')).toHaveCount(0);
+    await expect(page.locator('.page-body')).toBeVisible();
+    const size = await page.evaluate(() => ({
+      footer: document.querySelector('.club-footer')!.getBoundingClientRect().bottom + scrollY,
+      scrollHeight: document.documentElement.scrollHeight,
+      innerHeight,
+    }));
+    expect(size.footer, `${path} is short`).toBeLessThan(size.innerHeight);
+    expect(size.scrollHeight, path).toBe(size.innerHeight);
+  }
+  const largeViewportMinimums = await page.evaluate(() => {
+    const boxes = ['html', 'body', 'app-root', 'app-shell', '.league']
+      .map((selector) => document.querySelector(selector))
+      .filter((box) => box !== null);
+    const found: string[] = [];
+    const visit = (rules: CSSRuleList) => {
+      for (const rule of rules) {
+        if (rule instanceof CSSStyleRule && /\dvh/.test(rule.style.minHeight)) {
+          const applies = boxes.some((box) => {
+            try {
+              return box.matches(rule.selectorText);
+            } catch {
+              return false;
+            }
+          });
+          if (applies) found.push(`${rule.selectorText} { min-height: ${rule.style.minHeight} }`);
+        } else if ('cssRules' in rule) {
+          visit((rule as CSSGroupingRule).cssRules);
+        }
+      }
+    };
+    for (const sheet of document.styleSheets) {
+      try {
+        visit(sheet.cssRules);
+      } catch {
+        // A cross-origin sheet (fonts) cannot be read.
+      }
+    }
+    return found;
+  });
+  expect(largeViewportMinimums).toEqual([]);
 });
 
 test('desktop rail and top bar stay in view while the content scrolls', async ({ page }) => {

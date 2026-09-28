@@ -1,5 +1,8 @@
 :host {
   display: block;
   min-height: 100vh;
+  // Not 100vh alone: on iOS Safari that is the viewport with its toolbars collapsed, which
+  // lets a short page scroll by the toolbars' height.
+  min-height: 100svh;
   background: #101a22;
 }
