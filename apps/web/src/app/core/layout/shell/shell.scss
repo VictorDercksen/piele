@@ -435,8 +435,6 @@ app-season-timeline {
       'rail' auto
       'main' 1fr
       / minmax(0, 1fr);
-    // Room for the fixed bottom navigation, measured by the shell.
-    padding-bottom: var(--nav-height, 0px);
   }
   .season-rail {
     position: static;
@@ -701,5 +699,15 @@ app-round-picker {
     .ribbon-drawer > app-fixture-ribbon {
       transition: none;
     }
+  }
+  // The room for the fixed bottom navigation, measured by the shell, is the content's own
+  // padding, and the content fills the screen on its own (Safari does not stretch the grid's
+  // 1fr row to the grid's minimum height): the stadium backdrop and its gradient, which cover
+  // the content, then run to the page's end instead of stopping at the footer. Longer pages
+  // fade the artwork into the paper by 1500 px, as on Home.
+  .main-content {
+    padding-bottom: var(--nav-height, 0px);
+    min-height: calc(100vh - 64px);
+    min-height: calc(100svh - 64px);
   }
 }

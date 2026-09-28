@@ -1,22 +1,31 @@
 import { expect, Page, test } from '@playwright/test';
 import { seedProfile } from './support';
 
-/** The round sheet's top edge in every frame for `ms`, while it is attached. */
-function sheetTops(page: Page, ms: number): Promise<number[]> {
+/**
+ * The round sheet's top edge in every frame while it rises (until its animation ends) or
+ * sinks (until it is removed), capped at five seconds.
+ */
+function sheetTops(page: Page, phase: 'rising' | 'sinking'): Promise<number[]> {
   return page.evaluate(
-    (ms) =>
+    (phase) =>
       new Promise<number[]>((resolve) => {
         const tops: number[] = [];
         const start = performance.now();
         const tick = () => {
           const sheet = document.querySelector('.round-sheet');
           if (sheet) tops.push(sheet.getBoundingClientRect().y);
-          if (performance.now() - start < ms) requestAnimationFrame(tick);
-          else resolve(tops);
+          const done =
+            phase === 'rising'
+              ? !!sheet &&
+                tops.length > 1 &&
+                sheet.getAnimations().every((animation) => animation.playState !== 'running')
+              : tops.length > 0 && !sheet;
+          if (done || performance.now() - start > 5000) resolve(tops);
+          else requestAnimationFrame(tick);
         };
         requestAnimationFrame(tick);
       }),
-    ms,
+    phase,
   );
 }
 
@@ -38,7 +47,7 @@ for (const width of [320, 768]) {
     );
     await page.screenshot({ path: testInfo.outputPath('mobile-header.png') });
 
-    const rising = sheetTops(page, 600);
+    const rising = sheetTops(page, 'rising');
     await picker.click();
     const sheet = page.getByRole('dialog', { name: 'Choose a round' });
     const selected = sheet.getByRole('button', { name: /^Round 02,/ });
@@ -74,7 +83,7 @@ for (const width of [320, 768]) {
       .poll(() => sheet.locator('.round-sheet').evaluate((el) => el.getAnimations().length))
       .toBe(0);
     // Closing, it slides back down before the dialog is removed.
-    const sinking = sheetTops(page, 500);
+    const sinking = sheetTops(page, 'sinking');
     await page.keyboard.press('Escape');
     expect(Math.max(...(await sinking))).toBeGreaterThan(rest + 50);
     await expect(sheet).toHaveCount(0);
