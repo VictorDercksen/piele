@@ -36,6 +36,7 @@ export type CasePanel = 'ballot' | 'accepted' | 'ruling' | 'vetoed' | 'watching'
   styleUrl: './case-card.scss',
   host: {
     class: 'case-card',
+    '[class.spoon-duty]': 'evidenceCase().spoon',
     '[class.closed-case]': '!evidenceCase().live',
   },
   /* prettier-ignore */

@@ -341,7 +341,8 @@
 }
 
 // Spoon duty has its own timber identity across cards, notifications and evidence.
-.league :is(.duty-feature, .register-card, .detail-dialog, .notification-item).spoon-duty {
+.league
+  :is(.duty-feature, .register-card, .case-card, .detail-dialog, .notification-item).spoon-duty {
   --ink: #fff2d8;
   --muted: #ddc6a6;
   --line: #bd93624f;
