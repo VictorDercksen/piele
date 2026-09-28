@@ -72,8 +72,8 @@ describe('DutyCard', () => {
     const tab = { opener: {}, location: { replace: vi.fn() }, close: vi.fn() };
     vi.spyOn(window, 'open').mockReturnValue(tab as unknown as Window);
     const root = fixture.nativeElement as HTMLElement;
-    const watch = Array.from(root.querySelectorAll('button')).find((b) =>
-      b.textContent?.includes('Watch video'),
+    const watch = root.querySelector<HTMLButtonElement>(
+      'button[aria-label="Watch video from Johan"]',
     )!;
     watch.click();
     await new Promise((resolve) => setTimeout(resolve));
@@ -112,16 +112,22 @@ describe('DutyCard', () => {
       fixture.detectChanges();
     };
     show(open, true);
-    // Engines differ on the month's abbreviation ("Sep" or "Sept").
-    expect(root.textContent).toMatch(/Voting open until 21 Sept? 2026 · 09:00 SAST/);
-    expect(root.textContent).toContain('Submitted for review · members vote until');
+    // The lead panel carries the live vote's close time; the evidence line does not repeat it.
+    expect(root.querySelector('.duty-step')?.textContent).toContain(
+      'Members are voting on the evidence',
+    );
+    expect(root.querySelector('.duty-step')?.textContent).toContain('Vote closes 21 Sep · 09:00');
+    expect(root.textContent).not.toContain('Voting open until');
     expect(root.querySelector('a[href="/piele/decisions"]')?.textContent).toContain(
       'View the vote',
     );
     show({ ...open, status: 'in_review' }, true);
-    expect(root.textContent).toContain('Vetoed: an uninvolved reviewer will rule');
+    expect(root.querySelector('.duty-step')?.textContent).toContain(
+      'Vetoed: an uninvolved reviewer will rule',
+    );
     expect(root.textContent).toContain('View the veto');
     show({ ...open, status: 'accepted', resolution: 'auto' }, false);
+    expect(root.querySelector('.duty-step')?.textContent).toContain('Completed');
     expect(root.textContent).toContain('Accepted automatically: no veto within 24 hours');
     expect(root.querySelector('a[href="/piele/decisions"]')).toBeNull();
   });

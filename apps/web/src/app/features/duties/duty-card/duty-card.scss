@@ -1,82 +1,125 @@
-// A register entry is a dense slip: heading row, title, the three facts, then the trail
-// and actions. Spacing stays tight so several duties fit on one screen.
+// A register entry leads with where the duty stands: heading row, title, the deadline and
+// marks as chips, the "Now" panel, the latest evidence, then the viewer's action and the
+// captain's tools on a row of their own.
 :host {
   display: block;
   background: var(--surface-grain), var(--surface);
   border: 0;
-  padding: 18px 22px 20px;
+  padding: 18px 20px 18px;
   border-top: 3px solid #d4d9c4;
   box-shadow: 0 8px 24px #0003;
 }
 :host(.closed-duty) {
   opacity: 0.82;
 }
-h2 {
+.spoon-content {
+  display: grid;
+  gap: 14px;
+}
+.card-title h2 {
   line-height: 1.15;
-  margin: 12px 0 6px;
+  margin: 0;
   font-weight: 700;
   letter-spacing: -0.5px;
   font-size: 22px;
+  text-wrap: balance;
 }
-.spoon-content > p {
+.card-title p {
   color: var(--muted);
   font-size: 13px;
   line-height: 1.55;
+  margin-top: 4px;
   max-width: 600px;
-}
-dl {
-  display: flex;
-  gap: 8px 28px;
-  flex-wrap: wrap;
-  padding: 12px 0;
-  border-top: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
-  margin: 14px 0;
-}
-dl > div {
-  min-width: 0;
-}
-dt {
-  font-size: 10px;
-  color: var(--muted);
-  margin-bottom: 3px;
-}
-dd {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 600;
-}
-dd small {
-  display: block;
-  font-size: 11px;
-  font-weight: 400;
-  color: var(--muted);
-  margin-top: 2px;
 }
 .tag.warn {
   background: #4a1f1a;
   color: #ffb3a3;
 }
-.evidence-trail {
-  list-style: none;
-  margin: 0 0 14px;
+.duty-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
   padding: 0;
-  display: grid;
-  gap: 8px;
+  list-style: none;
 }
-.evidence-trail li {
-  display: grid;
-  gap: 2px;
+.duty-chips li {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
   font-size: 12px;
-  line-height: 1.5;
-  padding-left: 10px;
-  border-left: 2px solid var(--line);
+  font-variant-numeric: tabular-nums;
 }
-.evidence-line {
+.duty-chips ng-icon {
+  --ng-icon__size: 13px;
   color: var(--muted);
 }
-.evidence-note {
+.chip-note {
+  color: var(--muted);
+  font-size: 11px;
+}
+.duty-step {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 4px 12px;
+  flex-wrap: wrap;
+  background: #0003;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+.duty-step .eyebrow {
+  text-transform: uppercase;
+}
+.step-headline {
+  margin-top: 2px;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+.step-detail {
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.duty-step[data-step='Outcome'] .eyebrow {
+  color: var(--muted);
+}
+.duty-step a.text-button {
+  min-height: 36px;
+  color: var(--accent);
+}
+.submission {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 12px;
+  align-items: center;
+  font-size: 13px;
+  line-height: 1.45;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+.submission > p {
+  grid-column: 1;
+}
+.submission-line {
+  font-size: 12px;
+  color: var(--muted);
+}
+.submission-line strong {
   color: var(--ink);
+}
+.submission-case {
+  font-weight: 600;
+}
+.submission-reason {
+  font-size: 12px;
+  color: var(--muted);
 }
 .decision[data-decision='accepted'] {
   color: #7fe0c2;
@@ -87,31 +130,84 @@ dd small {
 .decision[data-decision='pending'] {
   color: var(--accent);
 }
-.evidence-trail .text-button {
+.submission .watch {
+  grid-column: 2;
+  grid-row: 1 / span 4;
   min-height: 34px;
   padding-block: 0;
-  margin-top: 6px;
-  justify-self: start;
+  padding-inline: 12px;
+  font-size: 12px;
+}
+.earlier {
+  font-size: 12px;
+}
+.earlier summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  color: var(--muted);
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+.earlier summary::-webkit-details-marker {
+  display: none;
+}
+.earlier[open] summary ng-icon {
+  transform: rotate(180deg);
+}
+.earlier .submission {
+  margin-top: 8px;
 }
 .card-actions {
   display: flex;
-  align-items: center;
-  gap: 4px 16px;
+  gap: 10px;
   flex-wrap: wrap;
 }
 .card-actions .primary-button {
-  min-height: 40px;
+  flex: 1 1 auto;
+  min-height: 42px;
   padding-block: 9px;
 }
-.card-actions .text-button {
-  min-height: 40px;
+.captain-tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--line);
+}
+.captain-tools .eyebrow {
+  color: var(--muted);
+  margin-right: auto;
+}
+.ghost-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 700;
+}
+.ghost-button:hover {
+  background: #ffffff0d;
+}
+.ghost-button.danger {
+  color: #ffb3a3;
+  border-color: #ffb3a355;
 }
 .pick-fixtures {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0 10px;
-  margin: -4px 0 12px;
+  margin: -4px 0 0;
   font-size: 12px;
 }
 .pick-fixtures-label {
@@ -151,13 +247,6 @@ dd small {
 }
 @container (max-width: 600px) {
   :host {
-    padding: 16px 18px 18px;
+    padding: 16px 16px 16px;
   }
-  dl {
-    gap: 10px 24px;
-  }
-}
-.evidence-case {
-  color: var(--ink);
-  font-weight: 600;
 }

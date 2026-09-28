@@ -4,36 +4,29 @@
 <div class="spoon-content">
   <div class="register-heading">
     <span class="tag" [class.warn]="duty().display === 'overdue'">{{ duty().statusLabel }}</span
-    ><span class="eyebrow">ROUND {{ roundCode() }} / {{ duty().memberName }}</span>
+    ><span class="eyebrow">{{ duty().mine ? 'YOUR DUTY' : duty().memberName }}</span>
   </div>
-  <h2>{{ duty().title }}</h2>
-  @if (sample()) {
-    <p>Sample duty in Round {{ roundCode() }}. No live league obligation exists.</p>
-  } @else if (duty().reason) {
-    <p>{{ duty().reason }}</p>
-  }
-  <dl>
-    <div>
-      <dt>Deadline</dt>
-      <dd>{{ deadline() }}</dd>
-    </div>
-    <div>
-      <dt>House marks</dt>
-      <dd>
-        {{ duty().marks.marks }} {{ duty().marks.marks === 1 ? 'mark' : 'marks' }}
-        @if (nextMark(); as next) {
-          <small>Next mark {{ next }}</small>
-        }
-        @if (clockReset(); as reset) {
-          <small>Clock reset {{ reset }}</small>
-        }
-      </dd>
-    </div>
-    <div>
-      <dt>Evidence</dt>
-      <dd>{{ evidenceSummary() }}</dd>
-    </div>
-  </dl>
+  <div class="card-title">
+    <h2>{{ duty().title }}</h2>
+    @if (sample()) {
+      <p>Sample duty in Round {{ roundCode() }}. No live league obligation exists.</p>
+    } @else if (duty().reason) {
+      <p>{{ duty().reason }}</p>
+    }
+  </div>
+  <ul class="duty-chips" aria-label="Deadline and house marks">
+    <li><ng-icon name="lucideClock" aria-hidden="true" />Due {{ deadline() }}</li>
+    <li>
+      <ng-icon name="lucideFlag" aria-hidden="true" />{{ duty().marks.marks }}
+      {{ duty().marks.marks === 1 ? 'mark' : 'marks' }}
+      @if (nextMark(); as next) {
+        <span class="chip-note">· next {{ next }}</span>
+      }
+    </li>
+    @if (clockReset(); as reset) {
+      <li><ng-icon name="lucideRotateCcw" aria-hidden="true" />Clock reset {{ reset }}</li>
+    }
+  </ul>
   @if (pickFixtures().length) {
     <div class="pick-fixtures">
       <span class="pick-fixtures-label" id="picks-covered-{{ duty().id }}">Picks covered:</span>
@@ -52,66 +45,97 @@
       </ul>
     </div>
   }
-  @if (duty().evidence.length) {
-    <ul class="evidence-trail">
-      @for (evidence of duty().evidence; track evidence.id) {
-        <li>
-          <span class="evidence-line"
-            ><strong>{{ evidence.submitterName }}</strong> · {{ when(evidence) }} ·
-            <span class="decision" [attr.data-decision]="evidence.decision">{{
-              decisionLabel(evidence)
-            }}</span></span
-          >
-          @if (evidence.note) {
-            <span class="evidence-note">“{{ evidence.note }}”</span>
-          }
-          @if (caseState(evidence); as state) {
-            <span class="evidence-case" [attr.data-case]="evidence.evidenceCase?.status">{{
-              state
-            }}</span>
-          }
-          @if (evidence.reason) {
-            <span class="evidence-note">Reviewer: {{ evidence.reason }}</span>
-          }
-          @if (!sample()) {
-            <button hlmBtn type="button" class="text-button" (click)="watch(evidence)">
-              Watch video<ng-icon class="link-icon" name="lucidePlay" />
-            </button>
-          }
-        </li>
+  <section class="duty-step" [attr.data-step]="step().eyebrow">
+    <div>
+      <span class="eyebrow">{{ step().eyebrow }}</span>
+      <p class="step-headline">{{ step().headline }}</p>
+      @if (step().detail; as detail) {
+        <p class="step-detail">{{ detail }}</p>
       }
-    </ul>
-  }
-  <div class="card-actions">
-    @if (duty().liveCase) {
+    </div>
+    @if (step().link; as link) {
       <a
         hlmBtn
         class="text-button"
         [routerLink]="'/decisions' | leaguePath"
         queryParamsHandling="preserve"
-        >{{ duty().liveCase?.status === 'open' ? 'View the vote' : 'View the veto'
-        }}<ng-icon class="link-icon" name="lucideArrowRight"
+        >{{ link }}<ng-icon class="link-icon" name="lucideArrowRight"
       /></a>
     }
-    @if (canUpload()) {
-      <button hlmBtn type="button" class="primary-button" (click)="upload.emit()">
-        <app-icon name="upload" />Upload evidence
-      </button>
+  </section>
+  @if (latest(); as evidence) {
+    <ng-container *ngTemplateOutlet="submission; context: { $implicit: evidence }" />
+  }
+  @if (earlier().length) {
+    <details class="earlier">
+      <summary>
+        {{ earlier().length }} earlier
+        {{ earlier().length === 1 ? 'submission' : 'submissions' }}
+        <ng-icon name="lucideChevronDown" aria-hidden="true" />
+      </summary>
+      @for (evidence of earlier(); track evidence.id) {
+        <ng-container *ngTemplateOutlet="submission; context: { $implicit: evidence }" />
+      }
+    </details>
+  }
+  @if (canUpload() || canRecord()) {
+    <div class="card-actions">
+      @if (canUpload()) {
+        <button hlmBtn type="button" class="primary-button" (click)="upload.emit()">
+          <app-icon name="upload" />Upload evidence
+        </button>
+      }
+      @if (canRecord()) {
+        <button hlmBtn type="button" class="primary-button" (click)="record.emit()">
+          <app-icon name="upload" />Record evidence
+        </button>
+      }
+    </div>
+  }
+  @if (captainTools()) {
+    <div class="captain-tools">
+      <span class="eyebrow">CAPTAIN</span>
+      @if (canReset()) {
+        <button type="button" class="ghost-button" (click)="resetClock.emit()">
+          <ng-icon name="lucideRotateCcw" aria-hidden="true" />Reset clock
+        </button>
+      }
+      @if (captain() && live()) {
+        <button type="button" class="ghost-button danger" (click)="voided.emit()">
+          <ng-icon name="lucideX" aria-hidden="true" />Void duty
+        </button>
+      }
+    </div>
+  }
+</div>
+
+<ng-template #submission let-evidence>
+  <div class="submission">
+    <p class="submission-line">
+      <strong>{{ evidence.submitterName }}</strong> · {{ when(evidence) }} ·
+      <span class="decision" [attr.data-decision]="evidence.decision">{{
+        decisionLabel(evidence)
+      }}</span>
+    </p>
+    @if (evidence.note) {
+      <p class="submission-note">“{{ evidence.note }}”</p>
     }
-    @if (canRecord()) {
-      <button hlmBtn type="button" class="primary-button" (click)="record.emit()">
-        <app-icon name="upload" />Record evidence
-      </button>
+    @if (caseState(evidence); as state) {
+      <p class="submission-case" [attr.data-case]="evidence.evidenceCase?.status">{{ state }}</p>
     }
-    @if (canReset()) {
-      <button hlmBtn type="button" class="text-button" (click)="resetClock.emit()">
-        Reset clock<ng-icon class="link-icon" name="lucideRotateCcw" />
-      </button>
+    @if (evidence.reason) {
+      <p class="submission-reason">Reviewer: {{ evidence.reason }}</p>
     }
-    @if (captain() && live()) {
-      <button hlmBtn type="button" class="text-button" (click)="voided.emit()">
-        Void duty<ng-icon class="link-icon" name="lucideX" />
+    @if (!sample()) {
+      <button
+        hlmBtn
+        type="button"
+        class="text-button watch"
+        [attr.aria-label]="'Watch video from ' + evidence.submitterName"
+        (click)="watch(evidence)"
+      >
+        <ng-icon name="lucidePlay" aria-hidden="true" />Watch
       </button>
     }
   </div>
-</div>
+</ng-template>
