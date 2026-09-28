@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { openSection, seedProfile } from './support';
+import { chooseOption, openSection, seedProfile } from './support';
 
 test.beforeEach(async ({ page }) => {
   await seedProfile(page);
@@ -33,7 +33,7 @@ test('all published rounds, playoffs, timezone and selection persistence', async
   await expect(ribbon.filter({ hasText: 'Zebre' })).toContainText(/FRI,? 16 APR/);
   await expect(ribbon.filter({ hasText: 'Zebre' })).toContainText('19:30');
   await choose(8);
-  await expect(page.getByRole('region', { name: 'Selected round' })).toContainText('2027');
+  await expect(page.getByRole('region', { name: 'Selected round' })).toContainText('Round 08');
   await expect(ribbon.filter({ hasText: 'Lions' })).toContainText('FEB');
   await page
     .getByRole('navigation', { name: 'League navigation', exact: true })
@@ -73,13 +73,13 @@ test('sample league duties, evidence, votes and round scoping', async ({ page })
   await page.goto('/piele?round=2');
   const nav = page.getByRole('navigation', { name: 'League navigation', exact: true });
   await expect(page.getByRole('region', { name: 'Selected round' })).toContainText(
-    'Sample league records',
+    'Round 02',
   );
   await expect(page.locator('.duty-feature')).toContainText('Victor Dercksen');
   await expect(page.locator('.duty-feature')).toHaveClass(/spoon-duty/);
   await page.getByRole('button', { name: 'Upload evidence', exact: true }).click();
-  await expect(page.getByRole('dialog')).toHaveClass(/spoon-duty/);
-  const upload = page.locator('app-home-page input[type=file]');
+  await expect(page.getByRole('dialog').locator('hlm-dialog-content')).toHaveClass(/spoon-duty/);
+  const upload = page.getByRole('dialog').locator('input[type=file]');
   await upload.setInputFiles({
     name: 'note.txt',
     mimeType: 'text/plain',
@@ -102,7 +102,7 @@ test('sample league duties, evidence, votes and round scoping', async ({ page })
   await expect(page).toHaveURL(/\/piele\/duties\?round=2/);
   await expect(page.locator('.register-card')).toHaveCount(1);
   await expect(page.locator('.register-card')).toContainText('Submitted for review');
-  await page.getByRole('link', { name: 'League duties', exact: true }).click();
+  await page.getByRole('button', { name: 'League duties', exact: true }).click();
   await expect(page.locator('.register-card')).toHaveCount(2);
   await expect(page.locator('.register-card.spoon-duty')).toHaveCount(1);
   await expect(page.locator('.register-card:not(.spoon-duty)')).toContainText('Pick confirmation');
@@ -171,7 +171,11 @@ test('a short page opened from deep in a long one starts at the top, the bottom 
     const gaps: number[] = [];
     const started = performance.now();
     const tick = () => {
-      gaps.push(innerHeight - element.getBoundingClientRect().bottom);
+      gaps.push(
+        innerHeight -
+          element.getBoundingClientRect().bottom -
+          parseFloat(getComputedStyle(element).bottom),
+      );
       if (performance.now() - started < 1500) requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
@@ -208,7 +212,9 @@ test('a page ends where its content ends: closed overlays and dropdowns add no s
       const bottom = (element: Element) => element.getBoundingClientRect().bottom + scrollY;
       const nav = document.querySelector('.mobile-nav')!;
       const padding =
-        getComputedStyle(nav).position === 'fixed' ? nav.getBoundingClientRect().height : 0;
+        getComputedStyle(nav).position === 'fixed'
+          ? nav.getBoundingClientRect().height + parseFloat(getComputedStyle(nav).bottom)
+          : 0;
       const end = Math.max(innerHeight, bottom(document.querySelector('.club-footer')!) + padding);
       const beyond: string[] = [];
       for (const bar of document.querySelectorAll('.top-bar, .season-rail, .round-bar')) {
@@ -330,7 +336,7 @@ test('captain creates, records and decides duties; the feed follows', async ({ p
   const dialog = page.getByRole('dialog').filter({ hasText: 'Put it on the register.' });
   await expect(dialog).toBeVisible();
   await expect(dialog).toContainText('09 Oct 2026 · 20:45 SAST');
-  await dialog.getByLabel('Member').selectOption({ label: 'Johan' });
+  await chooseOption(dialog.getByLabel('Member'), { label: 'Johan' });
   await dialog.getByLabel('Reason').fill('Last place in Round 02.');
   await dialog.getByRole('button', { name: 'Create duty' }).click();
   await expect(
@@ -408,7 +414,7 @@ test('captain creates, records and decides duties; the feed follows', async ({ p
     .first()
     .click();
   await nav.getByRole('link', { name: 'Duties', exact: true }).click();
-  await page.getByRole('link', { name: 'League duties', exact: true }).click();
+  await page.getByRole('button', { name: 'League duties', exact: true }).click();
   const arnoDuty = page.locator('.register-card').filter({ hasText: 'Arno' });
   await expect(arnoDuty).toContainText('Overdue');
   await arnoDuty.getByRole('button', { name: 'Reset clock' }).click();

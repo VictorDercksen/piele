@@ -8,7 +8,7 @@ test.beforeEach(async ({ page }) => {
 /** Submits the sample member's spoon duty evidence on the duties page: a success card follows. */
 async function submitSampleEvidence(page: Page) {
   await page.goto('/piele/duties?round=2');
-  await page.getByRole('link', { name: 'League duties', exact: true }).click();
+  await page.getByRole('button', { name: 'League duties', exact: true }).click();
   await page
     .locator('.register-card.spoon-duty')
     .getByRole('button', { name: 'Upload evidence', exact: true })
@@ -54,7 +54,13 @@ test('a success card follows the sample evidence, leaves on its own and adds no 
   const excess = await page.evaluate(() => {
     const nav = document.querySelector('.mobile-nav')!;
     const footer = document.querySelector('.club-footer')!.getBoundingClientRect().bottom;
-    const end = Math.max(innerHeight, footer + scrollY + nav.getBoundingClientRect().height);
+    const end = Math.max(
+      innerHeight,
+      footer +
+        scrollY +
+        nav.getBoundingClientRect().height +
+        parseFloat(getComputedStyle(nav).bottom),
+    );
     return document.documentElement.scrollHeight - end;
   });
   expect(Math.abs(excess)).toBeLessThanOrEqual(1);

@@ -1,3 +1,4 @@
+import { HlmButton } from '@spartan-ng/helm/button';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -34,7 +35,11 @@ export const ALERT_EYEBROWS: Readonly<Record<AlertSeverity, string>> = {
   templateUrl: './alert-snack.html',
   styleUrl: './alert-snack.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Icon],
+  /* prettier-ignore */
+  imports: [
+    Icon,
+    HlmButton,
+  ],
 })
 export class AlertSnack {
   private readonly alertService = inject(AlertService);
@@ -64,6 +69,11 @@ export class AlertSnack {
       else if (newest > this.raisedId) this.raise();
       this.raisedId = Math.max(this.raisedId, newest);
     });
+    const overlays = new MutationObserver(() => {
+      const parent = this.topModal() ?? this.host;
+      if (this.alerts().length && this.stack().nativeElement.parentElement !== parent) this.raise();
+    });
+    overlays.observe(document.body, { childList: true, subtree: true });
     // A modal opening while cards show takes them in; one closing lets them out again.
     const moved = (event: Event) => {
       if (event.target instanceof HTMLDialogElement && this.alerts().length) this.raise();
@@ -74,6 +84,7 @@ export class AlertSnack {
     inject(DestroyRef).onDestroy(() => {
       document.removeEventListener('toggle', moved, true);
       document.removeEventListener('close', moved, true);
+      overlays.disconnect();
       this.removal?.disconnect();
       // A stack moved into a modal is not removed with this component's view.
       this.stack().nativeElement.remove();
@@ -143,9 +154,11 @@ export class AlertSnack {
     this.watchRemoval(false);
   }
 
-  private topModal(): HTMLDialogElement | null {
+  private topModal(): HTMLElement | null {
     try {
-      const modals = document.querySelectorAll<HTMLDialogElement>('dialog:modal');
+      const modals = document.querySelectorAll<HTMLElement>(
+        'dialog:modal, cdk-dialog-container[role=dialog], cdk-dialog-container[role=alertdialog]',
+      );
       return modals.length ? modals[modals.length - 1] : null;
     } catch {
       return null;

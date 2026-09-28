@@ -18,17 +18,6 @@ const POLL: Poll = {
 };
 
 describe('VoteDialog', () => {
-  beforeAll(() => {
-    // jsdom has no modal dialogs.
-    HTMLDialogElement.prototype.showModal ??= function (this: HTMLDialogElement) {
-      this.setAttribute('open', '');
-    };
-    HTMLDialogElement.prototype.close ??= function (this: HTMLDialogElement) {
-      this.removeAttribute('open');
-      this.dispatchEvent(new Event('close'));
-    };
-  });
-
   it('shows a failed vote as an error card and clears it once the vote is recorded', async () => {
     let refusal: Error | null = new Error('Voting closed for this poll.');
     const votes: string[] = [];
@@ -52,7 +41,7 @@ describe('VoteDialog', () => {
     fixture.detectChanges();
     const alerts = TestBed.inject(AlertService);
     const error = vi.spyOn(alerts, 'error');
-    const root = fixture.nativeElement as HTMLElement;
+    const root = document.body;
     const dialog = fixture.componentInstance;
     dialog.open(POLL);
     dialog.choice.setValue('Pofadder');
@@ -60,7 +49,7 @@ describe('VoteDialog', () => {
     await fixture.whenStable();
     expect(error).toHaveBeenCalledOnce();
     expect(error).toHaveBeenCalledWith('Voting closed for this poll.', { key: 'vote-failed' });
-    expect(root.querySelector('dialog')!.hasAttribute('open')).toBe(true);
+    expect(!!root.querySelector('[role=dialog]')).toBe(true);
     expect(root.querySelector('[role="alert"], .error-message')).toBeNull();
 
     refusal = null;

@@ -1,3 +1,5 @@
+import { By } from '@angular/platform-browser';
+import { SearchSelect } from '../../../shared/search-select/search-select';
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { AlertService } from '../../../core/feedback/alert.service';
@@ -52,9 +54,16 @@ describe('CreateLeagueForm', () => {
       input.dispatchEvent(new Event('input'));
     };
     const choose = (id: string, value: string) => {
-      const select = field<HTMLSelectElement>(id);
-      select.value = value;
-      select.dispatchEvent(new Event('change'));
+      const searchable = fixture.debugElement
+        .queryAll(By.directive(SearchSelect))
+        .map((element) => element.componentInstance as SearchSelect)
+        .find((select) => select.selectId() === `new-league-${id}`);
+      if (searchable) searchable.choose(value);
+      else {
+        const select = field<HTMLSelectElement>(id);
+        select.value = value;
+        select.dispatchEvent(new Event('change'));
+      }
     };
     /** Types a member into a row of the team sheet, adding rows as needed. */
     const member = async (row: number, name: string, surname: string, superbru: string) => {
@@ -79,8 +88,8 @@ describe('CreateLeagueForm', () => {
   it('fills the slug from the name until it is edited, and the season from the competition', async () => {
     const { field, type, fixture } = setup();
     await settle();
-    expect(field<HTMLSelectElement>('competitionId').value).toBe('urc-2026-27');
-    expect(field<HTMLInputElement>('timezone').value).toBe('Africa/Johannesburg');
+    expect(field('competitionId').getAttribute('data-value')).toBe('urc-2026-27');
+    expect(field('timezone').getAttribute('data-value')).toBe('Africa/Johannesburg');
     expect(field<HTMLInputElement>('seasonName').value).toBe('URC 2026/27');
     type('name', 'Die Ou Manne');
     TestBed.tick();
@@ -93,7 +102,7 @@ describe('CreateLeagueForm', () => {
   });
 
   it('starts with three rows, adds one with "Add member" and offers the members as captain', async () => {
-    const { root, member, field, submit, type, choose, warn } = setup();
+    const { root, member, field, submit, type, choose, warn, fixture } = setup();
     await settle();
     expect(root.querySelectorAll('.member-row').length).toBe(3);
     await member(0, 'Doempie', 'Steyn', 'Doempie');
@@ -102,8 +111,8 @@ describe('CreateLeagueForm', () => {
     expect(root.querySelectorAll('.member-row').length).toBe(4);
     expect(document.activeElement).toBe(field('member-3-name'));
     expect(root.querySelector('.preview-count')?.textContent).toBe('2 members ready.');
-    const options = Array.from(field<HTMLSelectElement>('captain').options).map((o) => o.value);
-    expect(options).toEqual(['', 'Doempie', 'Thabo']);
+    const options = fixture.componentInstance.captainSelectOptions().map((option) => option.value);
+    expect(options).toEqual(['Doempie', 'Thabo']);
 
     // An unfinished row is pointed out once the admin tries to submit.
     type('name', 'Die Ou Manne');
@@ -218,7 +227,9 @@ describe('CreateLeagueForm', () => {
     type('name', 'Die Ou Manne');
     await member(0, 'Doempie', 'Steyn', 'Doempie');
     choose('captain', 'Doempie');
-    const me = root.querySelector<HTMLInputElement>('input[formcontrolname="captainIsMe"]')!;
+    const me = root.querySelector<HTMLInputElement>(
+      'hlm-checkbox[formcontrolname="captainIsMe"] button',
+    )!;
     me.click();
     await settle();
     await submit();
@@ -228,7 +239,7 @@ describe('CreateLeagueForm', () => {
     expect(document.activeElement).not.toBe(field('captainEmail'));
 
     type('captainEmail', 'doempie@example.test');
-    root.querySelector<HTMLInputElement>('input[formcontrolname="addMe"]')!.click();
+    root.querySelector<HTMLInputElement>('hlm-checkbox[formcontrolname="addMe"] button')!.click();
     await submit();
     expect(sent[0]).toMatchObject({ captainEmail: 'doempie@example.test', addMe: true });
   });
@@ -278,9 +289,11 @@ describe('CreateLeagueForm', () => {
     const { type, choose, member, submit, root, field } = setup();
     await settle();
     const group = root.querySelector<HTMLDetailsElement>('#new-league-rules')!;
-    expect(group.open).toBe(false);
+    expect(group.getAttribute('data-state') === 'open').toBe(false);
     expect(field<HTMLInputElement>('rules-marginWindow').value).toBe('5');
-    expect(field<HTMLInputElement>('rules-defaultPicks').checked).toBe(true);
+    expect(field<HTMLElement>('rules-defaultPicks').getAttribute('aria-checked') === 'true').toBe(
+      true,
+    );
     expect(root.querySelector('#new-league-rules-previousChampionMemberId')).toBeNull();
     type('name', 'Die Ou Manne');
     await member(0, 'Doempie', 'Steyn', 'Doempie');
@@ -309,7 +322,10 @@ describe('CreateLeagueForm', () => {
       key: 'create-league',
       details: [],
     });
-    expect(root.querySelector<HTMLDetailsElement>('#new-league-rules')!.open).toBe(true);
+    expect(
+      root.querySelector<HTMLDetailsElement>('#new-league-rules')!.getAttribute('data-state') ===
+        'open',
+    ).toBe(true);
     expect(field('rules-startingRound').getAttribute('aria-invalid')).toBe('true');
     expect(field('rules-startingRound').classList).toContain('problem-flag');
     expect(document.activeElement).not.toBe(field('rules-startingRound'));

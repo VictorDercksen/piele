@@ -1,3 +1,4 @@
+import { HlmButton } from '@spartan-ng/helm/button';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -38,6 +39,7 @@ import { scoringView } from './scoring';
   templateUrl: './match.page.html',
   styleUrl: './match.page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  /* prettier-ignore */
   imports: [
     LeagueTimePipe,
     Icon,
@@ -49,6 +51,7 @@ import { scoringView } from './scoring';
     ScoringPanel,
     WeatherPanel,
     TeamsheetsPanel,
+    HlmButton,
   ],
   viewProviders: [provideIcons({ lucideRotateCcw })],
 })

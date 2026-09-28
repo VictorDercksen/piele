@@ -1,3 +1,9 @@
+import { HlmRadioGroup } from '@spartan-ng/helm/radio-group';
+import { HlmRadio } from '@spartan-ng/helm/radio-group';
+import { HlmButton } from '@spartan-ng/helm/button';
+import { HlmInput } from '@spartan-ng/helm/input';
+import { HlmLabel } from '@spartan-ng/helm/label';
+import { HlmCheckbox } from '@spartan-ng/helm/checkbox';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -66,13 +72,19 @@ const REFUSALS: Readonly<Record<string, string>> = {
   templateUrl: './picks-card.html',
   styleUrl: './picks-card.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  // prettier-ignore
+  /* prettier-ignore */
   imports: [
     ReactiveFormsModule,
     NgIcon,
     Dropdown,
     Loader,
     MemberAvatar,
+    HlmButton,
+    HlmInput,
+    HlmLabel,
+    HlmCheckbox,
+    HlmRadioGroup,
+    HlmRadio,
   ],
   viewProviders: [provideIcons({ lucideArrowRight, lucidePencil, lucideTrash2, lucideX })],
 })

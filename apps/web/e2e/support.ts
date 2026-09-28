@@ -99,7 +99,7 @@ export async function expectClosesInPlace(page: Page, heading: string): Promise<
   await expect(chevron).toHaveAttribute('aria-expanded', 'false');
   await expect(section).not.toHaveClass(/animating/);
   await expect(head).not.toHaveClass(/stuck/);
-  await expect(body).toHaveAttribute('inert', '');
+  await expect(body).toHaveAttribute('inert');
   await page.waitForTimeout(2600);
   const { frames, marks, atEnd } = await page.evaluate(() => {
     const w = window as unknown as {
@@ -136,4 +136,24 @@ export async function expectClosesInPlace(page: Page, heading: string): Promise<
     }
   });
   await expect(chevron).toBeInViewport();
+}
+
+/** Selects through the searchable Spartan popup, including options rendered in an overlay. */
+export async function chooseOption(
+  control: Locator,
+  option: string | { label: string },
+): Promise<void> {
+  if ((await control.getAttribute('aria-expanded')) !== 'true') await control.click();
+  const page = control.page();
+  await page
+    .locator('.pavilion-select-search input')
+    .fill(typeof option === 'string' ? option : option.label);
+  const item =
+    typeof option === 'string'
+      ? page.locator('.pavilion-select-option').and(page.locator(`[data-value="${option}"]`))
+      : page.getByRole('option', { name: option.label, exact: true });
+  await item.click();
+  await expect(control).toHaveAttribute('aria-expanded', 'false');
+  if (typeof option === 'string') await expect(control).toHaveAttribute('data-value', option);
+  else await expect(control).toContainText(option.label);
 }

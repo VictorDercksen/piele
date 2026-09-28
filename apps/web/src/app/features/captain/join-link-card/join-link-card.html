@@ -4,10 +4,17 @@
       Anyone with this link can sign in and claim an open name on the team sheet. Names reserved for
       an email stay with that address.
     </p>
-    <label class="field-label" for="join-link-url">Join link</label>
+    <label hlmLabel class="field-label" for="join-link-url">Join link</label>
     <div class="link-row">
-      <input id="join-link-url" type="text" readonly [value]="link" (focus)="select($event)" />
-      <button type="button" class="primary-button" (click)="copy()">
+      <input
+        hlmInput
+        id="join-link-url"
+        type="text"
+        readonly
+        [value]="link"
+        (focus)="select($event)"
+      />
+      <button hlmBtn type="button" class="primary-button" (click)="copy()">
         <ng-icon name="lucideCopy" aria-hidden="true" />Copy link
       </button>
     </div>
@@ -17,10 +24,10 @@
       }
     </p>
     <div class="link-actions">
-      <button type="button" class="text-button" (click)="rotate()">
+      <button hlmBtn type="button" class="text-button" (click)="rotate()">
         <ng-icon class="link-icon" name="lucideRefreshCw" aria-hidden="true" />Rotate link
       </button>
-      <button type="button" class="text-button" (click)="closeJoining()">
+      <button hlmBtn type="button" class="text-button" (click)="closeJoining()">
         Close joining<ng-icon class="link-icon" name="lucideLockKeyhole" />
       </button>
     </div>
@@ -32,6 +39,7 @@
         closed.
       </p>
       <button
+        hlmBtn
         type="button"
         class="primary-button"
         [disabled]="opening()"

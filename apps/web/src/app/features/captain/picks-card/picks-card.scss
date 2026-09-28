@@ -236,27 +236,27 @@
   font-weight: 700;
   color: var(--muted);
 }
-.side:has(input:checked) {
+.side:has(hlm-radio[data-checked]) {
   background: color-mix(in srgb, var(--club, #4a5a55) 55%, #0f1b1e);
   box-shadow: inset 0 -3px var(--orange);
 }
-.side.draw:has(input:checked) {
+.side.draw:has(hlm-radio[data-checked]) {
   background: var(--tint);
 }
-.side.draw:has(input:checked) span {
+.side.draw:has(hlm-radio[data-checked]) span {
   color: var(--ink);
 }
-.side:has(input:focus-visible) {
+.side:has(hlm-radio:focus-within) {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
-.side:has(input:disabled) {
+.side:has(hlm-radio[data-disabled]) {
   cursor: default;
 }
-.side:has(input:disabled) input {
+.side:has(hlm-radio[data-disabled]) input {
   cursor: default;
 }
-.read-only .side:not(:has(input:checked)) {
+.read-only .side:not(:has(hlm-radio[data-checked])) {
   opacity: 0.55;
 }
 .margin {
@@ -311,7 +311,7 @@
   margin: 0;
   accent-color: var(--accent);
 }
-.check:has(input:disabled) {
+.check:has(hlm-checkbox[data-disabled]) {
   opacity: 0.5;
   cursor: default;
 }
@@ -451,7 +451,7 @@ td.action {
   font: inherit;
   font-size: 14px;
 }
-.override-form input:focus-visible {
+.override-form hlm-radio:focus-within {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }

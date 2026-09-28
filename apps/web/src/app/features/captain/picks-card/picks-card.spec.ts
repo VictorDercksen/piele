@@ -126,7 +126,7 @@ function setup(options: { locked?: boolean; result?: FixtureResult | null; refus
     root.querySelector<HTMLInputElement>(`#pick-${FID}-${memberId}-margin`)!;
   const row = (memberId: string) => margin(memberId).closest('li')!;
   const missed = (memberId: string) =>
-    row(memberId).querySelector<HTMLInputElement>('.check.missed input')!;
+    row(memberId).querySelector<HTMLButtonElement>('.check.missed [role=checkbox]')!;
   const type = (memberId: string, value: string) => {
     const input = margin(memberId);
     input.value = value;

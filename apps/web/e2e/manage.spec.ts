@@ -1,5 +1,5 @@
 import { expect, Page, test } from '@playwright/test';
-import { seedProfile } from './support';
+import { chooseOption, seedProfile } from './support';
 
 // The management centre in the sample build. The sample account is the admin; `?sampleAdmin=0`
 // on the first page makes it a plain member. Sample changes live in memory, so each journey
@@ -101,14 +101,15 @@ test('creating a league adds it to the switcher and opens it', async ({ page }) 
   await expect(form.getByLabel('League name')).toHaveAttribute('placeholder', 'Sample Name');
   await form.getByLabel('League name').fill('Die Ou Manne');
   await expect(form.getByLabel('Slug')).toHaveValue('die-ou-manne');
-  await expect(form.getByLabel('Competition')).toHaveValue('urc-2026-27');
-  await expect(form.getByLabel('Time zone')).toHaveValue('Africa/Johannesburg');
+  await expect(form.getByLabel('Competition')).toHaveAttribute('data-value', 'urc-2026-27');
+  await expect(form.getByLabel('Time zone')).toHaveAttribute('data-value', 'Africa/Johannesburg');
   await expect(form.getByLabel('Season name')).toHaveValue('URC 2026/27');
 
   // The time zone is chosen from the browser's IANA zones.
-  await expect(form.getByLabel('Time zone').locator('option[value="Europe/London"]')).toHaveCount(
-    1,
-  );
+  await form.getByLabel('Time zone').click();
+  await page.getByPlaceholder('Search time zones').fill('London');
+  await expect(page.getByRole('option', { name: /London/ })).toHaveCount(1);
+  await page.keyboard.press('Escape');
 
   // A row without a Superbru name is pointed out on submit, on a warning card, and stops the form.
   await expect(form.locator('.member-row')).toHaveCount(3);
@@ -131,7 +132,7 @@ test('creating a league adds it to the switcher and opens it', async ({ page }) 
   await member(page, 3, 'Victor', 'Dercksen', 'Vic');
   await expect(form.locator('.member-row')).toHaveCount(4);
   await expect(form.locator('.preview-count')).toHaveText('4 members ready.');
-  await form.getByLabel('Captain', { exact: true }).selectOption('Vic');
+  await chooseOption(form.getByLabel('Captain', { exact: true }), 'Vic');
   await expect(form.getByLabel('The captain is me')).toBeChecked();
   await form.getByRole('radio', { name: 'Jersey' }).check();
   await form.getByLabel('Accent colour').fill('#3f8f6b');
@@ -163,7 +164,7 @@ test('the form warns about a taken slug and highlights the slug field', async ({
   const form = await openCreate(page);
   await form.getByLabel('League name').fill('Piele');
   await member(page, 0, 'Victor', 'Dercksen', 'Vic');
-  await form.getByLabel('Captain', { exact: true }).selectOption('Vic');
+  await chooseOption(form.getByLabel('Captain', { exact: true }), 'Vic');
   await form.getByRole('button', { name: 'Create league' }).click();
   const slug = form.getByLabel('Slug');
   await expect(slug).toHaveAttribute('aria-invalid', 'true');
@@ -199,13 +200,13 @@ test('archiving a league takes it out of the switcher; restoring brings it back'
   await expect(dialog).toBeHidden();
   await expect(notice(page, 'Pofadder Bowl is archived.')).toBeVisible();
 
-  const archived = page.locator('details.archived-group');
-  await expect(archived.locator('summary')).toBeFocused();
-  await expect(archived.locator('summary')).toContainText('Archived 1');
+  const archived = page.locator('.archived-group');
+  await expect(archived.locator('.disclosure-trigger')).toBeFocused();
+  await expect(archived.locator('.disclosure-trigger')).toContainText('Archived 1');
   await expect(page.getByRole('list', { name: 'Active leagues' })).not.toContainText(
     'Pofadder Bowl',
   );
-  await archived.locator('summary').click();
+  await archived.locator('.disclosure-trigger').click();
   await expect(card(page, 'Pofadder Bowl').getByText('Archived', { exact: true })).toBeVisible();
 
   await page.getByRole('link', { name: 'Back to the clubhouse' }).click();
@@ -214,14 +215,14 @@ test('archiving a league takes it out of the switcher; restoring brings it back'
   await expect(sheet).not.toContainText('Pofadder Bowl');
   await sheet.getByRole('link', { name: 'Manage leagues' }).click();
 
-  await page.locator('details.archived-group summary').click();
+  await page.locator('.archived-group .disclosure-trigger').click();
   await expand(page, 'Pofadder Bowl');
   await card(page, 'Pofadder Bowl').getByRole('button', { name: 'Restore Pofadder Bowl' }).click();
   await page
     .getByRole('dialog', { name: 'Restore Pofadder Bowl?' })
     .getByRole('button', { name: 'Restore' })
     .click();
-  await expect(page.locator('details.archived-group')).toHaveCount(0);
+  await expect(page.locator('.archived-group')).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Pofadder Bowl', level: 3 })).toBeFocused();
   await page.getByRole('link', { name: 'Back to the clubhouse' }).click();
   sheet = await openSwitcher(page);
@@ -241,8 +242,11 @@ test('rename, add me and appoint a captain from a league’s card', async ({ pag
   await rename.click();
   const name = pofadder.getByLabel('League name');
   await expect(name).toBeFocused();
-  await expect(pofadder.getByLabel('Time zone')).toHaveValue('Africa/Johannesburg');
-  await pofadder.getByLabel('Time zone').selectOption('Europe/London');
+  await expect(pofadder.getByLabel('Time zone')).toHaveAttribute(
+    'data-value',
+    'Africa/Johannesburg',
+  );
+  await chooseOption(pofadder.getByLabel('Time zone'), 'Europe/London');
   // A blank name is warned about on a card, marked and highlighted.
   await name.fill('');
   await pofadder.getByRole('button', { name: 'Save' }).click();
@@ -263,16 +267,11 @@ test('rename, add me and appoint a captain from a league’s card', async ({ pag
   await copy.click();
   await expect(cup.locator('.copy-status')).toHaveText('Copied');
 
-  await cup.locator('summary', { hasText: 'Appoint a captain' }).click();
+  await cup.locator('.disclosure-trigger', { hasText: 'Appoint a captain' }).click();
   const captain = cup.getByLabel('New captain');
-  await expect(captain.locator('option')).toHaveText([
-    'Choose a claimed member',
-    'Kallie',
-    'You',
-    'Sanet',
-    'Thabo',
-  ]);
-  await captain.selectOption({ label: 'Kallie' });
+  await captain.click();
+  await expect(page.getByRole('option')).toHaveText(['Kallie', 'You', 'Sanet', 'Thabo']);
+  await chooseOption(captain, { label: 'Kallie' });
   await cup.getByRole('button', { name: 'Appoint', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Make Kallie captain?' });
   await expect(dialog).toContainText('from Doempie');
@@ -305,7 +304,9 @@ test('the management centre fits a 320 px phone', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Manage leagues.', level: 1 })).toBeVisible();
   await expand(page, 'Piele');
   await card(page, 'Piele').getByRole('button', { name: 'Rename Piele' }).click();
-  await card(page, 'Piele').locator('summary', { hasText: 'Appoint a captain' }).click();
+  await card(page, 'Piele')
+    .locator('.disclosure-trigger', { hasText: 'Appoint a captain' })
+    .click();
   const form = await openCreate(page);
   await member(page, 0, 'Kallie', 'Kruger', 'Kallie');
   await member(page, 3, 'No', 'Superbru', '');

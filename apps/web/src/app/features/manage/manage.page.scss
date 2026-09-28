@@ -63,7 +63,7 @@
 }
 .wordmark:focus-visible,
 .back-link:focus-visible,
-.archived-group summary:focus-visible {
+.archived-group .disclosure-trigger:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
@@ -113,7 +113,7 @@ section + section {
   margin-top: 18px;
   border: 1px solid var(--line);
 }
-.archived-group summary {
+.archived-group .disclosure-trigger {
   display: flex;
   align-items: center;
   gap: 10px;

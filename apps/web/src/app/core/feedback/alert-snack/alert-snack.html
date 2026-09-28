@@ -23,10 +23,12 @@
           </ul>
         }
         @if (alert.action; as action) {
-          <button type="button" class="action" (click)="act(alert)">{{ action.label }}</button>
+          <button hlmBtn type="button" class="action" (click)="act(alert)">
+            {{ action.label }}
+          </button>
         }
       </div>
-      <button type="button" class="dismiss" aria-label="Dismiss" (click)="dismiss(alert.id)">
+      <button hlmBtn type="button" class="dismiss" aria-label="Dismiss" (click)="dismiss(alert.id)">
         <app-icon name="close" />
       </button>
     </div>

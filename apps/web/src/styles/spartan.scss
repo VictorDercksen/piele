@@ -1,0 +1,416 @@
+// Application-owned styling for the generated Spartan Helm controls.
+:root.dark {
+  --background: #0b1518;
+  --foreground: #f2efdf;
+  --card: #18282a;
+  --card-foreground: #f2efdf;
+  --popover: #18282a;
+  --popover-foreground: #f2efdf;
+  --primary: #ffa17c;
+  --primary-foreground: #0b1518;
+  --secondary: #263b3d;
+  --secondary-foreground: #f2efdf;
+  --muted-foreground: #b8c4bd;
+  --border: #40514e;
+  --input: #40514e;
+  --ring: #ffa17c;
+  --radius: 0.2rem;
+}
+.pavilion-label {
+  cursor: pointer;
+}
+:where([hlmInput], [hlmTextarea], [hlmBtn], [hlmToggleGroupItem]):focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}
+hlm-radio,
+brn-radio.pavilion-radio {
+  display: contents;
+}
+:where(label):has(hlm-radio) {
+  position: relative;
+}
+:where(label):has(hlm-radio input:checked) {
+  border-color: var(--orange, #f58b65);
+}
+:where(label):has(hlm-radio input:focus-visible) {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}
+:where(label):has(hlm-radio input:disabled) {
+  opacity: 0.55;
+}
+brn-checkbox button[role='checkbox'] {
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  padding: 0;
+  border: 1px solid var(--line, #40514e);
+  border-radius: 3px;
+  background: #0f1b1e;
+  color: #0b1518;
+}
+brn-checkbox button[aria-checked='true'] {
+  background: var(--accent, #ffa17c);
+  border-color: var(--accent, #ffa17c);
+}
+brn-checkbox button:focus-visible,
+brn-switch:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}
+brn-checkbox ng-icon {
+  --ng-icon__size: 14px;
+}
+brn-switch {
+  margin-top: 2px;
+}
+.disclosure-trigger {
+  width: 100%;
+  text-align: start;
+  color: inherit;
+  background: transparent;
+}
+.disclosure-content {
+  min-width: 0;
+}
+.pavilion-dialog {
+  --paper: #0b1518;
+  --surface: #18282a;
+  --ink: #f2efdf;
+  --muted: #b8c4bd;
+  --line: #40514e;
+  --accent: #ffa17c;
+  --orange: #f58b65;
+  --tint: #382e26;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.45;
+}
+.pavilion-dialog-backdrop {
+  background: #0c1722ad;
+  backdrop-filter: blur(4px);
+}
+.cdk-overlay-container {
+  z-index: 1000;
+}
+
+/* Shared control surfaces retain the club palette without the generic Slate fills. */
+:root.dark {
+  --control-radius: 12px;
+  --control-edge: #47605c;
+  --control-surface: #14282a;
+}
+:root body :is([hlmInput], [hlmTextarea]) {
+  border-radius: var(--control-radius);
+  background-color: var(--control-surface);
+  border-color: var(--control-edge);
+  box-shadow:
+    inset 0 1px 2px #00000018,
+    0 1px 0 #ffffff05;
+  transition:
+    border-color 150ms,
+    box-shadow 150ms,
+    background-color 150ms;
+}
+:root body :is([hlmInput], [hlmTextarea]):hover:not(:disabled) {
+  border-color: #70877d;
+}
+:root body :is([hlmInput], [hlmTextarea]):focus-visible {
+  border-color: #ffa17c;
+  outline: 2px solid #ffa17c80;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px #ffa17c12;
+}
+:root body :is([hlmInput], [hlmTextarea])[aria-invalid='true'] {
+  border-color: var(--problem);
+}
+
+:root body brn-checkbox button[role='checkbox'] {
+  width: 21px;
+  height: 21px;
+  min-width: 21px;
+  border-radius: 7px;
+  border-color: #536c65;
+  background: #132729;
+  box-shadow:
+    inset 0 1px 2px #0003,
+    0 1px 0 #ffffff09;
+  cursor: pointer;
+}
+:root body brn-checkbox button[aria-checked='true'] {
+  background: linear-gradient(145deg, #ffc3a3, #ed956d);
+  border-color: #ffc3a3;
+  color: #173335;
+  box-shadow: 0 2px 7px #0003;
+}
+:root body brn-checkbox button:hover:not(:disabled) {
+  border-color: #ffa17c;
+}
+:root body brn-switch {
+  width: 42px;
+  height: 25px;
+  padding: 2px;
+  border: 1px solid #536c65;
+  background: #27413f;
+  border-radius: 99px;
+  box-shadow: inset 0 1px 3px #0004;
+  cursor: pointer;
+}
+:root body brn-switch[aria-checked='true'] {
+  border-color: #ffc3a3;
+  background: #ec9c79;
+}
+:root body brn-switch [data-slot='switch-thumb'] {
+  width: 19px;
+  height: 19px;
+  background: #f2efdf;
+  box-shadow: 0 1px 3px #0005;
+}
+:root body :is(.preset, .team-option, .name, .vote-options label):has(hlm-radio) {
+  border-radius: 12px;
+  transition:
+    border-color 150ms,
+    background-color 150ms,
+    box-shadow 150ms;
+}
+:root body .side:has(hlm-radio) {
+  border-radius: 8px;
+}
+:root body .detail-dialog {
+  border-radius: 20px;
+  border-top-width: 2px;
+  box-shadow:
+    0 28px 90px #0008,
+    inset 0 1px 0 #ffffff08;
+}
+:root body .rules-group {
+  border-radius: 14px;
+}
+:root body .disclosure-trigger {
+  border-radius: 12px;
+}
+
+:root body :is(.content-tabs, .feed-scope)[hlmToggleGroup] {
+  display: flex;
+  width: fit-content;
+  max-width: 100%;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 5px;
+  border: 1px solid #61766a55;
+  border-radius: 16px;
+  background: #102427e8;
+  box-shadow:
+    inset 0 1px 0 #ffffff07,
+    0 4px 14px #00000018;
+}
+:root body :is(.content-tabs, .feed-scope) [hlmToggleGroupItem] {
+  min-height: 40px;
+  padding: 9px 17px;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  background: transparent;
+  color: #b8c4bd;
+  font-weight: 600;
+  box-shadow: none;
+}
+:root body :is(.content-tabs, .feed-scope) [hlmToggleGroupItem]:hover {
+  background: #ffffff07;
+  color: #f2efdf;
+}
+:root body :is(.content-tabs, .feed-scope) [hlmToggleGroupItem][aria-pressed='true'] {
+  border-color: #ffa17c66;
+  background: linear-gradient(160deg, #ffa17c20, #ffa17c0c);
+  color: #ffd1b5;
+  box-shadow:
+    inset 0 1px 0 #ffd1b514,
+    0 2px 5px #0003;
+}
+:root body .feed-scope[hlmToggleGroup] {
+  padding: 3px;
+  border-radius: 13px;
+}
+:root body .feed-scope [hlmToggleGroupItem] {
+  min-height: 32px;
+  padding: 5px 11px;
+  border-radius: 9px;
+}
+:root body .breakdown-toggle[hlmToggle] {
+  border-radius: 99px;
+  background: #14282a;
+  padding: 7px 15px;
+  border: 1px solid #536c65;
+  color: #c8d0c6;
+}
+:root body .breakdown-toggle[aria-pressed='true'] {
+  background: #ffa17c19;
+  border-color: #ffa17c80;
+  color: #ffd1b5;
+}
+@media (max-width: 400px) {
+  :root body .content-tabs[hlmToggleGroup] {
+    gap: 3px;
+    padding: 4px;
+  }
+  :root body .content-tabs [hlmToggleGroupItem] {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+}
+
+.pavilion-search-select {
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
+:root body .pavilion-select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 13px;
+  border: 1px solid var(--control-edge);
+  border-radius: var(--control-radius);
+  background: linear-gradient(180deg, #ffffff04, transparent), var(--control-surface);
+  color: var(--ink, #f2efdf);
+  text-align: start;
+  font-size: 13px;
+  box-shadow:
+    inset 0 1px 0 #ffffff05,
+    0 2px 6px #00000016;
+}
+.pavilion-select-trigger > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pavilion-select-trigger > ng-icon {
+  flex-shrink: 0;
+  color: #a5b8ad;
+  --ng-icon__size: 16px;
+  transition: rotate 150ms;
+}
+.pavilion-select-trigger[aria-expanded='true'] > ng-icon {
+  rotate: 180deg;
+}
+:root body .pavilion-select-trigger:hover:not(:disabled) {
+  border-color: #819a8b;
+}
+:root body .pavilion-select-trigger[aria-expanded='true'] {
+  border-color: #ffa17c99;
+  box-shadow: 0 0 0 3px #ffa17c12;
+}
+:root body .pavilion-select-trigger[aria-invalid='true'] {
+  border-color: var(--problem);
+}
+.pavilion-select-trigger .placeholder {
+  color: #9db1a7;
+}
+.pavilion-select-popover {
+  width: var(--brn-combobox-width);
+  min-width: min(240px, calc(100vw - 28px));
+  max-width: calc(100vw - 28px);
+  padding: 7px;
+  color: #f2efdf;
+  font: 14px/1.45 var(--font-sans);
+  background: linear-gradient(145deg, #ffffff04, transparent), #14272a;
+  border: 1px solid #58736b;
+  border-radius: 16px;
+  box-shadow:
+    0 18px 50px #0007,
+    inset 0 1px 0 #ffffff0a;
+}
+.pavilion-select-search {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 11px;
+  margin-bottom: 5px;
+  border-radius: 10px;
+  border: 1px solid #48625b;
+  background: #0b1e20;
+}
+.pavilion-select-search ng-icon {
+  color: #edab84;
+  --ng-icon__size: 17px;
+  flex-shrink: 0;
+}
+.pavilion-select-search input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: #f2efdf;
+  font: inherit;
+}
+.pavilion-select-search input::placeholder {
+  color: #a3b5ac;
+}
+.pavilion-select-search:focus-within {
+  border-color: #ffa17c90;
+  box-shadow: 0 0 0 2px #ffa17c12;
+}
+.pavilion-select-list {
+  max-height: min(300px, 40dvh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #637d6f transparent;
+}
+.pavilion-select-group {
+  padding: 12px 10px 5px;
+  color: #a7b9ad;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.3px;
+  text-transform: uppercase;
+}
+.pavilion-select-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 11px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  cursor: pointer;
+  outline: none;
+}
+.pavilion-select-option > span {
+  overflow-wrap: anywhere;
+}
+.pavilion-select-option ng-icon {
+  flex-shrink: 0;
+  color: #ffd1b5;
+  --ng-icon__size: 16px;
+}
+.pavilion-select-option[aria-selected='true'] {
+  color: #ffd1b5;
+  background: #ffa17c12;
+}
+.pavilion-select-option[data-highlighted] {
+  background: #28413e;
+  border-color: #7f9b8255;
+}
+.pavilion-select-option[data-disabled] {
+  opacity: 0.45;
+  pointer-events: none;
+}
+.pavilion-select-popover [data-hidden] {
+  display: none;
+}
+.pavilion-select-empty {
+  padding: 22px 12px;
+  text-align: center;
+  color: #b8c4bd;
+}
+
+.pavilion-select-popover:not([data-empty]) .pavilion-select-empty {
+  display: none;
+}

@@ -181,7 +181,7 @@ h2 {
 #display-name[aria-invalid='true'] {
   border-color: #ffb5ab;
 }
-.team-options:has(input[aria-invalid='true']) .team-option {
+.team-options[aria-invalid='true'] .team-option {
   border-color: #ffb5ab;
 }
 .profile-form input:focus-visible,

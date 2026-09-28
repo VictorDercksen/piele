@@ -1,3 +1,4 @@
+import { HlmButton } from '@spartan-ng/helm/button';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -17,14 +18,17 @@ import { CompetitionRound } from '../../competition/competition.models';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: ` <nav class="season-timeline" aria-label="Season timeline">
     <div class="timeline-heading">
-      <img class="season-logo" [src]="emblem()" [alt]="competitionName()" /><strong>{{ season() }}</strong
-      ><button type="button" class="current-link" (click)="choose.emit(current())">
+      <img class="season-logo" [src]="emblem()" [alt]="competitionName()" /><strong>{{
+        season()
+      }}</strong
+      ><button hlmBtn type="button" class="current-link" (click)="choose.emit(current())">
         Current round<ng-icon class="link-icon" name="lucideLocateFixed" />
       </button>
     </div>
     <div #track class="round-track">
       @for (round of rounds(); track round.id) {
         <button
+          hlmBtn
           #stop
           class="round-stop"
           [class.selected]="selected() === round.id"
@@ -52,7 +56,11 @@ import { CompetitionRound } from '../../competition/competition.models';
     <p class="timeline-foot">{{ regularRounds() }} rounds. The playoffs.<br />One clubhouse.</p>
   </nav>`,
   styleUrl: './season-timeline.scss',
-  imports: [NgIcon],
+  /* prettier-ignore */
+  imports: [
+    NgIcon,
+    HlmButton,
+  ],
   viewProviders: [provideIcons({ lucideCheck, lucideLocateFixed })],
 })
 export class SeasonTimeline {

@@ -1,3 +1,6 @@
+import { HlmButton } from '@spartan-ng/helm/button';
+import { HlmInput } from '@spartan-ng/helm/input';
+import { HlmLabel } from '@spartan-ng/helm/label';
 import { lucideArrowRight } from '@ng-icons/lucide';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
@@ -28,11 +31,14 @@ import { Loader } from '../../shared/loader/loader';
   styleUrl: './sign-in.page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
   viewProviders: [provideIcons({ lucideArrowRight })],
-  // prettier-ignore
+  /* prettier-ignore */
   imports: [
     NgIcon,
     ReactiveFormsModule,
     Loader,
+    HlmButton,
+    HlmInput,
+    HlmLabel,
   ],
 })
 export class SignInPage {

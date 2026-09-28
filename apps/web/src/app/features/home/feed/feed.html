@@ -1,18 +1,29 @@
 <div class="section-title">
   <h2>{{ scope() === 'round' ? 'From this round.' : 'Around the season.' }}</h2>
-  <div class="feed-scope" role="group" aria-label="Feed scope">
+  <div
+    hlmToggleGroup
+    type="single"
+    [nullable]="false"
+    [value]="scope()"
+    (valueChange)="selectScope($event)"
+    class="feed-scope"
+    role="group"
+    aria-label="Feed scope"
+  >
     <button
+      hlmBtn
       type="button"
       [class.active]="scope() === 'round'"
-      [attr.aria-pressed]="scope() === 'round'"
-      (click)="scope.set('round')"
+      hlmToggleGroupItem
+      value="round"
     >
       R{{ view.round().code }}</button
     ><button
+      hlmBtn
       type="button"
       [class.active]="scope() === 'season'"
-      [attr.aria-pressed]="scope() === 'season'"
-      (click)="scope.set('season')"
+      hlmToggleGroupItem
+      value="season"
     >
       Season
     </button>
@@ -56,11 +67,11 @@
             <em>/ {{ item.roundLabel }}</em>
           }
           <em>/ {{ item.when }}</em></span
-        ><strong>{{ item.title }}</strong
-        >@if (item.detail) {
+        ><strong>{{ item.title }}</strong>
+        @if (item.detail) {
           <small>{{ item.detail }}</small>
-        }</span
-      >
+        }
+      </span>
       <app-icon name="arrow" />
     </a>
   } @else {
@@ -73,11 +84,11 @@
             <em>/ {{ item.roundLabel }}</em>
           }
           <em>/ {{ item.when }}</em></span
-        ><strong>{{ item.title }}</strong
-        >@if (item.detail) {
+        ><strong>{{ item.title }}</strong>
+        @if (item.detail) {
           <small>{{ item.detail }}</small>
-        }</span
-      >
+        }
+      </span>
     </div>
   }
 } @empty {

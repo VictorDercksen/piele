@@ -4,15 +4,12 @@
   <ul class="switches">
     @for (item of switches; track item.key) {
       <li>
-        <label class="switch" [for]="p + '-' + item.key">
-          <input
-            type="checkbox"
-            role="switch"
-            [id]="p + '-' + item.key"
+        <label hlmLabel class="switch" [for]="p + '-' + item.key">
+          <hlm-switch
+            [inputId]="p + '-' + item.key"
             [formControlName]="item.key"
-            [attr.aria-describedby]="p + '-' + item.key + '-hint'"
+            [aria-describedby]="p + '-' + item.key + '-hint'"
           />
-          <span class="track" aria-hidden="true"></span>
           <span class="switch-text"
             ><strong>{{ item.label }}</strong
             ><small [id]="p + '-' + item.key + '-hint'">{{ item.hint }}</small></span
@@ -25,8 +22,9 @@
   <div class="number-grid">
     @let start = g.controls.startingRound;
     <div class="rule-field">
-      <label [for]="p + '-startingRound'">Starting round</label>
+      <label hlmLabel [for]="p + '-startingRound'">Starting round</label>
       <input
+        hlmInput
         [id]="p + '-startingRound'"
         type="number"
         inputmode="numeric"
@@ -34,15 +32,16 @@
         [max]="lastRound()"
         step="1"
         formControlName="startingRound"
-        [attr.aria-invalid]="shows(start)"
+        [aria-invalid]="shows(start)"
       />
     </div>
     <ng-container formGroupName="winPoints">
       @for (item of winPoints; track item.key) {
         @let control = g.controls.winPoints.controls[item.key];
         <div class="rule-field">
-          <label [for]="p + '-win-' + item.key">{{ item.label }}</label>
+          <label hlmLabel [for]="p + '-win-' + item.key">{{ item.label }}</label>
           <input
+            hlmInput
             [id]="p + '-win-' + item.key"
             type="number"
             inputmode="decimal"
@@ -50,7 +49,7 @@
             [max]="max"
             step="any"
             [formControlName]="item.key"
-            [attr.aria-invalid]="shows(control)"
+            [aria-invalid]="shows(control)"
           />
         </div>
       }
@@ -58,8 +57,9 @@
     @for (item of numbers; track item.key) {
       @let control = g.controls[item.key];
       <div class="rule-field">
-        <label [for]="p + '-' + item.key">{{ item.label }}</label>
+        <label hlmLabel [for]="p + '-' + item.key">{{ item.label }}</label>
         <input
+          hlmInput
           [id]="p + '-' + item.key"
           type="number"
           inputmode="decimal"
@@ -67,19 +67,20 @@
           [max]="max"
           step="any"
           [formControlName]="item.key"
-          [attr.aria-invalid]="shows(control)"
+          [aria-invalid]="shows(control)"
         />
       </div>
     }
     @if (champions(); as members) {
       <div class="rule-field champion">
-        <label [for]="p + '-previousChampionMemberId'">Previous season's champion</label>
-        <select [id]="p + '-previousChampionMemberId'" formControlName="previousChampionMemberId">
-          <option value="">None</option>
-          @for (member of members; track member.id) {
-            <option [value]="member.id">{{ member.name }}</option>
-          }
-        </select>
+        <label hlmLabel [for]="p + '-previousChampionMemberId'">Previous season's champion</label>
+        <app-search-select
+          [selectId]="p + '-previousChampionMemberId'"
+          formControlName="previousChampionMemberId"
+          [options]="championOptions()"
+          placeholder="None"
+          searchLabel="Search members"
+        />
       </div>
     }
   </div>

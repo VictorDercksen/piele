@@ -1,3 +1,4 @@
+import { HlmButton } from '@spartan-ng/helm/button';
 import { ChangeDetectionStrategy, Component, inject, output } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
@@ -13,12 +14,13 @@ import { Icon } from '../../../shared/icon/icon';
   templateUrl: './next-actions.html',
   styleUrl: './next-actions.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  // prettier-ignore
+  /* prettier-ignore */
   imports: [
     RouterLink,
     LeaguePathPipe,
     Icon,
     NgIcon,
+    HlmButton,
   ],
   viewProviders: [provideIcons({ lucideArrowRight })],
 })

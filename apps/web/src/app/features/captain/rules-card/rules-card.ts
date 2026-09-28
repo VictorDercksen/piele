@@ -1,3 +1,4 @@
+import { HlmButton } from '@spartan-ng/helm/button';
 import { lucideRotateCcw } from '@ng-icons/lucide';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
@@ -52,12 +53,13 @@ const REFUSALS: Readonly<Record<string, string>> = {
   styleUrl: './rules-card.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
   viewProviders: [provideIcons({ lucideRotateCcw })],
-  // prettier-ignore
+  /* prettier-ignore */
   imports: [
     NgIcon,
     Dropdown,
     RulesFields,
     Loader,
+    HlmButton,
   ],
 })
 export class RulesCard {

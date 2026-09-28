@@ -44,6 +44,7 @@
       </div>
       @if (existing) {
         <button
+          hlmBtn
           type="button"
           class="close-profile"
           (click)="cancel.emit()"
@@ -53,8 +54,9 @@
         </button>
       }
     </div>
-    <label for="display-name">Your name</label
+    <label hlmLabel for="display-name">Your name</label
     ><input
+      hlmInput
       id="display-name"
       #nameInput
       formControlName="displayName"
@@ -62,7 +64,7 @@
       maxlength="50"
       placeholder="Your clubhouse name"
       [readonly]="leagueName"
-      [attr.aria-invalid]="submitted() && form.controls.displayName.invalid"
+      [aria-invalid]="submitted() && form.controls.displayName.invalid"
     />
     @if (leagueName) {
       <p class="field-hint">Your Superbru nickname, set by the league.</p>
@@ -73,18 +75,23 @@
         Your team in {{ leagueTitle() }}. Your jersey, profile and personal highlights take on these
         colours.
       </p>
-      <div class="team-options">
+      <div
+        hlmRadioGroup
+        formControlName="teamId"
+        class="team-options"
+        [attr.aria-invalid]="submitted() && !teamId()"
+        aria-label="Your favourite team"
+      >
         @for (team of teams(); track team.id) {
           <label
+            hlmLabel
             class="team-option"
             [class.chosen]="teamId() === team.id"
             [style.--club-colour]="team.colour"
             [style.--club-accent]="team.accent"
-            ><input
-              type="radio"
-              formControlName="teamId"
+            ><hlm-radio
               [value]="team.id"
-              [attr.aria-label]="team.name"
+              [aria-label]="team.name"
               [attr.aria-invalid]="submitted() && !teamId()" /><img
               [src]="team.jersey"
               alt="" /><span>{{ team.shortName }}</span
@@ -105,22 +112,24 @@
         }
       </span>
       <div>
-        <label class="photo-label">
+        <label hlmLabel class="photo-label">
           @if (busy()) {
             <app-loader [size]="18" aria-hidden="true" />
           }
           {{ busy() ? 'Preparing photo…' : 'Add a profile photo'
           }}<input
+            hlmInput
             #photoInput
             type="file"
             accept="image/jpeg,image/png,image/webp"
-            [attr.aria-invalid]="photoInvalid()"
+            [aria-invalid]="photoInvalid()"
             (change)="choosePhoto($event)"
             [disabled]="busy() || saving()"
         /></label>
         <p>Optional · JPG, PNG or WebP · Up to 5 MB</p>
         @if (photo()) {
           <button
+            hlmBtn
             class="remove-photo"
             type="button"
             (click)="removePhoto()"
@@ -139,7 +148,7 @@
             : 'Your favourite team and photo are saved only in this browser.'
         }}
       </p>
-      <button class="save-button" type="submit" [disabled]="busy() || saving()">
+      <button hlmBtn class="save-button" type="submit" [disabled]="busy() || saving()">
         @if (saving()) {
           <span class="saving"><app-loader [size]="18" aria-hidden="true" />Saving…</span>
         } @else {
@@ -148,7 +157,13 @@
         <ng-icon class="link-icon" name="lucideArrowRight" />
       </button>
       @if (canSignOut) {
-        <button class="sign-out" type="button" (click)="signOut()" [disabled]="busy() || saving()">
+        <button
+          hlmBtn
+          class="sign-out"
+          type="button"
+          (click)="signOut()"
+          [disabled]="busy() || saving()"
+        >
           Sign out{{ accountEmail() ? ' of ' + accountEmail() : '' }}
         </button>
       }

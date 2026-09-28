@@ -1,5 +1,5 @@
 import { expect, Page, test } from '@playwright/test';
-import { openSection, seedProfile } from './support';
+import { chooseOption, openSection, seedProfile } from './support';
 
 // Superbru picks, scoring and standings in the sample build. The sample results score URC
 // rounds 1 and 2 (a fixture with one counts as kicked off); round 3 is still open, so hold the
@@ -55,7 +55,7 @@ test('before kickoff a member sees only the pick form; saving the pick reveals t
   // and an out-of-range margin is refused first.
   await panel.getByRole('button', { name: 'One point toward Stormers' }).click();
   await expect(marker).toHaveAttribute('aria-valuetext', 'Stormers by 1');
-  await expect(marker).toHaveValue('-1');
+  await expect(marker).toHaveAttribute('aria-valuenow', '-1');
   // The margin field sits on the chosen side of the Draw chip: left for the home side.
   const draw = panel.getByRole('button', { name: 'Draw', exact: true });
   const marginBox = panel.getByLabel('Margin (points)');
@@ -67,7 +67,7 @@ test('before kickoff a member sees only the pick form; saving the pick reveals t
   // A quick margin under the strip sets the side and the margin in one tap.
   await panel.getByRole('button', { name: 'Stormers by 7', exact: true }).click();
   await expect(marker).toHaveAttribute('aria-valuetext', 'Stormers by 7');
-  await expect(marker).toHaveValue('-7');
+  await expect(marker).toHaveAttribute('aria-valuenow', '-7');
   await expect(marginBox).toHaveValue('7');
   await expect(panel.getByRole('button', { name: 'Stormers by 7', exact: true })).toHaveAttribute(
     'aria-pressed',
@@ -123,7 +123,7 @@ test('before kickoff a member sees only the pick form; saving the pick reveals t
   // Until kickoff the pick can be edited; the form opens with it filled in.
   await panel.getByRole('button', { name: 'Edit your pick' }).click();
   await expect(marker).toBeFocused();
-  await expect(marker).toHaveValue('-7');
+  await expect(marker).toHaveAttribute('aria-valuenow', '-7');
   await expect(marker).toHaveAttribute('aria-valuetext', 'Stormers by 7');
   await expect(panel.getByLabel('Margin (points)')).toHaveValue('7');
   // The keyboard moves the marker a point at a time; right is toward the away side.
@@ -307,7 +307,8 @@ test('the captain records a pick, overrides a round total and clears it', async 
   await expect(missed).toBeChecked();
   const derived = card.locator('.round-table tbody tr', { hasText: 'Liam' }).first();
   await expect(derived.locator('td').first()).toHaveText('6.5');
-  await missed.uncheck();
+  await missed.click();
+  await expect(missed).not.toBeChecked();
   await liam.getByRole('radio', { name: 'Cardiff' }).check();
   await card.getByLabel('Margin for Liam').fill('10');
   await card.getByRole('button', { name: 'Save picks' }).click();
@@ -355,8 +356,8 @@ test('the captain records a pick, overrides a round total and clears it', async 
   await card.getByRole('button', { name: 'Propose Spoon duty for Victor Dercksen' }).click();
   const duty = page.getByRole('dialog', { name: 'Put it on the register.' });
   await expect(duty).toBeVisible();
-  await expect(duty.getByLabel('Member')).toHaveValue('member-me');
-  await expect(duty.getByLabel('Duty')).toHaveValue('spoon');
+  await expect(duty.getByLabel('Member')).toHaveAttribute('data-value', 'member-me');
+  await expect(duty.getByLabel('Duty')).toHaveAttribute('data-value', 'spoon');
   await expect(duty.getByLabel(/Reason/)).toHaveValue('Last place in Round 02.');
   await duty.getByRole('button', { name: 'Close dialog' }).click();
   await expect(duty).toBeHidden();
@@ -372,13 +373,13 @@ test('a new league takes its Superbru rules from the form', async ({ page }) => 
   await form.locator('#new-league-member-0-superbru').fill('Vic');
   await form.locator('#new-league-member-1-name').fill('Doempie');
   await form.locator('#new-league-member-1-superbru').fill('Doempie');
-  await form.getByLabel('Captain', { exact: true }).selectOption('Vic');
+  await chooseOption(form.getByLabel('Captain', { exact: true }), 'Vic');
 
   // The rules start collapsed at Piele's.
   const rules = form.locator('#new-league-rules');
-  await expect(rules).not.toHaveAttribute('open', '');
+  await expect(rules).toHaveAttribute('data-state', 'closed');
   await rules.getByText('Superbru rules').click();
-  await expect(rules).toHaveAttribute('open', '');
+  await expect(rules).toHaveAttribute('data-state', 'open');
   const defaults = rules.getByRole('switch', { name: /Default picks/ });
   await expect(defaults).toBeChecked();
   await expect(rules.getByLabel('Starting round')).toHaveValue('1');

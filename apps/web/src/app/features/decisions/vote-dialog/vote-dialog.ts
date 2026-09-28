@@ -1,3 +1,9 @@
+import { HlmRadioGroup } from '@spartan-ng/helm/radio-group';
+import { HlmRadio } from '@spartan-ng/helm/radio-group';
+import { HlmDialogImports } from '@spartan-ng/helm/dialog';
+import { HlmDialog } from '@spartan-ng/helm/dialog';
+import { HlmButton } from '@spartan-ng/helm/button';
+import { HlmLabel } from '@spartan-ng/helm/label';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -23,17 +29,22 @@ export const VOTE_FAILURE = 'vote-failed';
   templateUrl: './vote-dialog.html',
   styleUrl: './vote-dialog.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  // prettier-ignore
+  /* prettier-ignore */
   imports: [
     ReactiveFormsModule,
     Icon,
     Loader,
+    HlmButton,
+    HlmLabel,
+    HlmRadioGroup,
+    HlmRadio,
+    HlmDialogImports,
   ],
 })
 export class VoteDialog {
   private readonly alerts = inject(AlertService);
   readonly view = inject(RoundViewService);
-  private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
+  private readonly dialog = viewChild.required(HlmDialog);
   readonly poll = signal<Poll | null>(null);
   readonly busy = signal(false);
   readonly choice = new FormControl('', { nonNullable: true, validators: [Validators.required] });
@@ -43,11 +54,11 @@ export class VoteDialog {
     if (poll.status !== 'Open') return;
     this.poll.set(poll);
     this.choice.setValue(poll.myChoice ?? '');
-    this.dialog().nativeElement.showModal();
+    this.dialog().open();
   }
 
   close(): void {
-    this.dialog().nativeElement.close();
+    this.dialog().close();
   }
 
   async submit(): Promise<void> {

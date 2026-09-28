@@ -1,3 +1,4 @@
+import { HlmButton } from '@spartan-ng/helm/button';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -37,10 +38,11 @@ const UNFURL_MS = 1800;
     '(document:keydown.escape)': 'onEscape()',
     '(document:pointerdown)': 'onPointerDown($event)',
   },
-  // prettier-ignore
+  /* prettier-ignore */
   imports: [
     Icon,
     NgIcon,
+    HlmButton,
   ],
   viewProviders: [provideIcons({ lucideArrowRight, lucideCheck })],
 })

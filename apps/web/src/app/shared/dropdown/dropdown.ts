@@ -1,3 +1,6 @@
+import { HlmCollapsible } from '@spartan-ng/helm/collapsible';
+import { HlmCollapsibleContent } from '@spartan-ng/helm/collapsible';
+import { HlmButton } from '@spartan-ng/helm/button';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -57,7 +60,13 @@ export type DropdownAppearance = 'section' | 'panel';
   host: {
     '[attr.id]': 'anchor() || null',
   },
-  imports: [NgIcon],
+  /* prettier-ignore */
+  imports: [
+    NgIcon,
+    HlmButton,
+    HlmCollapsible,
+    HlmCollapsibleContent,
+  ],
   viewProviders: [provideIcons({ lucideChevronDown })],
 })
 export class Dropdown {

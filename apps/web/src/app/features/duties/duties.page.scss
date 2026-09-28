@@ -1,17 +1,14 @@
-// The scope tabs and "New duty" share one row above the register; the toolbar
-// carries the tab rule so it runs under the button too.
+// The shared scope tabs and "New duty" share a row above the register.
 .register-toolbar {
   display: flex;
-  align-items: stretch;
+  align-items: center;
   justify-content: space-between;
   gap: 8px 16px;
   flex-wrap: wrap;
-  border-bottom: 1px solid var(--line);
   margin-bottom: 20px;
 }
 .register-toolbar .content-tabs {
-  flex: 1 1 auto;
-  border-bottom: 0;
+  flex: 0 1 auto;
   margin-bottom: 0;
 }
 .register-toolbar .primary-button {

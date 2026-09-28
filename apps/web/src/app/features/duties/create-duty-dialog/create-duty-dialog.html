@@ -1,111 +1,132 @@
-<dialog
-  #dialog
-  class="detail-dialog compact-dialog"
-  [class.spoon-duty]="type() === 'spoon'"
-  aria-labelledby="create-duty-title"
-  (close)="closed()"
->
-  <form [formGroup]="form" (ngSubmit)="submit()">
-    <div class="dialog-top">
-      <span class="eyebrow">{{ view.leagueName().toUpperCase() }} / CAPTAIN'S DESK</span
-      ><button type="button" class="icon-button" aria-label="Close dialog" (click)="close()">
-        <app-icon name="close" />
-      </button>
-    </div>
-    <h2 id="create-duty-title">Put it on the register.</h2>
-    <div class="field-grid">
-      <label class="field wide">
-        <span>Member</span>
-        <select
-          #memberSelect
-          formControlName="memberId"
-          [attr.aria-invalid]="invalid().has('memberId')"
+<hlm-dialog #dialog aria-labelledby="create-duty-title" (stateChanged)="dialogChanged($event)">
+  <hlm-dialog-content
+    *hlmDialogPortal
+    [showCloseButton]="false"
+    class="detail-dialog compact-dialog"
+    [class.spoon-duty]="type() === 'spoon'"
+  >
+    <form [formGroup]="form" (ngSubmit)="submit()">
+      <div class="dialog-top">
+        <span class="eyebrow">{{ view.leagueName().toUpperCase() }} / CAPTAIN'S DESK</span
+        ><button
+          hlmBtn
+          type="button"
+          class="icon-button"
+          aria-label="Close dialog"
+          (click)="close()"
         >
-          <option value="" disabled>Choose a member</option>
-          @for (member of members(); track member.id) {
-            <option [value]="member.id">{{ member.name }}</option>
-          }
-        </select>
-      </label>
-      <label class="field">
-        <span>Duty</span>
-        <select formControlName="type">
-          <option value="spoon">Spoon duty</option>
-          <option value="pick_confirmation">Pick confirmation</option>
-        </select>
-      </label>
-      <label class="field">
-        <span>Round</span>
-        <select formControlName="roundId">
-          @for (round of rounds(); track round.id) {
-            <option [value]="round.id">{{ round.title }}</option>
-          }
-        </select>
-      </label>
-      <label class="field wide">
-        <span>Deadline ({{ zoneName() }})</span>
-        <input
-          #deadlineInput
-          type="datetime-local"
-          formControlName="deadline"
-          [attr.aria-invalid]="invalid().has('deadline')"
-        />
-      </label>
-    </div>
-    <p class="deadline-note">
-      @if (type() === 'spoon' && !deadlineOverridden()) {
-        Due when the next round kicks off: <strong>{{ defaultDeadlineLabel() }}</strong
-        >.
-        @if (defaultDeadline()) {
-          <button type="button" class="link-button" (click)="suggestDefault()">Change</button>
-        } @else {
-          No kickoff is published yet, so the duty waits for a deadline.
-        }
-      } @else if (type() === 'spoon') {
-        Custom deadline.
-        <button type="button" class="link-button" (click)="useDefault()">
-          Use the next kickoff
+          <app-icon name="close" />
         </button>
-      } @else {
-        A pick confirmation needs the deadline you agreed with the member.
-      }
-    </p>
-    @if (type() === 'pick_confirmation' && memberId()) {
-      <fieldset class="pick-fixtures">
-        <legend>Picks it covers</legend>
-        @for (fixture of pickFixtures(); track fixture.id) {
-          <label class="pick-fixture">
-            <input
-              type="checkbox"
-              [checked]="fixture.checked"
-              (change)="togglePickFixture(fixture.id, $event)"
-            />
-            <span
-              >{{ fixture.label }} <small>{{ fixture.state }}</small></span
-            >
-          </label>
-        } @empty {
-          <p class="pick-fixtures-empty">
-            No match of this round that has kicked off is missing a pick from this member.
-          </p>
+      </div>
+      <h2 id="create-duty-title">Put it on the register.</h2>
+      <div class="field-grid">
+        <label hlmLabel class="field wide">
+          <span>Member</span>
+          <app-search-select
+            #memberSelect
+            formControlName="memberId"
+            aria-label="Member"
+            [aria-invalid]="invalid().has('memberId')"
+            [options]="memberOptions()"
+            placeholder="Choose a member"
+            searchLabel="Search members"
+          />
+        </label>
+        <label hlmLabel class="field">
+          <span>Duty</span>
+          <app-search-select
+            formControlName="type"
+            aria-label="Duty"
+            [options]="dutyOptions"
+            searchLabel="Search duties"
+          />
+        </label>
+        <label hlmLabel class="field">
+          <span>Round</span>
+          <app-search-select
+            formControlName="roundId"
+            aria-label="Round"
+            [options]="roundOptions()"
+            placeholder="Choose a round"
+            searchLabel="Search rounds"
+          />
+        </label>
+        <label hlmLabel class="field wide">
+          <span>Deadline ({{ zoneName() }})</span>
+          <input
+            hlmInput
+            #deadlineInput
+            type="datetime-local"
+            formControlName="deadline"
+            [aria-invalid]="invalid().has('deadline')"
+          />
+        </label>
+      </div>
+      <p class="deadline-note">
+        @if (type() === 'spoon' && !deadlineOverridden()) {
+          Due when the next round kicks off: <strong>{{ defaultDeadlineLabel() }}</strong
+          >.
+          @if (defaultDeadline()) {
+            <button hlmBtn type="button" class="link-button" (click)="suggestDefault()">
+              Change
+            </button>
+          } @else {
+            No kickoff is published yet, so the duty waits for a deadline.
+          }
+        } @else if (type() === 'spoon') {
+          Custom deadline.
+          <button hlmBtn type="button" class="link-button" (click)="useDefault()">
+            Use the next kickoff
+          </button>
+        } @else {
+          A pick confirmation needs the deadline you agreed with the member.
         }
-      </fieldset>
-    }
-    <label class="field-label" for="duty-reason">Reason <span>(shown on the register)</span></label>
-    <textarea
-      id="duty-reason"
-      rows="2"
-      maxlength="500"
-      formControlName="reason"
-      placeholder="Last place in the round, missing picks…"
-    ></textarea>
-    <button type="submit" class="primary-button wide" [disabled]="busy()" [attr.aria-busy]="busy()">
-      Create duty
-      @if (busy()) {
-        <app-loader [size]="18" aria-hidden="true" />
-      } @else {
-        <app-icon name="arrow" />
+      </p>
+      @if (type() === 'pick_confirmation' && memberId()) {
+        <fieldset class="pick-fixtures">
+          <legend>Picks it covers</legend>
+          @for (fixture of pickFixtures(); track fixture.id) {
+            <label hlmLabel class="pick-fixture">
+              <hlm-checkbox
+                [checked]="fixture.checked"
+                (checkedChange)="togglePickFixture(fixture.id, $event)"
+              />
+              <span
+                >{{ fixture.label }} <small>{{ fixture.state }}</small></span
+              >
+            </label>
+          } @empty {
+            <p class="pick-fixtures-empty">
+              No match of this round that has kicked off is missing a pick from this member.
+            </p>
+          }
+        </fieldset>
       }
-    </button>
-  </form>
-</dialog>
+      <label hlmLabel class="field-label" for="duty-reason"
+        >Reason <span>(shown on the register)</span></label
+      >
+      <textarea
+        hlmTextarea
+        id="duty-reason"
+        rows="2"
+        maxlength="500"
+        formControlName="reason"
+        placeholder="Last place in the round, missing picks…"
+      ></textarea>
+      <button
+        hlmBtn
+        type="submit"
+        class="primary-button wide"
+        [disabled]="busy()"
+        [attr.aria-busy]="busy()"
+      >
+        Create duty
+        @if (busy()) {
+          <app-loader [size]="18" aria-hidden="true" />
+        } @else {
+          <app-icon name="arrow" />
+        }
+      </button>
+    </form>
+  </hlm-dialog-content>
+</hlm-dialog>

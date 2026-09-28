@@ -1,4 +1,8 @@
-import { ChangeDetectionStrategy, Component, input } from '@angular/core';
+import { SearchSelect } from '../../shared/search-select/search-select';
+import { HlmSwitch } from '@spartan-ng/helm/switch';
+import { HlmInput } from '@spartan-ng/helm/input';
+import { HlmLabel } from '@spartan-ng/helm/label';
+import { ChangeDetectionStrategy, computed, Component, input } from '@angular/core';
 import { ReactiveFormsModule } from '@angular/forms';
 import { MAX_RULE_NUMBER, RulesGroup } from './rules-form';
 
@@ -13,9 +17,20 @@ import { MAX_RULE_NUMBER, RulesGroup } from './rules-form';
   templateUrl: './rules-fields.html',
   styleUrl: './rules-fields.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule],
+  /* prettier-ignore */
+  imports: [
+    SearchSelect,
+    ReactiveFormsModule,
+    HlmInput,
+    HlmLabel,
+    HlmSwitch,
+  ],
 })
 export class RulesFields {
+  readonly championOptions = computed(() => [
+    { value: '', label: 'None' },
+    ...(this.champions() ?? []).map((member) => ({ value: member.id, label: member.name })),
+  ]);
   readonly group = input.required<RulesGroup>();
   /** Prefix of every field's id, unique on the page. */
   readonly idPrefix = input.required<string>();

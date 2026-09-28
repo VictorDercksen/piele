@@ -1,5 +1,13 @@
+import { HlmRadioGroup } from '@spartan-ng/helm/radio-group';
+import { HlmRadio } from '@spartan-ng/helm/radio-group';
+import { HlmLabel } from '@spartan-ng/helm/label';
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
-import { DEFAULT_ACCENT, EMBLEM_LABELS, EMBLEM_PRESETS, emblemAsset } from '../../core/league/emblems';
+import {
+  DEFAULT_ACCENT,
+  EMBLEM_LABELS,
+  EMBLEM_PRESETS,
+  emblemAsset,
+} from '../../core/league/emblems';
 
 let nextId = 0;
 
@@ -12,17 +20,18 @@ let nextId = 0;
   template: `
     <fieldset class="presets">
       <legend>{{ legend() }}</legend>
-      <div class="preset-grid">
+      <div
+        hlmRadioGroup
+        [value]="selected()"
+        [disabled]="disabled()"
+        [name]="name"
+        (valueChange)="chosen.emit($event ?? '')"
+        class="preset-grid"
+        [attr.aria-label]="legend()"
+      >
         @for (preset of presets; track preset.key) {
-          <label class="preset" [style.color]="accent() || defaultAccent">
-            <input
-              type="radio"
-              [name]="name"
-              [value]="preset.key"
-              [checked]="selected() === preset.key"
-              [disabled]="disabled()"
-              (change)="chosen.emit(preset.key)"
-            />
+          <label hlmLabel class="preset" [style.color]="accent() || defaultAccent">
+            <hlm-radio [value]="preset.key" [disabled]="disabled()" />
             <svg viewBox="0 0 96 96" aria-hidden="true" focusable="false">
               <use [attr.href]="preset.asset" />
             </svg>
@@ -34,6 +43,12 @@ let nextId = 0;
   `,
   styleUrl: './emblem-picker.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  /* prettier-ignore */
+  imports: [
+    HlmLabel,
+    HlmRadioGroup,
+    HlmRadio,
+  ],
 })
 export class EmblemPicker {
   /** The chosen preset's key, or null for none. */

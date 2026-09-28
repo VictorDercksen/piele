@@ -5,24 +5,13 @@ import { LeagueContext } from '../../../core/league/league-context';
 import { ReasonDialog, ReasonRequest } from './reason-dialog';
 
 describe('ReasonDialog', () => {
-  beforeAll(() => {
-    // jsdom has no modal dialogs.
-    HTMLDialogElement.prototype.showModal ??= function (this: HTMLDialogElement) {
-      this.setAttribute('open', '');
-    };
-    HTMLDialogElement.prototype.close ??= function (this: HTMLDialogElement) {
-      this.removeAttribute('open');
-      this.dispatchEvent(new Event('close'));
-    };
-  });
-
   function setup() {
     TestBed.configureTestingModule({
       providers: [{ provide: LeagueContext, useValue: { name: signal('Piele') } }],
     });
     const fixture = TestBed.createComponent(ReasonDialog);
     fixture.detectChanges();
-    const root = fixture.nativeElement as HTMLElement;
+    const root = document.body;
     const alerts = TestBed.inject(AlertService);
     const warn = vi.spyOn(alerts, 'warn');
     const error = vi.spyOn(alerts, 'error');
@@ -52,7 +41,7 @@ describe('ReasonDialog', () => {
       root.querySelector<HTMLButtonElement>('button.primary-button')!.click();
       await settle();
     };
-    const dialog = () => root.querySelector('dialog')!;
+    const dialog = () => root.querySelector('[role=dialog]');
     const refuse = (next: Error | null) => (refusal = next);
     return {
       fixture,
@@ -104,7 +93,7 @@ describe('ReasonDialog', () => {
     await submit();
     expect(reasons).toEqual(['Created by mistake']);
     expect(alerts.alerts()).toEqual([]);
-    expect(dialog().hasAttribute('open')).toBe(false);
+    expect(!!dialog()).toBe(false);
   });
 
   it("shows the action's failure as an error card that outlives the dialog", async () => {
@@ -116,7 +105,7 @@ describe('ReasonDialog', () => {
     await submit();
     expect(error).toHaveBeenCalledOnce();
     expect(error).toHaveBeenCalledWith('The duty could not be voided.', { key: 'reason-failed' });
-    expect(dialog().hasAttribute('open')).toBe(true);
+    expect(!!dialog()).toBe(true);
 
     // A later empty attempt adds a warning; closing takes only the warning away.
     await type('');

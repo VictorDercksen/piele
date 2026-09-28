@@ -1,4 +1,5 @@
 <button
+  hlmBtn
   #trigger
   class="flag-trigger"
   type="button"
@@ -32,13 +33,19 @@
         <div class="stitch" aria-hidden="true"></div>
         <header>
           <img class="urc-logo" [src]="emblem()" [alt]="competitionName()" />
-          <button type="button" class="close" aria-label="Close notifications" (click)="close()">
+          <button
+            hlmBtn
+            type="button"
+            class="close"
+            aria-label="Close notifications"
+            (click)="close()"
+          >
             <app-icon name="close" />
           </button>
         </header>
         <div class="heading">
           <h2>Round {{ round().code }} updates.</h2>
-          <button type="button" class="read" [disabled]="!unread()" (click)="markAllRead()">
+          <button hlmBtn type="button" class="read" [disabled]="!unread()" (click)="markAllRead()">
             Mark all read
           </button>
         </div>
@@ -50,7 +57,7 @@
                 <span class="tag">PINNED</span>
                 <h3>{{ item.title }}</h3>
                 <p>{{ item.detail }}</p>
-                <button type="button" class="text-button" (click)="followPinned(item)">
+                <button hlmBtn type="button" class="text-button" (click)="followPinned(item)">
                   {{ item.action }}<ng-icon class="link-icon" name="lucideArrowRight" />
                 </button>
               </div>
@@ -81,11 +88,11 @@
                   <p>{{ item.detail }}</p>
                 }
                 @if (item.path) {
-                  <button type="button" class="text-button" (click)="follow(item)">
+                  <button hlmBtn type="button" class="text-button" (click)="follow(item)">
                     {{ item.action }}<ng-icon class="link-icon" name="lucideArrowRight" />
                   </button>
                 } @else if (item.unread) {
-                  <button type="button" class="text-button" (click)="markRead(item)">
+                  <button hlmBtn type="button" class="text-button" (click)="markRead(item)">
                     Mark read
                     <ng-icon class="link-icon" name="lucideCheck" />
                   </button>
@@ -105,7 +112,7 @@
         </div>
         <footer class="foot">
           <span class="caption">The Pavilion / the rugby clubhouse</span>
-          <button type="button" class="text-button" (click)="openFeed()">
+          <button hlmBtn type="button" class="text-button" (click)="openFeed()">
             Full feed<ng-icon class="link-icon" name="lucideArrowRight" />
           </button>
         </footer>

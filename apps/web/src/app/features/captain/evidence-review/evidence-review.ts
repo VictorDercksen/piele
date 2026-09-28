@@ -1,3 +1,4 @@
+import { HlmButton } from '@spartan-ng/helm/button';
 import { ChangeDetectionStrategy, Component, inject, input } from '@angular/core';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucidePlay, lucideX } from '@ng-icons/lucide';
@@ -15,11 +16,12 @@ const ALERT_KEYS = { playback: 'captain-playback' } as const;
   templateUrl: './evidence-review.html',
   styleUrl: './evidence-review.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  // prettier-ignore
+  /* prettier-ignore */
   imports: [
     Dropdown,
     Icon,
     NgIcon,
+    HlmButton,
   ],
   viewProviders: [provideIcons({ lucidePlay, lucideX })],
 })

@@ -235,10 +235,10 @@ test('removing a member moves them to Withdrawn and reinstating brings them back
   await expect(sheet.locator('li')).toHaveCount(5);
   await expect(sheet).not.toContainText('Liam');
 
-  const withdrawn = page.locator('details.withdrawn');
-  await expect(withdrawn.locator('summary')).toContainText('Withdrawn');
-  await expect(withdrawn.locator('summary')).toBeFocused();
-  await withdrawn.locator('summary').click();
+  const withdrawn = page.locator('.withdrawn');
+  await expect(withdrawn.locator('.disclosure-trigger')).toContainText('Withdrawn');
+  await expect(withdrawn.locator('.disclosure-trigger')).toBeFocused();
+  await withdrawn.locator('.disclosure-trigger').click();
   await expect(withdrawn).toContainText('Liam');
   await expect(withdrawn).toContainText('Moved to Perth');
   await withdrawn.getByRole('button', { name: 'Reinstate Liam' }).click();

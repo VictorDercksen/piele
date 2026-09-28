@@ -17,17 +17,6 @@ const DUTY = {
 } as RoundDutyView;
 
 describe('EvidenceDialog', () => {
-  beforeAll(() => {
-    // jsdom has no modal dialogs.
-    HTMLDialogElement.prototype.showModal ??= function (this: HTMLDialogElement) {
-      this.setAttribute('open', '');
-    };
-    HTMLDialogElement.prototype.close ??= function (this: HTMLDialogElement) {
-      this.removeAttribute('open');
-      this.dispatchEvent(new Event('close'));
-    };
-  });
-
   function setup(duty: RoundDutyView = DUTY) {
     const submitted: unknown[] = [];
     let refusal: Error | null = null;
@@ -50,7 +39,7 @@ describe('EvidenceDialog', () => {
     });
     const fixture = TestBed.createComponent(EvidenceDialog);
     fixture.detectChanges();
-    const root = fixture.nativeElement as HTMLElement;
+    const root = document.body;
     const alerts = TestBed.inject(AlertService);
     const warn = vi.spyOn(alerts, 'warn');
     const error = vi.spyOn(alerts, 'error');

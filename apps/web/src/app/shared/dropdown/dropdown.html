@@ -1,4 +1,6 @@
 <section
+  hlmCollapsible
+  [expanded]="open()"
   class="dropdown"
   [class.panel]="appearance() === 'panel'"
   [class.open]="open()"
@@ -16,6 +18,7 @@
         <ng-content select="[dropdownSide]" />
         @if (collapsible()) {
           <button
+            hlmBtn
             type="button"
             class="chevron"
             [attr.aria-labelledby]="toggleLabel() ? null : headingId()"
@@ -31,7 +34,14 @@
     </div>
   </div>
   <div class="dropdown-lead" #lead><ng-content select="[dropdownLead]" /></div>
-  <div class="dropdown-body" #body [id]="contentId()" [attr.inert]="open() ? null : ''">
+  <div
+    hlmCollapsibleContent
+    [preserveContent]="true"
+    class="dropdown-body"
+    #body
+    [id]="contentId()"
+    [attr.inert]="open() ? null : ''"
+  >
     <div class="dropdown-inner"><ng-content /></div>
   </div>
   <ng-content select="[dropdownFoot]" />

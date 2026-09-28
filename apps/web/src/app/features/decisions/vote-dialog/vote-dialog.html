@@ -1,41 +1,42 @@
-<dialog #dialog class="detail-dialog" aria-labelledby="vote-title">
-  <div class="dialog-top">
-    <span class="eyebrow"
-      >{{ view.leagueName().toUpperCase() }} / ROUND {{ view.round().code }}</span
-    ><button type="button" class="icon-button" aria-label="Close dialog" (click)="close()">
-      <app-icon name="close" />
-    </button>
-  </div>
-  @if (poll(); as poll) {
-    <h2 id="vote-title">{{ poll.question }}</h2>
-    <p>{{ poll.description }}</p>
-    <fieldset class="vote-options">
-      <legend>Your choice for Round {{ view.round().code }}</legend>
-      @for (option of poll.options; track option) {
-        <label [class.chosen]="chosen() === option"
-          ><input type="radio" name="round-vote" [value]="option" [formControl]="choice" /><span>{{
-            option
-          }}</span></label
-        >
+<hlm-dialog #dialog aria-labelledby="vote-title">
+  <hlm-dialog-content *hlmDialogPortal [showCloseButton]="false" class="detail-dialog">
+    <div class="dialog-top">
+      <span class="eyebrow"
+        >{{ view.leagueName().toUpperCase() }} / ROUND {{ view.round().code }}</span
+      ><button hlmBtn type="button" class="icon-button" aria-label="Close dialog" (click)="close()">
+        <app-icon name="close" />
+      </button>
+    </div>
+    @if (poll(); as poll) {
+      <h2 id="vote-title">{{ poll.question }}</h2>
+      <p>{{ poll.description }}</p>
+      <fieldset hlmRadioGroup [formControl]="choice" class="vote-options">
+        <legend>Your choice for Round {{ view.round().code }}</legend>
+        @for (option of poll.options; track option) {
+          <label hlmLabel [class.chosen]="chosen() === option"
+            ><hlm-radio [value]="option" /><span>{{ option }}</span></label
+          >
+        }
+      </fieldset>
+      @if (poll.myChoice) {
+        <p class="recorded-vote">Your recorded choice: {{ poll.myChoice }}</p>
       }
-    </fieldset>
-    @if (poll.myChoice) {
-      <p class="recorded-vote">Your recorded choice: {{ poll.myChoice }}</p>
+      <p class="context-note">Closes {{ poll.closes }}. You can change your vote until then.</p>
+      <button
+        hlmBtn
+        type="button"
+        class="primary-button wide"
+        [disabled]="!chosen() || busy()"
+        [attr.aria-busy]="busy()"
+        (click)="submit()"
+      >
+        {{ poll.myChoice ? 'Update vote' : 'Cast vote' }}
+        @if (busy()) {
+          <app-loader [size]="18" aria-hidden="true" />
+        } @else {
+          <app-icon name="arrow" />
+        }
+      </button>
     }
-    <p class="context-note">Closes {{ poll.closes }}. You can change your vote until then.</p>
-    <button
-      type="button"
-      class="primary-button wide"
-      [disabled]="!chosen() || busy()"
-      [attr.aria-busy]="busy()"
-      (click)="submit()"
-    >
-      {{ poll.myChoice ? 'Update vote' : 'Cast vote' }}
-      @if (busy()) {
-        <app-loader [size]="18" aria-hidden="true" />
-      } @else {
-        <app-icon name="arrow" />
-      }
-    </button>
-  }
-</dialog>
+  </hlm-dialog-content>
+</hlm-dialog>
