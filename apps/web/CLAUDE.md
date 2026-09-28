@@ -11,14 +11,29 @@
 
 Angular 22, standalone components, zoneless change detection, TypeScript, RxJS, SCSS, Tailwind 4, Spartan Brain/Helm, Angular CDK, and Lucide through `@ng-icons`. The build uses `@angular/build:application`. Do not introduce Angular Material, Firebase, or unrelated frameworks.
 
-- Use `ChangeDetectionStrategy.OnPush`, `input()`, `output()`, `viewChild()`, and `viewChildren()`. Use `inject()` fields. Constructors initialize only.
+- `OnPush` is the default in Angular 22. New components omit `changeDetection`. Existing explicit declarations may stay. Use `input()`, `output()`, `viewChild()`, and `viewChildren()`. Use `inject()` fields. Constructors initialize only.
 - Mutable display state uses `signal()`. Derived state uses `computed()`. Keep immutable fields and static catalogues readonly. Prefer computed state over effects. Use `afterRenderEffect` only for DOM work.
 - Use `@if`, `@for`, and `@switch`, tracking stable IDs. Use typed reactive forms. Do not combine two-way `ngModel` with signals. Read changing form state reactively in template conditions.
-- Avoid `any` and template `$any`. Narrow DOM events in typed handlers. Put component-local interfaces after the class or in model files.
+- Avoid `any` and template `$any`. Narrow DOM events in typed handlers.
 - Keep I/O and persistence in services. Do not call services directly from templates. RxJS subscriptions use observer objects and `takeUntilDestroyed`, not subscription lists.
 - Use `host` metadata instead of `HostListener`/`HostBinding`. Put `imports`, `providers`, and `viewProviders` last in component metadata, with one entry per line for multiple entries.
 - Use SCSS classes for layout. Bind only data-driven style values, such as team colours. Never interpolate unsanitized HTML or CSS. Share business state between desktop and mobile.
 - Never expose secrets or privileged Supabase keys. Guards select routes. The API authorizes requests. Validate stored preferences and handle unavailable storage, invalid files, and image decoding failures visibly.
+
+## Structure and services
+
+These rules follow the Angular style guide and Angular's AI best practices. They apply to new and changed code.
+
+- Organize by feature area. Never create type folders such as `services/`, `models/`, `components/`, or `tests/`. Split a crowded folder by feature, not by file type.
+- Specs sit beside the file they test as `<file>.spec.ts`. One concept per file.
+- League entities live in `core/league/<entity>/`. Each has `<entity>.service.ts` (`<Entity>Service`) for reads and `<entity>-control.service.ts` (`<Entity>ControlService`) for mutations, plus `<entity>.models.ts` for its view types. Profile follows the same pair in `core/profile`.
+  - Read services expose signals and `computed()` read models, plus read helpers that take an argument and read signals. They never mutate.
+  - Control services call the data layer and return Promises. They hold no exposed state. A control service may inject its read service. A read service never injects a control service.
+  - Expose state as signals, not observables. RxJS stays inside transports and time-based streams.
+  - Add an entity service only for an entity components need. Do not create an empty control service for a read-only entity.
+- The data layer is `core/league/data/` (`LeagueData`, HTTP, sample, and empty implementations) and `core/league/admin/admin-data.ts`. Only entity services, `LeagueContext`, and the join services inject it. Components, pages, guards, and layout never inject `LeagueData`, `AdminData`, or `HttpClient`. Specs may provide `SampleLeagueData` for `LeagueData`.
+- New root services use `@Service()` from `@angular/core`. Use `@Service({ factory })` to choose between implementations. Existing `@Injectable` infrastructure services may stay until they are otherwise changed.
+- Components are presentation. They keep injected services, display signals, form wiring, focus, dialogs, and alert calls. Move interfaces and type aliases to `<component>.models.ts`. Move typed form factories, parsing, validation rules, payload building, change diffing, and refusal-code maps to co-located pure files named for the concept, such as `<component>.form.ts`. Move sequences of API calls into the entity control service.
 
 ## Where to work
 
@@ -27,12 +42,13 @@ Paths below are relative to `src/app`.
 | Task | Owner and required boundary |
 | --- | --- |
 | Routes, sign-in, league switching | `app.routes.ts`, `core/auth`, `core/league/league-context.ts`, `league.guards.ts`, `league-slugs.ts`. Keep pages and the shell lazy. |
-| Round selection and page data | `SelectedRoundService`, `core/league/round-view.service.ts`. Preserve the `round` query parameter and scope fixtures, results, standings, duties, decisions, and captain reviews consistently. Constitution/settings are season/account-wide. |
+| Round selection and page data | `SelectedRoundService`, `core/competition/fixture.service.ts` (round, live-merged fixtures, featured fixture), and the round-scoped read services in `core/league/<entity>/`. Preserve the `round` query parameter and scope fixtures, results, standings, duties, decisions, and captain reviews consistently. Constitution/settings are season/account-wide. |
 | Competition assets and schedule | `core/competition/registry.ts`, `competition.service.ts`. Add a registry definition for another competition. Outside this folder use the service, not catalogues or hard-coded URC labels/round counts. |
-| League data and mutations | `core/league/league-data.ts`, `http-league-data.ts`, `sample-league-data.ts`, domain models. Keep HTTP, sample, and empty providers consistent. |
-| Scoring and rules | `core/league/superbru.ts` is the only Superbru calculator. Components consume `RoundViewService`. `shared/rules-fields` owns reusable fields and typed form helpers. |
-| Profile and uploads | `core/profile/profile.store.ts`, `profile-photo.ts`, `features/profile`. Favourite team is per league. Photo is account-wide. Production uses the API and private Storage. |
-| Management centre | `features/manage`, `core/league/admin.service.ts`. `create-league-form` and `league-card` own their forms. Reuse `time-zones.ts` groups with `shared/search-select`. Refresh account context after admin mutations. |
+| League data transport | `core/league/data/` (`league-data.ts`, `http-league-data.ts`, `sample-league-data.ts`, `sample-leagues.ts`) and `league.models.ts`. Keep HTTP, sample, and empty providers consistent. `core/api/api-error.ts` owns `ApiError`. |
+| League entities | `core/league/<entity>/` read and control services: `members`, `picks`, `standings`, `rules`, `duties`, `polls`, `marks`, `notes`, `feed`, `join`, `notifications`. `league-records.service.ts` owns source, loading, error, and reload. Components inject these, never the data layer. |
+| Scoring and rules | `core/league/superbru.ts` is the only Superbru calculator. Components read scores through `PickService` and `StandingService`. `shared/rules-fields` owns reusable fields and typed form helpers. |
+| Profile and uploads | `core/profile/profile.service.ts`, `profile-control.service.ts`, `profile-storage.ts`, `profile-photo.ts`, `features/profile`. Favourite team is per league. Photo is account-wide. Production uses the API and private Storage. |
+| Management centre | `features/manage`, `core/league/admin/` (`AdminLeagueService`, `AdminLeagueControlService`, `admin-data.ts` transport). `create-league-form` and `league-card` own their forms. Reuse `time-zones.ts` groups with `shared/search-select`. Refresh account context after admin mutations. |
 | Page sections | Home composes `next-actions`, `standings-summary`, and `feed`. Captain composes its cards, `evidence-review`, and `members-card`. Match owns loading/route reconciliation and passes data to weather, teamsheets, player-list, pool-picks-table, scoring, preview, and picks panels. Preserve these boundaries. |
 | Shell and navigation | `core/layout`. Route `PageData` needs a label, title/eyebrow, and parent for non-main pages. `Breadcrumbs` owns trail/history behavior. Main navigation links pass `navState`. |
 | Controls and feedback | `shared/ui`, `shared/dropdown`, `core/feedback`. Reuse these instead of implementing another control or alert system. |
