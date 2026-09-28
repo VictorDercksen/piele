@@ -1,9 +1,12 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { FixtureService } from '../../../core/competition/fixture.service';
 import { AlertService } from '../../../core/feedback/alert.service';
 import { problemTarget } from '../../../core/feedback/problem-highlight';
-import { LeagueData } from '../../../core/league/league-data';
-import { RoundDutyView, RoundViewService } from '../../../core/league/round-view.service';
+import { DutyControlService } from '../../../core/league/duties/duty-control.service';
+import { RoundDutyView } from '../../../core/league/duties/duty.models';
+import { LeagueRecordsService } from '../../../core/league/league-records.service';
+import { MemberService } from '../../../core/league/members/member.service';
 import { EvidenceDialog } from './evidence-dialog';
 
 const DUTY = {
@@ -23,7 +26,7 @@ describe('EvidenceDialog', () => {
     TestBed.configureTestingModule({
       providers: [
         {
-          provide: LeagueData,
+          provide: DutyControlService,
           useValue: {
             submitEvidence: (body: unknown) => {
               submitted.push(body);
@@ -31,10 +34,9 @@ describe('EvidenceDialog', () => {
             },
           },
         },
-        {
-          provide: RoundViewService,
-          useValue: { round: signal({ code: '02' }), administers: signal(true), sample: false },
-        },
+        { provide: FixtureService, useValue: { round: signal({ code: '02' }) } },
+        { provide: MemberService, useValue: { administers: signal(true) } },
+        { provide: LeagueRecordsService, useValue: { sample: false } },
       ],
     });
     const fixture = TestBed.createComponent(EvidenceDialog);

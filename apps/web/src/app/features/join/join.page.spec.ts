@@ -1,13 +1,11 @@
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
 import { AlertService } from '../../core/feedback/alert.service';
-import { ApiError } from '../../core/league/http-league-data';
-import { JoinService, joinCodeFrom } from '../../core/league/join.service';
+import { ApiError } from '../../core/api/api-error';
+import { JoinControlService } from '../../core/league/join/join-control.service';
+import { JoinService } from '../../core/league/join/join.service';
 import { LeagueContext } from '../../core/league/league-context';
-import { LeagueData } from '../../core/league/league-data';
 import { JoinPreview } from '../../core/league/league.models';
-import { SampleLeagueData } from '../../core/league/sample-league-data';
-import { SAMPLE_LEAGUES } from '../../core/league/sample-leagues';
 import { JoinPage } from './join.page';
 
 const LEAGUE: JoinPreview['league'] = {
@@ -28,11 +26,12 @@ const NAMES = [
 ];
 
 describe('JoinPage', () => {
-  function setup(joins: Partial<JoinService>, reloads: string[] = []) {
+  function setup(joins: Partial<Pick<JoinService, 'preview'> & Pick<JoinControlService, 'claim'>>, reloads: string[] = []) {
     TestBed.configureTestingModule({
       providers: [
         provideRouter([]),
         { provide: JoinService, useValue: joins },
+        { provide: JoinControlService, useValue: joins },
         {
           provide: LeagueContext,
           useValue: { reloadAccount: () => Promise.resolve(reloads.push('me')) },
@@ -133,30 +132,5 @@ describe('JoinPage', () => {
     await fixture.whenStable();
     expect(root.querySelector('h1')?.textContent).toContain('That link does not work.');
     expect(root.textContent).toContain('That join link is not valid.');
-  });
-});
-
-describe('JoinService in the sample build', () => {
-  it('answers a sample league’s join code with its unclaimed names', async () => {
-    TestBed.configureTestingModule({
-      providers: [provideRouter([]), { provide: LeagueData, useClass: SampleLeagueData }],
-    });
-    const joins = TestBed.inject(JoinService);
-    const pofadder = SAMPLE_LEAGUES[1];
-    const preview = await joins.preview(pofadder.joinCode);
-    expect(preview.league.slug).toBe('pofadder-bowl');
-    expect(preview.alreadyMember).toBe(true);
-    expect(preview.unclaimed.map((n) => n.displayName)).toEqual(['Riaan']);
-    await expect(joins.preview('nope')).rejects.toMatchObject({ code: 'unknown_join_code' });
-  });
-});
-
-describe('joinCodeFrom', () => {
-  it('takes the code from a pasted link or a bare code', () => {
-    expect(joinCodeFrom('https://pavilion.test/join/abc123def456')).toBe('abc123def456');
-    expect(joinCodeFrom('  abc123def456 ')).toBe('abc123def456');
-    expect(joinCodeFrom('/join/abc123def456?x=1')).toBe('abc123def456');
-    expect(joinCodeFrom('')).toBeNull();
-    expect(joinCodeFrom('not a code')).toBeNull();
   });
 });

@@ -16,22 +16,29 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { AuthService } from '../../core/auth/auth.service';
 import { AlertService } from '../../core/feedback/alert.service';
 import { highlightProblem } from '../../core/feedback/problem-highlight';
 import { LeagueContext } from '../../core/league/league-context';
-import { LeagueData } from '../../core/league/league-data';
+import { MemberService } from '../../core/league/members/member.service';
 import { preparePhoto } from '../../core/profile/profile-photo';
-import { ProfileStore } from '../../core/profile/profile.store';
+import { ProfileControlService } from '../../core/profile/profile-control.service';
+import { ProfileService } from '../../core/profile/profile.service';
 import { CompetitionService, shortSeason } from '../../core/competition/competition.service';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideArrowRight, lucideCheck } from '@ng-icons/lucide';
 import { Loader } from '../../shared/loader/loader';
 import { LeagueCrest } from '../../shared/league-crest/league-crest';
 import { StadiumBackdrop } from '../../shared/stadium-backdrop/stadium-backdrop';
+import {
+  createProfileForm,
+  initialsOf,
+  profileFrom,
+  profileProblems,
+} from './profile-editor.form';
 
 /** Onboarding and profile form: display name, favourite team and optional photo. */
 @Component({
@@ -56,9 +63,10 @@ import { StadiumBackdrop } from '../../shared/stadium-backdrop/stadium-backdrop'
   viewProviders: [provideIcons({ lucideArrowRight, lucideCheck })],
 })
 export class ProfileEditor {
-  private readonly store = inject(ProfileStore);
+  private readonly profiles = inject(ProfileService);
+  private readonly profileControl = inject(ProfileControlService);
   private readonly auth = inject(AuthService);
-  private readonly data = inject(LeagueData);
+  private readonly members = inject(MemberService);
   private readonly context = inject(LeagueContext);
   private readonly competition = inject(CompetitionService);
   private readonly alerts = inject(AlertService);
@@ -66,19 +74,19 @@ export class ProfileEditor {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly nameInput = viewChild.required<ElementRef<HTMLInputElement>>('nameInput');
   private readonly photoInput = viewChild.required<ElementRef<HTMLInputElement>>('photoInput');
-  readonly existing = this.store.profile();
+  readonly existing = this.profiles.profile();
   /**
    * Starts from the saved profile, else what the browser keeps (a profile from before they
    * moved to the account, or the name and photo shared by every league).
    */
-  private readonly start = this.existing ?? this.store.earlier();
+  private readonly start = this.existing ?? this.profiles.earlier();
   /** The league this profile belongs to; the favourite team is per league. */
   readonly leagueSummary = this.context.current;
   readonly leagueTitle = this.context.name;
   readonly leagueHome = computed(() => this.context.url());
-  readonly persisted = this.store.persisted;
+  readonly persisted = this.profiles.persisted;
   /** The league's nickname for the member, which the browser profile cannot override. */
-  readonly leagueName = this.data.currentMemberName();
+  readonly leagueName = this.members.leagueMemberName();
   readonly canSignOut = this.auth.configured;
   readonly accountEmail = this.auth.email;
   readonly teams = computed(() => this.competition.current().teams);
@@ -88,16 +96,10 @@ export class ProfileEditor {
   );
   readonly saved = output<void>();
   readonly cancel = output<void>();
-  readonly form = new FormGroup({
-    displayName: new FormControl(this.leagueName ?? this.start?.displayName ?? '', {
-      nonNullable: true,
-      validators: [Validators.required, Validators.maxLength(50), Validators.pattern(/\S/)],
-    }),
-    teamId: new FormControl(this.start?.teamId ?? '', {
-      nonNullable: true,
-      validators: [Validators.required],
-    }),
-  });
+  readonly form = createProfileForm(
+    this.leagueName ?? this.start?.displayName ?? '',
+    this.start?.teamId ?? '',
+  );
   readonly teamId = toSignal(this.form.controls.teamId.valueChanges, {
     initialValue: this.form.controls.teamId.value,
   });
@@ -105,14 +107,7 @@ export class ProfileEditor {
     initialValue: this.form.controls.displayName.value,
   });
   readonly selectedTeam = computed(() => this.competition.current().team(this.teamId()));
-  readonly initials = computed(() =>
-    (this.name().trim() || 'You')
-      .split(/\s+/)
-      .slice(0, 2)
-      .map((word) => word[0])
-      .join('')
-      .toUpperCase(),
-  );
+  readonly initials = computed(() => initialsOf(this.name()));
   readonly photo = signal(this.start?.photo ?? null);
   readonly busy = signal(false);
   readonly saving = signal(false);
@@ -176,11 +171,7 @@ export class ProfileEditor {
     }
     this.saving.set(true);
     try {
-      await this.store.save({
-        displayName: this.form.controls.displayName.value.trim(),
-        teamId: this.form.controls.teamId.value,
-        photo: this.photo(),
-      });
+      await this.profileControl.save(profileFrom(this.form.getRawValue(), this.photo()));
       this.alerts.dismissKey(ALERT_KEY);
       this.saved.emit();
     } catch (error) {
@@ -195,21 +186,17 @@ export class ProfileEditor {
 
   /** One warning for the attempt, naming each field to fix, and a highlight on the first. */
   private reportProblems(): void {
-    const problems: { message: string; control: () => HTMLElement | null }[] = [];
-    if (this.form.controls.displayName.invalid)
-      problems.push({
-        message: 'Enter your name to continue.',
-        control: () => this.nameInput().nativeElement,
-      });
-    if (this.form.controls.teamId.invalid)
-      problems.push({
-        message: 'Choose the team you support.',
-        control: () =>
-          this.host.nativeElement.querySelector<HTMLInputElement>('.team-options input'),
-      });
+    const problems = profileProblems({
+      displayName: this.form.controls.displayName.invalid,
+      teamId: this.form.controls.teamId.invalid,
+    });
     const [first, ...rest] = problems;
     if (!first) return;
-    highlightProblem(first.control());
+    highlightProblem(
+      first.field === 'displayName'
+        ? this.nameInput().nativeElement
+        : this.host.nativeElement.querySelector<HTMLInputElement>('.team-options input'),
+    );
     this.alerts.warn(first.message, {
       key: ALERT_KEY,
       details: rest.map((problem) => problem.message),

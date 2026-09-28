@@ -9,6 +9,7 @@ import {
   signal,
 } from '@angular/core';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
+import { SelectGroup, SelectOption, SelectValue } from './search-select.models';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideCheck, lucideChevronDown, lucideSearch } from '@ng-icons/lucide';
 import {
@@ -115,15 +116,4 @@ export class SearchSelect implements ControlValueAccessor {
   setDisabledState(disabled: boolean): void {
     this.formDisabled.set(disabled);
   }
-}
-
-export type SelectValue = string | number;
-export interface SelectOption {
-  readonly value: SelectValue;
-  readonly label: string;
-  readonly disabled?: boolean;
-}
-export interface SelectGroup {
-  readonly label: string;
-  readonly options: readonly SelectOption[];
 }

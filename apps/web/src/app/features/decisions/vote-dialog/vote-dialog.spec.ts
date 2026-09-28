@@ -1,8 +1,11 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { FixtureService } from '../../../core/competition/fixture.service';
 import { AlertService } from '../../../core/feedback/alert.service';
+import { LeagueContext } from '../../../core/league/league-context';
+import { LeagueRecordsService } from '../../../core/league/league-records.service';
 import { Poll } from '../../../core/league/league.models';
-import { RoundViewService } from '../../../core/league/round-view.service';
+import { PollControlService } from '../../../core/league/polls/poll-control.service';
 import { VoteDialog } from './vote-dialog';
 
 const POLL: Poll = {
@@ -23,12 +26,12 @@ describe('VoteDialog', () => {
     const votes: string[] = [];
     TestBed.configureTestingModule({
       providers: [
+        { provide: LeagueContext, useValue: { name: signal('Piele') } },
+        { provide: FixtureService, useValue: { round: signal({ code: '02' }) } },
+        { provide: LeagueRecordsService, useValue: { sample: false } },
         {
-          provide: RoundViewService,
+          provide: PollControlService,
           useValue: {
-            leagueName: signal('Piele'),
-            round: signal({ code: '02' }),
-            sample: false,
             castVote: (_id: string, choice: string) => {
               votes.push(choice);
               return refusal ? Promise.reject(refusal) : Promise.resolve();

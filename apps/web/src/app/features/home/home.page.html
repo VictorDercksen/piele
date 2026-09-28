@@ -1,14 +1,14 @@
 <div class="home-grid">
-  @if (view.featured(); as fixture) {
+  @if (fixtures.featured(); as fixture) {
     <app-match-hero
       [fixture]="fixture"
       [favourite]="favouriteTeam()?.id ?? ''"
-      [roundCode]="view.round().code"
+      [roundCode]="fixtures.round().code"
       (explore)="go('/match/' + fixture.id)"
     />
   } @else {
     <section class="unscheduled-round">
-      <span>ROUND {{ view.round().code }} / COMING UP</span>
+      <span>ROUND {{ fixtures.round().code }} / COMING UP</span>
       <h2>The next chapter<br />is still being written.</h2>
       <p>Fixtures and dates have not been confirmed for this round.</p>
     </section>

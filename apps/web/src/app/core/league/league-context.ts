@@ -9,10 +9,11 @@ import { Competition } from '../competition/competition.models';
 import { CompetitionService } from '../competition/competition.service';
 import { DEFAULT_ZONE, LeagueTime } from '../competition/league-time';
 import { COMPETITIONS, DEFAULT_COMPETITION_ID, competition } from '../competition/registry';
-import { HttpLeagueData, toApiError } from './http-league-data';
-import { LeagueData } from './league-data';
+import { toApiError } from '../api/api-error';
+import { HttpLeagueData } from './data/http-league-data';
+import { LeagueData } from './data/league-data';
 import { Account, AppearanceChange, LeagueAppearance, LeagueSummary } from './league.models';
-import { SampleLeagueData } from './sample-league-data';
+import { SampleLeagueData } from './data/sample-league-data';
 import { DEFAULT_RULES } from './superbru';
 
 /**

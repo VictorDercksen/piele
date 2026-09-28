@@ -17,11 +17,12 @@ import { RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideArrowRight, lucideChevronDown, lucidePlus, lucideRotateCcw } from '@ng-icons/lucide';
 import { AlertService } from '../../core/feedback/alert.service';
-import { AdminService } from '../../core/league/admin.service';
+import { AdminLeagueService } from '../../core/league/admin/admin-league.service';
 import { BallLoader } from '../../shared/ball-loader/ball-loader';
 import { ReasonDialog } from '../duties/reason-dialog/reason-dialog';
 import { CreateLeagueForm } from './create-league-form/create-league-form';
-import { LeagueCard, LeagueChange } from './league-card/league-card';
+import { LeagueCard } from './league-card/league-card';
+import { LeagueChange } from './league-card/league-card.models';
 
 /**
  * `/manage`, the management centre (the admin only; the API decides): every league as a card
@@ -52,7 +53,7 @@ import { LeagueCard, LeagueChange } from './league-card/league-card';
   ],
 })
 export class ManagePage {
-  private readonly admin = inject(AdminService);
+  private readonly admin = inject(AdminLeagueService);
   private readonly alerts = inject(AlertService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly injector = inject(Injector);

@@ -3,11 +3,14 @@ import { HlmToggleGroupItem } from '@spartan-ng/helm/toggle-group';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { FixtureService } from '../../../core/competition/fixture.service';
 import { LeagueTime } from '../../../core/competition/league-time';
 import { feedIcon, feedLabel, feedPath } from '../../../core/league/feed-presentation';
+import { FeedService } from '../../../core/league/feed/feed.service';
 import { LeaguePathPipe } from '../../../core/league/league-path.pipe';
 import { FeedItem } from '../../../core/league/league.models';
-import { RoundViewService } from '../../../core/league/round-view.service';
+import { NoteService } from '../../../core/league/notes/note.service';
+import { PollService } from '../../../core/league/polls/poll.service';
 import { Icon } from '../../../shared/icon/icon';
 
 /** One stream of league events, shown for the selected round or the whole season. */
@@ -27,11 +30,15 @@ import { Icon } from '../../../shared/icon/icon';
   ],
 })
 export class Feed {
-  readonly view = inject(RoundViewService);
+  private readonly feed = inject(FeedService);
+  private readonly fixtures = inject(FixtureService);
+  readonly polls = inject(PollService);
+  readonly notes = inject(NoteService);
   private readonly time = inject(LeagueTime);
+  readonly round = this.fixtures.round;
   readonly scope = signal<'round' | 'season'>('round');
   readonly items = computed(() =>
-    (this.scope() === 'round' ? this.view.feed() : this.view.seasonFeed()).map((item) => ({
+    (this.scope() === 'round' ? this.feed.feed() : this.feed.seasonFeed()).map((item) => ({
       ...item,
       icon: feedIcon(item.kind),
       label: feedLabel(item.kind),
@@ -47,6 +54,6 @@ export class Feed {
 
   private roundLabel(item: FeedItem): string | null {
     if (item.roundId === null || this.scope() === 'round') return null;
-    return `R${this.view.round().id === item.roundId ? this.view.round().code : String(item.roundId).padStart(2, '0')}`;
+    return `R${this.round().id === item.roundId ? this.round().code : String(item.roundId).padStart(2, '0')}`;
   }
 }

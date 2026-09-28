@@ -15,8 +15,9 @@ import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideArrowRight, lucideLogOut } from '@ng-icons/lucide';
 import { AuthService } from '../../core/auth/auth.service';
 import { AlertService } from '../../core/feedback/alert.service';
-import { ApiError } from '../../core/league/http-league-data';
-import { JoinService } from '../../core/league/join.service';
+import { ApiError } from '../../core/api/api-error';
+import { JoinControlService } from '../../core/league/join/join-control.service';
+import { JoinService } from '../../core/league/join/join.service';
 import { LeagueContext } from '../../core/league/league-context';
 import { JoinPreview } from '../../core/league/league.models';
 import { BallLoader } from '../../shared/ball-loader/ball-loader';
@@ -51,6 +52,7 @@ export class JoinPage {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   private readonly joins = inject(JoinService);
+  private readonly joinControl = inject(JoinControlService);
   private readonly context = inject(LeagueContext);
   private readonly alerts = inject(AlertService);
   private readonly code = inject(ActivatedRoute).snapshot.paramMap.get('code') ?? '';
@@ -106,7 +108,7 @@ export class JoinPage {
     }
     this.busy.set(true);
     try {
-      await this.joins.claim(this.code, id);
+      await this.joinControl.claim(this.code, id);
       await this.context.reloadAccount();
       this.alerts.dismissKey(ALERT_KEY);
       await this.router.navigateByUrl(`/${league.slug}`);

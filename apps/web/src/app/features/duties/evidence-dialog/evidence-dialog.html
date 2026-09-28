@@ -6,7 +6,7 @@
     [class.spoon-duty]="duty()?.spoon"
   >
     <div class="dialog-top">
-      <span class="eyebrow">ROUND {{ view.round().code }} / {{ duty()?.memberName }}</span
+      <span class="eyebrow">ROUND {{ fixtures.round().code }} / {{ duty()?.memberName }}</span
       ><button hlmBtn type="button" class="icon-button" aria-label="Close dialog" (click)="close()">
         <app-icon name="close" />
       </button>
@@ -56,7 +56,7 @@
       placeholder="Anything the reviewer should know?"
       [formControl]="note"
     ></textarea>
-    @if (view.sample) {
+    @if (records.sample) {
       <p class="context-note">Sample league. Your file is never uploaded or stored.</p>
     }
     <button

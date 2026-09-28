@@ -3,9 +3,9 @@ import { provideRouter } from '@angular/router';
 import { AlertService } from '../../core/feedback/alert.service';
 import { problemTarget } from '../../core/feedback/problem-highlight';
 import { LeagueContext } from '../../core/league/league-context';
-import { LeagueData } from '../../core/league/league-data';
-import { SampleLeagueData } from '../../core/league/sample-league-data';
-import { ProfileStore } from '../../core/profile/profile.store';
+import { LeagueData } from '../../core/league/data/league-data';
+import { SampleLeagueData } from '../../core/league/data/sample-league-data';
+import { ProfileControlService } from '../../core/profile/profile-control.service';
 import { ProfileEditor } from './profile-editor';
 
 describe('ProfileEditor', () => {
@@ -84,7 +84,7 @@ describe('ProfileEditor', () => {
 
   it('shows a failed save as a red card, cleared when the editor closes', async () => {
     const { fixture, root, alerts, name, radios, submit } = await setup();
-    vi.spyOn(TestBed.inject(ProfileStore), 'save').mockRejectedValue(
+    vi.spyOn(TestBed.inject(ProfileControlService), 'save').mockRejectedValue(
       new Error(
         'Your browser could not save this profile. Enable local storage or try a smaller photo.',
       ),

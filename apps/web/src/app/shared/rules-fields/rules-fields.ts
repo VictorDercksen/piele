@@ -5,6 +5,7 @@ import { HlmLabel } from '@spartan-ng/helm/label';
 import { ChangeDetectionStrategy, computed, Component, input } from '@angular/core';
 import { ReactiveFormsModule } from '@angular/forms';
 import { MAX_RULE_NUMBER, RulesGroup } from './rules-form';
+import { RuleChampion } from './rules-fields.models';
 
 /**
  * The fields of a season's Superbru rules (`rules-form.ts`): five switches, the starting round,
@@ -87,9 +88,4 @@ export class RulesFields {
   shows(control: { invalid: boolean; dirty: boolean }): boolean {
     return control.invalid && (this.submitted() || control.dirty);
   }
-}
-
-export interface RuleChampion {
-  readonly id: string;
-  readonly name: string;
 }

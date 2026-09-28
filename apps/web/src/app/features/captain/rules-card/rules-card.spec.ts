@@ -3,9 +3,11 @@ import { SearchSelect } from '../../../shared/search-select/search-select';
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { AlertService } from '../../../core/feedback/alert.service';
-import { ApiError } from '../../../core/league/http-league-data';
+import { ApiError } from '../../../core/api/api-error';
 import { LeagueMember, LeagueRules } from '../../../core/league/league.models';
-import { RoundViewService } from '../../../core/league/round-view.service';
+import { MemberService } from '../../../core/league/members/member.service';
+import { RulesControlService } from '../../../core/league/rules/rules-control.service';
+import { RulesService } from '../../../core/league/rules/rules.service';
 import { DEFAULT_RULES } from '../../../core/league/superbru';
 import { RulesCard } from './rules-card';
 
@@ -41,10 +43,11 @@ describe('RulesCard', () => {
   function setup(refusal: ApiError | null = null) {
     const rules = signal<LeagueRules>({ ...DEFAULT_RULES, previousChampionMemberId: 'm-annas' });
     const saved: Partial<LeagueRules>[] = [];
-    const view = {
-      rules: rules.asReadonly(),
+    const members = {
       members: signal(MEMBERS).asReadonly(),
       withdrawn: signal([]).asReadonly(),
+    };
+    const rulesControl = {
       saveRules: (change: Partial<LeagueRules>) => {
         saved.push(change);
         if (refusal) return Promise.reject(refusal);
@@ -52,7 +55,13 @@ describe('RulesCard', () => {
         return Promise.resolve();
       },
     };
-    TestBed.configureTestingModule({ providers: [{ provide: RoundViewService, useValue: view }] });
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: RulesService, useValue: { rules: rules.asReadonly() } },
+        { provide: RulesControlService, useValue: rulesControl },
+        { provide: MemberService, useValue: members },
+      ],
+    });
     const fixture = TestBed.createComponent(RulesCard);
     const alerts = TestBed.inject(AlertService);
     const warn = vi.spyOn(alerts, 'warn');

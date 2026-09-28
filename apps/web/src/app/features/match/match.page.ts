@@ -15,12 +15,12 @@ import { LiveScoresService, inPlayWindow } from '../../core/api/live-scores.serv
 import { MatchCentreService } from '../../core/api/match-centre.service';
 import { MatchCentre } from '../../core/api/match-centre.models';
 import { CompetitionService } from '../../core/competition/competition.service';
+import { FixtureService } from '../../core/competition/fixture.service';
 import { LeagueTime } from '../../core/competition/league-time';
 import { LeagueTimePipe } from '../../core/competition/league-time.pipe';
 import { SelectedRoundService } from '../../core/competition/selected-round.service';
 import { LeagueContext } from '../../core/league/league-context';
-import { RoundViewService } from '../../core/league/round-view.service';
-import { ProfileStore } from '../../core/profile/profile.store';
+import { ProfileService } from '../../core/profile/profile.service';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideRotateCcw } from '@ng-icons/lucide';
 import { Icon } from '../../shared/icon/icon';
@@ -63,13 +63,13 @@ export class MatchPage {
   private readonly live = inject(LiveScoresService);
   private readonly selected = inject(SelectedRoundService);
   private readonly matchCentre = inject(MatchCentreService);
-  readonly view = inject(RoundViewService);
-  readonly favouriteTeam = inject(ProfileStore).team;
+  readonly fixtures = inject(FixtureService);
+  readonly favouriteTeam = inject(ProfileService).team;
   /** The display zone for the page's timestamps. */
   readonly zone = inject(LeagueTime).zone;
 
   /** The fixture named in the URL, with its live score, which the shell's selected round follows. */
-  readonly fixture = computed(() => this.view.featured());
+  readonly fixture = computed(() => this.fixtures.featured());
   readonly configured = this.matchCentre.configured;
   readonly previewConfigured = this.matchCentre.previewConfigured;
   readonly centre = this.matchCentre.centre(() => this.fixture()?.id ?? null);
@@ -146,11 +146,11 @@ export class MatchPage {
     // Another fixture starts at the top: the shell scrolls up before any page or fixture change.
     this.lastFixtureId = id;
     if (located.round.id === this.selected.id()) {
-      this.view.feature(id);
+      this.fixtures.feature(id);
       return;
     }
     if (roundChanged) {
-      const next = this.view.featured();
+      const next = this.fixtures.featured();
       if (next) {
         void this.router.navigate([this.context.url('/match'), next.id], {
           queryParamsHandling: 'preserve',

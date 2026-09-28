@@ -1,9 +1,12 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { FixtureService } from '../../../core/competition/fixture.service';
 import { AlertService } from '../../../core/feedback/alert.service';
-import { LeagueData } from '../../../core/league/league-data';
+import { DutyControlService } from '../../../core/league/duties/duty-control.service';
+import { LeagueContext } from '../../../core/league/league-context';
 import { NewDuty } from '../../../core/league/league.models';
-import { RoundViewService } from '../../../core/league/round-view.service';
+import { MemberService } from '../../../core/league/members/member.service';
+import { PickService } from '../../../core/league/picks/pick.service';
 import { CreateDutyDialog } from './create-duty-dialog';
 
 describe('CreateDutyDialog', () => {
@@ -13,7 +16,7 @@ describe('CreateDutyDialog', () => {
     TestBed.configureTestingModule({
       providers: [
         {
-          provide: LeagueData,
+          provide: DutyControlService,
           useValue: {
             createDuty: (duty: NewDuty) => {
               created.push(duty);
@@ -21,15 +24,13 @@ describe('CreateDutyDialog', () => {
             },
           },
         },
+        { provide: LeagueContext, useValue: { name: signal('Piele') } },
         {
-          provide: RoundViewService,
-          useValue: {
-            leagueName: signal('Piele'),
-            members: signal([{ id: 'member-johan', name: 'Johan', inSeason: true }]),
-            round: signal({ id: 2 }),
-            picksFor: () => null,
-          },
+          provide: MemberService,
+          useValue: { members: signal([{ id: 'member-johan', name: 'Johan', inSeason: true }]) },
         },
+        { provide: FixtureService, useValue: { round: signal({ id: 2 }) } },
+        { provide: PickService, useValue: { picksFor: () => null } },
       ],
     });
     const fixture = TestBed.createComponent(CreateDutyDialog);

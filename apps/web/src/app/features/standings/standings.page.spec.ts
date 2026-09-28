@@ -10,9 +10,11 @@ import { CompetitionService } from '../../core/competition/competition.service';
 import { competition } from '../../core/competition/registry';
 import { BADGES } from '../../core/league/badges';
 import { LeagueContext } from '../../core/league/league-context';
-import { LeagueData } from '../../core/league/league-data';
-import { SampleLeagueData } from '../../core/league/sample-league-data';
-import { ProfileStore } from '../../core/profile/profile.store';
+import { LeagueData } from '../../core/league/data/league-data';
+import { SampleLeagueData } from '../../core/league/data/sample-league-data';
+import { RulesControlService } from '../../core/league/rules/rules-control.service';
+import { StandingControlService } from '../../core/league/standings/standing-control.service';
+import { ProfileControlService } from '../../core/profile/profile-control.service';
 import { BREAKDOWN_STORAGE_KEY, StandingsPage } from './standings.page';
 
 const URC = competition('urc-2026-27');
@@ -51,7 +53,7 @@ async function open(url: string) {
   const context = TestBed.inject(LeagueContext);
   await context.ensureAccount();
   await context.select('piele');
-  await TestBed.inject(ProfileStore).save({
+  await TestBed.inject(ProfileControlService).save({
     displayName: 'Test Member',
     teamId: 'dhl-stormers',
     photo: null,
@@ -68,7 +70,15 @@ async function open(url: string) {
     [...element.querySelectorAll<HTMLButtonElement>('button')].find(
       (b) => b.textContent!.trim() === name,
     )!;
-  return { harness, page, element, text, button, data: TestBed.inject(LeagueData) };
+  return {
+    harness,
+    page,
+    element,
+    text,
+    button,
+    standings: TestBed.inject(StandingControlService),
+    rules: TestBed.inject(RulesControlService),
+  };
 }
 
 describe('StandingsPage', () => {
@@ -214,8 +224,8 @@ describe('StandingsPage', () => {
   });
 
   it('tags a recorded total that differs from the derived one', async () => {
-    const { harness, element, data } = await open('/standings');
-    await data.recordStandings(1, [{ memberId: 'member-fb', points: 30 }]);
+    const { harness, element, standings } = await open('/standings');
+    await standings.recordStandings(1, [{ memberId: 'member-fb', points: 30 }]);
     harness.detectChanges();
     const franco = [...element.querySelectorAll('.points-row')].find((row) =>
       row.textContent!.includes('Franco'),
@@ -228,7 +238,7 @@ describe('StandingsPage', () => {
   });
 
   it('shows the empty states for a round and a season without scores', async () => {
-    const { harness, text, button, data } = await open('/standings?round=3');
+    const { harness, text, button, rules } = await open('/standings?round=3');
     expect(text('.round-empty h2')).toEqual(['No picks or results for Round 03 yet.']);
     expect(text('.round-empty p')).toEqual([
       'Picks appear once members record them and the matches kick off.',
@@ -241,7 +251,7 @@ describe('StandingsPage', () => {
     // Rounds 1 and 2 are scored, so the season table has rows.
     expect(text('.points-row .member-name')).toHaveLength(6);
     // From round 4 on, nothing up to round 3 counts.
-    await data.saveRules({ startingRound: 4 });
+    await rules.saveRules({ startingRound: 4 });
     harness.detectChanges();
     expect(text('.points-row')).toEqual([]);
     expect(text('.round-empty h2')).toEqual(['No rounds scored yet.']);

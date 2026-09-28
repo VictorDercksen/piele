@@ -21,14 +21,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
-import {
-  AbstractControl,
-  FormControl,
-  FormGroup,
-  ReactiveFormsModule,
-  ValidationErrors,
-  Validators,
-} from '@angular/forms';
+import { ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideArrowRight, lucideLock, lucidePencil, lucideX } from '@ng-icons/lucide';
@@ -38,34 +31,33 @@ import { LeagueTime } from '../../../core/competition/league-time';
 import { LeagueTimePipe } from '../../../core/competition/league-time.pipe';
 import { AlertService } from '../../../core/feedback/alert.service';
 import { highlightProblem } from '../../../core/feedback/problem-highlight';
-import { ApiError } from '../../../core/league/http-league-data';
 import { LeaguePathPipe } from '../../../core/league/league-path.pipe';
-import { MemberPick, NewPick } from '../../../core/league/league.models';
-import { RoundViewService } from '../../../core/league/round-view.service';
+import { MemberPick } from '../../../core/league/league.models';
+import { MemberService } from '../../../core/league/members/member.service';
+import { PickControlService } from '../../../core/league/picks/pick-control.service';
+import { PickService } from '../../../core/league/picks/pick.service';
+import { RulesService } from '../../../core/league/rules/rules.service';
 import { roundType } from '../../../core/league/superbru';
 import { Dropdown } from '../../../shared/dropdown/dropdown';
-import { PickChip, PickChipView, chipOf } from './pick-chip';
-
-/** The widest margin the scale reaches; beyond it the marker sits at the end. */
-export const SCALE_REACH = 40;
-
-/** The quick margins under the scale: a penalty, a converted try, two and three of them. */
-export const QUICK_MARGINS: readonly number[] = [3, 7, 14, 21];
-
-/** A typed margin as a number, or null unless it is digits from 1 to 150. */
-export function parseMargin(value: string): number | null {
-  const trimmed = value.trim();
-  if (!/^\d+$/.test(trimmed)) return null;
-  const margin = Number(trimmed);
-  return margin >= 1 && margin <= 150 ? margin : null;
-}
-
-/** A margin from 1 to 150, typed as digits. */
-function marginValidator(control: AbstractControl<string>): ValidationErrors | null {
-  const value = control.value.trim();
-  if (!value) return null;
-  return parseMargin(value) === null ? { margin: true } : null;
-}
+import { PickChip } from './pick-chip';
+import { PickChipView } from './pick-chip.models';
+import { chipOf } from './pick-chip.view';
+import {
+  createPickForm,
+  pickFormValue,
+  pickFromForm,
+  pickProblems,
+  signedMargin,
+} from './picks-panel.form';
+import { ScaleView, SideLook } from './picks-panel.models';
+import { pickRefusal } from './picks-panel.refusals';
+import {
+  QUICK_MARGINS,
+  SCALE_REACH,
+  describePick,
+  scaleOf,
+  scoringLegend,
+} from './picks-panel.view';
 
 /**
  * The match centre's "Pool picks." panel. Before kickoff a member without a pick sees only
@@ -75,8 +67,8 @@ function marginValidator(control: AbstractControl<string>): ValidationErrors | n
  * `quick` margins and the typed margin, all writing the same two form controls). Once their
  * pick is in they see their own pick, and can edit theirs until kickoff. After kickoff their
  * line carries their points and place. The pool's split and the pool table itself (every pick
- * with its outcome, margin and bonus marks and points, as the view scores them) are the body of
- * the panel's dropdown (`#picks-pool`), closed by default and for every new fixture; the form
+ * with its outcome, margin and bonus marks and points, as PickService scores them) are the body
+ * of the panel's dropdown (`#picks-pool`), closed by default and for every new fixture; the form
  * or the pick above it is the dropdown's lead. The admin viewing a league it is not in sees the
  * pool without a form.
  */
@@ -108,14 +100,17 @@ export class PicksPanel {
   private readonly competition = inject(CompetitionService);
   private readonly time = inject(LeagueTime);
   private readonly injector = inject(Injector);
-  protected readonly view = inject(RoundViewService);
+  private readonly pickService = inject(PickService);
+  private readonly pickControl = inject(PickControlService);
+  private readonly members = inject(MemberService);
+  protected readonly rules = inject(RulesService);
   /** The display zone for the kickoff. */
   protected readonly zone = this.time.zone;
 
   readonly fixtureId = input.required<string>();
 
-  /** The fixture's picks as the view gives them. */
-  readonly picks = computed(() => this.view.picksFor(this.fixtureId()));
+  /** The fixture's picks as the pick service gives them. */
+  readonly picks = computed(() => this.pickService.picksFor(this.fixtureId()));
   /** The member reopened the form to change a pick that is in. */
   readonly editing = linkedSignal({ source: this.fixtureId, computation: () => false });
   readonly submitted = signal(false);
@@ -134,13 +129,7 @@ export class PicksPanel {
     isDefault: false,
   };
 
-  readonly form = new FormGroup({
-    side: new FormControl<PickChoice | null>(null, { validators: Validators.required }),
-    margin: new FormControl('', {
-      nonNullable: true,
-      validators: [Validators.required, marginValidator],
-    }),
-  });
+  readonly form = createPickForm();
   private readonly value = toSignal(
     this.form.valueChanges.pipe(map(() => this.form.getRawValue())),
     { initialValue: this.form.getRawValue() },
@@ -166,31 +155,7 @@ export class PicksPanel {
   readonly scale = computed<ScaleView>(() => {
     this.status();
     const { side, margin } = this.value();
-    const sides = this.sides();
-    const parsed = parseMargin(margin);
-    const club = side === 'home' || side === 'away' ? side : null;
-    const name = club ? (sides?.[club].name ?? (club === 'home' ? 'Home' : 'Away')) : '';
-    const reach = club && parsed !== null ? Math.min(parsed, SCALE_REACH) : 0;
-    const range = club === 'home' ? -reach : reach;
-    const pct = 50 + (range * 50) / SCALE_REACH;
-    return {
-      side,
-      margin: parsed,
-      range,
-      pct,
-      fillLeft: club === 'home' ? pct : 50,
-      fillRight: club === 'away' ? 100 - pct : 50,
-      thumb:
-        side === null ? 'Pick' : side === 'draw' ? 'Draw' : parsed === null ? '?' : String(parsed),
-      text:
-        side === null
-          ? 'No pick yet'
-          : side === 'draw'
-            ? 'A draw'
-            : parsed === null
-              ? `${name}, no margin yet`
-              : `${name} by ${parsed}`,
-    };
+    return scaleOf(side, margin, this.sides());
   });
 
   /**
@@ -203,7 +168,7 @@ export class PicksPanel {
   readonly showForm = computed(() => {
     const picks = this.picks();
     return (
-      !!picks && !picks.locked && !this.view.adminView() && (!picks.recorded || this.editing())
+      !!picks && !picks.locked && !this.members.adminView() && (!picks.recorded || this.editing())
     );
   });
   /** The pool's picks show once the member's pick is in, after kickoff, or for the admin. */
@@ -217,7 +182,7 @@ export class PicksPanel {
     if (picks.void) return 'void';
     if (picks.final) return 'final';
     if (picks.provisional) return 'provisional';
-    return picks.recorded || this.view.adminView() ? 'locked' : 'awaiting picks';
+    return picks.recorded || this.members.adminView() ? 'locked' : 'awaiting picks';
   });
   /** Scores are in (live or full time): marks and points show. */
   readonly scored = computed(() => {
@@ -263,7 +228,7 @@ export class PicksPanel {
   /** The member's own line: pick chip, points and place. Null for the admin view. */
   readonly mine = computed(() => {
     const picks = this.picks();
-    if (!picks || this.view.adminView()) return null;
+    if (!picks || this.members.adminView()) return null;
     const row = picks.rows.find((r) => r.you) ?? null;
     return {
       row,
@@ -275,28 +240,17 @@ export class PicksPanel {
   /** Steward: some active member has no pick for a match that has kicked off. */
   readonly missingPicks = computed(() => {
     const picks = this.picks();
-    if (!picks?.locked || !this.view.administers()) return false;
+    if (!picks?.locked || !this.members.administers()) return false;
     const picked = new Set(picks.rows.filter((r) => r.side !== 'missed').map((r) => r.memberId));
-    return this.view.members().some((member) => !picked.has(member.id));
+    return this.members.members().some((member) => !picked.has(member.id));
   });
 
   /** The rules line under the table, from the season's rules and this round's win points. */
   readonly legend = computed(() => {
     const picks = this.picks();
-    const rules = this.view.rules();
+    const rules = this.rules.rules();
     const wp = picks ? rules.winPoints[roundType(picks.round.id, this.competition.current())] : 0;
-    const parts = [
-      'Superbru scoring',
-      `Outcome ${round(wp)}`,
-      `Within ${rules.marginWindow} ${round(rules.marginPoint)}`,
-    ];
-    if (rules.bonusPoint) {
-      let closest = `Closest ${round(rules.bonusPointValue)}`;
-      if (rules.bonusPointSplit) closest += ', shared when tied';
-      if (rules.bonusPointRangeCapped) closest += `, within ${rules.bonusRange} only`;
-      parts.push(closest);
-    }
-    return `${parts.join(' · ')}.`;
+    return scoringLegend(rules, wp);
   });
 
   constructor() {
@@ -334,8 +288,7 @@ export class PicksPanel {
   /** A crest tapped: the pick moves one point toward that side (through a draw at the middle). */
   nudge(side: 'home' | 'away'): void {
     const { side: current, margin } = this.form.getRawValue();
-    const parsed = parseMargin(margin) ?? 0;
-    const signed = current === 'home' ? -parsed : current === 'away' ? parsed : 0;
+    const signed = signedMargin(current, margin);
     const step = side === 'home' ? -1 : 1;
     this.setSigned(Math.max(-150, Math.min(150, signed + step)));
   }
@@ -382,9 +335,10 @@ export class PicksPanel {
     this.submitted.set(true);
     const { side, margin } = this.form.getRawValue();
     if (this.form.invalid || !side) {
-      const problems: string[] = [];
-      if (this.form.controls.side.invalid) problems.push('Choose a side or a draw.');
-      if (this.form.controls.margin.invalid) problems.push('Enter a margin from 1 to 150.');
+      const problems = pickProblems(
+        this.form.controls.side.invalid,
+        this.form.controls.margin.invalid,
+      );
       highlightProblem(
         (this.form.controls.side.invalid ? this.scaleStrip() : this.marginInput())?.nativeElement,
       );
@@ -393,13 +347,14 @@ export class PicksPanel {
       return;
     }
     this.alerts.dismissKey(this.warningKey());
-    const pick: NewPick =
-      side === 'draw' ? { side: 'draw', margin: 0 } : { side, margin: Number(margin.trim()) };
+    const pick = pickFromForm(side, margin);
     this.saving.set(true);
     try {
-      await this.view.savePick(this.fixtureId(), pick);
+      await this.pickControl.savePick(this.fixtureId(), pick);
       this.alerts.dismissKey(this.failureKey());
-      this.alerts.success(`Pick saved: ${this.describe(pick)}.`, { key: this.savedKey() });
+      this.alerts.success(`Pick saved: ${describePick(pick, this.sides())}.`, {
+        key: this.savedKey(),
+      });
       this.editing.set(false);
       this.fill(null);
       afterNextRender(() => this.mineStrip()?.nativeElement.focus(), { injector: this.injector });
@@ -415,29 +370,13 @@ export class PicksPanel {
    * else a failure that stays until dismissed or the pick saves.
    */
   private refuse(error: unknown): void {
-    if (error instanceof ApiError && error.code === 'picks_locked') {
-      const kickoff = this.time.pattern(this.picks()?.fixture.kickoffUtc ?? null, 'd MMM HH:mm z');
-      this.alerts.warn(
-        kickoff
-          ? `Picks for this match closed at kickoff, ${kickoff}.`
-          : 'Picks for this match closed at kickoff.',
-        { key: this.warningKey() },
-      );
+    const kickoff = this.time.pattern(this.picks()?.fixture.kickoffUtc ?? null, 'd MMM HH:mm z');
+    const refusal = pickRefusal(error, kickoff);
+    if (refusal.level === 'warn') {
+      this.alerts.warn(refusal.message, { key: this.warningKey() });
       return;
     }
-    this.alerts.error(
-      error instanceof Error && error.message
-        ? error.message
-        : 'The pick could not be saved. Try again.',
-      { key: this.failureKey() },
-    );
-  }
-
-  /** The pick as the chip reads it: "Bulls by 20" or "a draw". */
-  private describe(pick: NewPick): string {
-    if (pick.side !== 'home' && pick.side !== 'away') return 'a draw';
-    const name = this.sides()?.[pick.side].name ?? (pick.side === 'home' ? 'Home' : 'Away');
-    return `${name} by ${pick.margin}`;
+    this.alerts.error(refusal.message, { key: this.failureKey() });
   }
 
   private savedKey(): string {
@@ -445,47 +384,7 @@ export class PicksPanel {
   }
 
   private fill(pick: MemberPick | null): void {
-    const side = pick && pick.side !== 'missed' ? pick.side : null;
-    this.form.reset({
-      side,
-      margin: side && side !== 'draw' && pick?.margin ? String(pick.margin) : '',
-    });
+    this.form.reset(pickFormValue(pick));
     this.submitted.set(false);
   }
-}
-
-/** The member's choice in the form: a side or a draw. */
-export type PickChoice = 'home' | 'away' | 'draw';
-
-/** A side of the fixture as the panel draws it. */
-export interface SideLook {
-  readonly name: string;
-  readonly colour: string | null;
-  readonly accent: string | null;
-  /** The banner colour for the sway bar. */
-  readonly banner: string | null;
-  readonly crest: string | null;
-  readonly jersey: string;
-}
-
-/** The margin scale as the template draws it. */
-export interface ScaleView {
-  readonly side: PickChoice | null;
-  /** The typed margin, or null while it is empty or invalid. */
-  readonly margin: number | null;
-  /** The range input's value: the margin toward away, negative toward home, 0 a draw. */
-  readonly range: number;
-  /** The marker's position along the track, 0 at home, 100 at away. */
-  readonly pct: number;
-  readonly fillLeft: number;
-  readonly fillRight: number;
-  /** The marker's label: the margin, Draw, or Pick before a side is chosen. */
-  readonly thumb: string;
-  /** The pick in words, e.g. "Bulls by 20", "A draw", "No pick yet". */
-  readonly text: string;
-}
-
-/** A points value without floating-point noise in the scoring legend. */
-function round(value: number): number {
-  return Math.round(value * 100) / 100;
 }

@@ -5,7 +5,7 @@
   </p>
 
   @if (strip().length) {
-    <div class="fixture-strip" role="group" [attr.aria-label]="view.round().title + ' fixtures'">
+    <div class="fixture-strip" role="group" [attr.aria-label]="fixtureService.round().title + ' fixtures'">
       @for (item of strip(); track item.fixture.id) {
         <button
           hlmBtn
@@ -203,7 +203,7 @@
         </tr>
       </thead>
       <tbody>
-        @for (row of view.derivedVsRecorded(); track row.memberId) {
+        @for (row of standingService.derivedVsRecorded(); track row.memberId) {
           <tr [class.you]="row.you">
             <th scope="row">
               <span class="member">

@@ -4,9 +4,14 @@ import { ChangeDetectionStrategy, Component, computed, inject, viewChild } from 
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { map } from 'rxjs';
+import { FixtureService } from '../../core/competition/fixture.service';
 import { LeagueTime } from '../../core/competition/league-time';
 import { AlertService } from '../../core/feedback/alert.service';
-import { RoundDutyView, RoundViewService } from '../../core/league/round-view.service';
+import { DutyControlService } from '../../core/league/duties/duty-control.service';
+import { RoundDutyView } from '../../core/league/duties/duty.models';
+import { DutyService } from '../../core/league/duties/duty.service';
+import { LeagueRecordsService } from '../../core/league/league-records.service';
+import { MemberService } from '../../core/league/members/member.service';
 import { Icon } from '../../shared/icon/icon';
 import { CreateDutyDialog } from './create-duty-dialog/create-duty-dialog';
 import { DutyCard } from './duty-card/duty-card';
@@ -35,7 +40,11 @@ export class DutiesPage {
   private readonly route = inject(ActivatedRoute);
   private readonly alerts = inject(AlertService);
   private readonly time = inject(LeagueTime);
-  readonly view = inject(RoundViewService);
+  private readonly duties = inject(DutyService);
+  private readonly dutyControl = inject(DutyControlService);
+  readonly fixtures = inject(FixtureService);
+  readonly members = inject(MemberService);
+  readonly records = inject(LeagueRecordsService);
   readonly evidence = viewChild.required(EvidenceDialog);
   readonly createDialog = viewChild.required(CreateDutyDialog);
   readonly reasonDialog = viewChild.required(ReasonDialog);
@@ -46,7 +55,9 @@ export class DutiesPage {
     { initialValue: 'mine' },
   );
   readonly visibleDuties = computed(() =>
-    this.scope() === 'mine' ? this.view.duties().filter((duty) => duty.mine) : this.view.duties(),
+    this.scope() === 'mine'
+      ? this.duties.duties().filter((duty) => duty.mine)
+      : this.duties.duties(),
   );
 
   selectScope(scope: unknown): void {
@@ -64,7 +75,7 @@ export class DutiesPage {
       description: `${duty.title} for ${duty.memberName} will be closed without marks. The register keeps the record.`,
       submitLabel: 'Void duty',
       required: true,
-      action: (reason) => this.view.voidDuty(duty.id, reason),
+      action: (reason) => this.dutyControl.voidDuty(duty.id, reason),
       done: () => this.alerts.success(`${duty.title} voided.`),
     });
   }
@@ -76,7 +87,7 @@ export class DutiesPage {
       submitLabel: 'Reset the clock',
       required: true,
       spoon: duty.spoon,
-      action: (reason) => this.view.resetClock(duty.id, reason),
+      action: (reason) => this.dutyControl.resetClock(duty.id, reason),
       done: () => this.alerts.success(`${duty.title} clock reset for ${duty.memberName}.`),
     });
   }

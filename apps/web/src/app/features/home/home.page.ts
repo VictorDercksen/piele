@@ -1,8 +1,8 @@
 import { ChangeDetectionStrategy, Component, inject, viewChild } from '@angular/core';
 import { Router } from '@angular/router';
+import { FixtureService } from '../../core/competition/fixture.service';
 import { LeagueContext } from '../../core/league/league-context';
-import { RoundViewService } from '../../core/league/round-view.service';
-import { ProfileStore } from '../../core/profile/profile.store';
+import { ProfileService } from '../../core/profile/profile.service';
 import { EvidenceDialog } from '../duties/evidence-dialog/evidence-dialog';
 import { Feed } from './feed/feed';
 import { MatchHero } from './match-hero/match-hero';
@@ -27,9 +27,9 @@ import { StandingsSummary } from './standings-summary/standings-summary';
 export class HomePage {
   private readonly router = inject(Router);
   private readonly context = inject(LeagueContext);
-  readonly view = inject(RoundViewService);
+  readonly fixtures = inject(FixtureService);
   readonly evidence = viewChild.required(EvidenceDialog);
-  readonly favouriteTeam = inject(ProfileStore).team;
+  readonly favouriteTeam = inject(ProfileService).team;
   go(path: string): void {
     void this.router.navigate([this.context.url(path)], { queryParamsHandling: 'preserve' });
   }

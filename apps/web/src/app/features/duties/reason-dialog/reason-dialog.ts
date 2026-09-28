@@ -18,6 +18,8 @@ import { highlightProblem } from '../../../core/feedback/problem-highlight';
 import { LeagueContext } from '../../../core/league/league-context';
 import { Icon } from '../../../shared/icon/icon';
 import { Loader } from '../../../shared/loader/loader';
+import { reasonValidators } from './reason-dialog.form';
+import { ReasonRequest } from './reason-dialog.models';
 
 /** The key of the dialog's warning card; a new attempt replaces it, closing clears it. */
 export const REASON_WARNING = 'reason';
@@ -73,11 +75,7 @@ export class ReasonDialog {
     this.request.set(request);
     this.reason.reset();
     this.invalid.set(false);
-    this.reason.setValidators(
-      request.required
-        ? [Validators.required, Validators.pattern(/\S/), Validators.maxLength(500)]
-        : [Validators.maxLength(500)],
-    );
+    this.reason.setValidators(reasonValidators(request.required));
     this.reason.updateValueAndValidity();
     this.dialog().open();
   }
@@ -126,18 +124,4 @@ export class ReasonDialog {
       this.busy.set(false);
     }
   }
-}
-
-export interface ReasonRequest {
-  /** The line above the title; the league's captain's desk by default. */
-  readonly eyebrow?: string;
-  readonly title: string;
-  readonly description: string;
-  readonly submitLabel: string;
-  readonly required: boolean;
-  /** A plain confirmation: no reason field. */
-  readonly noReason?: boolean;
-  readonly spoon?: boolean;
-  readonly action: (reason: string) => Promise<void>;
-  readonly done?: () => void;
 }

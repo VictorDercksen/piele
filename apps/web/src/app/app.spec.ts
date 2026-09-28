@@ -3,8 +3,8 @@ import { provideRouter, Router } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { routes } from './app.routes';
 import { LeagueContext } from './core/league/league-context';
-import { EmptyLeagueData, LeagueData } from './core/league/league-data';
-import { ProfileStore } from './core/profile/profile.store';
+import { EmptyLeagueData, LeagueData } from './core/league/data/league-data';
+import { ProfileControlService } from './core/profile/profile-control.service';
 
 describe('App routes', () => {
   beforeEach(() => {
@@ -19,7 +19,7 @@ describe('App routes', () => {
     const context = TestBed.inject(LeagueContext);
     await context.ensureAccount();
     await context.select('piele');
-    await TestBed.inject(ProfileStore).save({
+    await TestBed.inject(ProfileControlService).save({
       displayName: 'Test Member',
       teamId: 'dhl-stormers',
       photo: null,

@@ -14,9 +14,12 @@ import {
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FixtureService } from '../../../core/competition/fixture.service';
 import { AlertService } from '../../../core/feedback/alert.service';
+import { LeagueContext } from '../../../core/league/league-context';
+import { LeagueRecordsService } from '../../../core/league/league-records.service';
 import { Poll } from '../../../core/league/league.models';
-import { RoundViewService } from '../../../core/league/round-view.service';
+import { PollControlService } from '../../../core/league/polls/poll-control.service';
 import { Icon } from '../../../shared/icon/icon';
 import { Loader } from '../../../shared/loader/loader';
 
@@ -43,7 +46,10 @@ export const VOTE_FAILURE = 'vote-failed';
 })
 export class VoteDialog {
   private readonly alerts = inject(AlertService);
-  readonly view = inject(RoundViewService);
+  private readonly pollControl = inject(PollControlService);
+  private readonly records = inject(LeagueRecordsService);
+  readonly context = inject(LeagueContext);
+  readonly fixtures = inject(FixtureService);
   private readonly dialog = viewChild.required(HlmDialog);
   readonly poll = signal<Poll | null>(null);
   readonly busy = signal(false);
@@ -66,11 +72,11 @@ export class VoteDialog {
     if (!poll || this.choice.invalid || this.busy()) return;
     this.busy.set(true);
     try {
-      await this.view.castVote(poll.id, this.choice.value);
+      await this.pollControl.castVote(poll.id, this.choice.value);
       this.alerts.dismissKey(VOTE_FAILURE);
       this.close();
       this.alerts.success(
-        this.view.sample
+        this.records.sample
           ? 'Your sample vote is recorded. It resets when you reload.'
           : 'Your vote is recorded. You can change it until the poll closes.',
       );

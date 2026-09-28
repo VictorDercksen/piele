@@ -17,16 +17,33 @@ import {
   viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
-import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ReactiveFormsModule } from '@angular/forms';
 import { CompetitionService } from '../../../core/competition/competition.service';
+import { FixtureService } from '../../../core/competition/fixture.service';
 import { LeagueTime } from '../../../core/competition/league-time';
 import { AlertService } from '../../../core/feedback/alert.service';
 import { highlightProblem } from '../../../core/feedback/problem-highlight';
-import { LeagueData } from '../../../core/league/league-data';
-import { DutyType } from '../../../core/league/league.models';
-import { RoundViewService } from '../../../core/league/round-view.service';
+import { DutyControlService } from '../../../core/league/duties/duty-control.service';
+import { LeagueContext } from '../../../core/league/league-context';
+import { MemberService } from '../../../core/league/members/member.service';
+import { PickService } from '../../../core/league/picks/pick.service';
 import { Icon } from '../../../shared/icon/icon';
 import { Loader } from '../../../shared/loader/loader';
+import {
+  DUTY_OPTIONS,
+  createDutyForm,
+  dutyFormValue,
+  dutyProblems,
+  dutyTitle,
+  newDutyFrom,
+  pickFixtureState,
+} from './create-duty-dialog.form';
+import {
+  CreatedDuty,
+  DutyField,
+  DutyPrefill,
+  PickFixtureOption,
+} from './create-duty-dialog.models';
 
 /** The key of the form's warning card; a new attempt replaces it. */
 export const CREATE_DUTY_WARNING = 'create-duty';
@@ -58,12 +75,15 @@ export const CREATE_DUTY_FAILURE = 'create-duty-failed';
 })
 export class CreateDutyDialog {
   private readonly alerts = inject(AlertService);
-  private readonly league = inject(LeagueData);
+  private readonly dutyControl = inject(DutyControlService);
+  private readonly fixtures = inject(FixtureService);
+  private readonly memberService = inject(MemberService);
+  private readonly picks = inject(PickService);
   private readonly competition = inject(CompetitionService);
   private readonly time = inject(LeagueTime);
   /** The display zone's abbreviation, for the deadline label. */
   readonly zoneName = this.time.abbreviation;
-  readonly view = inject(RoundViewService);
+  readonly context = inject(LeagueContext);
   private readonly dialog = viewChild.required(HlmDialog);
   private readonly memberSelect = viewChild.required<unknown, ElementRef<HTMLElement>>(
     'memberSelect',
@@ -71,23 +91,17 @@ export class CreateDutyDialog {
   );
   private readonly deadlineInput =
     viewChild.required<ElementRef<HTMLInputElement>>('deadlineInput');
-  readonly created = output<{ title: string; memberName: string; deadlineAt: string | null }>();
+  readonly created = output<CreatedDuty>();
   readonly busy = signal(false);
   /** The controls the last attempt found wanting, marked `aria-invalid` until they change. */
-  readonly invalid = signal<ReadonlySet<'memberId' | 'deadline'>>(new Set());
+  readonly invalid = signal<ReadonlySet<DutyField>>(new Set());
   readonly rounds = computed(() => this.competition.rounds);
-  readonly form = new FormGroup({
-    memberId: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
-    type: new FormControl<DutyType>('spoon', { nonNullable: true }),
-    roundId: new FormControl(1, { nonNullable: true }),
-    deadline: new FormControl('', { nonNullable: true }),
-    reason: new FormControl('', { nonNullable: true, validators: [Validators.maxLength(500)] }),
-  });
+  readonly form = createDutyForm();
   private readonly values = toSignal(this.form.valueChanges, { initialValue: this.form.value });
   readonly type = computed(() => this.values().type ?? 'spoon');
   readonly roundId = computed(() => Number(this.values().roundId ?? 1));
   readonly memberId = computed(() => this.values().memberId ?? '');
-  readonly members = computed(() => this.view.members().filter((m) => m.inSeason));
+  readonly members = computed(() => this.memberService.members().filter((m) => m.inSeason));
   /** The plan's default: due when the following round kicks off. */
   readonly defaultDeadline = computed(() =>
     this.type() === 'spoon' && this.roundId() < this.rounds().length
@@ -110,25 +124,22 @@ export class CreateDutyDialog {
     if (this.type() !== 'pick_confirmation' || !memberId) return [];
     const round = this.competition.round(this.roundId());
     return (round?.fixtures ?? []).flatMap((fixture) => {
-      const picks = this.view.picksFor(fixture.id);
+      const picks = this.picks.picksFor(fixture.id);
       if (!picks?.locked) return [];
-      const pick = picks.rows.find((row) => row.memberId === memberId);
-      if (pick && pick.side !== 'missed' && !pick.isDefault) return [];
+      const state = pickFixtureState(picks.rows.find((row) => row.memberId === memberId));
+      if (!state) return [];
       return [
         {
           id: fixture.id,
           label: `${fixture.home} v ${fixture.away}`,
-          state: !pick ? 'No pick' : pick.side === 'missed' ? 'Missed' : 'Default pick',
+          state,
           checked: !this.unticked().has(fixture.id),
         },
       ];
     });
   });
 
-  readonly dutyOptions = [
-    { value: 'spoon', label: 'Spoon duty' },
-    { value: 'pick_confirmation', label: 'Pick confirmation' },
-  ] as const;
+  readonly dutyOptions = DUTY_OPTIONS;
   readonly memberOptions = computed(() =>
     this.members().map((member) => ({ value: member.id, label: member.name })),
   );
@@ -151,13 +162,7 @@ export class CreateDutyDialog {
 
   /** Opens the form, optionally filled in, e.g. a spoon duty proposed from the round table. */
   open(prefill: DutyPrefill = {}): void {
-    this.form.reset({
-      memberId: prefill.memberId ?? '',
-      type: prefill.type ?? 'spoon',
-      roundId: prefill.roundId ?? this.view.round().id,
-      deadline: '',
-      reason: prefill.reason ?? '',
-    });
+    this.form.reset(dutyFormValue(prefill, this.fixtures.round().id));
     this.unticked.set(new Set());
     this.invalid.set(new Set());
     this.dialog().open();
@@ -195,17 +200,16 @@ export class CreateDutyDialog {
 
   async submit(): Promise<void> {
     if (this.busy()) return;
-    const { memberId, type, roundId, deadline, reason } = this.form.getRawValue();
+    const values = this.form.getRawValue();
+    const { memberId, type, roundId, deadline } = values;
     const deadlineAt = deadline ? this.time.fromLocalInput(deadline) : null;
-    const problems: { control: 'memberId' | 'deadline'; message: string }[] = [];
-    if (this.form.controls.memberId.invalid) {
-      problems.push({ control: 'memberId', message: 'Choose the member who owes the duty.' });
-    }
-    if (deadline && !deadlineAt) {
-      problems.push({ control: 'deadline', message: 'Enter a valid deadline.' });
-    } else if (this.needsDeadline() && !deadlineAt && type !== 'spoon') {
-      problems.push({ control: 'deadline', message: 'A pick confirmation needs a deadline.' });
-    }
+    const problems = dutyProblems({
+      memberInvalid: this.form.controls.memberId.invalid,
+      type,
+      deadline,
+      deadlineAt,
+      needsDeadline: this.needsDeadline(),
+    });
     if (problems.length || this.form.invalid) {
       this.invalid.set(new Set(problems.map((problem) => problem.control)));
       const [first, ...rest] = problems;
@@ -224,28 +228,15 @@ export class CreateDutyDialog {
     }
     this.invalid.set(new Set());
     this.alerts.dismissKey(CREATE_DUTY_WARNING);
-    const pickFixtureIds =
-      type === 'pick_confirmation'
-        ? this.pickFixtures()
-            .filter((f) => f.checked)
-            .map((f) => f.id)
-        : [];
     this.busy.set(true);
     try {
-      await this.league.createDuty({
-        memberId,
-        type,
-        roundId: Number(roundId),
-        deadlineAt,
-        reason: reason.trim(),
-        ...(pickFixtureIds.length ? { pickFixtureIds } : {}),
-      });
+      await this.dutyControl.createDuty(newDutyFrom(values, deadlineAt, this.pickFixtures()));
       const member = this.members().find((m) => m.id === memberId);
       const round = this.competition.round(Number(roundId));
       this.alerts.dismissKey(CREATE_DUTY_FAILURE);
       this.close();
       this.created.emit({
-        title: `${round?.title ?? 'Round'} ${type === 'spoon' ? 'Spoon duty' : 'Pick confirmation'}`,
+        title: dutyTitle(round?.title, type),
         memberName: member?.name ?? 'the member',
         deadlineAt: deadlineAt ?? this.defaultDeadline(),
       });
@@ -257,20 +248,4 @@ export class CreateDutyDialog {
       this.busy.set(false);
     }
   }
-}
-
-/** What a caller can fill in when it opens the form. */
-export interface DutyPrefill {
-  readonly memberId?: string;
-  readonly type?: DutyType;
-  readonly roundId?: number;
-  readonly reason?: string;
-}
-
-/** A fixture the pick confirmation can cover, with the member's pick state there. */
-export interface PickFixtureOption {
-  readonly id: string;
-  readonly label: string;
-  readonly state: 'No pick' | 'Missed' | 'Default pick';
-  readonly checked: boolean;
 }

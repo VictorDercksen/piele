@@ -23,21 +23,19 @@ import {
   input,
   viewChild,
 } from '@angular/core';
-import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ReactiveFormsModule } from '@angular/forms';
 import { LeagueTime } from '../../../core/competition/league-time';
 import { AlertService } from '../../../core/feedback/alert.service';
 import { highlightProblem } from '../../../core/feedback/problem-highlight';
-import { LeagueData } from '../../../core/league/league-data';
 import { LeagueMember } from '../../../core/league/league.models';
-import { RoundViewService } from '../../../core/league/round-view.service';
+import { MemberControlService } from '../../../core/league/members/member-control.service';
+import { MemberService } from '../../../core/league/members/member.service';
 import { Dropdown } from '../../../shared/dropdown/dropdown';
 import { Loader } from '../../../shared/loader/loader';
 import { ReasonDialog } from '../../duties/reason-dialog/reason-dialog';
-const ALERT_KEYS = {
-  email: 'captain-member-email',
-  reinstate: 'captain-reinstate',
-  addMember: 'captain-add-member',
-} as const;
+import { ALERT_KEYS } from './members-card.alerts';
+import { emailControl, newMemberForm, newMemberFrom, newMemberProblems } from './members-card.form';
+
 /** League membership, reservations, removal and reinstatement, with its own form state. */
 @Component({
   selector: 'app-members-card',
@@ -62,10 +60,10 @@ const ALERT_KEYS = {
   ],
 })
 export class MembersCard {
-  private readonly league = inject(LeagueData);
+  private readonly memberControl = inject(MemberControlService);
   private readonly time = inject(LeagueTime);
   private readonly alerts = inject(AlertService);
-  readonly view = inject(RoundViewService);
+  readonly members = inject(MemberService);
   private readonly injector = inject(Injector);
   readonly reasonDialog = input.required<ReasonDialog>();
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
@@ -76,24 +74,8 @@ export class MembersCard {
   readonly emailAttempted = signal(false);
   readonly memberBusy = signal<string | null>(null);
   readonly editing = signal<string | null>(null);
-  readonly emailControl = new FormControl('', {
-    nonNullable: true,
-    validators: [Validators.email, Validators.maxLength(320)],
-  });
-  readonly newMember = new FormGroup({
-    name: new FormControl('', {
-      nonNullable: true,
-      validators: [Validators.required, Validators.maxLength(50), Validators.pattern(/\S/)],
-    }),
-    fullName: new FormControl('', {
-      nonNullable: true,
-      validators: [Validators.required, Validators.maxLength(120), Validators.pattern(/\S/)],
-    }),
-    email: new FormControl('', {
-      nonNullable: true,
-      validators: [Validators.email, Validators.maxLength(320)],
-    }),
-  });
+  readonly emailControl = emailControl();
+  readonly newMember = newMemberForm();
   readonly addingMember = signal(false);
 
   edit(member: LeagueMember): void {
@@ -119,7 +101,7 @@ export class MembersCard {
     this.alerts.dismissKey(ALERT_KEYS.email);
     this.memberBusy.set(member.id);
     try {
-      await this.league.updateMember(member.id, this.emailControl.value.trim() || null);
+      await this.memberControl.updateMember(member.id, this.emailControl.value.trim() || null);
       this.editing.set(null);
       this.alerts.success(
         this.emailControl.value.trim()
@@ -141,18 +123,18 @@ export class MembersCard {
       description: `The account that claimed ${member.name} loses access to the clubhouse and the name becomes claimable again. Duties and marks stay with ${member.name}.`,
       submitLabel: 'Release name',
       required: false,
-      action: () => this.league.releaseMember(member.id),
+      action: () => this.memberControl.releaseMember(member.id),
       done: () => this.alerts.success(`${member.name} can be claimed again.`),
     });
   }
 
   /** Every row but the league captain's and the steward's own. The API decides the rest. */
   removable(member: LeagueMember): boolean {
-    return member.id !== this.view.captainId() && member.id !== this.view.memberId();
+    return member.id !== this.members.captainId() && member.id !== this.members.memberId();
   }
 
   remove(member: LeagueMember): void {
-    const deleted = !member.claimed && !this.view.hasRecords(member.id);
+    const deleted = !member.claimed && !this.members.hasRecords(member.id);
     this.reasonDialog().open({
       title: `Remove ${member.name}?`,
       description: deleted
@@ -163,7 +145,7 @@ export class MembersCard {
       action: async (reason) => {
         this.memberBusy.set(member.id);
         try {
-          await this.league.withdrawMember(member.id, reason);
+          await this.memberControl.withdrawMember(member.id, reason);
         } finally {
           this.memberBusy.set(null);
         }
@@ -191,7 +173,7 @@ export class MembersCard {
   async reinstate(member: LeagueMember): Promise<void> {
     this.memberBusy.set(member.id);
     try {
-      await this.league.reinstateMember(member.id);
+      await this.memberControl.reinstateMember(member.id);
       this.alerts.success(`${member.name} is back on the team sheet.`, {
         key: ALERT_KEYS.reinstate,
       });
@@ -211,20 +193,7 @@ export class MembersCard {
 
   async addMember(): Promise<void> {
     if (this.addingMember()) return;
-    const { controls } = this.newMember;
-    const problems = [
-      ...(controls.name.invalid || controls.fullName.invalid
-        ? [
-            {
-              field: controls.name.invalid ? 'name' : 'fullName',
-              message: 'Give the member a nickname and full name.',
-            },
-          ]
-        : []),
-      ...(controls.email.invalid
-        ? [{ field: 'email', message: 'Enter a valid email address.' }]
-        : []),
-    ];
+    const problems = newMemberProblems(this.newMember);
     if (problems.length) {
       const [first, ...rest] = problems;
       this.addAttempted.set(true);
@@ -237,16 +206,12 @@ export class MembersCard {
     }
     this.addAttempted.set(false);
     this.alerts.dismissKey(ALERT_KEYS.addMember);
-    const { name, fullName, email } = this.newMember.getRawValue();
+    const member = newMemberFrom(this.newMember);
     this.addingMember.set(true);
     try {
-      await this.league.addMember({
-        name: name.trim(),
-        fullName: fullName.trim(),
-        email: email.trim() || null,
-      });
+      await this.memberControl.addMember(member);
       this.newMember.reset();
-      this.alerts.success(`${name.trim()} added to the league.`, { key: ALERT_KEYS.addMember });
+      this.alerts.success(`${member.name} added to the league.`, { key: ALERT_KEYS.addMember });
     } catch (error) {
       this.alerts.error(error instanceof Error ? error.message : 'The member could not be added.', {
         key: ALERT_KEYS.addMember,
