@@ -496,9 +496,10 @@ export interface paths {
         readonly put?: never;
         /**
          * Review Case
-         * @description Rules on the pending veto: 409 `not_in_review`, 403 `not_reviewer` for anyone but the
-         *     uninvolved captain, the stand-in when the captain is involved, or the admin. Upheld
-         *     rejects the evidence; dismissed reopens voting on the original timer.
+         * @description Rules on the pending veto: 409 `stale_case` (the case changed since `version`), 409
+         *     `not_in_review`, 403 `not_reviewer` for anyone but the uninvolved captain, the stand-in
+         *     when the captain is involved, or the admin. Upheld rejects the evidence; dismissed
+         *     reopens voting on the original timer.
          */
         readonly post: operations["review_case_v1_leagues__leagueId__evidence_cases__case_id__review_post"];
         readonly delete?: never;
@@ -1482,6 +1483,8 @@ export interface components {
             readonly submittedAt: string;
             /** Submittername */
             readonly submitterName: string;
+            /** Version */
+            readonly version: number;
             /** Vetoreason */
             readonly vetoReason: string | null;
         };
@@ -2442,6 +2445,8 @@ export interface components {
              * @enum {string}
              */
             readonly ruling: "upheld" | "dismissed";
+            /** Version */
+            readonly version: number;
         };
         /** WinPoints */
         readonly WinPoints: {

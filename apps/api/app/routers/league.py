@@ -891,8 +891,9 @@ class EvidenceCase(BaseModel):
     status: CaseStatus
     resolution: CaseResolution | None
     resolvedAt: datetime | None
-    # Frozen when the case opened: active members other than the duty's member and the
-    # submitter. A majority is more than half of eligibleCount.
+    # Frozen when the case opened: active members with a claimed name other than the duty's
+    # member and the submitter (less any released since without voting). A majority is
+    # more than half of eligibleCount.
     eligibleCount: int
     respondedCount: int
     # The caller's ballot: in the electorate, their response and their own veto's reason,
@@ -904,10 +905,13 @@ class EvidenceCase(BaseModel):
     # Whether the caller may rule on the pending veto; only then is its reason given.
     canReview: bool
     vetoReason: str | None
-    # For the captain, the admin and the stand-in reviewer: a veto is waiting and no member
-    # may rule on it (the captain is involved and there is no uninvolved stand-in). The
-    # admin still may.
+    # A veto is waiting and no member may rule on it (the captain is involved and there is
+    # no uninvolved stand-in). Only ever true for the admin without a membership, who may
+    # rule on it, and for the captain on their own duty with no stand-in named; false for
+    # everyone else, so it never says who vetoed.
     needsReviewer: bool
+    # Changes whenever the case does; a review sends the version it was based on.
+    version: int
 
 
 def _case(view: cases.CaseView) -> EvidenceCase:
@@ -940,6 +944,7 @@ def _case(view: cases.CaseView) -> EvidenceCase:
         canReview=view.can_review,
         vetoReason=view.veto_reason,
         needsReviewer=view.needs_reviewer,
+        version=row.version,
     )
 
 
@@ -969,14 +974,17 @@ def respond_to_case(case_id: UUID, body: CaseResponse, actor: Actor = Depends(ac
 class VetoReview(BaseModel):
     ruling: Literal["upheld", "dismissed"]
     reason: str = Field(min_length=1, max_length=500)
+    # The EvidenceCase version the ruling is based on (409 `stale_case` if it changed).
+    version: int
 
 
 @router.post("/evidence/cases/{case_id}/review", response_model=EvidenceCase)
 def review_case(case_id: UUID, body: VetoReview, actor: Actor = Depends(actor_dependency)) -> EvidenceCase:
-    """Rules on the pending veto: 409 `not_in_review`, 403 `not_reviewer` for anyone but the
-    uninvolved captain, the stand-in when the captain is involved, or the admin. Upheld
-    rejects the evidence; dismissed reopens voting on the original timer."""
-    return _case(cases.review(actor, case_id, ruling=body.ruling, reason=body.reason.strip()))
+    """Rules on the pending veto: 409 `stale_case` (the case changed since `version`), 409
+    `not_in_review`, 403 `not_reviewer` for anyone but the uninvolved captain, the stand-in
+    when the captain is involved, or the admin. Upheld rejects the evidence; dismissed
+    reopens voting on the original timer."""
+    return _case(cases.review(actor, case_id, ruling=body.ruling, reason=body.reason.strip(), version=body.version))
 
 
 class StandInReviewer(BaseModel):

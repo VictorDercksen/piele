@@ -22,6 +22,7 @@ from tests.test_league import (  # noqa: F401 (fixtures)
     invite,
     lp,
     migration_engine,
+    mo_headers,
     open_duty,
     second_league,
     signed_in,
@@ -31,6 +32,23 @@ from tests.test_league import (  # noqa: F401 (fixtures)
 )
 
 pytestmark = pytest.mark.skipif(not DATABASE_URL, reason="PIELE_TEST_DATABASE_URL is not set")
+
+
+@pytest.fixture
+def ticking(monkeypatch: pytest.MonkeyPatch) -> Callable[[list[datetime]], None]:
+    """The service clock reads each given time once, then keeps the last: a request whose
+    clock moves on while it waits for a lock."""
+    from app.league import service
+
+    def set_times(times: list[datetime]) -> None:
+        remaining = list(times)
+
+        def clock() -> datetime:
+            return remaining.pop(0) if len(remaining) > 1 else remaining[0]
+
+        monkeypatch.setattr(service, "now_utc", clock)
+
+    return set_times
 
 
 @pytest.fixture
@@ -77,8 +95,12 @@ def respond(client: TestClient, headers: dict, case_id: str, choice: str, reason
     return client.post(lp(client, f"/evidence/cases/{case_id}/response"), json={"choice": choice, "reason": reason}, headers=headers)
 
 
-def review(client: TestClient, headers: dict, case_id: str, ruling: str, reason: str = "Looked at the video"):
-    return client.post(lp(client, f"/evidence/cases/{case_id}/review"), json={"ruling": ruling, "reason": reason}, headers=headers)
+def review(client: TestClient, headers: dict, case_id: str, ruling: str, reason: str = "Looked at the video", version: int | None = None):
+    """Rules on the veto, as of the case version the reviewer reads now unless given."""
+    if version is None:
+        version = next(c["version"] for c in cases_of(client, headers, None) if c["id"] == case_id)
+    body = {"ruling": ruling, "reason": reason, "version": version}
+    return client.post(lp(client, f"/evidence/cases/{case_id}/review"), json=body, headers=headers)
 
 
 def duty_of(client: TestClient, headers: dict, duty_id: str) -> dict:
@@ -150,10 +172,9 @@ def test_the_electorate_is_frozen_and_excludes_the_submitter(client: TestClient,
 
 
 def test_no_one_to_vote_accepts_at_once(client: TestClient, storage) -> None:
+    """Only names that have been claimed vote: Ola, the one other member, is unclaimed."""
     captain = captain_headers(client)
     mo_id = invite(client, "Mo", client.mo_email)
-    ids = {m["displayName"]: m["id"] for m in client.get(lp(client, "/members"), headers=captain).json()}
-    assert withdraw(client, ids["Ola"]).status_code == 204  # unclaimed without records: deleted
     duty = open_duty(client, mo_id, round_number=2)
     upload_and_submit(client, storage, captain, [duty["id"]], subjectMemberId=str(mo_id), claimedCompletedAt="2026-09-20T09:00:00Z")
     case = cases_of(client, captain)[0]
@@ -256,6 +277,8 @@ def test_a_veto_dismissed_after_the_window_accepts_at_once(client: TestClient, l
     assert at(body["resolvedAt"]) == now
     done = duty_of(client, h["Mo"], league["duty"]["id"])
     assert done["completedAt"] == done["evidence"][0]["submittedAt"]
+    # The evidence's reason names the dismissal, not a quiet window.
+    assert done["evidence"][0]["reason"] == "Veto dismissed after voting closed."
     entry = feed_of(client, h["Mo"])[0]
     assert entry["kind"] == "evidence_accepted" and entry["detail"] == "Veto dismissed: Fine"
 
@@ -268,7 +291,8 @@ def test_a_veto_dismissed_with_a_majority_already_in_accepts_at_once(client: Tes
     with migration_engine().begin() as connection:
         connection.execute(
             text(
-                "update piele.evidence_case_voters set choice = 'accept', responded_at = now()"
+                "update piele.evidence_case_voters v set choice = 'accept', responded_at = now(),"
+                " responded_by_user_id = (select user_id from piele.league_memberships m where m.id = v.membership_id)"
                 " where case_id = :c and choice is null"
             ),
             {"c": case["id"]},
@@ -296,7 +320,8 @@ def test_an_open_case_is_accepted_when_its_window_closes(client: TestClient, lea
     cases_of(client, h["Captain"])
     feed = feed_of(client, h["Mo"])
     accepted = [f for f in feed if f["kind"] == "evidence_accepted"]
-    assert len(accepted) == 1 and accepted[0]["occurredAt"] == case["closesAt"] and accepted[0]["actorName"] is None
+    # The entry is dated when it was settled, so a member's read mark cannot hide it.
+    assert len(accepted) == 1 and at(accepted[0]["occurredAt"]) > at(case["closesAt"]) and accepted[0]["actorName"] is None
     events = audit_rows(client, "evidence_case.accepted")
     assert len(events) == 1 and events[0].after["resolution"] == "auto"
     assert respond(client, h["Pat"], case["id"], "veto", "Too late").json()["detail"]["code"] == "voting_closed"
@@ -398,9 +423,11 @@ def test_the_stand_in_reviews_the_captains_veto_unless_involved(client: TestClie
     upload_and_submit(client, storage, h["Ola"], [ola_duty["id"]])
     ola_case = cases_of(client, h["Ola"], 3)[0]
     respond(client, h["Captain"], ola_case["id"], "veto", "Blurry")
-    assert cases_of(client, h["Captain"], 3)[0]["needsReviewer"] is True
-    assert cases_of(client, h["Ola"], 3)[0]["needsReviewer"] is True and cases_of(client, h["Ola"], 3)[0]["canReview"] is False
-    assert cases_of(client, h["Mo"], 3)[0]["needsReviewer"] is False
+    # Only the admin without a membership is told; telling the captain or the stand-in
+    # would tell them who vetoed.
+    for name in ("Captain", "Ola", "Mo", "Pat"):
+        view = cases_of(client, h[name], 3)[0]
+        assert view["needsReviewer"] is False and view["canReview"] is False
     for name in ("Captain", "Ola", "Mo", "Pat"):
         assert review(client, h[name], ola_case["id"], "upheld").status_code == 403
     # The admin without a membership is never involved.
@@ -421,6 +448,23 @@ def test_the_stand_in_reviews_the_captains_veto_unless_involved(client: TestClie
             {"c": ola_case["id"]},
         ).one()
     assert len(rows) == 1 and labels == [("admin", None)] and tuple(reviewer) == ("admin", None)
+
+
+def test_needs_reviewer_never_says_who_vetoed(client: TestClient, league: dict, storage) -> None:
+    """On the captain's duty with a stand-in named, the case needs a reviewer exactly when
+    the stand-in vetoed; the captain must not learn that."""
+    h, ids = league["h"], league["ids"]
+    set_stand_in(client, ids["Ola"])
+    own = open_duty(client, UUID(ids["Captain"]), round_number=3)
+    upload_and_submit(client, storage, h["Captain"], [own["id"]])
+    case = cases_of(client, h["Captain"], 3)[0]
+    respond(client, h["Ola"], case["id"], "veto", "Old video")
+    assert cases_of(client, h["Captain"], 3)[0]["needsReviewer"] is False
+    assert cases_of(client, h["Ola"], 3)[0]["needsReviewer"] is False
+    assert cases_of(client, admin_headers(client), 3)[0]["needsReviewer"] is True
+    # With no stand-in named, the captain's own duty needs a reviewer whoever vetoed.
+    set_stand_in(client, None)
+    assert cases_of(client, h["Captain"], 3)[0]["needsReviewer"] is True
 
 
 def test_withdrawing_or_appointing_the_stand_in_clears_it(client: TestClient, league: dict) -> None:
@@ -494,7 +538,10 @@ def test_cases_stay_in_their_league(client: TestClient, league: dict) -> None:
     assert client.get("/v1/me", headers=h["Captain"]).status_code == 200  # claims the captain there
     zulu_path = lp(client, f"/evidence/cases/{case['id']}/response", zulu)
     assert client.post(zulu_path, json={"choice": "accept"}, headers=h["Captain"]).json()["detail"]["code"] == "unknown_case"
-    assert client.post(lp(client, f"/evidence/cases/{case['id']}/review", zulu), json={"ruling": "upheld", "reason": "x"}, headers=h["Captain"]).json()["detail"]["code"] == "unknown_case"
+    review_there = client.post(
+        lp(client, f"/evidence/cases/{case['id']}/review", zulu), json={"ruling": "upheld", "reason": "x", "version": case["version"]}, headers=h["Captain"]
+    )
+    assert review_there.json()["detail"]["code"] == "unknown_case"
     assert client.get(lp(client, "/evidence/cases", zulu), headers=h["Captain"]).json() == []
     zulu_members = {m["displayName"]: m["id"] for m in client.get(lp(client, "/members", zulu), headers=h["Captain"]).json()}
     assert set_stand_in(client, zulu_members["Ola"]).json()["detail"]["code"] == "unknown_member"
@@ -518,3 +565,167 @@ def test_row_level_security_keeps_cases_in_their_league(client: TestClient, leag
         assert connection.execute(text("select count(*) from piele.evidence_case_voters")).scalar_one() == 3
     finally:
         connection.close()
+
+
+# Regressions from review ------------------------------------------------------------------
+
+
+def test_a_window_closing_while_a_response_waits_settles_the_case(client: TestClient, league: dict, ticking) -> None:
+    """settle_due saw the case a second before it closed; the veto got its lock five seconds
+    after. The veto is refused and the case is accepted as of closes_at."""
+    h, case = league["h"], league["case"]
+    closes = at(case["closesAt"])
+    ticking([closes - timedelta(seconds=1), closes + timedelta(seconds=5)])
+    assert respond(client, h["Ola"], case["id"], "veto", "Too late").json()["detail"]["code"] == "voting_closed"
+    settled = cases_of(client, h["Mo"])[0]
+    assert (settled["status"], settled["resolution"], settled["resolvedAt"]) == ("accepted", "auto", case["closesAt"])
+
+
+def test_the_captains_override_cannot_undo_an_expired_window(client: TestClient, league: dict, ticking) -> None:
+    h, case = league["h"], league["case"]
+    link = duty_of(client, h["Mo"], league["duty"]["id"])["evidence"][0]
+    closes = at(case["closesAt"])
+    ticking([closes - timedelta(seconds=1), closes + timedelta(seconds=5)])
+    rejected = client.post(lp(client, f"/evidence/links/{link['id']}/decision"), json={"decision": "rejected", "reason": "No"}, headers=h["Captain"])
+    assert rejected.json()["detail"]["code"] == "already_decided"
+    assert duty_of(client, h["Mo"], league["duty"]["id"])["status"] == "completed"
+    assert cases_of(client, h["Mo"])[0]["resolution"] == "auto"
+
+
+def test_due_cases_settle_once_per_request(client: TestClient, league: dict, monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.league import cases
+
+    calls = []
+    settle = cases._settle
+    monkeypatch.setattr(cases, "_settle", lambda actor: (calls.append(1), settle(actor)))
+    other = open_duty(client, UUID(league["ids"]["Mo"]), round_number=3)
+    calls.clear()
+    assert client.post(lp(client, f"/duties/{other['id']}/reset-clock"), json={"reason": "Upheld"}, headers=league["h"]["Captain"]).status_code == 200
+    assert client.post(lp(client, f"/duties/{other['id']}/void"), json={"reason": "Wrong round"}, headers=league["h"]["Captain"]).status_code == 200
+    assert len(calls) == 2
+
+
+def test_a_ruling_on_a_stale_case_is_refused(client: TestClient, league: dict) -> None:
+    h, case = league["h"], league["case"]
+    respond(client, h["Ola"], case["id"], "veto", "Too dark")
+    seen = cases_of(client, h["Captain"])[0]["version"]
+    assert review(client, h["Captain"], case["id"], "dismissed", "Fine", version=seen).status_code == 200
+    respond(client, h["Pat"], case["id"], "veto", "Still too dark")
+    # A ruling based on the first veto's version must not land on the second veto.
+    stale = review(client, h["Captain"], case["id"], "upheld", "Too dark", version=seen)
+    assert stale.status_code == 409 and stale.json()["detail"]["code"] == "stale_case"
+    assert cases_of(client, h["Captain"])[0]["status"] == "in_review"
+
+
+def test_a_released_name_leaves_its_live_cases_and_keeps_no_ballot(client: TestClient, league: dict, storage) -> None:
+    h, ids = league["h"], league["ids"]
+    captain = h["Captain"]
+    quinn = member(client, "Quinn")
+    duty = open_duty(client, UUID(ids["Mo"]), round_number=3)
+    upload_and_submit(client, storage, h["Mo"], [duty["id"]])
+    case = cases_of(client, h["Mo"], 3)[0]
+    assert case["eligibleCount"] == 4
+    respond(client, captain, case["id"], "accept")
+    respond(client, h["Ola"], case["id"], "accept")
+    # Pat has not voted: releasing Pat's name drops the ballot, and 2 of 3 is a majority.
+    assert client.post(lp(client, f"/members/{ids['Pat']}/release"), headers=captain).status_code == 204
+    closed = cases_of(client, h["Mo"], 3)[0]
+    assert (closed["status"], closed["resolution"], closed["eligibleCount"], closed["respondedCount"]) == ("accepted", "majority", 3, 2)
+
+    # A ballot already cast stays counted but is not the next claimant's.
+    other = open_duty(client, UUID(ids["Mo"]), round_number=4)
+    upload_and_submit(client, storage, h["Mo"], [other["id"]])
+    live = cases_of(client, h["Mo"], 4)[0]
+    assert live["eligibleCount"] == 3  # Captain, Ola, Quinn: Pat's name is unclaimed now
+    respond(client, h["Ola"], live["id"], "veto", "Wrong spoon")
+    assert client.post(lp(client, f"/members/{ids['Ola']}/release"), headers=captain).status_code == 204
+    email = f"ola-two-{uuid4().hex[:8]}@example.com"
+    invite(client, "Ola", email)
+    new_ola = signed_in(client, "OLA-TWO", email)
+    assert member_id(client, new_ola) == ids["Ola"]
+    view = cases_of(client, new_ola, 4)[0]
+    assert (view["isVoter"], view["myResponse"], view["myVetoReason"], view["canRespond"]) == (False, None, None, False)
+    assert (view["eligibleCount"], view["respondedCount"], view["status"]) == (3, 1, "in_review")
+    assert respond(client, new_ola, live["id"], "accept").json()["detail"]["code"] == "not_a_voter"
+    assert cases_of(client, quinn, 4)[0]["isVoter"] is True
+
+
+def test_releasing_the_last_voter_accepts_at_once(client: TestClient, storage) -> None:
+    captain = captain_headers(client)
+    mo = mo_headers(client)
+    mo_id = member_id(client, mo)
+    email = f"ola-{uuid4().hex[:8]}@example.com"
+    ola_id = invite(client, "Ola", email)
+    signed_in(client, "OLA", email)
+    other = open_duty(client, UUID(mo_id), round_number=3)
+    upload_and_submit(client, storage, captain, [other["id"]], subjectMemberId=mo_id, claimedCompletedAt="2026-09-20T09:00:00Z")
+    assert cases_of(client, captain, 3)[0]["eligibleCount"] == 1
+    assert client.post(lp(client, f"/members/{ola_id}/release"), headers=captain).status_code == 204
+    case = cases_of(client, captain, 3)[0]
+    assert (case["status"], case["resolution"], case["eligibleCount"]) == ("accepted", "no_voters", 0)
+    assert duty_of(client, captain, other["id"])["completedAt"].startswith("2026-09-20T09:00")
+
+
+def test_a_live_duty_waiting_for_its_deadline_shows_under_review(client: TestClient, league: dict, storage) -> None:
+    h, ids = league["h"], league["ids"]
+    duty = open_duty(client, UUID(ids["Mo"]), round_number=3, duty_type="pick_confirmation")
+    assert duty["status"] == "pending_deadline"
+    upload_and_submit(client, storage, h["Mo"], [duty["id"]])
+    assert duty_of(client, h["Mo"], duty["id"])["display"] == "under_review"
+
+
+def test_the_migration_backfill_opens_one_case_per_duty(client: TestClient, storage) -> None:
+    """The backfill statements of 20260928090000_evidence_cases.sql, run again over evidence
+    stripped of its cases: the newest pending evidence of a duty gets a case, older pending
+    evidence stays pending, and a case nobody can vote on is accepted at once."""
+    from pathlib import Path
+
+    captain = captain_headers(client)
+    mo = mo_headers(client)
+    mo_id = member_id(client, mo)
+    voted = open_duty(client, UUID(mo_id), round_number=2)
+    upload_and_submit(client, storage, mo, [voted["id"]], note="first")
+    upload_and_submit(client, storage, mo, [voted["id"]], note="second")
+    silent = open_duty(client, UUID(mo_id), round_number=3)
+    upload_and_submit(client, storage, captain, [silent["id"]], subjectMemberId=mo_id, claimedCompletedAt="2026-09-20T09:00:00Z")
+    league = {"l": client.league_id}  # type: ignore[attr-defined]
+    with migration_engine().begin() as connection:
+        connection.execute(text("delete from piele.evidence_case_voters where league_id = :l"), league)
+        connection.execute(text("delete from piele.evidence_cases where league_id = :l"), league)
+        connection.execute(
+            text(
+                "update piele.duty_evidence_links set decision = 'pending', decided_at = null, decided_by_membership_id = null,"
+                " reason = null, effective_completed_at = null where league_id = :l"
+            ),
+            league,
+        )
+        connection.execute(text("update piele.duties set status = 'open', completed_at = null where id = :d"), {"d": silent["id"]})
+        migration = Path(__file__).parents[3] / "supabase/migrations/20260928090000_evidence_cases.sql"
+        backfill = migration.read_text().split("-- Backfill:", 1)[1].split("\n", 1)[1]
+        connection.exec_driver_sql(backfill)
+
+    newer, older = duty_of(client, captain, voted["id"])["evidence"]
+    assert (newer["note"], newer["decision"], newer["evidenceCase"]["status"]) == ("second", "pending", "open")
+    assert (older["note"], older["decision"], older["evidenceCase"]) == ("first", "pending", None)
+    assert cases_of(client, captain)[0]["eligibleCount"] == 1  # the captain; Ola is unclaimed
+    done = duty_of(client, captain, silent["id"])
+    assert done["status"] == "completed" and done["completedAt"].startswith("2026-09-20T09:00")
+    assert done["evidence"][0]["evidenceCase"]["resolution"] == "no_voters"
+    # The captain's override still decides the older evidence, which supersedes the case.
+    decided = client.post(lp(client, f"/evidence/links/{older['id']}/decision"), json={"decision": "accepted"}, headers=captain)
+    assert decided.status_code == 204, decided.text
+    assert cases_of(client, captain)[0]["status"] == "superseded"
+
+
+def test_only_claimed_names_vote_and_a_later_claim_does_not_join(client: TestClient, storage) -> None:
+    captain = captain_headers(client)
+    mo = mo_headers(client)
+    duty = open_duty(client, UUID(member_id(client, mo)), round_number=2)
+    upload_and_submit(client, storage, mo, [duty["id"]])
+    assert cases_of(client, captain)[0]["eligibleCount"] == 1  # the captain; Ola is unclaimed
+    email = f"ola-{uuid4().hex[:8]}@example.com"
+    invite(client, "Ola", email)
+    ola = signed_in(client, "OLA", email)
+    view = cases_of(client, ola)[0]
+    assert (view["isVoter"], view["eligibleCount"]) == (False, 1)
+    assert respond(client, ola, view["id"], "accept").json()["detail"]["code"] == "not_a_voter"

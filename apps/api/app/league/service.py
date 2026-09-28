@@ -55,7 +55,7 @@ class FeedEntry:
     subject_membership_id: UUID | None = None
     duty_id: UUID | None = None
     submission_id: UUID | None = None
-    # When the entry happened, if not now: a case settled late is dated when it closed.
+    # When the entry happened, on the service clock (now_utc), if not the database's now().
     occurred_at: datetime | None = None
     # Leaves the actor off the entry (the audit event keeps them), where naming them would
     # tell members who voted or who reviewed a veto.
@@ -774,6 +774,7 @@ def release_membership(actor: Actor, membership_id: UUID) -> None:
     if membership_id == actor.captain_membership_id:
         raise problem(409, "captain_membership", "The captain's own membership cannot be released.")
     m = t.league_memberships
+    cases.settle_due(actor)
     row = _league_membership(actor, membership_id)
     if row.user_id is None:
         raise problem(409, "not_claimed", "That name has not been claimed.")
@@ -790,6 +791,7 @@ def release_membership(actor: Actor, membership_id: UUID) -> None:
         )
     )
     cases.clear_stand_in(actor, membership_id)
+    cases.release_ballots(actor, membership_id)
     record(
         actor,
         action="membership.released",
@@ -1747,10 +1749,12 @@ def duty_marks(actor: Actor, row: Any, now: datetime) -> MarkCalculation:
 
 
 def _display(row: Any, links: list[Any], now: datetime) -> str:
+    """A live duty (open, or waiting for its deadline) with pending evidence is under review
+    while that evidence's case runs."""
+    if row.status in ("open", "pending_deadline") and any(link.decision == "pending" for link in links):
+        return "under_review"
     if row.status != "open":
         return row.status
-    if any(link.decision == "pending" for link in links):
-        return "under_review"
     return "overdue" if row.deadline_at is not None and now > row.deadline_at else "open"
 
 
@@ -3010,6 +3014,9 @@ def decide_link(actor: Actor, link_id: UUID, *, decision: str, reason: str) -> N
     row = evidence_link_for_update(actor.connection, link_id)
     if row is None:
         raise problem(404, "unknown_link", "Unknown evidence.")
+    if row.case_id is not None and cases.settle_if_due(actor, row.case_id):
+        # The window closed while this request waited: the evidence is already accepted.
+        row = evidence_link_for_update(actor.connection, link_id)
     if row.subject_membership_id == actor.membership_id:
         raise problem(403, "self_review", "Your own evidence needs an uninvolved reviewer.")
     if row.decision != "pending":

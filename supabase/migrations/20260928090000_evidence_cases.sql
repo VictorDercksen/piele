@@ -5,8 +5,10 @@
 -- closes_at lazily inside the next request's transaction, with resolved_at = closes_at.
 --
 -- The electorate is frozen when the case opens: one voter row per eligible member (active
--- in the league, not the duty's member, not the submitter). Voter rows are ballots; the API
--- never returns whose they are.
+-- in the league with a claimed name, not the duty's member, not the submitter). A name
+-- claimed later does not join; the API removes a released name's uncast ballot from live
+-- cases and lowers eligible_count. Voter rows are ballots; the API never returns whose
+-- they are.
 
 -- The member who reviews vetoes when the captain is involved (the captain's own duty, or
 -- the captain's veto). Never the captain; the API clears it when the member is withdrawn,
@@ -69,6 +71,8 @@ create policy evidence_cases_current on piele.evidence_cases for all to piele_ap
 -- veto while voting is open; a veto is final. A veto is reviewed once: review_status goes
 -- from pending to upheld or dismissed, with the reviewer's reason. reviewed_by_label
 -- attributes the admin reviewing without a membership, as the audit trail does.
+-- responded_by_user_id is the account that responded: a ballot is shown to and changed by
+-- that account only, so a name whose claim is released passes no ballot to the next claimant.
 create table piele.evidence_case_voters (
   id uuid primary key default gen_random_uuid(),
   league_id uuid not null references piele.leagues (id),
@@ -77,6 +81,7 @@ create table piele.evidence_case_voters (
   choice varchar(10) check (choice in ('accept', 'veto')),
   veto_reason varchar(500),
   responded_at timestamptz,
+  responded_by_user_id uuid references piele.users (id),
   review_status varchar(20) check (review_status in ('pending', 'upheld', 'dismissed')),
   reviewed_by_membership_id uuid,
   reviewed_by_label varchar(80),
@@ -90,6 +95,7 @@ create table piele.evidence_case_voters (
   foreign key (reviewed_by_membership_id, league_id) references piele.league_memberships (id, league_id),
   unique (case_id, membership_id),
   check ((choice is null) = (responded_at is null)),
+  check ((choice is null) = (responded_by_user_id is null)),
   check ((choice = 'veto') = (veto_reason is not null)),
   check ((choice = 'veto') = (review_status is not null)),
   check ((review_status in ('upheld', 'dismissed')) = (reviewed_at is not null)),
@@ -102,32 +108,29 @@ alter table piele.evidence_case_voters enable row level security;
 create policy evidence_case_voters_current on piele.evidence_case_voters for all to piele_api
   using (league_id = piele.current_league_id()) with check (league_id = piele.current_league_id());
 
--- Evidence waiting for the captain when this migration runs gets a case opened now, with
--- the electorate of today (a case nobody can vote on is accepted when it closes). Older
--- pending evidence for the same duty is superseded, as a newer submission now does. The
--- captain's override still decides any of it at any time.
-update piele.duty_evidence_links l
-set decision = 'superseded', updated_at = now(), version = l.version + 1
-from piele.evidence_submissions s
-where s.id = l.submission_id and l.decision = 'pending'
-  and exists (
-    select 1 from piele.duty_evidence_links newer
-    join piele.evidence_submissions ns on ns.id = newer.submission_id
-    where newer.duty_id = l.duty_id and newer.decision = 'pending' and ns.submitted_at > s.submitted_at
-  );
-
+-- Backfill: evidence waiting for the captain when this migration runs. The newest pending
+-- evidence of each live duty gets a case opened now, with the electorate of today; older
+-- pending evidence stays pending without a case (the captain's override still decides it,
+-- and a new submission supersedes it). A case nobody can vote on is accepted at once, which
+-- completes the duty from the evidence's effective time and supersedes its other pending
+-- evidence. The statements skip evidence that already has a case, so they can run again
+-- (tests/test_cases.py does).
 with pending as (
-  select l.id as link_id, l.league_id, l.duty_id, d.season_id, s.subject_membership_id, s.submitter_membership_id
+  select distinct on (l.duty_id)
+    l.id as link_id, l.league_id, l.duty_id, d.season_id, s.subject_membership_id, s.submitter_membership_id
   from piele.duty_evidence_links l
   join piele.duties d on d.id = l.duty_id
   join piele.evidence_submissions s on s.id = l.submission_id
   where l.decision = 'pending' and d.status in ('open', 'pending_deadline')
+    and not exists (select 1 from piele.evidence_cases c where c.link_id = l.id)
+    and not exists (select 1 from piele.evidence_cases c where c.duty_id = l.duty_id and c.status in ('open', 'in_review'))
+  order by l.duty_id, s.submitted_at desc, l.id desc
 ),
 opened as (
   insert into piele.evidence_cases (league_id, season_id, duty_id, link_id, subject_membership_id, closes_at, eligible_count)
   select p.league_id, p.season_id, p.duty_id, p.link_id, p.subject_membership_id, now() + interval '24 hours',
     (select count(*) from piele.league_memberships m
-     where m.league_id = p.league_id and m.status = 'active'
+     where m.league_id = p.league_id and m.status = 'active' and m.user_id is not null
        and m.id not in (p.subject_membership_id, p.submitter_membership_id))
   from pending p
   returning id, league_id, link_id
@@ -137,5 +140,32 @@ select o.league_id, o.id, m.id
 from opened o
 join pending p on p.link_id = o.link_id
 join piele.league_memberships m
-  on m.league_id = o.league_id and m.status = 'active'
+  on m.league_id = o.league_id and m.status = 'active' and m.user_id is not null
   and m.id not in (p.subject_membership_id, p.submitter_membership_id);
+
+-- The API accepts a case without voters as it opens, so only backfilled ones match here.
+with accepted as (
+  update piele.evidence_cases c
+  set status = 'accepted', resolution = 'no_voters', resolved_at = c.opened_at, updated_at = now(), version = c.version + 1
+  where c.status = 'open' and c.eligible_count = 0
+  returning c.link_id, c.opened_at
+),
+decided as (
+  update piele.duty_evidence_links l
+  set decision = 'accepted', decided_at = a.opened_at, reason = 'No other member could vote.',
+    effective_completed_at = case when s.submitter_membership_id <> s.subject_membership_id
+      then s.claimed_completed_at else s.submitted_at end,
+    updated_at = now(), version = l.version + 1
+  from accepted a, piele.evidence_submissions s
+  where l.id = a.link_id and s.id = l.submission_id
+  returning l.duty_id, l.effective_completed_at
+)
+update piele.duties d
+set status = 'completed', completed_at = x.effective_completed_at, updated_at = now(), version = d.version + 1
+from decided x
+where d.id = x.duty_id;
+
+update piele.duty_evidence_links l
+set decision = 'superseded', updated_at = now(), version = l.version + 1
+from piele.duties d
+where d.id = l.duty_id and l.decision = 'pending' and d.status = 'completed';

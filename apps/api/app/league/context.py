@@ -59,6 +59,9 @@ class Actor:
     season_membership_id: UUID | None
     # The active season's competition: round bounds and labels, schedule and clubs.
     competition: Competition
+    # Set once cases.settle_due has run in this request's transaction, so it runs once
+    # (before any duty is locked) however many reads and writes follow.
+    cases_settled: bool = False
 
     @property
     def administers(self) -> bool:

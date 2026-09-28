@@ -222,6 +222,9 @@ evidence_case_voters = Table(
     Column("choice", String(10)),
     Column("veto_reason", String(500)),
     _ts("responded_at"),
+    # The account that responded: only it sees or changes the ballot, so a released name
+    # passes none to its next claimant.
+    Column("responded_by_user_id", UUID(as_uuid=True)),
     # A veto's review: pending, upheld or dismissed.
     Column("review_status", String(20)),
     Column("reviewed_by_membership_id", UUID(as_uuid=True)),

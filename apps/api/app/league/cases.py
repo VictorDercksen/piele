@@ -8,8 +8,9 @@ the league's other members vote on for 24 hours; the first of these events decid
   accepted or the time has run out);
 - the window closes with neither: the evidence is accepted automatically.
 
-The electorate is frozen when the case opens: the league's active members other than the
-duty's member and the submitter. With nobody to vote, the evidence is accepted straight
+The electorate is frozen when the case opens: the league's active members who have claimed
+their name, other than the duty's member and the submitter. A name claimed later does not
+join; a name released during a live case leaves it (`release_ballots`). With nobody to vote, the evidence is accepted straight
 away. Accepted evidence completes the duty from the same effective time as the captain's
 decision (service.effective_completion), so the window costs no marks.
 
@@ -21,7 +22,10 @@ closes a case at any time.
 
 There is no scheduler. `settle_due` accepts every open case past its closes_at, dated
 closes_at, inside the transaction of the next request that reads or writes duties, cases,
-marks or the feed. Every case write locks the duty first, then the case.
+marks or the feed; it runs once per transaction, before the request locks any duty. Every
+case write locks the duty first, then the case, and then looks at the clock again
+(`settle_if_due`): a case whose window closed while the request waited is settled, not
+voted on or overridden.
 
 Ballots are private: no response says whose a vote or veto is, feed entries about a case
 name no actor, and the audit trail records votes only through the case's transitions.
@@ -107,7 +111,19 @@ def _case_for_update(actor: Actor, case_id: UUID) -> Any:
     if duty_id is None:
         raise service.problem(404, "unknown_case", "Unknown evidence case.")
     lock_duty(actor.connection, duty_id)
+    settle_if_due(actor, case_id)
     return actor.connection.execute(select(c).where(c.c.id == case_id).with_for_update()).one()
+
+
+def settle_if_due(actor: Actor, case_id: UUID) -> bool:
+    """With the case's duty locked: accepts the case if it is still open and its window has
+    closed by now, dated when it closed. Returns whether it did."""
+    c = t.evidence_cases
+    case = actor.connection.execute(select(c).where(c.c.id == case_id).with_for_update()).one()
+    if case.status != "open" or case.closes_at > service.now_utc():
+        return False
+    _accept(actor, case, resolution="auto", at=case.closes_at, label=SYSTEM_LABEL, detail=f"No veto within {VOTING_HOURS} hours.")
+    return True
 
 
 # Recording --------------------------------------------------------------------------------
@@ -149,8 +165,10 @@ def _close(
     label: str | None,
     decided_by: UUID | None = None,
 ) -> None:
-    """Accepts or rejects the case's evidence (service.apply_decision) and closes the case,
-    with its audit event and a feed entry dated `at` for the league and the duty's member."""
+    """Accepts or rejects the case's evidence (service.apply_decision) and closes the case as
+    of `at`, with its audit event and a feed entry for the league and the duty's member. The
+    entry is dated now, not `at`: one settled late must not fall below a member's
+    notifications read mark."""
     connection = actor.connection
     link = service.evidence_link_for_update(connection, case.link_id)
     if link.decision != "pending" or link.duty_status not in ("open", "pending_deadline"):
@@ -188,19 +206,30 @@ def _close(
             round_number=link.round_number,
             subject_membership_id=case.subject_membership_id,
             duty_id=link.duty_id,
-            occurred_at=at,
+            occurred_at=service.now_utc(),
             hide_actor=True,
         ),
     )
 
 
-def _accept(actor: Actor, case: Any, *, resolution: str, at: datetime, label: str | None, detail: str) -> None:
+def _accept(
+    actor: Actor, case: Any, *, resolution: str, at: datetime, label: str | None, detail: str, reason: str | None = None
+) -> None:
     reasons = {
         "majority": "Accepted by a majority of members.",
         "auto": f"No veto within {VOTING_HOURS} hours.",
         "no_voters": "No other member could vote.",
     }
-    _close(actor, case, decision="accepted", resolution=resolution, at=at, reason=reasons[resolution], detail=detail, label=label)
+    _close(
+        actor,
+        case,
+        decision="accepted",
+        resolution=resolution,
+        at=at,
+        reason=reason or reasons[resolution],
+        detail=detail,
+        label=label,
+    )
 
 
 def _accepts(connection: Connection, case_id: UUID) -> int:
@@ -239,6 +268,7 @@ def open_case(
         select(m.c.id).where(
             m.c.league_id == actor.league_id,
             m.c.status == "active",
+            m.c.user_id.is_not(None),
             m.c.id.not_in([subject_id, submitter_id]),
         )
     ).scalars().all()
@@ -292,8 +322,17 @@ def open_case(
 
 def settle_due(actor: Actor) -> None:
     """Accepts every open case of the league whose window has closed, dated when it closed,
-    inside the caller's transaction. Idempotent: a case another request settled first is no
-    longer open once its duty's lock is granted, and is skipped."""
+    inside the caller's transaction. Runs once per transaction (callers invoke it before
+    locking any duty; later locks re-check their own case with `settle_if_due`).
+    Idempotent: a case another request settled first is no longer open once its duty's lock
+    is granted, and is skipped."""
+    if actor.cases_settled:
+        return
+    actor.cases_settled = True
+    _settle(actor)
+
+
+def _settle(actor: Actor) -> None:
     c = t.evidence_cases
     now = service.now_utc()
     due = actor.connection.execute(
@@ -303,17 +342,7 @@ def settle_due(actor: Actor) -> None:
     ).all()
     for row in due:
         lock_duty(actor.connection, row.duty_id)
-        case = actor.connection.execute(select(c).where(c.c.id == row.id).with_for_update()).one()
-        if case.status != "open" or case.closes_at > now:
-            continue
-        _accept(
-            actor,
-            case,
-            resolution="auto",
-            at=case.closes_at,
-            label=SYSTEM_LABEL,
-            detail=f"No veto within {VOTING_HOURS} hours.",
-        )
+        settle_if_due(actor, row.id)
 
 
 # Responding and reviewing -------------------------------------------------------------------
@@ -333,7 +362,7 @@ def respond(actor: Actor, case_id: UUID, *, choice: str, reason: str) -> "CaseVi
     voter = actor.connection.execute(
         select(v).where(v.c.case_id == case.id, v.c.membership_id == member_id).with_for_update()
     ).first()
-    if voter is None:
+    if voter is None or not _own_ballot(voter, actor):
         raise service.problem(403, "not_a_voter", "You cannot vote on this evidence.")
     if case.status != "open":
         raise service.problem(409, "voting_closed", "Voting on this evidence has closed.")
@@ -345,7 +374,13 @@ def respond(actor: Actor, case_id: UUID, *, choice: str, reason: str) -> "CaseVi
             actor.connection.execute(
                 update(v)
                 .where(v.c.id == voter.id)
-                .values(choice="accept", responded_at=now, updated_at=func.now(), version=v.c.version + 1)
+                .values(
+                    choice="accept",
+                    responded_at=now,
+                    responded_by_user_id=actor.user_id,
+                    updated_at=func.now(),
+                    version=v.c.version + 1,
+                )
             )
             if majority(_accepts(actor.connection, case.id), case.eligible_count):
                 _accept(actor, case, resolution="majority", at=now, label=ANONYMOUS_LABEL, detail="Accepted by a majority of members.")
@@ -358,6 +393,7 @@ def respond(actor: Actor, case_id: UUID, *, choice: str, reason: str) -> "CaseVi
             choice="veto",
             veto_reason=reason,
             responded_at=now,
+            responded_by_user_id=actor.user_id,
             review_status="pending",
             updated_at=func.now(),
             version=v.c.version + 1,
@@ -392,6 +428,12 @@ def respond(actor: Actor, case_id: UUID, *, choice: str, reason: str) -> "CaseVi
     return case_views(actor, case_id=case.id)[0]
 
 
+def _own_ballot(voter: Any, actor: Actor) -> bool:
+    """A ballot not yet cast belongs to whoever holds the membership; a cast one only to the
+    account that cast it."""
+    return voter.choice is None or voter.responded_by_user_id == actor.user_id
+
+
 def _involved(case: Any, vetoer_id: UUID) -> set[UUID]:
     return {case.subject_membership_id, vetoer_id}
 
@@ -413,7 +455,8 @@ def may_review(actor: Actor, case: Any, vetoer_id: UUID, stand_in_id: UUID | Non
 
 def needs_reviewer(case: Any, vetoer_id: UUID, captain_id: UUID, stand_in_id: UUID | None) -> bool:
     """No member may rule on the veto: the captain is involved and there is no uninvolved
-    stand-in. Only the admin can then."""
+    stand-in. Only the admin can then. Who is involved says who vetoed, so this is shown
+    only as `_shows_needs_reviewer` allows."""
     involved = _involved(case, vetoer_id)
     return captain_id in involved and (stand_in_id is None or stand_in_id in involved)
 
@@ -425,16 +468,19 @@ def _stand_in_id(actor: Actor) -> UUID | None:
     ).scalar_one()
 
 
-def review(actor: Actor, case_id: UUID, *, ruling: str, reason: str) -> "CaseView":
+def review(actor: Actor, case_id: UUID, *, ruling: str, reason: str, version: int) -> "CaseView":
     """Rules on the case's pending veto. Upheld rejects the evidence (the duty stays open for
     new evidence); dismissed reopens voting on the original timer and accepts the evidence
-    at once if a majority already accepted or the window has closed."""
+    at once if a majority already accepted or the window has closed. `version` is the case's
+    version the reviewer saw: 409 `stale_case` when it has changed since."""
     if ruling not in ("upheld", "dismissed"):
         raise service.problem(422, "unknown_ruling", "Rule the veto upheld or dismissed.")
     if not reason:
         raise service.problem(422, "reason_required", "Give a reason for the ruling.")
     settle_due(actor)
     case = _case_for_update(actor, case_id)
+    if case.version != version:
+        raise service.problem(409, "stale_case", "This evidence case changed. Reload it and review again.")
     if case.status != "in_review":
         raise service.problem(409, "not_in_review", "This evidence has no veto waiting for review.")
     v = t.evidence_case_voters
@@ -479,7 +525,15 @@ def review(actor: Actor, case_id: UUID, *, ruling: str, reason: str) -> "CaseVie
     if majority(_accepts(actor.connection, case.id), case.eligible_count):
         _accept(actor, reopened, resolution="majority", at=now, label=None, detail=f"Veto dismissed: {reason}")
     elif now >= case.closes_at:
-        _accept(actor, reopened, resolution="auto", at=now, label=None, detail=f"Veto dismissed: {reason}")
+        _accept(
+            actor,
+            reopened,
+            resolution="auto",
+            at=now,
+            label=None,
+            detail=f"Veto dismissed: {reason}",
+            reason="Veto dismissed after voting closed.",
+        )
     else:
         duty = actor.connection.execute(
             select(t.duties.c.type, t.duties.c.round_number).where(t.duties.c.id == case.duty_id)
@@ -523,7 +577,8 @@ class CaseView:
     # Only for whoever may rule on the pending veto: the veto's reason.
     can_review: bool
     veto_reason: str | None
-    # Shown to the captain, the admin and the stand-in: nobody in the league may review.
+    # A veto is waiting and no member may rule on it: shown to the admin without a
+    # membership (who can), and to the captain on their own duty with no stand-in named.
     needs_reviewer: bool
 
 
@@ -575,11 +630,12 @@ def case_views(actor: Actor, *, round_number: int | None = None, case_id: UUID |
     mine: dict[UUID, Any] = {}
     if actor.membership_id is not None:
         for ballot in actor.connection.execute(
-            select(v.c.case_id, v.c.choice, v.c.veto_reason).where(
+            select(v.c.case_id, v.c.choice, v.c.veto_reason, v.c.responded_by_user_id).where(
                 v.c.case_id.in_(ids), v.c.membership_id == actor.membership_id
             )
         ).all():
-            mine[ballot.case_id] = ballot
+            if _own_ballot(ballot, actor):
+                mine[ballot.case_id] = ballot
     vetoes = {
         veto.case_id: veto
         for veto in actor.connection.execute(
@@ -589,7 +645,6 @@ def case_views(actor: Actor, *, round_number: int | None = None, case_id: UUID |
         ).all()
     }
     stand_in_id = _stand_in_id(actor)
-    manages = actor.administers or (actor.membership_id is not None and actor.membership_id == stand_in_id)
     views = []
     for row in rows:
         ballot = mine.get(row.id)
@@ -606,14 +661,75 @@ def case_views(actor: Actor, *, round_number: int | None = None, case_id: UUID |
                 can_respond=ballot is not None and row.status == "open" and ballot.choice != "veto",
                 can_review=can_review,
                 veto_reason=veto.veto_reason if can_review else None,
-                needs_reviewer=(
-                    manages
-                    and veto is not None
-                    and needs_reviewer(row, veto.membership_id, actor.captain_membership_id, stand_in_id)
-                ),
+                needs_reviewer=veto is not None and _shows_needs_reviewer(actor, row, veto.membership_id, stand_in_id),
             )
         )
     return views
+
+
+def _shows_needs_reviewer(actor: Actor, case: Any, vetoer_id: UUID, stand_in_id: UUID | None) -> bool:
+    """Whether to tell the actor that the pending veto needs an uninvolved reviewer, without
+    telling them who vetoed: the admin without a membership (who can review it) is told
+    whenever it is so; the captain only for their own duty with no stand-in named, when
+    it is so whoever vetoed. Everyone else, never."""
+    if actor.membership_id is None:
+        return actor.is_admin and needs_reviewer(case, vetoer_id, actor.captain_membership_id, stand_in_id)
+    return actor.is_captain and case.subject_membership_id == actor.membership_id and stand_in_id is None
+
+
+# Released names -------------------------------------------------------------------------------
+
+
+def release_ballots(actor: Actor, membership_id: UUID) -> None:
+    """A released name passes no ballot to its next claimant. In live cases its ballot not
+    yet cast is withdrawn and the electorate shrinks by one (so an open case the remaining
+    accepts now carry, or nobody is left to vote on, is accepted); a cast ballot stays counted but belongs to the account
+    that cast it (`_own_ballot`). Takes each duty's lock, then the case's."""
+    c, v = t.evidence_cases, t.evidence_case_voters
+    live = actor.connection.execute(
+        select(c.c.id, c.c.duty_id)
+        .select_from(c.join(v, v.c.case_id == c.c.id))
+        .where(
+            c.c.league_id == actor.league_id,
+            c.c.status.in_(LIVE),
+            v.c.membership_id == membership_id,
+            v.c.choice.is_(None),
+        )
+        .order_by(c.c.duty_id, c.c.id)
+    ).all()
+    for row in live:
+        lock_duty(actor.connection, row.duty_id)
+        if settle_if_due(actor, row.id):
+            continue
+        withdrawn = actor.connection.execute(
+            v.delete()
+            .where(v.c.case_id == row.id, v.c.membership_id == membership_id, v.c.choice.is_(None))
+            .returning(v.c.id)
+        ).first()
+        if withdrawn is None:
+            continue
+        case = actor.connection.execute(
+            update(c)
+            .where(c.c.id == row.id)
+            .values(eligible_count=c.c.eligible_count - 1, updated_at=func.now(), version=c.c.version + 1)
+            .returning(c)
+        ).one()
+        service.record(
+            actor,
+            action="evidence_case.ballot_withdrawn",
+            entity_type="evidence_case",
+            entity_id=case.id,
+            reason="Claim released",
+            after={"eligibleCount": case.eligible_count},
+        )
+        if case.status != "open":
+            continue
+        if case.eligible_count == 0:
+            _accept(actor, case, resolution="no_voters", at=service.now_utc(), label=SYSTEM_LABEL, detail="No other member can vote.")
+        elif majority(_accepts(actor.connection, case.id), case.eligible_count):
+            _accept(
+                actor, case, resolution="majority", at=service.now_utc(), label=SYSTEM_LABEL, detail="Accepted by a majority of members."
+            )
 
 
 # The stand-in reviewer ------------------------------------------------------------------------
