@@ -1,5 +1,5 @@
 import { Service, computed, inject } from '@angular/core';
-import { ProfileStore } from '../../profile/profile.store';
+import { ProfileService } from '../../profile/profile.service';
 import { LeagueData } from '../data/league-data';
 import { MemberService } from '../members/member.service';
 
@@ -8,7 +8,7 @@ import { MemberService } from '../members/member.service';
 export class MarkService {
   private readonly data = inject(LeagueData);
   private readonly members = inject(MemberService);
-  private readonly profile = inject(ProfileStore);
+  private readonly profile = inject(ProfileService);
 
   /** Season house marks per member, with the current member first-person. */
   readonly marksTable = computed(() => {

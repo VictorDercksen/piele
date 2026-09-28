@@ -1,66 +1,47 @@
-import { DestroyRef, Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
-import { RoundEvent } from '../api/match-centre.models';
-import { inPlayWindow } from '../api/live-scores.service';
-import { RoundUpdatesService } from '../api/round-updates.service';
-import { CompetitionRound, Fixture } from '../competition/competition.models';
-import { CompetitionService } from '../competition/competition.service';
-import { FixtureService } from '../competition/fixture.service';
-import { DEFAULT_ZONE, LeagueTime, zoneAbbreviation } from '../competition/league-time';
-import { AlertService } from '../feedback/alert.service';
-import { ProfileStore } from '../profile/profile.store';
-import { LeagueData } from './data/league-data';
-import { DutyService } from './duties/duty.service';
-import { feedIcon, feedLabel, feedPath } from './feed-presentation';
-import { FeedService } from './feed/feed.service';
-import { LeagueContext } from './league-context';
-import { LeagueRecordsService } from './league-records.service';
-import { FeedItem, NotificationsRead } from './league.models';
-import { MemberService } from './members/member.service';
-import { PollService } from './polls/poll.service';
+import { DestroyRef, Service, computed, inject, signal } from '@angular/core';
+import { RoundEvent } from '../../api/match-centre.models';
+import { inPlayWindow } from '../../api/live-scores.service';
+import { RoundUpdatesService } from '../../api/round-updates.service';
+import { CompetitionRound, Fixture } from '../../competition/competition.models';
+import { CompetitionService } from '../../competition/competition.service';
+import { FixtureService } from '../../competition/fixture.service';
+import { DEFAULT_ZONE, LeagueTime, zoneAbbreviation } from '../../competition/league-time';
+import { ProfileService } from '../../profile/profile.service';
+import { LeagueData } from '../data/league-data';
+import { DutyService } from '../duties/duty.service';
+import { feedIcon, feedLabel, feedPath } from '../feed-presentation';
+import { FeedService } from '../feed/feed.service';
+import { FeedItem, NotificationsRead } from '../league.models';
+import { PollService } from '../polls/poll.service';
+import { LocatedFixture, Notice, PinnedNotice } from './notification.models';
 
 /** League events from other rounds stay in the panel this long; fixtures this close count. */
 export const RECENT_MS = 7 * 24 * 60 * 60_000;
-/** How often the panel refreshes while the tab is visible, and while a match is in play. */
-export const IDLE_REFRESH_MS = 10 * 60_000;
-export const LIVE_REFRESH_MS = 2 * 60_000;
-/** Coming back to the tab refreshes only when the last refresh is older than this. */
-export const FOCUS_REFRESH_MS = 2 * 60_000;
-const TICK_MS = 60_000;
+/** How often the clock advances, and with it the refresh check. */
+export const TICK_MS = 60_000;
 const MAX_ITEMS = 40;
-const MAX_READ_KEYS = 200;
 
 /**
  * The notifications panel's content: the league's transaction log and the competition's
  * milestones for the current round, plus the member's pinned duty and poll. Read state is a
  * high-water mark and the keys read individually above it (see `NotificationsRead`).
  */
-@Injectable({ providedIn: 'root' })
-export class NotificationsService {
-  /** The read state and its saving, and the feed's refresh. */
+@Service()
+export class NotificationService {
+  /** The read state. */
   private readonly league = inject(LeagueData);
-  private readonly records = inject(LeagueRecordsService);
-  private readonly members = inject(MemberService);
   private readonly fixtures = inject(FixtureService);
   private readonly duties = inject(DutyService);
   private readonly polls = inject(PollService);
   private readonly feed = inject(FeedService);
-  private readonly context = inject(LeagueContext);
   private readonly competition = inject(CompetitionService);
   private readonly time = inject(LeagueTime);
-  private readonly profile = inject(ProfileStore);
+  private readonly profile = inject(ProfileService);
   private readonly updates = inject(RoundUpdatesService);
-  private readonly alerts = inject(AlertService);
 
   /** Advances every minute so windows open and relative times move. */
-  private readonly now = signal(Date.now());
-  private lastRefresh = 0;
-  private refreshing: Promise<void> | null = null;
-  /**
-   * A read state the API did not accept, sent again with the next refresh while the same
-   * league is shown (another league's read state is its own).
-   */
-  private unsaved: { readonly read: NotificationsRead; readonly league: string | null } | null =
-    null;
+  private readonly clock = signal(Date.now());
+  readonly now = this.clock.asReadonly();
 
   readonly currentRound = computed(() => this.competition.round(this.competition.currentRoundId)!);
   /**
@@ -80,7 +61,7 @@ export class NotificationsService {
     return [current, ...others];
   });
   /** Compared by value, so the minute tick does not refetch the rounds' events. */
-  private readonly roundIds = computed(() => this.rounds().map((round) => round.id), {
+  readonly roundIds = computed(() => this.rounds().map((round) => round.id), {
     equal: (a, b) => a.length === b.length && a.every((id, i) => id === b[i]),
   });
   /** Fixtures that get their own line: the favourite team's and the featured one. */
@@ -181,127 +162,9 @@ export class NotificationsService {
   readonly stale = this.updates.stale;
 
   constructor() {
-    const destroy = inject(DestroyRef);
-    // The followed rounds change with the calendar; fetch their events when they do.
-    effect(() => {
-      const rounds = this.roundIds();
-      if (!this.member()) return;
-      this.lastRefresh = Date.now();
-      untracked(() => void this.updates.load(rounds));
-    });
-    const timer = setInterval(() => this.tick(), TICK_MS);
-    const onVisible = () => {
-      if (document.visibilityState === 'visible' && this.since() >= FOCUS_REFRESH_MS)
-        void this.refresh();
-    };
-    document.addEventListener('visibilitychange', onVisible);
-    destroy.onDestroy(() => {
-      clearInterval(timer);
-      document.removeEventListener('visibilitychange', onVisible);
-    });
+    const timer = setInterval(() => this.clock.set(Date.now()), TICK_MS);
+    inject(DestroyRef).onDestroy(() => clearInterval(timer));
   }
-
-  /** Moves the mark past everything shown. One write, and the exception keys can go. */
-  markAllRead(): Promise<void> {
-    const newest = this.stream().reduce((max, n) => Math.max(max, n.at), 0);
-    return this.save({
-      readAt: new Date(Math.max(this.now(), newest)).toISOString(),
-      readKeys: [],
-    });
-  }
-
-  /** Marks one item read without touching older ones. */
-  markRead(key: string): Promise<void> {
-    const read = this.read();
-    if (!this.stream().some((n) => n.key === key && n.unread)) return Promise.resolve();
-    const mark = read.readAt ? Date.parse(read.readAt) : -Infinity;
-    const above = new Set(
-      this.stream()
-        .filter((n) => n.at > mark)
-        .map((n) => n.key),
-    );
-    const keys = [key, ...read.readKeys.filter((k) => k !== key && above.has(k))].slice(
-      0,
-      MAX_READ_KEYS,
-    );
-    return this.save({ readAt: read.readAt, readKeys: keys });
-  }
-
-  /** Fetches the feed and the followed rounds' events now. */
-  refresh(): Promise<void> {
-    if (this.refreshing) return this.refreshing;
-    this.lastRefresh = Date.now();
-    const unsaved = this.unsaved?.league === this.context.slug() ? this.unsaved.read : null;
-    this.unsaved = null;
-    this.refreshing = Promise.allSettled([
-      this.member() ? this.league.refreshFeed() : Promise.resolve(),
-      this.member() ? this.updates.load(this.roundIds()) : Promise.resolve(),
-      unsaved ? this.save(unsaved) : Promise.resolve(),
-    ])
-      .then(() => undefined)
-      .finally(() => (this.refreshing = null));
-    return this.refreshing;
-  }
-
-  private member(): boolean {
-    return this.records.source !== 'api' || !!this.members.memberId();
-  }
-
-  private since(): number {
-    return Date.now() - this.lastRefresh;
-  }
-
-  private tick(): void {
-    this.now.set(Date.now());
-    if (document.visibilityState === 'hidden') return;
-    if (this.since() >= (this.live() ? LIVE_REFRESH_MS : IDLE_REFRESH_MS)) void this.refresh();
-  }
-
-  private async save(read: NotificationsRead): Promise<void> {
-    try {
-      await this.league.saveNotificationsRead(read);
-    } catch (error) {
-      this.unsaved = { read, league: this.context.slug() };
-      this.alerts.error(
-        error instanceof Error ? error.message : 'Your read notifications could not be saved.',
-      );
-    }
-  }
-}
-
-export interface PinnedNotice {
-  readonly key: string;
-  readonly icon: string;
-  readonly title: string;
-  readonly detail: string;
-  readonly action: string;
-  readonly path: string;
-  readonly round: number | null;
-  readonly spoon: boolean;
-}
-
-export interface LocatedFixture {
-  readonly fixture: Fixture;
-  readonly round: number;
-}
-
-export interface Notice {
-  readonly key: string;
-  readonly kind: string;
-  readonly icon: string;
-  readonly label: string;
-  readonly title: string;
-  readonly detail: string;
-  readonly occurredAt: string;
-  /** `occurredAt` as epoch milliseconds, for ordering and read comparisons. */
-  readonly at: number;
-  readonly path: string | null;
-  /** The link's wording, when there is a link. */
-  readonly action: string | null;
-  readonly round: number | null;
-  readonly when?: string;
-  readonly roundLabel?: string | null;
-  readonly unread?: boolean;
 }
 
 /** Read when at or before the mark, or read on its own. Times compare as instants. */

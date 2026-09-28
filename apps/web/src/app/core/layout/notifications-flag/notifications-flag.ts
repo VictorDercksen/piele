@@ -14,7 +14,9 @@ import { Router } from '@angular/router';
 import { CompetitionService } from '../../competition/competition.service';
 import { LeagueTime } from '../../competition/league-time';
 import { LeagueContext } from '../../league/league-context';
-import { Notice, NotificationsService, PinnedNotice } from '../../league/notifications.service';
+import { NotificationControlService } from '../../league/notifications/notification-control.service';
+import { Notice, PinnedNotice } from '../../league/notifications/notification.models';
+import { NotificationService } from '../../league/notifications/notification.service';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideArrowRight, lucideCheck } from '@ng-icons/lucide';
 import { Icon } from '../../../shared/icon/icon';
@@ -50,7 +52,8 @@ export class NotificationsFlag {
   private readonly router = inject(Router);
   private readonly context = inject(LeagueContext);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
-  readonly notifications = inject(NotificationsService);
+  readonly notifications = inject(NotificationService);
+  private readonly notificationControl = inject(NotificationControlService);
   private readonly competition = inject(CompetitionService);
   private readonly time = inject(LeagueTime);
   private readonly trigger = viewChild.required<ElementRef<HTMLButtonElement>>('trigger');
@@ -112,16 +115,16 @@ export class NotificationsFlag {
   }
 
   markAllRead(): void {
-    void this.notifications.markAllRead();
+    void this.notificationControl.markAllRead();
   }
 
   markRead(item: Notice): void {
-    void this.notifications.markRead(item.key);
+    void this.notificationControl.markRead(item.key);
   }
 
   /** Following a notice reads it and goes to its page in the notice's round. */
   follow(item: Notice): void {
-    void this.notifications.markRead(item.key);
+    void this.notificationControl.markRead(item.key);
     if (item.path) this.go(item.path, item.round);
   }
 

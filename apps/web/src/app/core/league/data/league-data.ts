@@ -20,7 +20,7 @@ import {
   StandingEntry,
   StewardPick,
 } from '../league.models';
-import { loadStoredRead, storeRead } from '../notifications-read';
+import { loadStoredRead, storeRead } from '../notifications/notifications-read';
 import { DEFAULT_RULES } from '../superbru';
 
 /**

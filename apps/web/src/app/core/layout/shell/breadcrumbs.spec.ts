@@ -5,7 +5,7 @@ import { routes } from '../../../app.routes';
 import { LeagueContext } from '../../league/league-context';
 import { LeagueData } from '../../league/data/league-data';
 import { SampleLeagueData } from '../../league/data/sample-league-data';
-import { ProfileStore } from '../../profile/profile.store';
+import { ProfileControlService } from '../../profile/profile-control.service';
 import { Breadcrumbs, FROM_NAV_BAR } from './breadcrumbs';
 
 // Round 1: Connacht v Stormers and Benetton v Dragons.
@@ -25,7 +25,7 @@ describe('Breadcrumbs', () => {
     const context = TestBed.inject(LeagueContext);
     await context.ensureAccount();
     await context.select('piele');
-    await TestBed.inject(ProfileStore).save({
+    await TestBed.inject(ProfileControlService).save({
       displayName: 'Test Member',
       teamId: 'dhl-stormers',
       photo: null,

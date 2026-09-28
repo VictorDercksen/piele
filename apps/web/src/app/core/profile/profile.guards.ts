@@ -1,7 +1,7 @@
 import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 import { LeagueContext } from '../league/league-context';
-import { ProfileStore } from './profile.store';
+import { ProfileService } from './profile.service';
 
 // Route guards run in parallel, so these wait for the saved profile to load instead of
 // reading it before the league guard has fetched it. They sit under `/:league`, whose
@@ -10,7 +10,7 @@ import { ProfileStore } from './profile.store';
 
 /** Sends first-time visitors to the league's onboarding and remembers where they were going. */
 export const profileRequired: CanActivateFn = async (_route, state) => {
-  const store = inject(ProfileStore);
+  const store = inject(ProfileService);
   const context = inject(LeagueContext);
   const router = inject(Router);
   if (!(await store.whenKnown())) return true;
@@ -22,7 +22,7 @@ export const profileRequired: CanActivateFn = async (_route, state) => {
 
 /** Onboarding is only for visitors without a profile in this league. */
 export const profileMissing: CanActivateFn = async () => {
-  const store = inject(ProfileStore);
+  const store = inject(ProfileService);
   const context = inject(LeagueContext);
   const router = inject(Router);
   if (!(await store.whenKnown())) return true;

@@ -31,8 +31,9 @@ import { map } from 'rxjs';
 import { COMPETITIONS } from '../../../core/competition/registry';
 import { AlertService } from '../../../core/feedback/alert.service';
 import { highlightProblem } from '../../../core/feedback/problem-highlight';
-import { CompetitionOption, NewLeague } from '../../../core/league/admin.models';
-import { AdminService } from '../../../core/league/admin.service';
+import { CompetitionOption, NewLeague } from '../../../core/league/admin/admin.models';
+import { AdminLeagueControlService } from '../../../core/league/admin/admin-league-control.service';
+import { AdminLeagueService } from '../../../core/league/admin/admin-league.service';
 import {
   DEFAULT_ACCENT,
   EMBLEM_LABELS,
@@ -109,7 +110,8 @@ const STARTING_ROWS = 3;
 })
 export class CreateLeagueForm {
   readonly zoneGroups = computed(() => timeZoneSelectGroups(this.value().timezone));
-  private readonly admin = inject(AdminService);
+  private readonly admin = inject(AdminLeagueService);
+  private readonly adminControl = inject(AdminLeagueControlService);
   private readonly alerts = inject(AlertService);
   private readonly router = inject(Router);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
@@ -179,7 +181,7 @@ export class CreateLeagueForm {
   });
 
   /**
-   * The latest starting round the chosen competition allows, from `AdminService.competitions()`;
+   * The latest starting round the chosen competition allows, from `AdminLeagueService.competitions()`;
    * the default starting round until the list arrives.
    */
   readonly lastRound = computed(
@@ -370,7 +372,7 @@ export class CreateLeagueForm {
     };
     this.busy.set(true);
     try {
-      const league = await this.admin.create(body);
+      const league = await this.adminControl.create(body);
       await this.router.navigateByUrl(`/${league.slug}`);
     } catch (error) {
       const code = error instanceof ApiError ? error.code : 'error';

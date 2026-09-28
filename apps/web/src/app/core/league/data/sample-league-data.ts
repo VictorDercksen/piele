@@ -28,7 +28,7 @@ import {
   StandingEntry,
   StewardPick,
 } from '../league.models';
-import { loadStoredRead, storeRead } from '../notifications-read';
+import { loadStoredRead, storeRead } from '../notifications/notifications-read';
 import { sampleMarks } from '../marks';
 import {
   SAMPLE_ACCOUNT,

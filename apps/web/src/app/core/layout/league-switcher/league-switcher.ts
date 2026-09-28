@@ -21,7 +21,7 @@ import { filter, map } from 'rxjs';
 import { CompetitionService, shortSeason } from '../../competition/competition.service';
 import { AlertService } from '../../feedback/alert.service';
 import { highlightProblem } from '../../feedback/problem-highlight';
-import { joinCodeFrom } from '../../league/join.service';
+import { joinCodeFrom } from '../../league/join/join.service';
 import { LeagueContext } from '../../league/league-context';
 import { LeagueSummary } from '../../league/league.models';
 import { Icon } from '../../../shared/icon/icon';

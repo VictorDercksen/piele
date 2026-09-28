@@ -17,7 +17,7 @@ import { lucideArrowRight, lucideLogOut } from '@ng-icons/lucide';
 import { AuthService } from '../../core/auth/auth.service';
 import { AlertService } from '../../core/feedback/alert.service';
 import { highlightProblem } from '../../core/feedback/problem-highlight';
-import { joinCodeFrom } from '../../core/league/join.service';
+import { joinCodeFrom } from '../../core/league/join/join.service';
 import { LeagueContext } from '../../core/league/league-context';
 import { Loader } from '../../shared/loader/loader';
 

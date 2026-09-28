@@ -35,7 +35,7 @@ import { LeaguePathPipe } from '../../league/league-path.pipe';
 import { LeagueRecordsService } from '../../league/league-records.service';
 import { MemberService } from '../../league/members/member.service';
 import { PollService } from '../../league/polls/poll.service';
-import { ProfileStore } from '../../profile/profile.store';
+import { ProfileService } from '../../profile/profile.service';
 import { Icon } from '../../../shared/icon/icon';
 import { BallLoader } from '../../../shared/ball-loader/ball-loader';
 import { StadiumBackdrop } from '../../../shared/stadium-backdrop/stadium-backdrop';
@@ -77,7 +77,7 @@ export class Shell {
   private readonly router = inject(Router);
   private readonly competition = inject(CompetitionService);
   private readonly selectedRound = inject(SelectedRoundService);
-  private readonly profileStore = inject(ProfileStore);
+  private readonly profiles = inject(ProfileService);
   private readonly context = inject(LeagueContext);
   private readonly alerts = inject(AlertService);
   private readonly insets = inject(LayoutInsets);
@@ -86,9 +86,9 @@ export class Shell {
   readonly members = inject(MemberService);
   readonly polls = inject(PollService);
 
-  readonly profile = this.profileStore.profile;
-  readonly favouriteTeam = this.profileStore.team;
-  readonly initials = this.profileStore.initials;
+  readonly profile = this.profiles.profile;
+  readonly favouriteTeam = this.profiles.team;
+  readonly initials = this.profiles.initials;
   readonly rounds = computed(() => this.competition.rounds);
   readonly currentRound = computed(() => this.competition.currentRoundId);
   readonly round = this.selectedRound.round;

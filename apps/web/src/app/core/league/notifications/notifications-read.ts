@@ -1,5 +1,5 @@
-import { readRenamedKey } from '../storage/renamed-key';
-import { NotificationsRead } from './league.models';
+import { readRenamedKey } from '../../storage/renamed-key';
+import { NotificationsRead } from '../league.models';
 
 const STORAGE_KEY = 'pavilion-notifications-read-v2';
 /** The key before the rename to The Pavilion, read once and moved. */

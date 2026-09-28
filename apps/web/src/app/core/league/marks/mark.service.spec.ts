@@ -1,6 +1,7 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { Profile, ProfileStore } from '../../profile/profile.store';
+import { Profile } from '../../profile/profile.models';
+import { ProfileService } from '../../profile/profile.service';
 import { LeagueData } from '../data/league-data';
 import { MemberMarks } from '../league.models';
 import { MemberService } from '../members/member.service';
@@ -24,7 +25,7 @@ function setup(currentMemberId: string | null = 'm-me') {
   TestBed.configureTestingModule({
     providers: [
       { provide: LeagueData, useValue: data },
-      { provide: ProfileStore, useValue: { profile } },
+      { provide: ProfileService, useValue: { profile } },
       { provide: MemberService, useValue: { memberName: signal('Test Member') } },
     ],
   });

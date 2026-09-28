@@ -40,8 +40,9 @@ import {
 } from '@ng-icons/lucide';
 import { AlertService } from '../../../core/feedback/alert.service';
 import { highlightProblem } from '../../../core/feedback/problem-highlight';
-import { AdminLeague, CaptainCandidate, LeagueUpdate } from '../../../core/league/admin.models';
-import { AdminService } from '../../../core/league/admin.service';
+import { AdminLeague, CaptainCandidate, LeagueUpdate } from '../../../core/league/admin/admin.models';
+import { AdminLeagueControlService } from '../../../core/league/admin/admin-league-control.service';
+import { AdminLeagueService } from '../../../core/league/admin/admin-league.service';
 import { LeagueCrest } from '../../../shared/league-crest/league-crest';
 import { withDefaultRules } from '../../../core/league/superbru';
 import { Loader } from '../../../shared/loader/loader';
@@ -109,7 +110,8 @@ const EYEBROW = 'THE PAVILION / MANAGEMENT CENTRE';
 })
 export class LeagueCard {
   readonly zoneGroups = computed(() => timeZoneSelectGroups(this.league().timezone));
-  private readonly admin = inject(AdminService);
+  private readonly admin = inject(AdminLeagueService);
+  private readonly adminControl = inject(AdminLeagueControlService);
   private readonly alerts = inject(AlertService);
   private readonly injector = inject(Injector);
   private readonly document = inject(DOCUMENT);
@@ -140,7 +142,7 @@ export class LeagueCard {
     return code ? `${this.origin}/join/${code}` : null;
   });
 
-  /** Regular rounds per competition id, from `AdminService.competitions()` once loaded. */
+  /** Regular rounds per competition id, from `AdminLeagueService.competitions()` once loaded. */
   private readonly regularRounds = signal<ReadonlyMap<string, number> | null>(null);
   /**
    * The latest round the season may start scoring from: the competition's regular rounds, or
@@ -218,7 +220,7 @@ export class LeagueCard {
   async addMe(): Promise<void> {
     const league = this.league();
     await this.run(async () => {
-      await this.admin.addMe(league.id);
+      await this.adminControl.addMe(league.id);
       this.changed.emit({
         id: league.id,
         message: `You are a member of ${league.name} now, outside the season.`,
@@ -236,7 +238,7 @@ export class LeagueCard {
       required: false,
       noReason: true,
       action: async () => {
-        await this.admin.update(league.id, { status: 'archived' });
+        await this.adminControl.update(league.id, { status: 'archived' });
       },
       done: () =>
         this.changed.emit({
@@ -257,7 +259,7 @@ export class LeagueCard {
       required: false,
       noReason: true,
       action: async () => {
-        await this.admin.update(league.id, { status: 'active' });
+        await this.adminControl.update(league.id, { status: 'active' });
       },
       done: () =>
         this.changed.emit({
@@ -327,7 +329,7 @@ export class LeagueCard {
       return;
     }
     await this.run(async () => {
-      await this.admin.update(league.id, patch);
+      await this.adminControl.update(league.id, patch);
       this.cancelRename();
       this.changed.emit({ id: league.id, message: `${name} is saved.` });
     });
@@ -388,7 +390,7 @@ export class LeagueCard {
       required: false,
       noReason: true,
       action: async () => {
-        await this.admin.appointCaptain(league.id, choice.id);
+        await this.adminControl.appointCaptain(league.id, choice.id);
       },
       done: () => {
         this.captainChoice.reset();

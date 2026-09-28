@@ -6,7 +6,7 @@ import { AlertService } from '../../feedback/alert.service';
 import { LeagueContext } from '../../league/league-context';
 import { LeagueData } from '../../league/data/league-data';
 import { SampleLeagueData } from '../../league/data/sample-league-data';
-import { ProfileStore } from '../../profile/profile.store';
+import { ProfileControlService } from '../../profile/profile-control.service';
 
 describe('LeagueSwitcher', () => {
   beforeEach(() => {
@@ -21,7 +21,7 @@ describe('LeagueSwitcher', () => {
     const context = TestBed.inject(LeagueContext);
     await context.ensureAccount();
     await context.select(slug);
-    await TestBed.inject(ProfileStore).save({
+    await TestBed.inject(ProfileControlService).save({
       displayName: 'Test Member',
       teamId: 'dhl-stormers',
       photo: null,

@@ -1,5 +1,5 @@
 import { Service, computed, inject } from '@angular/core';
-import { ProfileStore } from '../../profile/profile.store';
+import { ProfileService } from '../../profile/profile.service';
 import { LeagueData } from '../data/league-data';
 import { MemberLook } from './member.models';
 
@@ -7,7 +7,7 @@ import { MemberLook } from './member.models';
 @Service()
 export class MemberService {
   private readonly data = inject(LeagueData);
-  private readonly profile = inject(ProfileStore);
+  private readonly profile = inject(ProfileService);
 
   readonly memberId = this.data.currentMemberId;
   /** The league's nickname for the member, or null when the league has none for them. */

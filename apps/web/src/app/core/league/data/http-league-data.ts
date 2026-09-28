@@ -6,7 +6,7 @@ import { environment } from '../../../../environments/environment';
 import { ApiError, toApiError } from '../../api/api-error';
 import { AuthService } from '../../auth/auth.service';
 import { jpegBlob, jpegDataUrl } from '../../profile/profile-photo';
-import type { Profile } from '../../profile/profile.store';
+import type { Profile } from '../../profile/profile.models';
 import { LeagueData } from './league-data';
 import {
   AppearanceChange,

@@ -3,8 +3,9 @@ import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { AlertService } from '../../../core/feedback/alert.service';
-import { AdminLeague, CompetitionOption, LeagueUpdate } from '../../../core/league/admin.models';
-import { AdminService } from '../../../core/league/admin.service';
+import { AdminLeague, CompetitionOption, LeagueUpdate } from '../../../core/league/admin/admin.models';
+import { AdminLeagueControlService } from '../../../core/league/admin/admin-league-control.service';
+import { AdminLeagueService } from '../../../core/league/admin/admin-league.service';
 import { DEFAULT_RULES } from '../../../core/league/superbru';
 import { ReasonDialog } from '../../duties/reason-dialog/reason-dialog';
 import { LeagueCard } from './league-card';
@@ -67,7 +68,8 @@ describe('LeagueCard', () => {
         provideRouter([]),
         provideHttpClient(),
         provideHttpClientTesting(),
-        { provide: AdminService, useValue: admin },
+        { provide: AdminLeagueService, useValue: admin },
+        { provide: AdminLeagueControlService, useValue: admin },
       ],
     });
     const alerts = TestBed.inject(AlertService);

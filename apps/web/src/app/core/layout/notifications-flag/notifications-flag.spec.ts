@@ -6,7 +6,7 @@ import { competition } from '../../competition/registry';
 import { LeagueContext } from '../../league/league-context';
 import { LeagueData } from '../../league/data/league-data';
 import { SampleLeagueData } from '../../league/data/sample-league-data';
-import { ProfileStore } from '../../profile/profile.store';
+import { ProfileControlService } from '../../profile/profile-control.service';
 import { routes } from '../../../app.routes';
 
 /** The sample league's Round 2 as the current round, seen the Monday after it. */
@@ -35,7 +35,7 @@ describe('NotificationsFlag', () => {
     const context = TestBed.inject(LeagueContext);
     await context.ensureAccount();
     await context.select('piele');
-    await TestBed.inject(ProfileStore).save({
+    await TestBed.inject(ProfileControlService).save({
       displayName: 'Test Member',
       teamId: 'dhl-stormers',
       photo: null,

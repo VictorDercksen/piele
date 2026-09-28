@@ -1,4 +1,4 @@
-import { NewLeagueMember } from '../../core/league/admin.models';
+import { NewLeagueMember } from '../../core/league/admin/admin.models';
 
 /** One row of the team sheet as typed. */
 export interface MemberRow {

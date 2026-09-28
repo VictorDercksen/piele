@@ -3,8 +3,9 @@ import { SearchSelect } from '../../../shared/search-select/search-select';
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { AlertService } from '../../../core/feedback/alert.service';
-import { NewLeague } from '../../../core/league/admin.models';
-import { AdminService } from '../../../core/league/admin.service';
+import { NewLeague } from '../../../core/league/admin/admin.models';
+import { AdminLeagueControlService } from '../../../core/league/admin/admin-league-control.service';
+import { AdminLeagueService } from '../../../core/league/admin/admin-league.service';
 import { ApiError } from '../../../core/api/api-error';
 import { CreateLeagueForm, defaultSeasonName } from './create-league-form';
 
@@ -37,7 +38,8 @@ describe('CreateLeagueForm', () => {
       },
     };
     TestBed.configureTestingModule({
-      providers: [provideRouter([]), { provide: AdminService, useValue: admin }],
+      providers: [provideRouter([]), { provide: AdminLeagueService, useValue: admin },
+        { provide: AdminLeagueControlService, useValue: admin }],
     });
     const router = TestBed.inject(Router);
     const navigate = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);

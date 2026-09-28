@@ -7,7 +7,7 @@ import { LiveScoresService } from '../../api/live-scores.service';
 import { Fixture } from '../../competition/competition.models';
 import { CompetitionService } from '../../competition/competition.service';
 import { competition } from '../../competition/registry';
-import { ProfileStore } from '../../profile/profile.store';
+import { ProfileControlService } from '../../profile/profile-control.service';
 import { LeagueData } from '../data/league-data';
 import { SampleLeagueData } from '../data/sample-league-data';
 import { LeagueContext } from '../league-context';
@@ -52,7 +52,7 @@ async function setup(round: number, slug = 'piele', live: Record<string, Partial
   const context = TestBed.inject(LeagueContext);
   await context.ensureAccount();
   await context.select(slug);
-  await TestBed.inject(ProfileStore).save({
+  await TestBed.inject(ProfileControlService).save({
     displayName: 'Test Member',
     teamId: 'dhl-stormers',
     photo: null,

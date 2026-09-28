@@ -1,5 +1,5 @@
-import { LeagueRules } from './league.models';
-import type { components } from '../api/generated';
+import { LeagueRules } from '../league.models';
+import type { components } from '../../api/generated';
 
 /** One league as the management centre sees it (`GET /v1/admin/leagues`). */
 export type AdminLeague = Omit<components['schemas']['AdminLeague'], 'status'> & {

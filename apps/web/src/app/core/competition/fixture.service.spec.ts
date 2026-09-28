@@ -1,7 +1,8 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { LiveScoresService } from '../api/live-scores.service';
-import { Profile, ProfileStore } from '../profile/profile.store';
+import { Profile } from '../profile/profile.models';
+import { ProfileService } from '../profile/profile.service';
 import { CompetitionRound, Fixture } from './competition.models';
 import { FixtureService, liveResult } from './fixture.service';
 import { SelectedRoundService } from './selected-round.service';
@@ -39,7 +40,7 @@ function setup(live: Record<string, Partial<Fixture>> = {}, teamId = 'dhl-storme
         provide: LiveScoresService,
         useValue: { merge: (f: Fixture) => ({ ...f, ...live[f.id] }) },
       },
-      { provide: ProfileStore, useValue: { profile } },
+      { provide: ProfileService, useValue: { profile } },
     ],
   });
   return { fixtures: TestBed.inject(FixtureService), profile };

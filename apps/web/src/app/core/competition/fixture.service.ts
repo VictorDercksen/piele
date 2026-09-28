@@ -1,7 +1,7 @@
 import { Service, computed, inject, signal } from '@angular/core';
 import { LiveScoresService } from '../api/live-scores.service';
 import type { FixtureResult } from '../league/league.models';
-import { ProfileStore } from '../profile/profile.store';
+import { ProfileService } from '../profile/profile.service';
 import { Fixture } from './competition.models';
 import { SelectedRoundService } from './selected-round.service';
 
@@ -10,7 +10,7 @@ import { SelectedRoundService } from './selected-round.service';
 export class FixtureService {
   private readonly selected = inject(SelectedRoundService);
   private readonly live = inject(LiveScoresService);
-  private readonly profile = inject(ProfileStore);
+  private readonly profile = inject(ProfileService);
 
   readonly round = this.selected.round;
   /** The round's fixtures with live scores merged in once the round has started. */

@@ -1,10 +1,10 @@
-import type { components } from '../api/generated';
+import type { components } from '../../api/generated';
 import { HttpClient } from '@angular/common/http';
-import { Injectable, inject, signal } from '@angular/core';
+import { Service, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
-import { environment } from '../../../environments/environment';
-import { DEFAULT_ZONE } from '../competition/league-time';
-import { COMPETITIONS } from '../competition/registry';
+import { environment } from '../../../../environments/environment';
+import { DEFAULT_ZONE } from '../../competition/league-time';
+import { COMPETITIONS } from '../../competition/registry';
 import {
   AdminLeague,
   CaptainCandidate,
@@ -12,32 +12,28 @@ import {
   LeagueUpdate,
   NewLeague,
 } from './admin.models';
-import { isAccentColour, isEmblemPreset } from './emblems';
-import { ApiError, toApiError } from '../api/api-error';
-import { leagueBase } from './data/http-league-data';
-import { LeagueContext } from './league-context';
-import { LeagueData } from './data/league-data';
-import { LeagueMember } from './league.models';
-import { slugProblem } from './league-slugs';
-import { SampleLeague, SampleLeagueData } from './data/sample-league-data';
-import { SAMPLE_ME, feedItem, memberRecord } from './data/sample-leagues';
-import { withDefaultRules } from './superbru';
+import { isAccentColour, isEmblemPreset } from '../emblems';
+import { ApiError, toApiError } from '../../api/api-error';
+import { leagueBase } from '../data/http-league-data';
+import { LeagueData } from '../data/league-data';
+import { LeagueMember } from '../league.models';
+import { slugProblem } from '../league-slugs';
+import { SampleLeague, SampleLeagueData } from '../data/sample-league-data';
+import { SAMPLE_ME, feedItem, memberRecord } from '../data/sample-leagues';
+import { withDefaultRules } from '../superbru';
 
 /**
- * The management centre's data (`/manage`, the admin only): every league, archived included,
- * and the admin's actions on them. `HttpAdminService` calls `/v1/admin/...`, which answers
- * 403 `admin_only` to anyone else; the sample build acts on its in-memory sample leagues.
- * After each change the account is read again, so the league switcher follows at once.
+ * The management centre's transport and list (`/manage`, the admin only): every league,
+ * archived included, and the admin's actions on them. `HttpAdminData` calls `/v1/admin/...`,
+ * which answers 403 `admin_only` to anyone else; the sample build acts on its in-memory sample
+ * leagues. Injected only by `AdminLeagueService` and `AdminLeagueControlService`, which has the
+ * account read again after each change.
  */
-@Injectable({
-  providedIn: 'root',
-  useFactory: () =>
-    inject(LeagueData) instanceof SampleLeagueData
-      ? new SampleAdminService()
-      : new HttpAdminService(),
+@Service({
+  factory: () =>
+    inject(LeagueData) instanceof SampleLeagueData ? new SampleAdminData() : new HttpAdminData(),
 })
-export abstract class AdminService {
-  private readonly context = inject(LeagueContext);
+export abstract class AdminData {
   private readonly state = signal<readonly AdminLeague[]>([]);
   /** Every league: active first, then by name. */
   readonly leagues = this.state.asReadonly();
@@ -61,7 +57,7 @@ export abstract class AdminService {
     }
   }
 
-  /** Creates a league in one request; resolves once the switcher lists it. */
+  /** Creates a league in one request and shows it in the list. */
   async create(body: NewLeague): Promise<AdminLeague> {
     return this.adopt(await this.guard(() => this.createLeague(body)));
   }
@@ -78,7 +74,8 @@ export abstract class AdminService {
 
   /**
    * Adds the admin to the league outside the season, under `name` or the API's default (the
-   * admin's name in another league, else "Admin"). Resolves to the membership id.
+   * admin's name in another league, else "Admin"), then reads the list again. Resolves to the
+   * membership id.
    */
   async addMe(id: string, name?: string): Promise<string> {
     const memberId = await this.guard(() => this.postMe(id, name));
@@ -87,7 +84,6 @@ export abstract class AdminService {
     } catch {
       // The membership exists; the list catches up on the next load.
     }
-    await this.context.refreshAccount();
     return memberId;
   }
 
@@ -116,10 +112,9 @@ export abstract class AdminService {
   protected abstract listCompetitions(): Promise<readonly CompetitionOption[]>;
   protected abstract listCandidates(id: string): Promise<readonly CaptainCandidate[]>;
 
-  /** Shows a changed or new league in the list and has the account read again. */
-  private async adopt(league: AdminLeague): Promise<AdminLeague> {
+  /** Shows a changed or new league in the list. */
+  private adopt(league: AdminLeague): AdminLeague {
     this.state.update((leagues) => ordered([...leagues.filter((l) => l.id !== league.id), league]));
-    await this.context.refreshAccount();
     return league;
   }
 
@@ -145,7 +140,7 @@ function ordered(leagues: readonly AdminLeague[]): readonly AdminLeague[] {
 type ApiMember = components['schemas']['Member'];
 
 /** The management centre against the Python API. */
-export class HttpAdminService extends AdminService {
+export class HttpAdminData extends AdminData {
   private readonly http = inject(HttpClient);
   private readonly base = `${environment.apiUrl}/v1/admin/leagues`;
 
@@ -201,7 +196,7 @@ export class HttpAdminService extends AdminService {
  * league joins the sample account (and the switcher), archiving hides one, appointing moves
  * the captaincy. Everything lasts until reload.
  */
-export class SampleAdminService extends AdminService {
+export class SampleAdminData extends AdminData {
   private readonly data = inject(LeagueData) as SampleLeagueData;
 
   protected listLeagues(): Promise<readonly AdminLeague[]> {

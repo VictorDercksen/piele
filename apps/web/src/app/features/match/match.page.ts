@@ -20,7 +20,7 @@ import { LeagueTime } from '../../core/competition/league-time';
 import { LeagueTimePipe } from '../../core/competition/league-time.pipe';
 import { SelectedRoundService } from '../../core/competition/selected-round.service';
 import { LeagueContext } from '../../core/league/league-context';
-import { ProfileStore } from '../../core/profile/profile.store';
+import { ProfileService } from '../../core/profile/profile.service';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideRotateCcw } from '@ng-icons/lucide';
 import { Icon } from '../../shared/icon/icon';
@@ -64,7 +64,7 @@ export class MatchPage {
   private readonly selected = inject(SelectedRoundService);
   private readonly matchCentre = inject(MatchCentreService);
   readonly fixtures = inject(FixtureService);
-  readonly favouriteTeam = inject(ProfileStore).team;
+  readonly favouriteTeam = inject(ProfileService).team;
   /** The display zone for the page's timestamps. */
   readonly zone = inject(LeagueTime).zone;
 

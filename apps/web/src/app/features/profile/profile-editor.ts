@@ -25,7 +25,8 @@ import { highlightProblem } from '../../core/feedback/problem-highlight';
 import { LeagueContext } from '../../core/league/league-context';
 import { MemberService } from '../../core/league/members/member.service';
 import { preparePhoto } from '../../core/profile/profile-photo';
-import { ProfileStore } from '../../core/profile/profile.store';
+import { ProfileControlService } from '../../core/profile/profile-control.service';
+import { ProfileService } from '../../core/profile/profile.service';
 import { CompetitionService, shortSeason } from '../../core/competition/competition.service';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideArrowRight, lucideCheck } from '@ng-icons/lucide';
@@ -56,7 +57,8 @@ import { StadiumBackdrop } from '../../shared/stadium-backdrop/stadium-backdrop'
   viewProviders: [provideIcons({ lucideArrowRight, lucideCheck })],
 })
 export class ProfileEditor {
-  private readonly store = inject(ProfileStore);
+  private readonly profiles = inject(ProfileService);
+  private readonly profileControl = inject(ProfileControlService);
   private readonly auth = inject(AuthService);
   private readonly members = inject(MemberService);
   private readonly context = inject(LeagueContext);
@@ -66,17 +68,17 @@ export class ProfileEditor {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly nameInput = viewChild.required<ElementRef<HTMLInputElement>>('nameInput');
   private readonly photoInput = viewChild.required<ElementRef<HTMLInputElement>>('photoInput');
-  readonly existing = this.store.profile();
+  readonly existing = this.profiles.profile();
   /**
    * Starts from the saved profile, else what the browser keeps (a profile from before they
    * moved to the account, or the name and photo shared by every league).
    */
-  private readonly start = this.existing ?? this.store.earlier();
+  private readonly start = this.existing ?? this.profiles.earlier();
   /** The league this profile belongs to; the favourite team is per league. */
   readonly leagueSummary = this.context.current;
   readonly leagueTitle = this.context.name;
   readonly leagueHome = computed(() => this.context.url());
-  readonly persisted = this.store.persisted;
+  readonly persisted = this.profiles.persisted;
   /** The league's nickname for the member, which the browser profile cannot override. */
   readonly leagueName = this.members.leagueMemberName();
   readonly canSignOut = this.auth.configured;
@@ -176,7 +178,7 @@ export class ProfileEditor {
     }
     this.saving.set(true);
     try {
-      await this.store.save({
+      await this.profileControl.save({
         displayName: this.form.controls.displayName.value.trim(),
         teamId: this.form.controls.teamId.value,
         photo: this.photo(),

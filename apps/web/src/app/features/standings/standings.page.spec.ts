@@ -14,7 +14,7 @@ import { LeagueData } from '../../core/league/data/league-data';
 import { SampleLeagueData } from '../../core/league/data/sample-league-data';
 import { RulesControlService } from '../../core/league/rules/rules-control.service';
 import { StandingControlService } from '../../core/league/standings/standing-control.service';
-import { ProfileStore } from '../../core/profile/profile.store';
+import { ProfileControlService } from '../../core/profile/profile-control.service';
 import { BREAKDOWN_STORAGE_KEY, StandingsPage } from './standings.page';
 
 const URC = competition('urc-2026-27');
@@ -53,7 +53,7 @@ async function open(url: string) {
   const context = TestBed.inject(LeagueContext);
   await context.ensureAccount();
   await context.select('piele');
-  await TestBed.inject(ProfileStore).save({
+  await TestBed.inject(ProfileControlService).save({
     displayName: 'Test Member',
     teamId: 'dhl-stormers',
     photo: null,
