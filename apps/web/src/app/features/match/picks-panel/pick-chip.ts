@@ -1,3 +1,4 @@
+import type { PickRowView } from '../../../core/league/round-view.service';
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 
 /**
@@ -42,4 +43,16 @@ export interface PickChipView {
   readonly colour: string | null;
   readonly accent: string | null;
   readonly isDefault: boolean;
+}
+
+export function chipOf(row: PickRowView): PickChipView {
+  const kind = row.side === 'missed' ? 'missed' : row.side === 'draw' ? 'draw' : 'club';
+  return {
+    kind,
+    label: kind === 'club' ? (row.clubShortName ?? '') : kind === 'draw' ? 'Draw' : 'No pick',
+    margin: kind === 'club' ? row.margin : null,
+    colour: row.clubColour,
+    accent: row.clubAccent,
+    isDefault: row.isDefault,
+  };
 }

@@ -13,7 +13,8 @@ import {
   RoundViewService,
 } from '../../../core/league/round-view.service';
 import { DEFAULT_RULES } from '../../../core/league/superbru';
-import { PicksPanel, ordinal } from './picks-panel';
+import { PicksPanel } from './picks-panel';
+import { ordinal } from '../../../shared/format/ordinal';
 
 const URC = competition('urc-2026-27');
 // Round 1: Zebre Parma v Vodacom Bulls.

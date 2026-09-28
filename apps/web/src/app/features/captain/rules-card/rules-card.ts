@@ -1,3 +1,5 @@
+import { lucideRotateCcw } from '@ng-icons/lucide';
+import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -49,7 +51,14 @@ const REFUSALS: Readonly<Record<string, string>> = {
   templateUrl: './rules-card.html',
   styleUrl: './rules-card.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Dropdown, RulesFields, Loader],
+  viewProviders: [provideIcons({ lucideRotateCcw })],
+  // prettier-ignore
+  imports: [
+    NgIcon,
+    Dropdown,
+    RulesFields,
+    Loader,
+  ],
 })
 export class RulesCard {
   private readonly view = inject(RoundViewService);

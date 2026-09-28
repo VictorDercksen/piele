@@ -40,67 +40,7 @@
   @if (configured && !failed() && data(); as centre) {
     <div class="match-grid">
       @if (showForecast()) {
-        <section
-          class="panel weather"
-          [class.has-sky]="sky()"
-          [attr.data-sky]="sky()?.scene"
-          [attr.data-time]="sky()?.time"
-          aria-labelledby="weather-title"
-        >
-          @if (sky()) {
-            <div class="sky" aria-hidden="true">
-              <span class="sky-glow"></span>
-              <span class="sky-clouds"></span>
-              <span class="sky-precip"></span>
-            </div>
-          }
-          <div class="section-title">
-            <h2 id="weather-title">Kickoff forecast.</h2>
-            <span class="tag">{{ centre.weather.status.replace('_', ' ') }}</span>
-          </div>
-          @if (centre.weather.status === 'ok') {
-            <div class="forecast-body">
-              <div class="forecast">
-                @if (sky(); as s) {
-                  <ng-icon class="condition-icon" [name]="s.icon" aria-hidden="true" />
-                }
-                <strong class="temperature"
-                  >{{ centre.weather.temperatureC | number: '1.0-0' }}°</strong
-                >
-                <span class="condition">{{ centre.weather.condition }}</span>
-              </div>
-              <dl class="forecast-facts">
-                <div>
-                  <dt>Feels like</dt>
-                  <dd>{{ centre.weather.feelsLikeC | number: '1.0-0' }}°</dd>
-                </div>
-                <div>
-                  <dt>Rain chance</dt>
-                  <dd>{{ centre.weather.rainChancePercent ?? '—' }}%</dd>
-                </div>
-                <div>
-                  <dt>Wind</dt>
-                  <dd>{{ centre.weather.windKmh | number: '1.0-0' }} km/h</dd>
-                </div>
-                <div>
-                  <dt>Gusts</dt>
-                  <dd>{{ centre.weather.gustKmh | number: '1.0-0' }} km/h</dd>
-                </div>
-              </dl>
-            </div>
-            <p class="panel-source">
-              {{ centre.weather.stadium }}, {{ centre.weather.city }} at
-              {{ centre.weather.forecastHourUtc | leagueTime: 'HH:mm z' : zone() }} ·
-              {{ centre.weather.source }}
-              @if (centre.weather.fetchedAt; as at) {
-                · updated {{ at | leagueTime: 'd MMM HH:mm' : zone() }}
-              }
-            </p>
-          } @else {
-            <p class="panel-empty">{{ message('weather', centre.weather.status) }}</p>
-            <p class="panel-source">{{ centre.weather.source }}</p>
-          }
-        </section>
+        <app-weather-panel [forecast]="centre.weather" />
       }
       @if (previewConfigured) {
         <app-match-preview
@@ -112,122 +52,11 @@
           [awayClub]="fixture.awayAsset"
         />
       }
-      <app-dropdown
-        class="teamsheets"
-        appearance="panel"
-        heading="Teamsheets."
-        headingId="teamsheets-title"
-        [resetKey]="fixture.id"
-      >
-        <span class="tag" dropdownSide>{{ centre.teamsheets.status.replace('_', ' ') }}</span>
-        @if (sheets(); as sheets) {
-          <div class="sheets">
-            @for (side of sheets; track side.label) {
-              <div
-                class="sheet"
-                [class.has-banner]="side.banner"
-                [style.--club-accent]="side.accent"
-              >
-                @if (side.banner; as banner) {
-                  <img class="sheet-pattern" [src]="banner.pattern" alt="" />
-                  <img class="sheet-watermark" [src]="banner.crest" alt="" />
-                }
-                <div class="sheet-head">
-                  @if (side.banner; as banner) {
-                    <img class="sheet-crest" [src]="banner.crest" alt="" />
-                  }
-                  <h3>{{ side.label }}</h3>
-                  @if (side.startersAverageAge !== null) {
-                    <span class="average-age"
-                      >XV avg age<strong>{{
-                        side.startersAverageAge | number: '1.1-1'
-                      }}</strong></span
-                    >
-                  }
-                </div>
-                <ol class="players">
-                  @for (player of side.starters; track player.number) {
-                    <li>
-                      <span class="number">{{ player.number }}</span
-                      ><span class="name"
-                        >{{ player.name }}
-                        @if (player.captain) {
-                          <i>C</i>
-                        }
-                        <span class="bio">
-                          @if (player.country; as country) {
-                            <img
-                              class="flag"
-                              [src]="country.flag"
-                              [alt]="country.name"
-                              [title]="country.name"
-                            />
-                          }
-                          @if (player.age !== null) {
-                            <span class="age" [attr.aria-label]="'age ' + player.age">{{
-                              player.age
-                            }}</span>
-                          }
-                        </span>
-                      </span>
-                      @if (player.position) {
-                        <small>{{ player.position }}</small>
-                      }
-                    </li>
-                  }
-                </ol>
-                @if (side.replacements.length) {
-                  <span class="bench-label"
-                    >REPLACEMENTS
-                    @if (side.replacementsAverageAge !== null) {
-                      <span>AVG AGE {{ side.replacementsAverageAge | number: '1.1-1' }}</span>
-                    }
-                  </span>
-                  <ol class="players bench">
-                    @for (player of side.replacements; track player.number) {
-                      <li>
-                        <span class="number">{{ player.number }}</span
-                        ><span class="name"
-                          >{{ player.name }}
-                          @if (player.captain) {
-                            <i>C</i>
-                          }
-                          <span class="bio">
-                            @if (player.country; as country) {
-                              <img
-                                class="flag"
-                                [src]="country.flag"
-                                [alt]="country.name"
-                                [title]="country.name"
-                              />
-                            }
-                            @if (player.age !== null) {
-                              <span class="age" [attr.aria-label]="'age ' + player.age">{{
-                                player.age
-                              }}</span>
-                            }
-                          </span>
-                        </span>
-                        @if (player.position) {
-                          <small>{{ player.position }}</small>
-                        }
-                      </li>
-                    }
-                  </ol>
-                }
-              </div>
-            }
-          </div>
-        } @else {
-          <p class="panel-empty">{{ message('teamsheets', centre.teamsheets.status) }}</p>
-        }
-        <p class="panel-source">
-          {{ centre.teamsheets.source }}
-          @if (centre.teamsheets.fetchedAt; as at) {
-            · checked {{ at | leagueTime: 'd MMM HH:mm z' : zone() }}
-          }
-        </p>
-      </app-dropdown>
+      <app-teamsheets-panel
+        [fixture]="fixture"
+        [section]="centre.teamsheets"
+        [kickoff]="centre.kickoffUtc"
+      />
     </div>
   }
   <p class="context-note">

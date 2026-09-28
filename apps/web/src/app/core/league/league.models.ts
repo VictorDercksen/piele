@@ -1,3 +1,4 @@
+import type { components } from '../api/generated';
 import { MatchState } from '../api/match-centre.models';
 
 export interface LeagueMember {
@@ -31,12 +32,7 @@ export interface RoundStanding {
 }
 
 /** Season house marks per member, computed by the API from duties. */
-export interface MemberMarks {
-  readonly memberId: string;
-  readonly memberName: string;
-  readonly marks: number;
-  readonly openDuties: number;
-}
+export type MemberMarks = components['schemas']['MemberMarks'];
 
 export type DutyType = 'spoon' | 'pick_confirmation';
 /** Persisted lifecycle (plan M17). */
@@ -45,28 +41,9 @@ export type DutyLifecycle = 'pending_deadline' | 'open' | 'completed' | 'voided'
 export type DutyDisplay = DutyLifecycle | 'overdue' | 'under_review';
 export type EvidenceDecision = 'pending' | 'accepted' | 'rejected' | 'superseded';
 
-export interface DutyEvidence {
-  readonly id: string;
-  readonly submissionId: string;
-  readonly assetId: string;
-  readonly decision: EvidenceDecision;
-  readonly submittedAt: string;
-  readonly claimedCompletedAt: string | null;
-  readonly decidedAt: string | null;
-  readonly reason: string | null;
-  readonly effectiveCompletedAt: string | null;
-  readonly note: string;
-  readonly submitterId: string;
-  readonly submitterName: string;
-}
+export type DutyEvidence = components['schemas']['EvidenceLink'];
 
-export interface DutyMarks {
-  readonly marks: number;
-  readonly overdueHours: number;
-  readonly asOf: string;
-  readonly nextMarkAt: string | null;
-  readonly explanation: string;
-}
+export type DutyMarks = components['schemas']['Marks'];
 
 export interface Duty {
   readonly id: string;
@@ -170,10 +147,7 @@ export interface EvidenceSubmission {
 }
 
 /** A Superbru name a signed-in account may claim in one league. */
-export interface UnclaimedName {
-  readonly id: string;
-  readonly displayName: string;
-}
+export type UnclaimedName = Pick<components['schemas']['UnclaimedName'], 'id' | 'displayName'>;
 
 export interface NewMember {
   readonly name: string;
@@ -191,45 +165,13 @@ export interface NotificationsRead {
 }
 
 /** The competition a league plays, as the API names it. */
-export interface CompetitionRef {
-  readonly id: string;
-  readonly name: string;
-  readonly shortName: string;
-}
+export type CompetitionRef = components['schemas']['CompetitionRef'];
 
 /** One league on the account document (`GET /v1/me`). */
-export interface LeagueSummary {
-  readonly id: string;
-  readonly slug: string;
-  readonly name: string;
-  /** IANA zone the league displays times in. */
-  readonly timezone: string;
-  /** A preset crest's key (`assets/images/emblems/{key}.svg`), or null. */
-  readonly emblemPreset: string | null;
-  /** A short-lived signed URL of an uploaded emblem, or null. */
-  readonly emblemUrl: string | null;
-  /** `#rrggbb`, tints the preset crest and the monogram. */
-  readonly accentColour: string | null;
-  readonly competition: CompetitionRef;
-  readonly seasonName: string;
-  readonly inSeason: boolean;
-  /** Null when the admin sees a league it holds no membership in. */
-  readonly memberId: string | null;
-  readonly displayName: string | null;
-  readonly isCaptain: boolean;
-  readonly favouriteTeamId: string | null;
-  /** The season's Superbru rules. */
-  readonly rules: LeagueRules;
-}
+export type LeagueSummary = components['schemas']['LeagueSummary'];
 
 /** The signed-in account and the leagues it can open (`GET /v1/me`). */
-export interface Account {
-  readonly userId: string;
-  readonly photoUrl: string | null;
-  readonly isAdmin: boolean;
-  readonly lastLeagueId: string | null;
-  readonly leagues: readonly LeagueSummary[];
-}
+export type Account = components['schemas']['AccountDocument'];
 
 /** What a join link shows before claiming a name (`GET /v1/join/{code}`). */
 export interface JoinPreview {

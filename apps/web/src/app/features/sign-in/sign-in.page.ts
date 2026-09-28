@@ -1,3 +1,5 @@
+import { lucideArrowRight } from '@ng-icons/lucide';
+import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -25,7 +27,13 @@ import { Loader } from '../../shared/loader/loader';
   templateUrl: './sign-in.page.html',
   styleUrl: './sign-in.page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, Loader],
+  viewProviders: [provideIcons({ lucideArrowRight })],
+  // prettier-ignore
+  imports: [
+    NgIcon,
+    ReactiveFormsModule,
+    Loader,
+  ],
 })
 export class SignInPage {
   private readonly auth = inject(AuthService);

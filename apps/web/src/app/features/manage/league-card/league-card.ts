@@ -19,11 +19,17 @@ import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
+  lucideArchive,
+  lucideArchiveRestore,
   lucideArrowRight,
   lucideCheck,
   lucideChevronDown,
   lucideCopy,
   lucideCrown,
+  lucidePencil,
+  lucideRotateCcw,
+  lucideUserPlus,
+  lucideX,
 } from '@ng-icons/lucide';
 import { AlertService } from '../../../core/feedback/alert.service';
 import { highlightProblem } from '../../../core/feedback/problem-highlight';
@@ -44,7 +50,7 @@ import {
 import { ReasonDialog } from '../../duties/reason-dialog/reason-dialog';
 import { FormProblem, problemDetails } from '../form-problems';
 import { notBlank, zoneValidator } from '../manage-validators';
-import { timeZoneGroups } from '../time-zones';
+import { TimeZoneSelect } from '../time-zone-select/time-zone-select';
 
 /** The eyebrow of the management centre's confirmation dialogs. */
 const EYEBROW = 'THE PAVILION / MANAGEMENT CENTRE';
@@ -62,9 +68,29 @@ const EYEBROW = 'THE PAVILION / MANAGEMENT CENTRE';
   templateUrl: './league-card.html',
   styleUrls: ['../manage-fields.scss', './league-card.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, RouterLink, NgIcon, LeagueCrest, Loader, RulesFields],
+  imports: [
+    TimeZoneSelect,
+    ReactiveFormsModule,
+    RouterLink,
+    NgIcon,
+    LeagueCrest,
+    Loader,
+    RulesFields,
+  ],
   viewProviders: [
-    provideIcons({ lucideArrowRight, lucideCheck, lucideChevronDown, lucideCopy, lucideCrown }),
+    provideIcons({
+      lucideArchive,
+      lucideArchiveRestore,
+      lucideArrowRight,
+      lucideCheck,
+      lucideChevronDown,
+      lucideCopy,
+      lucideCrown,
+      lucidePencil,
+      lucideRotateCcw,
+      lucideUserPlus,
+      lucideX,
+    }),
   ],
 })
 export class LeagueCard {
@@ -99,7 +125,6 @@ export class LeagueCard {
     return code ? `${this.origin}/join/${code}` : null;
   });
 
-  readonly zoneGroups = computed(() => timeZoneGroups(this.league().timezone));
   /** Regular rounds per competition id, from `AdminService.competitions()` once loaded. */
   private readonly regularRounds = signal<ReadonlyMap<string, number> | null>(null);
   /**

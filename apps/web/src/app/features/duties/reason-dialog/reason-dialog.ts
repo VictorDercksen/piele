@@ -29,7 +29,12 @@ export const REASON_FAILURE = 'reason-failed';
   templateUrl: './reason-dialog.html',
   styleUrl: './reason-dialog.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, Icon, Loader],
+  // prettier-ignore
+  imports: [
+    ReactiveFormsModule,
+    Icon,
+    Loader,
+  ],
 })
 export class ReasonDialog {
   private readonly alerts = inject(AlertService);

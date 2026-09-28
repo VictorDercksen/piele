@@ -1,0 +1,24 @@
+<ol class="players" [class.bench]="bench()">
+  @for (player of players(); track player.number) {
+    <li>
+      <span class="number">{{ player.number }}</span
+      ><span class="name"
+        >{{ player.name }}
+        @if (player.captain) {
+          <i>C</i>
+        }
+        <span class="bio">
+          @if (player.country; as country) {
+            <img class="flag" [src]="country.flag" [alt]="country.name" [title]="country.name" />
+          }
+          @if (player.age !== null) {
+            <span class="age" [attr.aria-label]="'age ' + player.age">{{ player.age }}</span>
+          }
+        </span>
+      </span>
+      @if (player.position) {
+        <small>{{ player.position }}</small>
+      }
+    </li>
+  }
+</ol>

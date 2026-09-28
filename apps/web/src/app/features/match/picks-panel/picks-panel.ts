@@ -1,3 +1,5 @@
+import { PoolPicksTable } from '../pool-picks-table/pool-picks-table';
+import { ordinal } from '../../../shared/format/ordinal';
 import { DecimalPipe } from '@angular/common';
 import {
   ChangeDetectionStrategy,
@@ -25,7 +27,7 @@ import {
 } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideArrowRight, lucideLock, lucidePencil } from '@ng-icons/lucide';
+import { lucideArrowRight, lucideLock, lucidePencil, lucideX } from '@ng-icons/lucide';
 import { map } from 'rxjs';
 import { CompetitionService } from '../../../core/competition/competition.service';
 import { LeagueTime } from '../../../core/competition/league-time';
@@ -35,11 +37,10 @@ import { highlightProblem } from '../../../core/feedback/problem-highlight';
 import { ApiError } from '../../../core/league/http-league-data';
 import { LeaguePathPipe } from '../../../core/league/league-path.pipe';
 import { MemberPick, NewPick } from '../../../core/league/league.models';
-import { PickRowView, RoundViewService } from '../../../core/league/round-view.service';
-import { roundType, sameTotal } from '../../../core/league/superbru';
+import { RoundViewService } from '../../../core/league/round-view.service';
+import { roundType } from '../../../core/league/superbru';
 import { Dropdown } from '../../../shared/dropdown/dropdown';
-import { MemberAvatar } from '../../../shared/member-avatar/member-avatar';
-import { PickChip, PickChipView } from './pick-chip';
+import { PickChip, PickChipView, chipOf } from './pick-chip';
 
 /** The widest margin the scale reaches; beyond it the marker sits at the end. */
 export const SCALE_REACH = 40;
@@ -81,17 +82,17 @@ function marginValidator(control: AbstractControl<string>): ValidationErrors | n
   styleUrl: './picks-panel.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    PoolPicksTable,
     DecimalPipe,
     Dropdown,
     ReactiveFormsModule,
     RouterLink,
     LeaguePathPipe,
     LeagueTimePipe,
-    MemberAvatar,
     NgIcon,
     PickChip,
   ],
-  viewProviders: [provideIcons({ lucideArrowRight, lucideLock, lucidePencil })],
+  viewProviders: [provideIcons({ lucideArrowRight, lucideLock, lucidePencil, lucideX })],
 })
 export class PicksPanel {
   private readonly alerts = inject(AlertService);
@@ -248,42 +249,6 @@ export class PicksPanel {
     if (draw) parts.push(`draw ${draw}%`);
     parts.push(`${sides.away.name} ${away}%`);
     return { home, draw, away, label: `The pool's split: ${parts.join(', ')}.` };
-  });
-
-  /** The pool table in the view's order, with each pick's chip and marks. */
-  readonly rows = computed<readonly PoolRow[]>(() => {
-    const picks = this.picks();
-    if (!picks) return [];
-    const bonus = this.view.rules().bonusPointValue;
-    return picks.rows.map((row) => ({
-      row,
-      chip: chipOf(row),
-      marks: [
-        {
-          key: 'w',
-          earned: row.wp > 0,
-          fraction: null,
-          text: row.wp > 0 ? 'outcome point' : 'no outcome point',
-        },
-        {
-          key: 'm',
-          earned: row.mp > 0,
-          fraction: null,
-          text: row.mp > 0 ? 'margin point' : 'no margin point',
-        },
-        {
-          key: 'b',
-          earned: row.bp > 0,
-          fraction: row.bp > 0 && !sameTotal(row.bp, bonus) ? row.bp : null,
-          text:
-            row.bp > 0
-              ? sameTotal(row.bp, bonus)
-                ? 'bonus point'
-                : `${round(row.bp)} of the bonus point`
-              : 'no bonus point',
-        },
-      ],
-    }));
   });
 
   /** The member's own line: pick chip, points and place. Null for the admin view. */
@@ -512,41 +477,7 @@ export interface ScaleView {
   readonly text: string;
 }
 
-export interface PickMark {
-  readonly key: 'w' | 'm' | 'b';
-  readonly earned: boolean;
-  /** A shared bonus point's share, e.g. 0.25. */
-  readonly fraction: number | null;
-  /** Visually hidden text for the mark. */
-  readonly text: string;
-}
-
-export interface PoolRow {
-  readonly row: PickRowView;
-  readonly chip: PickChipView;
-  readonly marks: readonly PickMark[];
-}
-
-function chipOf(row: PickRowView): PickChipView {
-  const kind = row.side === 'missed' ? 'missed' : row.side === 'draw' ? 'draw' : 'club';
-  return {
-    kind,
-    label: kind === 'club' ? (row.clubShortName ?? '') : kind === 'draw' ? 'Draw' : 'No pick',
-    margin: kind === 'club' ? row.margin : null,
-    colour: row.clubColour,
-    accent: row.clubAccent,
-    isDefault: row.isDefault,
-  };
-}
-
-/** A points value without floating-point noise, e.g. 0.25 or 1.5. */
+/** A points value without floating-point noise in the scoring legend. */
 function round(value: number): number {
   return Math.round(value * 100) / 100;
-}
-
-/** 1st, 2nd, 3rd, 4th, 11th, 12th, 13th, 21st. */
-export function ordinal(n: number): string {
-  const teen = n % 100 >= 11 && n % 100 <= 13;
-  const suffix = teen ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' }[n % 10] ?? 'th');
-  return `${n}${suffix}`;
 }

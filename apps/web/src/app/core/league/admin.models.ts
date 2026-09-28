@@ -1,83 +1,29 @@
-import { CompetitionRef, LeagueRules } from './league.models';
+import { LeagueRules } from './league.models';
+import type { components } from '../api/generated';
 
 /** One league as the management centre sees it (`GET /v1/admin/leagues`). */
-export interface AdminLeague {
-  readonly id: string;
-  readonly slug: string;
-  readonly name: string;
-  readonly timezone: string;
+export type AdminLeague = Omit<components['schemas']['AdminLeague'], 'status'> & {
   readonly status: 'active' | 'archived';
-  readonly emblemPreset: string | null;
-  readonly emblemUrl: string | null;
-  readonly accentColour: string | null;
-  /** Null when joining is closed. */
-  readonly joinCode: string | null;
-  readonly competition: CompetitionRef;
-  /** The active season; null when the league has none. */
-  readonly season: { readonly id: string; readonly name: string; readonly status: string } | null;
-  readonly captain: {
-    readonly memberId: string;
-    readonly displayName: string;
-    readonly claimed: boolean;
-  } | null;
-  readonly counts: {
-    readonly members: number;
-    readonly claimed: number;
-    readonly inSeason: number;
-    readonly withdrawn: number;
-  };
-  /** The admin's own active membership, if any. */
-  readonly myMemberId: string | null;
-  readonly createdAt: string;
-  /** The active season's Superbru rules (the defaults when the league has no season). */
-  readonly rules: LeagueRules;
-}
+};
 
 /** A competition a new league can play (`GET /v1/competitions`). */
-export interface CompetitionOption {
-  readonly id: string;
-  readonly name: string;
-  readonly shortName: string;
-  readonly timezone: string;
-  readonly regularRounds: number;
-  readonly lastRound: number;
-}
+export type CompetitionOption = components['schemas']['CompetitionSummary'];
 
 /** One name on a new league's team sheet. */
-export interface NewLeagueMember {
-  readonly fullName: string;
-  readonly displayName: string;
-}
+export type NewLeagueMember = components['schemas']['NewLeagueMember'];
 
 /** `POST /v1/admin/leagues`: one request, one transaction. */
-export interface NewLeague {
-  readonly name: string;
-  readonly slug: string;
-  /** Left out: the competition's time zone. */
-  readonly timezone?: string;
-  readonly competitionId: string;
-  readonly seasonName: string;
-  readonly members: readonly NewLeagueMember[];
-  /** One of the members' display names. */
-  readonly captainDisplayName: string;
-  /** Null makes the admin the captain. */
-  readonly captainEmail: string | null;
-  readonly emblemPreset?: string | null;
-  readonly accentColour?: string | null;
-  /** With another captain: also add the admin as a member outside the season. */
-  readonly addMe?: boolean;
-  /** The season's Superbru rules that differ from `DEFAULT_RULES`; left out, Piele's. */
+export type NewLeague = Omit<components['schemas']['NewLeague'], 'rules'> & {
   readonly rules?: Partial<LeagueRules>;
-}
+};
 
 /** `PATCH /v1/admin/leagues/{id}`: fields left out stay as they are. */
-export interface LeagueUpdate {
-  readonly name?: string;
-  readonly timezone?: string;
-  readonly status?: 'active' | 'archived';
-  /** Changes to the active season's Superbru rules. */
-  readonly rules?: Partial<LeagueRules>;
-}
+/** Forms omit untouched values instead of sending null. */
+export type LeagueUpdate = {
+  readonly [K in keyof Omit<components['schemas']['LeagueUpdate'], 'rules'>]?: NonNullable<
+    components['schemas']['LeagueUpdate'][K]
+  >;
+} & { readonly rules?: Partial<LeagueRules> };
 
 /** The same patch under the contract's name. */
 export type LeaguePatch = LeagueUpdate;

@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideChevronDown, lucideExternalLink, lucideRotateCcw } from '@ng-icons/lucide';
+import { lucideExternalLink, lucideRotateCcw } from '@ng-icons/lucide';
 import { MatchCentreService } from '../../../core/api/match-centre.service';
 import { CompetitionService } from '../../../core/competition/competition.service';
 import { LeagueTime } from '../../../core/competition/league-time';
@@ -22,8 +22,13 @@ import { previewView } from './preview-view';
     '[style.--home-accent]': 'view()?.sides?.[0]?.accent',
     '[style.--away-accent]': 'view()?.sides?.[1]?.accent',
   },
-  imports: [Dropdown, LeagueTimePipe, NgIcon],
-  viewProviders: [provideIcons({ lucideChevronDown, lucideExternalLink, lucideRotateCcw })],
+  // prettier-ignore
+  imports: [
+    Dropdown,
+    LeagueTimePipe,
+    NgIcon,
+  ],
+  viewProviders: [provideIcons({ lucideExternalLink, lucideRotateCcw })],
 })
 export class MatchPreview {
   private readonly matchCentre = inject(MatchCentreService);

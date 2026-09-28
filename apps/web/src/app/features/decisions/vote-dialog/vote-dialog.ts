@@ -23,7 +23,12 @@ export const VOTE_FAILURE = 'vote-failed';
   templateUrl: './vote-dialog.html',
   styleUrl: './vote-dialog.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, Icon, Loader],
+  // prettier-ignore
+  imports: [
+    ReactiveFormsModule,
+    Icon,
+    Loader,
+  ],
 })
 export class VoteDialog {
   private readonly alerts = inject(AlertService);

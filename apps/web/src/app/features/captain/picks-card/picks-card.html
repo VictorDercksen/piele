@@ -235,6 +235,7 @@
                 (click)="overriding() === row.memberId ? cancelOverride() : startOverride(row)"
               >
                 Override
+                <ng-icon class="link-icon" name="lucidePencil" />
               </button>
             </td>
           </tr>
@@ -271,6 +272,7 @@
                       (click)="clearOverride(row)"
                     >
                       Clear
+                      <ng-icon class="link-icon" name="lucideTrash2" />
                     </button>
                   }
                   <button
@@ -280,6 +282,7 @@
                     (click)="cancelOverride()"
                   >
                     Cancel
+                    <ng-icon class="link-icon" name="lucideX" />
                   </button>
                 </form>
               </td>

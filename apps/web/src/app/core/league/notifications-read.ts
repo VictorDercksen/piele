@@ -25,7 +25,9 @@ export function storeRead(read: NotificationsRead, slug?: string | null): void {
   try {
     localStorage.setItem(readKey(slug), JSON.stringify(read));
   } catch {
-    // Read status is a convenience; the panel still works without storage.
+    throw new Error(
+      'Your browser could not save your read notifications. Enable local storage and try again.',
+    );
   }
 }
 

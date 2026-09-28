@@ -34,7 +34,15 @@ import { StadiumBackdrop } from '../../shared/stadium-backdrop/stadium-backdrop'
   templateUrl: './profile-editor.html',
   styleUrl: './profile-editor.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, RouterLink, NgIcon, Loader, StadiumBackdrop, LeagueCrest],
+  // prettier-ignore
+  imports: [
+    ReactiveFormsModule,
+    RouterLink,
+    NgIcon,
+    Loader,
+    StadiumBackdrop,
+    LeagueCrest,
+  ],
   viewProviders: [provideIcons({ lucideArrowRight, lucideCheck })],
 })
 export class ProfileEditor {

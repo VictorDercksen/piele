@@ -49,12 +49,13 @@
       </div>
     </div>
 
-    <details class="sources-drawer">
-      <summary>
-        <span>Sources</span>
-        <span class="count">{{ preview.sources.length }}</span>
-        <ng-icon class="chevron" name="lucideChevronDown" aria-hidden="true" />
-      </summary>
+    <app-dropdown
+      class="sources-drawer"
+      heading="Sources"
+      [headingId]="'preview-sources-' + fixtureId()"
+      [resetKey]="fixtureId()"
+    >
+      <span class="count" dropdownSide>{{ preview.sources.length }}</span>
       <ol class="sources">
         @for (source of preview.sources; track source.number) {
           <li>
@@ -68,7 +69,7 @@
           </li>
         }
       </ol>
-    </details>
+    </app-dropdown>
     <p class="preview-note">
       As of {{ preview.generatedAt | leagueTime: 'd MMM HH:mm z' : zone() }}. Written by the
       Pavilion agent from public sources and the published teamsheets. It can be wrong.

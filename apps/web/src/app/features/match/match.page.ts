@@ -1,4 +1,3 @@
-import { DecimalPipe } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -13,7 +12,7 @@ import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
 import { filter, startWith } from 'rxjs';
 import { LiveScoresService, inPlayWindow } from '../../core/api/live-scores.service';
 import { MatchCentreService } from '../../core/api/match-centre.service';
-import { MatchCentre, SectionStatus } from '../../core/api/match-centre.models';
+import { MatchCentre } from '../../core/api/match-centre.models';
 import { CompetitionService } from '../../core/competition/competition.service';
 import { LeagueTime } from '../../core/competition/league-time';
 import { LeagueTimePipe } from '../../core/competition/league-time.pipe';
@@ -22,29 +21,16 @@ import { LeagueContext } from '../../core/league/league-context';
 import { RoundViewService } from '../../core/league/round-view.service';
 import { ProfileStore } from '../../core/profile/profile.store';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import {
-  lucideCloud,
-  lucideCloudDrizzle,
-  lucideCloudFog,
-  lucideCloudLightning,
-  lucideCloudMoon,
-  lucideCloudRain,
-  lucideCloudSnow,
-  lucideCloudSun,
-  lucideMoon,
-  lucideRotateCcw,
-  lucideSun,
-} from '@ng-icons/lucide';
-import { Dropdown } from '../../shared/dropdown/dropdown';
+import { lucideRotateCcw } from '@ng-icons/lucide';
 import { Icon } from '../../shared/icon/icon';
 import { BallLoader } from '../../shared/ball-loader/ball-loader';
 import { MatchHero } from '../home/match-hero/match-hero';
 import { MatchPreview } from './match-preview/match-preview';
 import { PicksPanel } from './picks-panel/picks-panel';
 import { ScoringPanel } from './scoring-panel/scoring-panel';
+import { WeatherPanel } from './weather-panel/weather-panel';
+import { TeamsheetsPanel } from './teamsheets-panel/teamsheets-panel';
 import { scoringView } from './scoring';
-import { sheetView } from './teamsheet';
-import { weatherSky } from './weather-sky';
 
 /** Match details for one fixture: kickoff, deadline, live score, teamsheets and weather. */
 @Component({
@@ -54,8 +40,6 @@ import { weatherSky } from './weather-sky';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     LeagueTimePipe,
-    DecimalPipe,
-    Dropdown,
     Icon,
     NgIcon,
     BallLoader,
@@ -63,22 +47,10 @@ import { weatherSky } from './weather-sky';
     MatchPreview,
     PicksPanel,
     ScoringPanel,
+    WeatherPanel,
+    TeamsheetsPanel,
   ],
-  viewProviders: [
-    provideIcons({
-      lucideCloud,
-      lucideCloudDrizzle,
-      lucideCloudFog,
-      lucideCloudLightning,
-      lucideCloudMoon,
-      lucideCloudRain,
-      lucideCloudSnow,
-      lucideCloudSun,
-      lucideMoon,
-      lucideRotateCcw,
-      lucideSun,
-    }),
-  ],
+  viewProviders: [provideIcons({ lucideRotateCcw })],
 })
 export class MatchPage {
   private readonly route = inject(ActivatedRoute);
@@ -109,20 +81,6 @@ export class MatchPage {
   });
   readonly loading = computed(() => this.centre.isLoading());
   readonly failed = computed(() => this.centre.status() === 'error');
-  /** Both teamsheets with ages, flags and club artwork, when they are published. */
-  readonly sheets = computed(() => {
-    const fixture = this.fixture();
-    const centre = this.data();
-    const section = centre?.teamsheets;
-    if (!fixture || section?.status !== 'ok' || !section.home || !section.away) {
-      return null;
-    }
-    const kickoff = centre?.kickoffUtc ?? fixture.kickoffUtc;
-    return [
-      sheetView(this.competition.current(), fixture.home, fixture.homeAsset, section.home, kickoff),
-      sheetView(this.competition.current(), fixture.away, fixture.awayAsset, section.away, kickoff),
-    ];
-  });
   /** Live score and scoring pitch, hidden until ten minutes before kickoff. */
   readonly scoring = computed(() => {
     const fixture = this.fixture();
@@ -141,12 +99,6 @@ export class MatchPage {
     const centre = this.data();
     return !!centre && centre.weather.status !== 'past' && centre.score?.state !== 'full_time';
   });
-  /** Sky backdrop for the kickoff forecast, when there is one. */
-  readonly sky = computed(() => {
-    const weather = this.data()?.weather;
-    return weather?.status === 'ok' ? weatherSky(weather, this.zone()) : null;
-  });
-
   private lastFixtureId: string | null = null;
 
   constructor() {
@@ -170,12 +122,6 @@ export class MatchPage {
 
   reload(): void {
     this.centre.reload();
-  }
-
-  /** Copy for a section that has no data to show. */
-  message(kind: 'teamsheets' | 'weather', status: SectionStatus): string {
-    const text = MESSAGES[kind][status] ?? MESSAGES[kind]['unavailable']!;
-    return text.replace('{competition}', this.competition.shortName);
   }
 
   /**
@@ -218,14 +164,3 @@ export class MatchPage {
     });
   }
 }
-
-const MESSAGES: Record<string, Partial<Record<SectionStatus, string>>> = {
-  teamsheets: {
-    not_published: 'Teamsheets are usually published about 48 hours before kickoff.',
-    unavailable: 'The {competition} match centre could not be reached. Try again later.',
-  },
-  weather: {
-    too_early: 'The kickoff forecast opens seven days before the match.',
-    unavailable: 'The forecast could not be loaded.',
-  },
-};

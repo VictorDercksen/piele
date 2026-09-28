@@ -1,3 +1,4 @@
+import type { components } from '../api/generated';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Subject, firstValueFrom } from 'rxjs';
@@ -8,7 +9,6 @@ import type { Profile } from '../profile/profile.store';
 import { LeagueData } from './league-data';
 import {
   AppearanceChange,
-  CompetitionRef,
   Duty,
   EvidenceSubmission,
   FeedItem,
@@ -30,85 +30,22 @@ import {
 } from './league.models';
 import { DEFAULT_RULES, withDefaultRules } from './superbru';
 
-/** The league-scoped `GET /v1/leagues/{leagueId}/me` document. */
-export interface Me {
-  readonly leagueId: string;
-  readonly slug: string;
-  readonly leagueName: string;
-  readonly timezone: string;
-  readonly emblemPreset?: string | null;
-  readonly emblemUrl: string | null;
-  readonly accentColour: string | null;
-  readonly competition: CompetitionRef;
-  readonly seasonName: string;
-  readonly inSeason: boolean;
-  /** Null when the admin views a league it holds no membership in. */
-  readonly memberId: string | null;
-  readonly displayName: string;
-  readonly isCaptain: boolean;
-  readonly isAdmin: boolean;
-  /** Captain or admin: may use the captain's desk. */
-  readonly administers: boolean;
-  readonly favouriteTeamId: string | null;
-  /** Short-lived signed Storage URL, downloaded straight away. */
-  readonly photoUrl: string | null;
-  readonly notificationsReadAt?: string | null;
-  readonly notificationsReadKeys?: readonly string[];
-  /** Only for the steward; null for members or when joining is closed. */
-  readonly joinCode?: string | null;
-  /** The season's Superbru rules. */
-  readonly rules?: Partial<LeagueRules>;
-}
-
-/** Where to put an image in private Storage: the photo and emblem grants. */
-export interface ImageUploadGrant {
-  readonly bucket: string;
-  readonly path: string;
-  readonly token: string;
-}
-
-interface PhotoUploadGrant {
-  readonly bucket: string;
-  readonly path: string;
-  readonly token: string;
-}
-
-interface ApiMember {
-  readonly id: string;
-  readonly displayName: string;
-  readonly fullName: string;
-  readonly status: string;
-  readonly claimed: boolean;
-  readonly inSeason: boolean;
-  readonly email: string | null;
-  readonly leftAt?: string | null;
-  readonly withdrawalReason?: string | null;
-}
-
-interface ApiDuty extends Omit<Duty, 'roundId' | 'pickFixtureIds'> {
-  readonly roundNumber: number | null;
-  readonly pickFixtureIds?: readonly string[];
-}
-
-interface ApiFixturePicks extends Omit<FixturePicks, 'roundId'> {
-  readonly roundNumber: number;
-}
-
-interface ApiFeedItem extends Omit<FeedItem, 'roundId'> {
-  readonly roundNumber: number | null;
-}
-
-interface ApiStanding extends Omit<RoundStanding, 'roundId'> {
-  readonly roundNumber: number;
-  readonly memberName: string;
-}
-
-interface UploadGrant {
-  readonly assetId: string;
-  readonly bucket: string;
-  readonly path: string;
-  readonly token: string;
-}
+/** Generated transport contracts. Optional keys retain support for older API responses. */
+type Schemas = components['schemas'];
+type LegacyMeKeys =
+  'emblemPreset' | 'notificationsReadAt' | 'notificationsReadKeys' | 'joinCode' | 'rules';
+export type Me = Omit<Schemas['Me'], LegacyMeKeys> &
+  Partial<Pick<Schemas['Me'], Exclude<LegacyMeKeys, 'rules'>>> & {
+    readonly rules?: Partial<LeagueRules>;
+  };
+export type ImageUploadGrant = Schemas['EmblemUploadGrant'];
+type PhotoUploadGrant = Schemas['PhotoUploadGrant'];
+type ApiMember = Schemas['Member'];
+type ApiDuty = Schemas['Duty'];
+type ApiFixturePicks = Schemas['FixturePicks'];
+type ApiFeedItem = Schemas['FeedItem'];
+type ApiStanding = Schemas['Standing'];
+type UploadGrant = Schemas['UploadGrant'];
 
 export type MembershipState = 'unknown' | 'loading' | 'member' | 'not_member' | 'error';
 
@@ -245,7 +182,9 @@ export class HttpLeagueData extends LeagueData {
   async refreshFeed(): Promise<void> {
     if (this.membership() !== 'member') return;
     const feed = await this.request<ApiFeedItem[]>('GET', '/feed?limit=200');
-    this.feedRecords.set(feed.map(({ roundNumber, ...item }) => ({ ...item, roundId: roundNumber })));
+    this.feedRecords.set(
+      feed.map(({ roundNumber, ...item }) => ({ ...item, roundId: roundNumber })),
+    );
   }
 
   /** Saves the read state and adopts what the API merged with other devices' reads. */
@@ -270,7 +209,8 @@ export class HttpLeagueData extends LeagueData {
       .uploadToSignedUrl(grant.path, grant.token, submission.file, {
         contentType: submission.file.type,
       });
-    if (upload.error) throw new Error('The video upload failed. Check your connection and try again.');
+    if (upload.error)
+      throw new Error('The video upload failed. Check your connection and try again.');
     await this.request('POST', '/evidence', {
       assetId: grant.assetId,
       dutyIds: submission.dutyIds,
@@ -298,13 +238,20 @@ export class HttpLeagueData extends LeagueData {
     await this.refresh();
   }
 
-  async decideEvidence(linkId: string, decision: 'accepted' | 'rejected', reason: string): Promise<void> {
+  async decideEvidence(
+    linkId: string,
+    decision: 'accepted' | 'rejected',
+    reason: string,
+  ): Promise<void> {
     await this.request('POST', `/evidence/links/${linkId}/decision`, { decision, reason });
     await this.refresh();
   }
 
   async playbackUrl(assetId: string): Promise<string> {
-    const playback = await this.request<{ url: string }>('GET', `/evidence/assets/${assetId}/playback`);
+    const playback = await this.request<{ url: string }>(
+      'GET',
+      `/evidence/assets/${assetId}/playback`,
+    );
     return playback.url;
   }
 
@@ -340,7 +287,10 @@ export class HttpLeagueData extends LeagueData {
    * The team sheet: `GET /members`, or with `include=withdrawn` for the steward, split into
    * the active and withdrawn lists.
    */
-  async loadMembers(includeWithdrawn = this.administers(), leagueId = this.league()): Promise<void> {
+  async loadMembers(
+    includeWithdrawn = this.administers(),
+    leagueId = this.league(),
+  ): Promise<void> {
     const members = await this.request<ApiMember[]>(
       'GET',
       includeWithdrawn ? '/members?include=withdrawn' : '/members',
@@ -500,7 +450,8 @@ export class HttpLeagueData extends LeagueData {
       .storage()
       .from(grant.bucket)
       .uploadToSignedUrl(grant.path, grant.token, image, { contentType: image.type });
-    if (upload.error) throw new Error('The emblem upload failed. Check your connection and try again.');
+    if (upload.error)
+      throw new Error('The emblem upload failed. Check your connection and try again.');
     return grant.path;
   }
 
@@ -531,7 +482,8 @@ export class HttpLeagueData extends LeagueData {
       .storage()
       .from(grant.bucket)
       .uploadToSignedUrl(grant.path, grant.token, photo, { contentType: photo.type });
-    if (upload.error) throw new Error('The photo upload failed. Check your connection and try again.');
+    if (upload.error)
+      throw new Error('The photo upload failed. Check your connection and try again.');
     return grant.path;
   }
 
@@ -574,7 +526,10 @@ export class HttpLeagueData extends LeagueData {
   private adopt(me: Me): void {
     this.me.set(me);
     this.joinCodeState.set(me.administers ? (me.joinCode ?? null) : null);
-    this.read.set({ readAt: me.notificationsReadAt ?? null, readKeys: me.notificationsReadKeys ?? [] });
+    this.read.set({
+      readAt: me.notificationsReadAt ?? null,
+      readKeys: me.notificationsReadKeys ?? [],
+    });
     this.rulesState.set(withDefaultRules(me.rules));
   }
 
@@ -599,7 +554,9 @@ export class HttpLeagueData extends LeagueData {
       })),
     );
     this.markRecords.set(marks);
-    this.feedRecords.set(feed.map(({ roundNumber, ...item }) => ({ ...item, roundId: roundNumber })));
+    this.feedRecords.set(
+      feed.map(({ roundNumber, ...item }) => ({ ...item, roundId: roundNumber })),
+    );
     this.errorState.set(null);
   }
 
@@ -684,11 +641,18 @@ export function toApiError(error: unknown): ApiError {
     const detail: unknown = error.error?.detail;
     if (detail && typeof detail === 'object' && 'message' in detail) {
       const { code, message } = detail as { code?: string; message?: string };
-      return new ApiError(error.status, code ?? 'error', message ?? 'The league could not do that.');
+      return new ApiError(
+        error.status,
+        code ?? 'error',
+        message ?? 'The league could not do that.',
+      );
     }
-    if (Array.isArray(detail) && detail[0]?.msg) return new ApiError(error.status, 'validation', String(detail[0].msg));
-    if (error.status === 0) return new ApiError(0, 'offline', 'The league is unreachable. Check your connection.');
-    if (error.status === 401) return new ApiError(401, 'unauthenticated', 'Your session has expired. Sign in again.');
+    if (Array.isArray(detail) && detail[0]?.msg)
+      return new ApiError(error.status, 'validation', String(detail[0].msg));
+    if (error.status === 0)
+      return new ApiError(0, 'offline', 'The league is unreachable. Check your connection.');
+    if (error.status === 401)
+      return new ApiError(401, 'unauthenticated', 'Your session has expired. Sign in again.');
     return new ApiError(error.status, 'error', 'The league could not do that right now.');
   }
   return new ApiError(0, 'error', error instanceof Error ? error.message : 'Something went wrong.');

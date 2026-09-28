@@ -20,6 +20,7 @@
       @if (dirty()) {
         <button type="button" class="text-button" [disabled]="busy()" (click)="undo()">
           Undo changes
+          <ng-icon class="link-icon" name="lucideRotateCcw" />
         </button>
       }
     </div>

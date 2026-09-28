@@ -1,5 +1,4 @@
 import { Route, Routes } from '@angular/router';
-import { Shell } from './core/layout/shell/shell';
 import { PageData } from './core/layout/shell/page-data';
 import { signedIn, signedOut } from './core/auth/auth.guards';
 import { adminOnly, leagueHome, leagueRequired, legacyLeaguePath } from './core/league/league.guards';
@@ -76,7 +75,7 @@ export const routes: Routes = [
       },
       {
         path: '',
-        component: Shell,
+        loadComponent: () => import('./core/layout/shell/shell').then((m) => m.Shell),
         canActivate: [profileRequired],
         children: [
           {

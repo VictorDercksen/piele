@@ -13,9 +13,10 @@ import {
   untracked,
 } from '@angular/core';
 import { FormArray, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Subscription } from 'rxjs';
+import { Subject, takeUntil } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideArrowRight } from '@ng-icons/lucide';
+import { lucideArrowRight, lucidePencil, lucideTrash2, lucideX } from '@ng-icons/lucide';
 import { ClubTeam, Fixture } from '../../../core/competition/competition.models';
 import { CompetitionService } from '../../../core/competition/competition.service';
 import { LeagueTime } from '../../../core/competition/league-time';
@@ -65,8 +66,15 @@ const REFUSALS: Readonly<Record<string, string>> = {
   templateUrl: './picks-card.html',
   styleUrl: './picks-card.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, NgIcon, Dropdown, Loader, MemberAvatar],
-  viewProviders: [provideIcons({ lucideArrowRight })],
+  // prettier-ignore
+  imports: [
+    ReactiveFormsModule,
+    NgIcon,
+    Dropdown,
+    Loader,
+    MemberAvatar,
+  ],
+  viewProviders: [provideIcons({ lucideArrowRight, lucidePencil, lucideTrash2, lucideX })],
 })
 export class PicksCard {
   readonly view = inject(RoundViewService);
@@ -77,7 +85,7 @@ export class PicksCard {
   private readonly injector = inject(Injector);
   private readonly destroyRef = inject(DestroyRef);
   /** The current rows' side and missed listeners, dropped whenever the grid is rebuilt. */
-  private rowListeners = new Subscription();
+  private readonly rebuildRows = new Subject<void>();
   /** The desk's confirmation dialog. */
   readonly dialog = input.required<ReasonDialog>();
   /** The desk's duty form, for proposing a spoon duty. */
@@ -208,7 +216,7 @@ export class PicksCard {
   );
 
   constructor() {
-    this.destroyRef.onDestroy(() => this.rowListeners.unsubscribe());
+    this.destroyRef.onDestroy(() => this.rebuildRows.complete());
     effect(() => {
       const baseline = this.baseline();
       untracked(() => this.build(baseline));
@@ -386,8 +394,7 @@ export class PicksCard {
 
   /** Rebuilds the grid from the saved picks of the chosen fixture. */
   private build(baseline: Baseline): void {
-    this.rowListeners.unsubscribe();
-    this.rowListeners = new Subscription();
+    this.rebuildRows.next();
     this.form.clear({ emitEvent: false });
     this.invalidRows.set(new Set());
     if (baseline.fixtureId !== this.builtFixtureId) this.alerts.dismissKey(ALERT_KEYS.grid);
@@ -412,18 +419,19 @@ export class PicksCard {
   /** A draw clears and locks the margin; missed clears the side and margin; a side clears missed. */
   private wire(group: PickRow): void {
     const c = group.controls;
-    this.rowListeners.add(
-      c.side.valueChanges.subscribe({
+    c.side.valueChanges
+      .pipe(takeUntil(this.rebuildRows), takeUntilDestroyed(this.destroyRef))
+      .subscribe({
         next: (side) => {
           if (side) c.missed.setValue(false, { emitEvent: false });
           if (side === 'draw') c.margin.setValue('', { emitEvent: false });
           if (side === 'draw') c.isDefault.setValue(false, { emitEvent: false });
           settle(group);
         },
-      }),
-    );
-    this.rowListeners.add(
-      c.missed.valueChanges.subscribe({
+      });
+    c.missed.valueChanges
+      .pipe(takeUntil(this.rebuildRows), takeUntilDestroyed(this.destroyRef))
+      .subscribe({
         next: (missed) => {
           if (missed) {
             c.side.setValue('', { emitEvent: false });
@@ -432,8 +440,7 @@ export class PicksCard {
           }
           settle(group);
         },
-      }),
-    );
+      });
   }
 
   private focus(selector: string): void {

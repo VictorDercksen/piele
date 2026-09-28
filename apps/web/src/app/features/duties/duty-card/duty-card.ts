@@ -9,7 +9,7 @@ import { DutyEvidence } from '../../../core/league/league.models';
 import { RoundDutyView } from '../../../core/league/round-view.service';
 import { Icon } from '../../../shared/icon/icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideArrowRight, lucidePlay } from '@ng-icons/lucide';
+import { lucideArrowRight, lucidePlay, lucideRotateCcw, lucideX } from '@ng-icons/lucide';
 
 /** One register entry: status, deadline, marks, evidence trail and the actions the viewer may take. */
 @Component({
@@ -17,14 +17,20 @@ import { lucideArrowRight, lucidePlay } from '@ng-icons/lucide';
   templateUrl: './duty-card.html',
   styleUrl: './duty-card.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Icon, LeaguePathPipe, NgIcon, RouterLink],
-  viewProviders: [provideIcons({ lucideArrowRight, lucidePlay })],
   host: {
     class: 'register-card',
     '[class.personal-duty]': 'duty().mine',
     '[class.spoon-duty]': 'duty().spoon',
     '[class.closed-duty]': 'duty().status === "voided" || duty().status === "completed"',
   },
+  // prettier-ignore
+  imports: [
+    Icon,
+    LeaguePathPipe,
+    NgIcon,
+    RouterLink,
+  ],
+  viewProviders: [provideIcons({ lucideArrowRight, lucidePlay, lucideRotateCcw, lucideX })],
 })
 export class DutyCard {
   private readonly alerts = inject(AlertService);
@@ -93,12 +99,14 @@ export class DutyCard {
   }
 
   decisionLabel(evidence: DutyEvidence): string {
-    return {
-      pending: 'Pending',
-      accepted: 'Accepted',
-      rejected: 'Rejected',
-      superseded: 'Superseded',
-    }[evidence.decision];
+    return (
+      {
+        pending: 'Pending',
+        accepted: 'Accepted',
+        rejected: 'Rejected',
+        superseded: 'Superseded',
+      }[evidence.decision] ?? evidence.decision
+    );
   }
 
   async watch(evidence: DutyEvidence): Promise<void> {

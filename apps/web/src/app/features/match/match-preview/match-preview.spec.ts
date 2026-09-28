@@ -82,9 +82,9 @@ describe('MatchPreview', () => {
     const { fixture, http } = setup();
     http.expectOne(URL).flush({ fixtureId: '292605', preview: PREVIEW });
     await settle(fixture);
-    const drawer: HTMLDetailsElement = fixture.nativeElement.querySelector('.sources-drawer');
-    expect(drawer.open).toBe(false);
-    expect(drawer.querySelector('summary')?.textContent).toContain('Sources');
+    const drawer: HTMLElement = fixture.nativeElement.querySelector('.sources-drawer');
+    expect(drawer.querySelector('button')?.getAttribute('aria-expanded')).toBe('false');
+    expect(drawer.querySelector('h2')?.textContent).toContain('Sources');
     expect(drawer.querySelector('.count')?.textContent).toBe('2');
   });
 

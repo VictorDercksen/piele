@@ -1,3 +1,4 @@
+import type { components } from '../api/generated';
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
@@ -30,7 +31,9 @@ import { withDefaultRules } from './superbru';
 @Injectable({
   providedIn: 'root',
   useFactory: () =>
-    inject(LeagueData) instanceof SampleLeagueData ? new SampleAdminService() : new HttpAdminService(),
+    inject(LeagueData) instanceof SampleLeagueData
+      ? new SampleAdminService()
+      : new HttpAdminService(),
 })
 export abstract class AdminService {
   private readonly context = inject(LeagueContext);
@@ -114,9 +117,7 @@ export abstract class AdminService {
 
   /** Shows a changed or new league in the list and has the account read again. */
   private async adopt(league: AdminLeague): Promise<AdminLeague> {
-    this.state.update((leagues) =>
-      ordered([...leagues.filter((l) => l.id !== league.id), league]),
-    );
+    this.state.update((leagues) => ordered([...leagues.filter((l) => l.id !== league.id), league]));
     await this.context.refreshAccount();
     return league;
   }
@@ -140,13 +141,7 @@ function ordered(leagues: readonly AdminLeague[]): readonly AdminLeague[] {
   );
 }
 
-interface ApiMember {
-  readonly id: string;
-  readonly displayName: string;
-  readonly status?: string;
-  readonly claimed: boolean;
-  readonly leftAt?: string | null;
-}
+type ApiMember = components['schemas']['Member'];
 
 /** The management centre against the Python API. */
 export class HttpAdminService extends AdminService {
@@ -221,7 +216,8 @@ export class SampleAdminService extends AdminService {
     if (!competition)
       return refuse(422, 'unknown_competition', `Unknown competition ${body.competitionId}.`);
     const timezone = body.timezone ?? DEFAULT_ZONE;
-    if (!knownZone(timezone)) return refuse(422, 'invalid_timezone', `Unknown time zone ${timezone}.`);
+    if (!knownZone(timezone))
+      return refuse(422, 'invalid_timezone', `Unknown time zone ${timezone}.`);
     const accent = body.accentColour?.toLowerCase() ?? null;
     if (accent !== null && !isAccentColour(accent))
       return refuse(422, 'invalid_accent_colour', 'Use a colour like #1a2b3c.');
@@ -246,8 +242,18 @@ export class SampleAdminService extends AdminService {
     const members: LeagueMember[] = body.members.map((member, index) => {
       const mine = captainIsMe && member.displayName === body.captainDisplayName;
       return {
-        ...memberRecord(mine ? SAMPLE_ME : `member-${body.slug}-${index + 1}`, member.displayName, member.fullName, '', mine),
-        email: mine ? null : member.displayName === body.captainDisplayName ? body.captainEmail : null,
+        ...memberRecord(
+          mine ? SAMPLE_ME : `member-${body.slug}-${index + 1}`,
+          member.displayName,
+          member.fullName,
+          '',
+          mine,
+        ),
+        email: mine
+          ? null
+          : member.displayName === body.captainDisplayName
+            ? body.captainEmail
+            : null,
       };
     });
     const captainId = members.find((m) => m.name === body.captainDisplayName)!.id;
@@ -260,7 +266,11 @@ export class SampleAdminService extends AdminService {
         emblemPreset: preset,
         emblemUrl: null,
         accentColour: accent,
-        competition: { id: competition.id, name: competition.name, shortName: competition.shortName },
+        competition: {
+          id: competition.id,
+          name: competition.name,
+          shortName: competition.shortName,
+        },
         seasonName: body.seasonName,
         inSeason: true,
         memberId: captainIsMe ? SAMPLE_ME : null,

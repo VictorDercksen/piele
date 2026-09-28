@@ -100,6 +100,7 @@
             (click)="addMe()"
           >
             Add me
+            <ng-icon class="link-icon" name="lucideUserPlus" />
           </button>
         }
       }
@@ -113,6 +114,7 @@
         (click)="startRename()"
       >
         Rename
+        <ng-icon class="link-icon" name="lucidePencil" />
       </button>
       @if (active()) {
         <button
@@ -123,6 +125,7 @@
           (click)="archive()"
         >
           Archive
+          <ng-icon class="link-icon" name="lucideArchive" />
         </button>
       } @else {
         <button
@@ -133,6 +136,7 @@
           (click)="restore()"
         >
           Restore
+          <ng-icon class="link-icon" name="lucideArchiveRestore" />
         </button>
       }
       @if (busy()) {
@@ -155,18 +159,12 @@
         <div class="field">
           <label [for]="id() + '-rename-zone'">Time zone</label>
           <select
+            appTimeZoneSelect
+            [currentZone]="league().timezone"
             [id]="id() + '-rename-zone'"
             formControlName="timezone"
             [attr.aria-invalid]="renameSubmitted() && renameForm.controls.timezone.invalid"
-          >
-            @for (group of zoneGroups(); track group.region) {
-              <optgroup [label]="group.region">
-                @for (zone of group.zones; track zone.id) {
-                  <option [value]="zone.id">{{ zone.label }}</option>
-                }
-              </optgroup>
-            }
-          </select>
+          ></select>
         </div>
         <details
           class="rules-group"
@@ -193,6 +191,7 @@
           </button>
           <button type="button" class="text-button" [disabled]="busy()" (click)="cancelRename()">
             Cancel
+            <ng-icon class="link-icon" name="lucideX" />
           </button>
         </div>
       </form>
@@ -209,6 +208,7 @@
             <p class="error-message" role="alert">{{ candidatesError() }}</p>
             <button type="button" class="text-button" (click)="reloadCandidates()">
               Try again
+              <ng-icon class="link-icon" name="lucideRotateCcw" />
             </button>
           } @else if (candidates() === null) {
             <p class="hint">

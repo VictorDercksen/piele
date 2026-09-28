@@ -88,10 +88,14 @@
       </button>
     }
     @if (canReset()) {
-      <button type="button" class="text-button" (click)="resetClock.emit()">Reset clock</button>
+      <button type="button" class="text-button" (click)="resetClock.emit()">
+        Reset clock<ng-icon class="link-icon" name="lucideRotateCcw" />
+      </button>
     }
     @if (captain() && live()) {
-      <button type="button" class="text-button" (click)="voided.emit()">Void duty</button>
+      <button type="button" class="text-button" (click)="voided.emit()">
+        Void duty<ng-icon class="link-icon" name="lucideX" />
+      </button>
     }
   </div>
 </div>

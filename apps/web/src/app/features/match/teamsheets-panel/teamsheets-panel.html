@@ -1,0 +1,54 @@
+<app-dropdown
+  class="teamsheets"
+  appearance="panel"
+  heading="Teamsheets."
+  headingId="teamsheets-title"
+  [resetKey]="fixture().id"
+>
+  <span class="tag" dropdownSide>{{ section().status.replace('_', ' ') }}</span>
+  @if (sheets(); as sheets) {
+    <div class="sheets">
+      @for (side of sheets; track side.label) {
+        <div class="sheet" [class.has-banner]="side.banner" [style.--club-accent]="side.accent">
+          @if (side.banner; as banner) {
+            <img class="sheet-pattern" [src]="banner.pattern" alt="" />
+            <img class="sheet-watermark" [src]="banner.crest" alt="" />
+          }
+          <div class="sheet-head">
+            @if (side.banner; as banner) {
+              <img class="sheet-crest" [src]="banner.crest" alt="" />
+            }
+            <h3>{{ side.label }}</h3>
+            @if (side.startersAverageAge !== null) {
+              <span class="average-age"
+                >XV avg age<strong>{{ side.startersAverageAge | number: '1.1-1' }}</strong></span
+              >
+            }
+          </div>
+          <app-player-list [players]="side.starters" [clubArtwork]="!!side.banner" />
+          @if (side.replacements.length) {
+            <span class="bench-label"
+              >REPLACEMENTS
+              @if (side.replacementsAverageAge !== null) {
+                <span>AVG AGE {{ side.replacementsAverageAge | number: '1.1-1' }}</span>
+              }
+            </span>
+            <app-player-list
+              [players]="side.replacements"
+              [bench]="true"
+              [clubArtwork]="!!side.banner"
+            />
+          }
+        </div>
+      }
+    </div>
+  } @else {
+    <p class="panel-empty">{{ message() }}</p>
+  }
+  <p class="panel-source">
+    {{ section().source }}
+    @if (section().fetchedAt; as at) {
+      · checked {{ at | leagueTime: 'd MMM HH:mm z' : zone() }}
+    }
+  </p>
+</app-dropdown>

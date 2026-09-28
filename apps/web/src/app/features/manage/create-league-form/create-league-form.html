@@ -50,7 +50,9 @@
           </select>
         } @else if (competitionsError()) {
           <p class="field-error" role="alert">{{ competitionsError() }}</p>
-          <button type="button" class="text-button" (click)="loadCompetitions()">Try again</button>
+          <button type="button" class="text-button" (click)="loadCompetitions()">
+            Try again<ng-icon class="link-icon" name="lucideRotateCcw" />
+          </button>
         } @else {
           <p class="hint"><app-loader [size]="16" aria-hidden="true" /> Loading competitions…</p>
         }
@@ -58,23 +60,14 @@
       <div class="field">
         <label for="new-league-timezone">Time zone</label>
         <select
+          appTimeZoneSelect
+          [currentZone]="value().timezone"
           id="new-league-timezone"
           formControlName="timezone"
           [attr.aria-invalid]="invalid('timezone')"
           aria-describedby="new-league-timezone-hint"
           (change)="zoneChosen()"
-        >
-          @if (!value().timezone) {
-            <option value="">Choose a time zone</option>
-          }
-          @for (group of zoneGroups(); track group.region) {
-            <optgroup [label]="group.region">
-              @for (zone of group.zones; track zone.id) {
-                <option [value]="zone.id">{{ zone.label }}</option>
-              }
-            </optgroup>
-          }
-        </select>
+        ></select>
         <p id="new-league-timezone-hint" class="hint">Kick-offs show in this zone.</p>
       </div>
       <div class="field">
@@ -237,6 +230,7 @@
         @if (value().emblemPreset) {
           <button type="button" class="text-button" (click)="clearPreset()">
             Use the monogram
+            <ng-icon class="link-icon" name="lucideUserRound" />
           </button>
         }
         <div class="accent-row">
@@ -251,6 +245,7 @@
           @if (value().accentColour) {
             <button type="button" class="text-button" (click)="defaultAccent()">
               Use the default
+              <ng-icon class="link-icon" name="lucideRotateCcw" />
             </button>
           }
         </div>

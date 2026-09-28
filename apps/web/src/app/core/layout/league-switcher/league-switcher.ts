@@ -39,14 +39,20 @@ let nextId = 0;
   templateUrl: './league-switcher.html',
   styleUrl: './league-switcher.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, LeagueCrest, Icon, NgIcon],
-  viewProviders: [provideIcons({ lucideArrowRight, lucideChevronsUpDown })],
   host: {
     '[class.open]': 'open()',
     '[class.rail]': "variant() === 'rail'",
     '(document:keydown.escape)': 'onEscape()',
     '(document:pointerdown)': 'onPointerDown($event)',
   },
+  // prettier-ignore
+  imports: [
+    RouterLink,
+    LeagueCrest,
+    Icon,
+    NgIcon,
+  ],
+  viewProviders: [provideIcons({ lucideArrowRight, lucideChevronsUpDown })],
 })
 export class LeagueSwitcher {
   private readonly router = inject(Router);

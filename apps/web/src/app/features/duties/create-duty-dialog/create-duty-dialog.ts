@@ -34,7 +34,12 @@ export const CREATE_DUTY_FAILURE = 'create-duty-failed';
   templateUrl: './create-duty-dialog.html',
   styleUrl: './create-duty-dialog.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, Icon, Loader],
+  // prettier-ignore
+  imports: [
+    ReactiveFormsModule,
+    Icon,
+    Loader,
+  ],
 })
 export class CreateDutyDialog {
   private readonly alerts = inject(AlertService);

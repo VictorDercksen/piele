@@ -1,6 +1,7 @@
+import type { components } from './generated';
 /** Contracts of `GET /v1/competitions/{competitionId}/matches/{fixtureId}` and `GET /v1/competitions/{competitionId}/rounds/{round}/scores` in the Python API. */
 
-export type SectionStatus = 'ok' | 'not_published' | 'too_early' | 'past' | 'unavailable';
+export type SectionStatus = components['schemas']['Section']['status'];
 
 export interface Section {
   readonly status: SectionStatus;
@@ -47,21 +48,9 @@ export interface WeatherSection extends Section {
 export type MatchState =
   'scheduled' | 'live' | 'half_time' | 'full_time' | 'postponed' | 'cancelled';
 
-export interface SideScore {
-  readonly score: number | null;
-  readonly halfTime: number | null;
-}
+export type SideScore = components['schemas']['SideScore'];
 
-export interface MatchScore {
-  readonly state: MatchState;
-  /** The feed's period name, for example `first half`. */
-  readonly period: string | null;
-  /** Match minute while live or at half time. */
-  readonly minute: number | null;
-  readonly clockRunning: boolean;
-  readonly home: SideScore;
-  readonly away: SideScore;
-}
+export type MatchScore = Omit<components['schemas']['MatchScore'], 'fixtureId'>;
 
 export type ScoreEventKind =
   'try' | 'penalty_try' | 'conversion' | 'penalty_goal' | 'drop_goal' | 'yellow_card' | 'red_card';
@@ -86,97 +75,40 @@ export interface ScoreSection extends Section, Partial<MatchScore> {
   readonly timeline?: boolean;
 }
 
-export interface RoundMatchScore extends MatchScore {
-  readonly fixtureId: string;
-}
+export type RoundMatchScore = components['schemas']['MatchScore'];
 
-export interface RoundScores {
-  readonly round: number;
-  readonly generatedAt: string;
-  /** Feed status: `too_early` before the round's first kickoff window, `unavailable` on failure. */
-  readonly status: SectionStatus;
-  readonly source: string;
-  readonly fetchedAt: string | null;
-  readonly matches: readonly RoundMatchScore[];
-}
+export type RoundScores = components['schemas']['RoundScores'];
 
-export interface MatchCentreClub {
-  readonly id: string;
-  readonly name: string;
-  readonly shortName: string;
-}
+export type MatchCentreClub = components['schemas']['ClubView'];
 
-export interface MatchCentre {
-  readonly fixtureId: string;
-  readonly round: number;
-  readonly kickoffUtc: string | null;
-  readonly venue: string | null;
-  readonly home: MatchCentreClub | null;
-  readonly away: MatchCentreClub | null;
-  readonly generatedAt: string;
+/** Provider section extras are not described by OpenAPI and remain explicit view contracts. */
+export type MatchCentre = Omit<
+  components['schemas']['MatchCentre'],
+  'teamsheets' | 'weather' | 'score'
+> & {
   readonly teamsheets: TeamsheetsSection;
   readonly weather: WeatherSection;
-  /** Absent from API builds before live scoring. */
   readonly score?: ScoreSection;
-}
+};
 
 /**
  * Contract of `GET /v1/competitions/{competitionId}/matches/{fixtureId}/preview`. Written by the preview agent from
  * public sources; render every field as plain text.
  */
-export interface PreviewSource {
-  readonly url: string;
-  readonly title: string;
-  readonly publisher: string | null;
-  readonly publishedAt: string | null;
-}
+export type PreviewSource = components['schemas']['Source'];
 
-export interface PreviewFactor {
-  readonly text: string;
-  /** Indexes into `MatchPreview.sources`. */
-  readonly sources: readonly number[];
-}
+export type PreviewFactor = components['schemas']['Factor'];
 
-export interface PreviewMood {
-  /** -2 (troubled) to +2 (buoyant). */
-  readonly score: number;
-  readonly note: string;
-  readonly sources: readonly number[];
-}
+export type PreviewMood = components['schemas']['Mood'];
 
-export interface MatchPreview {
-  readonly revision: number;
-  readonly generatedAt: string;
-  readonly summary: string;
-  readonly keyFactors: {
-    readonly home: readonly PreviewFactor[];
-    readonly away: readonly PreviewFactor[];
-  };
-  readonly sentiment: { readonly home: PreviewMood; readonly away: PreviewMood };
-  readonly sources: readonly PreviewSource[];
-}
+export type MatchPreview = components['schemas']['PreviewView'];
 
-export interface MatchPreviewResponse {
-  readonly fixtureId: string;
-  readonly preview: MatchPreview | null;
-}
+export type MatchPreviewResponse = components['schemas']['MatchPreview'];
 
 /** Contract of `GET /v1/competitions/{competitionId}/rounds/{round}/updates`: the round's competition milestones. */
 export type RoundEventKind =
   'teamsheets_published' | 'preview_published' | 'kicked_off' | 'full_time';
 
-export interface RoundEvent {
-  readonly kind: RoundEventKind;
-  readonly fixtureId: string;
-  /** Stays put once reported, so read state can compare against it. */
-  readonly occurredAt: string;
-  readonly revision?: number | null;
-  readonly homeScore?: number | null;
-  readonly awayScore?: number | null;
-}
+export type RoundEvent = components['schemas']['RoundEvent'];
 
-export interface RoundUpdates {
-  readonly round: number;
-  readonly generatedAt: string;
-  readonly events: readonly RoundEvent[];
-}
+export type RoundUpdates = components['schemas']['RoundUpdates'];

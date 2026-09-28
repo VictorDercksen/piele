@@ -63,6 +63,7 @@
     </button>
     <button type="button" class="text-button switch" (click)="toggleMode()">
       {{ mode() === 'sign-in' ? 'No account yet? Create one' : 'Have an account? Sign in' }}
+      <ng-icon class="link-icon" name="lucideArrowRight" />
     </button>
     <p class="fine-print">
       After signing in you pick your own Superbru name. It stays tied to this account.

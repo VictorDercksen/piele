@@ -9,7 +9,11 @@ import { VoteDialog } from './vote-dialog/vote-dialog';
   templateUrl: './decisions.page.html',
   styleUrl: './decisions.page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Icon, VoteDialog],
+  // prettier-ignore
+  imports: [
+    Icon,
+    VoteDialog,
+  ],
 })
 export class DecisionsPage {
   readonly view = inject(RoundViewService);

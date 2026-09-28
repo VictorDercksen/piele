@@ -10,15 +10,16 @@
 <div class="more-links">
   <a [routerLink]="'/standings' | leaguePath" queryParamsHandling="preserve">
     <app-icon name="standings" /><span>{{ view.round().title }} standings</span
-    ><app-icon name="arrow" />
+    ><ng-icon class="link-icon" name="lucideArrowRight" />
   </a>
   <a [routerLink]="'/constitution' | leaguePath" queryParamsHandling="preserve">
-    <app-icon name="book" /><span>Season constitution</span><app-icon name="arrow" />
+    <app-icon name="book" /><span>Season constitution</span
+    ><ng-icon class="link-icon" name="lucideArrowRight" />
   </a>
   @if (view.administers()) {
     <a [routerLink]="'/captain' | leaguePath" queryParamsHandling="preserve">
       <app-icon name="shield" /><span>{{ view.round().title }} captain's desk</span
-      ><app-icon name="arrow" />
+      ><ng-icon class="link-icon" name="lucideArrowRight" />
     </a>
   }
 </div>
