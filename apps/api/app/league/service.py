@@ -18,6 +18,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app import competitions
 from app.competitions import Competition
+from app.league import cases
 from app.league import tables as t
 from app.league.context import (
     ADMIN_LABEL,
@@ -54,6 +55,21 @@ class FeedEntry:
     subject_membership_id: UUID | None = None
     duty_id: UUID | None = None
     submission_id: UUID | None = None
+    # When the entry happened, on the service clock (now_utc), if not the database's now().
+    occurred_at: datetime | None = None
+    # Leaves the actor off the entry (the audit event keeps them), where naming them would
+    # tell members who voted or who reviewed a veto.
+    hide_actor: bool = False
+
+
+def audit_label(actor: Actor) -> str:
+    """How the actor is named in the audit trail: the admin acting without a membership is
+    `admin`, the admin holding a membership `<name> (admin)`."""
+    if actor.membership_id is None:
+        return ADMIN_LABEL
+    if actor.is_admin:
+        return f"{actor.display_name} ({ADMIN_LABEL})"
+    return actor.display_name
 
 
 def record(
@@ -71,18 +87,12 @@ def record(
     admin acting without a membership is recorded with no actor membership and the label
     `admin`; the admin holding a membership is labelled `<name> (admin)`, so the audit trail
     shows the admin's powers were in play."""
-    if actor.membership_id is None:
-        actor_label = ADMIN_LABEL
-    elif actor.is_admin:
-        actor_label = f"{actor.display_name} ({ADMIN_LABEL})"
-    else:
-        actor_label = actor.display_name
     write_record(
         actor.connection,
         league_id=actor.league_id,
         season_id=actor.season_id,
         actor_membership_id=actor.membership_id,
-        actor_label=actor_label,
+        actor_label=audit_label(actor),
         request_id=actor.request_id,
         action=action,
         entity_type=entity_type,
@@ -133,12 +143,13 @@ def write_record(
                 season_id=season_id,
                 round_number=feed.round_number,
                 kind=feed.kind,
-                actor_membership_id=actor_membership_id,
+                actor_membership_id=None if feed.hide_actor else actor_membership_id,
                 subject_membership_id=feed.subject_membership_id,
                 duty_id=feed.duty_id,
                 submission_id=feed.submission_id,
                 title=feed.title,
                 detail=feed.detail,
+                **({"occurred_at": feed.occurred_at} if feed.occurred_at is not None else {}),
             )
         )
 
@@ -203,6 +214,7 @@ def withdraw_member(actor: Actor, membership_id: UUID, *, reason: str) -> bool:
     if actor.membership_id is not None and membership_id == actor.membership_id:
         raise problem(409, "own_membership", "You cannot remove yourself.")
     m, sm = t.league_memberships, t.season_memberships
+    cases.settle_due(actor)
     row = _league_membership(actor, membership_id)
     if row.status != "active":
         raise problem(409, "already_withdrawn", "That member has already been removed.")
@@ -221,6 +233,7 @@ def withdraw_member(actor: Actor, membership_id: UUID, *, reason: str) -> bool:
         .values(status="withdrawn", effective_to=now, updated_at=func.now())
     )
     voided = _void_member_duties(actor, membership_id)
+    cases.clear_stand_in(actor, membership_id)
     record(
         actor,
         action="membership.withdrawn",
@@ -249,9 +262,9 @@ def _league_membership(actor: Actor, membership_id: UUID) -> Any:
 
 def _void_member_duties(actor: Actor, membership_id: UUID) -> list[UUID]:
     """Voids the member's live duties in every season (open or waiting for a deadline) and
-    supersedes their pending evidence, with one audit event per duty and no feed entry: the
-    member_left entry says it once."""
-    d, sm, links = t.duties, t.season_memberships, t.duty_evidence_links
+    supersedes their pending evidence and its cases, with one audit event per duty and no
+    feed entry: the member_left entry says it once."""
+    d, sm = t.duties, t.season_memberships
     rows = actor.connection.execute(
         select(d.c.id, d.c.status)
         .select_from(d.join(sm, sm.c.id == d.c.season_membership_id))
@@ -274,11 +287,7 @@ def _void_member_duties(actor: Actor, membership_id: UUID) -> list[UUID]:
                 version=d.c.version + 1,
             )
         )
-        actor.connection.execute(
-            update(links)
-            .where(links.c.duty_id == duty.id, links.c.decision == "pending")
-            .values(decision="superseded", updated_at=func.now(), version=links.c.version + 1)
-        )
+        supersede_pending(actor.connection, duty.id)
         record(
             actor,
             action="duty.voided",
@@ -765,6 +774,7 @@ def release_membership(actor: Actor, membership_id: UUID) -> None:
     if membership_id == actor.captain_membership_id:
         raise problem(409, "captain_membership", "The captain's own membership cannot be released.")
     m = t.league_memberships
+    cases.settle_due(actor)
     row = _league_membership(actor, membership_id)
     if row.user_id is None:
         raise problem(409, "not_claimed", "That name has not been claimed.")
@@ -780,6 +790,8 @@ def release_membership(actor: Actor, membership_id: UUID) -> None:
             version=m.c.version + 1,
         )
     )
+    cases.clear_stand_in(actor, membership_id)
+    cases.release_ballots(actor, membership_id)
     record(
         actor,
         action="membership.released",
@@ -1352,7 +1364,16 @@ def appoint_captain(account: Account, league_id: UUID, membership_id: UUID) -> N
     connection.execute(
         update(lg)
         .where(lg.c.id == league_id, lg.c.version == league.version)
-        .values(captain_membership_id=membership_id, updated_at=func.now(), version=lg.c.version + 1)
+        .values(
+            captain_membership_id=membership_id,
+            # The captain cannot also be the stand-in reviewer.
+            stand_in_reviewer_membership_id=case(
+                (lg.c.stand_in_reviewer_membership_id == membership_id, None),
+                else_=lg.c.stand_in_reviewer_membership_id,
+            ),
+            updated_at=func.now(),
+            version=lg.c.version + 1,
+        )
     )
     _admin_record(
         account,
@@ -1640,7 +1661,8 @@ def _duty_query(actor: Actor):
 def duties(actor: Actor, round_number: int | None = None, duty_id: UUID | None = None) -> list[DutyView]:
     """The duty register (and so the marks table) lists active members only; a withdrawn
     member's duties and marks stay in the database and come back on reinstatement. One duty
-    asked for by id is returned whoever it belongs to."""
+    asked for by id is returned whoever it belongs to. Settles due evidence cases first."""
+    cases.settle_due(actor)
     query = _duty_query(actor)
     if duty_id is None:
         query = query.where(t.league_memberships.c.status == "active")
@@ -1651,7 +1673,7 @@ def duties(actor: Actor, round_number: int | None = None, duty_id: UUID | None =
     rows = actor.connection.execute(query.order_by(t.duties.c.deadline_at.nulls_last(), t.duties.c.created_at)).all()
     if not rows:
         return []
-    l, s, m = t.duty_evidence_links, t.evidence_submissions, t.league_memberships
+    l, s, m, c = t.duty_evidence_links, t.evidence_submissions, t.league_memberships, t.evidence_cases
     links = actor.connection.execute(
         select(
             l.c.id,
@@ -1667,8 +1689,17 @@ def duties(actor: Actor, round_number: int | None = None, duty_id: UUID | None =
             s.c.asset_id,
             s.c.submitter_membership_id,
             m.c.display_name.label("submitter_name"),
+            c.c.id.label("case_id"),
+            c.c.status.label("case_status"),
+            c.c.resolution.label("case_resolution"),
+            c.c.closes_at.label("case_closes_at"),
+            c.c.resolved_at.label("case_resolved_at"),
         )
-        .select_from(l.join(s, s.c.id == l.c.submission_id).join(m, m.c.id == s.c.submitter_membership_id))
+        .select_from(
+            l.join(s, s.c.id == l.c.submission_id)
+            .join(m, m.c.id == s.c.submitter_membership_id)
+            .outerjoin(c, c.c.link_id == l.c.id)
+        )
         .where(l.c.duty_id.in_([r.id for r in rows]))
         .order_by(s.c.submitted_at.desc())
     ).all()
@@ -1718,10 +1749,12 @@ def duty_marks(actor: Actor, row: Any, now: datetime) -> MarkCalculation:
 
 
 def _display(row: Any, links: list[Any], now: datetime) -> str:
+    """A live duty (open, or waiting for its deadline) with pending evidence is under review
+    while that evidence's case runs."""
+    if row.status in ("open", "pending_deadline") and any(link.decision == "pending" for link in links):
+        return "under_review"
     if row.status != "open":
         return row.status
-    if any(link.decision == "pending" for link in links):
-        return "under_review"
     return "overdue" if row.deadline_at is not None and now > row.deadline_at else "open"
 
 
@@ -1753,6 +1786,8 @@ def create_duty(
         raise problem(422, "invalid_pick_links", "Only a pick confirmation duty covers picks.")
     for fixture_id in fixture_ids:
         _fixture(actor, fixture_id)
+    # A case closing now may complete a live duty of this type, which frees the round.
+    cases.settle_due(actor)
     sm = t.season_memberships
     # A shared lock, so a concurrent withdrawal (which updates this row) waits for the duty
     # and then voids it, or this waits for the withdrawal and finds no active enrolment.
@@ -1825,6 +1860,7 @@ def create_duty(
 
 def void_duty(actor: Actor, duty_id: UUID, *, reason: str) -> None:
     d = t.duties
+    cases.settle_due(actor)
     row = actor.connection.execute(select(d).where(d.c.id == duty_id).with_for_update()).first()
     if row is None:
         raise problem(404, "unknown_duty", "Unknown duty.")
@@ -1838,11 +1874,7 @@ def void_duty(actor: Actor, duty_id: UUID, *, reason: str) -> None:
         .where(d.c.id == duty_id, d.c.version == row.version)
         .values(status="voided", voided_at=func.now(), void_reason=reason, updated_at=func.now(), version=d.c.version + 1)
     )
-    actor.connection.execute(
-        update(t.duty_evidence_links)
-        .where(t.duty_evidence_links.c.duty_id == duty_id, t.duty_evidence_links.c.decision == "pending")
-        .values(decision="superseded", updated_at=func.now(), version=t.duty_evidence_links.c.version + 1)
-    )
+    supersede_pending(actor.connection, duty_id)
     view = duties(actor, duty_id=duty_id)[0]
     record(
         actor,
@@ -1870,6 +1902,7 @@ def reset_clock(actor: Actor, duty_id: UUID, *, reason: str) -> None:
     stand and nothing is recorded here; resolved in their favour, elapsed time resets.
     """
     d = t.duties
+    cases.settle_due(actor)
     row = actor.connection.execute(select(d).where(d.c.id == duty_id).with_for_update()).first()
     if row is None:
         raise problem(404, "unknown_duty", "Unknown duty.")
@@ -2777,11 +2810,14 @@ def submit_evidence(
     if stored.size_bytes is not None and stored.size_bytes > max_bytes:
         raise problem(422, "too_large", "The uploaded video is too large.")
 
+    # Due cases settle before the duties are checked: one may have just completed a duty.
+    cases.settle_due(actor)
     d, sm = t.duties, t.season_memberships
     rows = actor.connection.execute(
         select(d.c.id, d.c.status, d.c.type, d.c.round_number, sm.c.membership_id)
         .select_from(d.join(sm, sm.c.id == d.c.season_membership_id))
         .where(d.c.id.in_(duty_ids), d.c.season_id == actor.season_id)
+        .order_by(d.c.id)
         .with_for_update(of=d)
     ).all()
     if len(rows) != len(set(duty_ids)):
@@ -2815,26 +2851,56 @@ def submit_evidence(
         )
         .returning(t.evidence_submissions.c.id)
     ).scalar_one()
-    for row in rows:
-        actor.connection.execute(
-            insert(t.duty_evidence_links).values(league_id=actor.league_id, duty_id=row.id, submission_id=submission_id)
-        )
     subject_name = actor.connection.execute(
         select(t.league_memberships.c.display_name).where(
             t.league_memberships.c.id == subject_id, t.league_memberships.c.league_id == actor.league_id
         )
     ).scalar_one()
     titles = ", ".join(duty_title(actor.competition, r.type, r.round_number) for r in rows)
+    # Every link opens its own case; newer evidence supersedes the duty's pending evidence
+    # and its live case. The electorate is the same for each (the subject and submitter
+    # are), so they all open for voting or are all accepted for want of voters.
+    opened = []
+    for row in rows:
+        supersede_pending(actor.connection, row.id)
+        link_id = actor.connection.execute(
+            insert(t.duty_evidence_links)
+            .values(league_id=actor.league_id, duty_id=row.id, submission_id=submission_id)
+            .returning(t.duty_evidence_links.c.id)
+        ).scalar_one()
+        opened.append(
+            cases.open_case(
+                actor,
+                link_id=link_id,
+                duty_id=row.id,
+                subject_id=subject_id,
+                submitter_id=submitter_id,
+                subject_name=subject_name,
+                title=duty_title(actor.competition, row.type, row.round_number),
+                round_number=row.round_number,
+            )
+        )
+    voting = any(case_row.eligible_count > 0 for case_row in opened)
+    if voting:
+        detail = f"Members have {cases.VOTING_HOURS} hours to accept or veto it."
+    else:
+        detail = "Accepted: no other member could vote on it."
+    if on_behalf:
+        detail = f"Recorded by {actor.display_name}. {detail}"
     record(
         actor,
         action="evidence.submitted",
         entity_type="evidence_submission",
         entity_id=submission_id,
-        after={"dutyIds": [str(r.id) for r in rows], "onBehalf": on_behalf},
+        after={
+            "dutyIds": [str(r.id) for r in rows],
+            "onBehalf": on_behalf,
+            "caseIds": [str(case_row.id) for case_row in opened],
+        },
         feed=FeedEntry(
-            kind="evidence_submitted",
-            title=f"{subject_name} submitted evidence for {titles}.",
-            detail=f"Recorded by {actor.display_name}." if on_behalf else "Waiting for an uninvolved reviewer.",
+            kind="evidence_submitted" if voting else "evidence_accepted",
+            title=f"{subject_name} submitted evidence for {titles}." if voting else f"{subject_name}: {titles} completed.",
+            detail=detail,
             round_number=rows[0].round_number if len({r.round_number for r in rows}) == 1 else None,
             subject_membership_id=subject_id,
             duty_id=rows[0].id if len(rows) == 1 else None,
@@ -2844,14 +2910,31 @@ def submit_evidence(
     return submission_id
 
 
-def decide_link(actor: Actor, link_id: UUID, *, decision: str, reason: str) -> None:
-    if decision not in ("accepted", "rejected"):
-        raise problem(422, "unknown_decision", "Decision must be accepted or rejected.")
-    if not actor.administers:
-        raise problem(403, "captain_only", "Only an uninvolved captain can decide evidence.")
-    decided_by = require_membership(actor)
-    l, s, d, sm = t.duty_evidence_links, t.evidence_submissions, t.duties, t.season_memberships
-    row = actor.connection.execute(
+def supersede_pending(connection: Connection, duty_id: UUID, *, except_link_id: UUID | None = None) -> None:
+    """Marks the duty's pending evidence superseded and closes its live cases: newer evidence
+    arrived, the duty was voided, or other evidence completed it."""
+    l = t.duty_evidence_links
+    conditions = [l.c.duty_id == duty_id, l.c.decision == "pending"]
+    if except_link_id is not None:
+        conditions.append(l.c.id != except_link_id)
+    link_ids = connection.execute(
+        update(l)
+        .where(*conditions)
+        .values(decision="superseded", updated_at=func.now(), version=l.c.version + 1)
+        .returning(l.c.id)
+    ).scalars().all()
+    cases.supersede(connection, link_ids)
+
+
+def evidence_link_for_update(connection: Connection, link_id: UUID) -> Any:
+    """The link with its submission, duty and case, or None. Locks the duty first and then
+    the link: every evidence and case write takes the duty's lock first (cases.lock_duty)."""
+    l, s, d, c = t.duty_evidence_links, t.evidence_submissions, t.duties, t.evidence_cases
+    duty_id = connection.execute(select(l.c.duty_id).where(l.c.id == link_id)).scalar_one_or_none()
+    if duty_id is None:
+        return None
+    cases.lock_duty(connection, duty_id)
+    row = connection.execute(
         select(
             l.c.id,
             l.c.version,
@@ -2865,44 +2948,85 @@ def decide_link(actor: Actor, link_id: UUID, *, decision: str, reason: str) -> N
             d.c.type,
             d.c.round_number,
             d.c.version.label("duty_version"),
+            c.c.id.label("case_id"),
+            c.c.status.label("case_status"),
         )
-        .select_from(l.join(s, s.c.id == l.c.submission_id).join(d, d.c.id == l.c.duty_id))
+        .select_from(l.join(s, s.c.id == l.c.submission_id).join(d, d.c.id == l.c.duty_id).outerjoin(c, c.c.link_id == l.c.id))
         .where(l.c.id == link_id)
-        .with_for_update(of=[l, d])
+        .with_for_update(of=l)
     ).first()
-    if row is None:
-        raise problem(404, "unknown_link", "Unknown evidence.")
-    if row.subject_membership_id == actor.membership_id:
-        raise problem(403, "self_review", "Your own evidence needs an uninvolved reviewer.")
-    if row.decision != "pending":
-        raise problem(409, "already_decided", "This evidence was already decided.")
-    if row.duty_status not in ("open", "pending_deadline"):
-        raise problem(409, "duty_closed", "That duty is no longer open.")
-    # The member's own submission counts from when it was submitted; the captain's
-    # submission on the member's behalf counts from the recorded completion time.
-    effective = row.claimed_completed_at if row.submitter_membership_id != row.subject_membership_id else row.submitted_at
+    # A case is only written under its duty's lock, so the status read above holds.
+    return row
+
+
+def effective_completion(link: Any) -> datetime:
+    """When accepted evidence completes its duty: the member's own submission from when it
+    was submitted, the captain's submission on the member's behalf from the recorded
+    completion time."""
+    return link.claimed_completed_at if link.submitter_membership_id != link.subject_membership_id else link.submitted_at
+
+
+def apply_decision(
+    connection: Connection,
+    link: Any,
+    *,
+    decision: str,
+    reason: str,
+    decided_by: UUID | None,
+    decided_at: Any,
+) -> datetime:
+    """Accepts or rejects one piece of evidence (a row from `evidence_link_for_update`), for
+    the captain's decision and for a case's outcome alike. Accepted evidence completes the
+    duty from its effective time and supersedes the duty's other pending evidence; rejected
+    evidence leaves the duty open. Returns the effective completion time."""
+    l, d = t.duty_evidence_links, t.duties
+    effective = effective_completion(link)
     values: dict[str, Any] = {
         "decision": decision,
         "decided_by_membership_id": decided_by,
-        "decided_at": func.now(),
+        "decided_at": decided_at,
         "reason": reason,
         "updated_at": func.now(),
         "version": l.c.version + 1,
     }
     if decision == "accepted":
         values["effective_completed_at"] = effective
-    actor.connection.execute(update(l).where(l.c.id == link_id, l.c.version == row.version).values(**values))
+    connection.execute(update(l).where(l.c.id == link.id, l.c.version == link.version).values(**values))
     if decision == "accepted":
-        actor.connection.execute(
+        connection.execute(
             update(d)
-            .where(d.c.id == row.duty_id, d.c.version == row.duty_version)
+            .where(d.c.id == link.duty_id, d.c.version == link.duty_version)
             .values(status="completed", completed_at=effective, updated_at=func.now(), version=d.c.version + 1)
         )
-        actor.connection.execute(
-            update(l)
-            .where(l.c.duty_id == row.duty_id, l.c.decision == "pending", l.c.id != link_id)
-            .values(decision="superseded", updated_at=func.now(), version=l.c.version + 1)
-        )
+        supersede_pending(connection, link.duty_id, except_link_id=link.id)
+    return effective
+
+
+def decide_link(actor: Actor, link_id: UUID, *, decision: str, reason: str) -> None:
+    """The captain's (or admin's) override: accepts or rejects evidence at any time, closing
+    its case with resolution `captain`. Nobody decides their own evidence."""
+    if decision not in ("accepted", "rejected"):
+        raise problem(422, "unknown_decision", "Decision must be accepted or rejected.")
+    if not actor.administers:
+        raise problem(403, "captain_only", "Only an uninvolved captain can decide evidence.")
+    decided_by = require_membership(actor)
+    cases.settle_due(actor)
+    row = evidence_link_for_update(actor.connection, link_id)
+    if row is None:
+        raise problem(404, "unknown_link", "Unknown evidence.")
+    if row.case_id is not None and cases.settle_if_due(actor, row.case_id):
+        # The window closed while this request waited: the evidence is already accepted.
+        row = evidence_link_for_update(actor.connection, link_id)
+    if row.subject_membership_id == actor.membership_id:
+        raise problem(403, "self_review", "Your own evidence needs an uninvolved reviewer.")
+    if row.decision != "pending":
+        raise problem(409, "already_decided", "This evidence was already decided.")
+    if row.duty_status not in ("open", "pending_deadline"):
+        raise problem(409, "duty_closed", "That duty is no longer open.")
+    effective = apply_decision(
+        actor.connection, row, decision=decision, reason=reason, decided_by=decided_by, decided_at=func.now()
+    )
+    case_status = cases.close_by_captain(actor.connection, row.case_id, decision)
     subject_name = actor.connection.execute(
         select(t.league_memberships.c.display_name).where(
             t.league_memberships.c.id == row.subject_membership_id, t.league_memberships.c.league_id == actor.league_id
@@ -2915,8 +3039,13 @@ def decide_link(actor: Actor, link_id: UUID, *, decision: str, reason: str) -> N
         entity_type="duty_evidence_link",
         entity_id=link_id,
         reason=reason,
-        before={"decision": "pending", "dutyStatus": row.duty_status},
-        after={"decision": decision, "effectiveCompletedAt": _iso(effective) if decision == "accepted" else None},
+        before={"decision": "pending", "dutyStatus": row.duty_status, "caseStatus": row.case_status},
+        after={
+            "decision": decision,
+            "effectiveCompletedAt": _iso(effective) if decision == "accepted" else None,
+            "caseId": str(row.case_id) if row.case_id else None,
+            "caseStatus": case_status,
+        },
         feed=FeedEntry(
             kind="evidence_accepted" if decision == "accepted" else "evidence_rejected",
             title=f"{subject_name}: {title} {'completed' if decision == 'accepted' else 'evidence rejected'}.",
@@ -2944,6 +3073,9 @@ def playback_url(actor: Actor, storage: Storage, asset_id: UUID, ttl_seconds: in
 
 
 def feed(actor: Actor, round_number: int | None, limit: int) -> Sequence[Any]:
+    """The league's feed, which is also the notifications panel. Settles due evidence cases
+    first, so their outcomes are in it."""
+    cases.settle_due(actor)
     f = t.feed_entries
     actor_m = t.league_memberships.alias("actor_m")
     subject_m = t.league_memberships.alias("subject_m")

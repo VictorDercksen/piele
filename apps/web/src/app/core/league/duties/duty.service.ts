@@ -45,6 +45,11 @@ export class DutyService {
       spoon: duty.type === 'spoon',
       memberName: mine ? this.members.memberName() : duty.memberName,
       statusLabel: STATUS_LABELS[duty.display],
+      liveCase:
+        duty.evidence
+          .filter((e) => e.decision === 'pending')
+          .map((e) => e.evidenceCase)
+          .find((c) => c?.status === 'open' || c?.status === 'in_review') ?? null,
     };
   }
 }

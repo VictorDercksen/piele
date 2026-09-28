@@ -18,6 +18,7 @@ import { JoinLinkCard } from './join-link-card/join-link-card';
 import { MembersCard } from './members-card/members-card';
 import { PicksCard } from './picks-card/picks-card';
 import { RulesCard } from './rules-card/rules-card';
+import { StandInCard } from './stand-in-card/stand-in-card';
 /** Composes the steward's round reviews and league administration sections. */
 @Component({
   selector: 'app-captain-page',
@@ -26,6 +27,7 @@ import { RulesCard } from './rules-card/rules-card';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     EvidenceReview,
+    StandInCard,
     MembersCard,
     ReasonDialog,
     CreateDutyDialog,

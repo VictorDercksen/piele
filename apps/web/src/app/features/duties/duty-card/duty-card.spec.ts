@@ -4,7 +4,7 @@ import { AlertService } from '../../../core/feedback/alert.service';
 import { RoundDutyView } from '../../../core/league/duties/duty.models';
 import { DutyService } from '../../../core/league/duties/duty.service';
 import { LeagueContext } from '../../../core/league/league-context';
-import { DutyEvidence } from '../../../core/league/league.models';
+import { DutyEvidence, EvidenceCaseSummary } from '../../../core/league/league.models';
 import { DutyCard } from './duty-card';
 
 const EVIDENCE = {
@@ -20,6 +20,7 @@ const EVIDENCE = {
   note: '',
   submitterId: 'member-johan',
   submitterName: 'Johan',
+  evidenceCase: null,
 } as DutyEvidence;
 
 const DUTY = {
@@ -81,5 +82,47 @@ describe('DutyCard', () => {
     expect(error).toHaveBeenCalledWith('The video is unavailable.', { key: 'playback-asset-1' });
     expect(root.querySelector('[role="alert"], .error-message')).toBeNull();
     expect(tab.close).toHaveBeenCalledOnce();
+  });
+  it('shows where the evidence’s vote stands and links to it while live', () => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideRouter([]),
+        { provide: LeagueContext, useValue: { url: (path = '') => `/piele${path}` } },
+        { provide: DutyService, useValue: {} },
+      ],
+    });
+    const open: EvidenceCaseSummary = {
+      id: 'case-1',
+      status: 'open',
+      resolution: null,
+      closesAt: '2026-09-21T07:00:00Z',
+      resolvedAt: null,
+    };
+    const fixture = TestBed.createComponent(DutyCard);
+    const root = fixture.nativeElement as HTMLElement;
+    const show = (evidenceCase: EvidenceCaseSummary, live: boolean) => {
+      fixture.componentRef.setInput('duty', {
+        ...DUTY,
+        display: live ? 'under_review' : 'completed',
+        status: live ? 'open' : 'completed',
+        completedAt: live ? null : '2026-09-20T07:00:00Z',
+        evidence: [{ ...EVIDENCE, decision: live ? 'pending' : 'accepted', evidenceCase }],
+        liveCase: live ? evidenceCase : null,
+      });
+      fixture.detectChanges();
+    };
+    show(open, true);
+    // Engines differ on the month's abbreviation ("Sep" or "Sept").
+    expect(root.textContent).toMatch(/Voting open until 21 Sept? 2026 · 09:00 SAST/);
+    expect(root.textContent).toContain('Submitted for review · members vote until');
+    expect(root.querySelector('a[href="/piele/decisions"]')?.textContent).toContain(
+      'View the vote',
+    );
+    show({ ...open, status: 'in_review' }, true);
+    expect(root.textContent).toContain('Vetoed: an uninvolved reviewer will rule');
+    expect(root.textContent).toContain('View the veto');
+    show({ ...open, status: 'accepted', resolution: 'auto' }, false);
+    expect(root.textContent).toContain('Accepted automatically: no veto within 24 hours');
+    expect(root.querySelector('a[href="/piele/decisions"]')).toBeNull();
   });
 });

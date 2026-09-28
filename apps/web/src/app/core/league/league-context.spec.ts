@@ -15,7 +15,7 @@ import { CompetitionService } from '../competition/competition.service';
 import { LeagueTime } from '../competition/league-time';
 import { HttpLeagueData } from './data/http-league-data';
 import { LeagueContext } from './league-context';
-import { LeagueData } from './data/league-data';
+import { LeagueData, NO_STAND_IN } from './data/league-data';
 import { adminOnly, leagueHome, leagueRequired, legacyLeaguePath } from './league.guards';
 import { LeagueSummary } from './league.models';
 import { DEFAULT_RULES } from './superbru';
@@ -120,8 +120,17 @@ function setup() {
     // The steward's team sheet includes the withdrawn members.
     const members = summary.isCaptain ? '/members?include=withdrawn' : '/members';
     return settle().then(() => {
-      for (const path of [members, '/standings', '/duties', '/marks', '/feed?limit=200', '/picks'])
+      for (const path of [
+        members,
+        '/standings',
+        '/duties',
+        '/marks',
+        '/evidence/cases',
+        '/feed?limit=200',
+        '/picks',
+      ])
         http.expectOne(`${base}${path}`).flush([]);
+      http.expectOne(`${base}/stand-in-reviewer`).flush(NO_STAND_IN);
     });
   }
   return { http, context, data, run, flushLeague };
@@ -166,13 +175,11 @@ describe('LeagueContext', () => {
     const { http, context } = setup();
     const loading = context.ensureAccount();
     const unjoined = { memberId: null, displayName: null, favouriteTeamId: null };
-    http
-      .expectOne(`${API}/me`)
-      .flush(
-        account([league('a-league', 'A League', unjoined), league('b', 'B', unjoined)], {
-          isAdmin: true,
-        }),
-      );
+    http.expectOne(`${API}/me`).flush(
+      account([league('a-league', 'A League', unjoined), league('b', 'B', unjoined)], {
+        isAdmin: true,
+      }),
+    );
     await loading;
     expect(context.isAdmin()).toBe(true);
     expect(context.home()?.slug).toBe('a-league');

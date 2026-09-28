@@ -1,6 +1,9 @@
 import { competition } from '../../competition/registry';
 import {
   Account,
+  CaseChoice,
+  CaseResolution,
+  CaseStatus,
   DutyEvidence,
   Duty,
   FeedItem,
@@ -40,6 +43,45 @@ export interface SampleDutyRecord {
   readonly evidence: readonly DutyEvidence[];
 }
 
+/** One eligible voter's ballot on a sample evidence case. */
+export interface SampleCaseVoter {
+  readonly memberId: string;
+  readonly choice: CaseChoice | null;
+  /**
+   * The account that cast the ballot. A cast ballot belongs to that account, not to the
+   * name: whoever claims a released name later does not inherit it.
+   */
+  readonly castBy: string | null;
+  readonly vetoReason: string | null;
+  /** A veto's review: pending until the reviewer rules; null for anything but a veto. */
+  readonly review: 'pending' | 'upheld' | 'dismissed' | null;
+}
+
+/**
+ * A sample evidence case, as the API stores it: the evidence link under vote, the duty's
+ * member and the electorate frozen when it opened. Voters never leave the sample league's
+ * memory: only participation and the viewer's own ballot are shown.
+ */
+export interface SampleCaseRecord {
+  readonly id: string;
+  readonly dutyId: string;
+  readonly linkId: string;
+  readonly subjectId: string;
+  readonly openedAt: string;
+  readonly closesAt: string;
+  readonly status: CaseStatus;
+  readonly resolution: CaseResolution | null;
+  readonly resolvedAt: string | null;
+  /**
+   * The member names that may vote, frozen at opening: active members who had claimed their
+   * name, other than the duty's member and the submitter, less a name released since
+   * without voting.
+   */
+  readonly voters: readonly SampleCaseVoter[];
+  /** Changes whenever the case does (not a ballot alone); a ruling names the one it saw. */
+  readonly version: number;
+}
+
 /** A stored pick, as the sample league keeps it; names come from the team sheet. */
 export interface SamplePickRecord {
   readonly fixtureId: string;
@@ -63,6 +105,10 @@ export interface SampleLeagueSeed {
   readonly standings: readonly RoundStanding[];
   readonly picks: readonly SamplePickRecord[];
   readonly duties: readonly SampleDutyRecord[];
+  /** Evidence cases on the duties' evidence; none when left out. */
+  readonly cases?: readonly SampleCaseRecord[];
+  /** The member who reviews vetoes when the captain is involved. */
+  readonly standInReviewerId?: string | null;
   readonly polls: readonly Poll[];
   readonly notes: readonly RoundNote[];
   readonly feed: readonly FeedItem[];
@@ -94,6 +140,7 @@ export function feedItem(
   detail: string,
   occurredAt: string,
   subjectName: string | null,
+  actorName: string | null = 'You',
 ): FeedItem {
   return {
     id,
@@ -102,9 +149,42 @@ export function feedItem(
     title,
     detail,
     occurredAt,
-    actorName: 'You',
+    actorName,
     subjectName,
     dutyId: null,
+  };
+}
+
+/** How long members vote on new evidence. */
+export const VOTING_HOURS = 24;
+const HOUR_MS = 60 * 60_000;
+/**
+ * Live sample cases (and their evidence) are dated from when the page loaded, so their voting
+ * windows are open whenever the sample runs. Feed entries keep fixed dates like the rest.
+ */
+const SEEDED_AT = Date.now();
+
+function hoursAgo(hours: number): string {
+  return new Date(SEEDED_AT - hours * HOUR_MS).toISOString();
+}
+
+/** When voting on evidence opened at `openedAt` closes. */
+export function votingCloses(openedAt: string): string {
+  return new Date(Date.parse(openedAt) + VOTING_HOURS * HOUR_MS).toISOString();
+}
+
+function voter(
+  memberId: string,
+  choice: CaseChoice | null = null,
+  vetoReason: string | null = null,
+): SampleCaseVoter {
+  return {
+    memberId,
+    choice,
+    // Another member's own account cast it.
+    castBy: choice ? `account-${memberId}` : null,
+    vetoReason: choice === 'veto' ? vetoReason : null,
+    review: choice === 'veto' ? 'pending' : null,
   };
 }
 
@@ -244,6 +324,9 @@ const PIELE_MEMBERS: readonly LeagueMember[] = [
   memberRecord('member-as', 'Arno', 'Smit, Arno', '10bet-lions'),
 ];
 
+/** When Liam's Round 02 evidence was submitted and its case opened. */
+const PIELE_VETOED_AT = hoursAgo(5);
+
 const PIELE: SampleLeagueSeed = {
   summary: summary('sample-league-piele', 'piele', 'Piele', true, {
     rules: rules({ previousChampionMemberId: 'member-jp' }),
@@ -296,6 +379,7 @@ const PIELE: SampleLeagueSeed = {
           note: 'Done at the braai.',
           submitterId: 'member-fb',
           submitterName: 'Franco',
+          evidenceCase: null,
         },
       ],
     },
@@ -331,7 +415,7 @@ const PIELE: SampleLeagueSeed = {
           submissionId: 'sub-3',
           assetId: 'asset-3',
           decision: 'pending',
-          submittedAt: '2026-10-04T10:30:00Z',
+          submittedAt: PIELE_VETOED_AT,
           claimedCompletedAt: null,
           decidedAt: null,
           reason: null,
@@ -339,6 +423,7 @@ const PIELE: SampleLeagueSeed = {
           note: 'Picks confirmed on the app, screen recording attached.',
           submitterId: 'member-lm',
           submitterName: 'Liam',
+          evidenceCase: null,
         },
       ],
     },
@@ -355,6 +440,28 @@ const PIELE: SampleLeagueSeed = {
       voidReason: null,
       createdAt: '2026-08-30T08:00:00Z',
       evidence: [],
+    },
+  ],
+  // Johan vetoed Liam's evidence; PieterW had accepted. The captain is uninvolved.
+  cases: [
+    {
+      id: 'case-3',
+      dutyId: 'duty-3',
+      linkId: 'link-3',
+      subjectId: 'member-lm',
+      openedAt: PIELE_VETOED_AT,
+      closesAt: votingCloses(PIELE_VETOED_AT),
+      status: 'in_review',
+      resolution: null,
+      resolvedAt: null,
+      version: 1,
+      voters: [
+        voter('member-jp', 'veto', 'The recording shows the Round 01 picks, not Round 02.'),
+        voter('member-pw', 'accept'),
+        voter(SAMPLE_ME),
+        voter('member-fb'),
+        voter('member-as'),
+      ],
     },
   ],
   polls: [
@@ -410,12 +517,23 @@ const PIELE: SampleLeagueSeed = {
   ],
   feed: [
     feedItem(
+      'feed-10',
+      'evidence_vetoed',
+      2,
+      'Liam: Round 02 Pick confirmation evidence vetoed.',
+      'Waiting for an uninvolved reviewer.',
+      '2026-10-04T15:00:00Z',
+      'Liam',
+      null,
+    ),
+    feedItem(
       'feed-9',
       'evidence_submitted',
       2,
       'Liam submitted evidence for Round 02 Pick confirmation.',
-      'Waiting for an uninvolved reviewer.',
+      `Members have ${VOTING_HOURS} hours to accept or veto it.`,
       '2026-10-04T10:30:00Z',
+      'Liam',
       'Liam',
     ),
     feedItem(
@@ -502,6 +620,9 @@ const POFADDER_MEMBERS: readonly LeagueMember[] = [
   memberRecord('member-rb', 'Riaan', 'Botes, Riaan', '', false),
 ];
 
+/** When Thabo's Round 02 evidence was submitted and its case opened. */
+const POFADDER_OPENED_AT = hoursAgo(3);
+
 const POFADDER: SampleLeagueSeed = {
   summary: summary('sample-league-pofadder-bowl', 'pofadder-bowl', 'Pofadder Bowl', false, {
     emblemPreset: 'posts',
@@ -546,6 +667,7 @@ const POFADDER: SampleLeagueSeed = {
           note: 'Done in Pofadder.',
           submitterId: 'member-kk',
           submitterName: 'Kallie',
+          evidenceCase: null,
         },
       ],
     },
@@ -561,7 +683,44 @@ const POFADDER: SampleLeagueSeed = {
       clockResetAt: null,
       voidReason: null,
       createdAt: '2026-10-03T09:00:00Z',
-      evidence: [],
+      evidence: [
+        {
+          id: 'link-pb-2',
+          submissionId: 'sub-pb-2',
+          assetId: 'asset-pb-2',
+          decision: 'pending',
+          submittedAt: POFADDER_OPENED_AT,
+          claimedCompletedAt: null,
+          decidedAt: null,
+          reason: null,
+          effectiveCompletedAt: null,
+          note: 'Spoon done at the Pofadder hotel bar.',
+          submitterId: 'member-tn',
+          submitterName: 'Thabo',
+          evidenceCase: null,
+        },
+      ],
+    },
+  ],
+  // Voting is open on Thabo's evidence: Kallie accepted, the sample member has not responded.
+  cases: [
+    {
+      id: 'case-pb-2',
+      dutyId: 'duty-pb-2',
+      linkId: 'link-pb-2',
+      subjectId: 'member-tn',
+      openedAt: POFADDER_OPENED_AT,
+      closesAt: votingCloses(POFADDER_OPENED_AT),
+      status: 'open',
+      resolution: null,
+      resolvedAt: null,
+      version: 1,
+      voters: [
+        voter('member-ds'),
+        voter('member-kk', 'accept'),
+        voter(SAMPLE_ME),
+        voter('member-sl'),
+      ],
     },
   ],
   polls: [],
@@ -576,6 +735,16 @@ const POFADDER: SampleLeagueSeed = {
     },
   ],
   feed: [
+    feedItem(
+      'feed-pb-6',
+      'evidence_submitted',
+      2,
+      'Thabo submitted evidence for Round 02 Spoon duty.',
+      `Members have ${VOTING_HOURS} hours to accept or veto it.`,
+      '2026-10-04T09:00:00Z',
+      'Thabo',
+      'Thabo',
+    ),
     feedItem(
       'feed-pb-4',
       'duty_created',
@@ -632,6 +801,9 @@ const THIRD_MEMBERS: readonly LeagueMember[] = [
   memberRecord('member-wj', 'Wikus', 'Jansen, Wikus', '', false),
 ];
 
+/** When Zola's Round 02 evidence was submitted and its case opened. */
+const THIRD_OPENED_AT = hoursAgo(8);
+
 /** A league the sample account is not in: the admin sees it without a membership. */
 const THIRD: SampleLeagueSeed = {
   summary: summary('sample-league-third', 'sample-third', 'Sample Third XV', false, {
@@ -660,7 +832,43 @@ const THIRD: SampleLeagueSeed = {
       clockResetAt: null,
       voidReason: null,
       createdAt: '2026-10-03T10:00:00Z',
-      evidence: [],
+      evidence: [
+        {
+          id: 'link-st-1',
+          submissionId: 'sub-st-1',
+          assetId: 'asset-st-1',
+          decision: 'pending',
+          submittedAt: THIRD_OPENED_AT,
+          claimedCompletedAt: null,
+          decidedAt: null,
+          reason: null,
+          effectiveCompletedAt: null,
+          note: 'Spoon in the clubhouse.',
+          submitterId: 'member-zd',
+          submitterName: 'Zola',
+          evidenceCase: null,
+        },
+      ],
+    },
+  ],
+  // The captain vetoed and no stand-in is named: only the admin can rule on it.
+  cases: [
+    {
+      id: 'case-st-1',
+      dutyId: 'duty-st-1',
+      linkId: 'link-st-1',
+      subjectId: 'member-zd',
+      openedAt: THIRD_OPENED_AT,
+      closesAt: votingCloses(THIRD_OPENED_AT),
+      status: 'in_review',
+      resolution: null,
+      resolvedAt: null,
+      version: 1,
+      voters: [
+        voter('member-hm', 'veto', 'The spoon is out of shot for most of the video.'),
+        voter('member-ck', 'accept'),
+        voter('member-nv'),
+      ],
     },
   ],
   polls: [],
@@ -671,6 +879,26 @@ const THIRD: SampleLeagueSeed = {
     },
   ],
   feed: [
+    feedItem(
+      'feed-st-6',
+      'evidence_vetoed',
+      2,
+      'Zola: Round 02 Spoon duty evidence vetoed.',
+      'Waiting for an uninvolved reviewer.',
+      '2026-10-04T12:00:00Z',
+      'Zola',
+      null,
+    ),
+    feedItem(
+      'feed-st-5',
+      'evidence_submitted',
+      2,
+      'Zola submitted evidence for Round 02 Spoon duty.',
+      `Members have ${VOTING_HOURS} hours to accept or veto it.`,
+      '2026-10-04T08:00:00Z',
+      'Zola',
+      'Zola',
+    ),
     feedItem(
       'feed-st-2',
       'duty_created',

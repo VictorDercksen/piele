@@ -97,7 +97,7 @@ test('sample league duties, evidence, votes and round scoping', async ({ page })
     buffer: Buffer.from('demo'),
   });
   await page.getByRole('button', { name: 'Submit evidence' }).click();
-  await expect(page.getByRole('heading', { name: 'Over to the captain.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Over to the league.' })).toBeVisible();
   await expect(page.getByRole('status').filter({ hasText: 'No file was uploaded' })).toBeVisible();
   // The dialog's warning left with the problem it named.
   await expect(page.getByRole('status').filter({ hasText: 'Choose a video file' })).toHaveCount(0);
@@ -519,7 +519,7 @@ test('captain creates, records and decides duties; the feed follows', async ({ p
   await expect(review).toContainText('Counts from submission');
   await review.getByRole('button', { name: 'Accept' }).click();
   const accept = page.getByRole('dialog').filter({ hasText: 'Accept this evidence?' });
-  await expect(accept).toContainText('04 Oct 2026 · 12:30 SAST');
+  await expect(accept).toContainText("closing the members' vote");
   await accept.getByRole('button', { name: 'Accept evidence' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'completed for Liam' })).toBeVisible();
   await expect(page.locator('.round-empty')).toContainText('Nothing needs your decision');
@@ -529,9 +529,9 @@ test('captain creates, records and decides duties; the feed follows', async ({ p
   await expect(feed.locator('.feed-item').nth(1)).toContainText(
     'Round 02 Pick confirmation completed',
   );
-  await expect(feed.locator('.feed-item')).toHaveCount(10);
+  await expect(feed.locator('.feed-item')).toHaveCount(11);
   await feed.getByRole('button', { name: 'Season' }).click();
-  await expect(feed.locator('.feed-item')).toHaveCount(13);
+  await expect(feed.locator('.feed-item')).toHaveCount(14);
   await expect(feed.locator('.feed-item').last()).toContainText('URC 2026/27 is open');
   await nav.getByRole('link', { name: 'Standings', exact: true }).click();
   await page.getByRole('button', { name: 'House marks' }).click();

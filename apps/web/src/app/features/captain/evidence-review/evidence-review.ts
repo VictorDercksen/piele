@@ -3,6 +3,7 @@ import { ChangeDetectionStrategy, Component, inject, input } from '@angular/core
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucidePlay, lucideX } from '@ng-icons/lucide';
 import { FixtureService } from '../../../core/competition/fixture.service';
+import { CaseService } from '../../../core/league/cases/case.service';
 import { LeagueTime } from '../../../core/competition/league-time';
 import { AlertService } from '../../../core/feedback/alert.service';
 import { DutyControlService } from '../../../core/league/duties/duty-control.service';
@@ -13,8 +14,14 @@ import { LeagueRecordsService } from '../../../core/league/league-records.servic
 import { Dropdown } from '../../../shared/dropdown/dropdown';
 import { Icon } from '../../../shared/icon/icon';
 import { ReasonDialog } from '../../duties/reason-dialog/reason-dialog';
+import { CaseCard } from '../../decisions/case-card/case-card';
+import { overrideRefusal } from './evidence-review.refusals';
 const ALERT_KEYS = { playback: 'captain-playback' } as const;
-/** Evidence decisions for the selected round. */
+/**
+ * The selected round's evidence on the captain's desk: vetoes waiting for a ruling (and those
+ * nobody in the league may rule on), then the captain's override on pending evidence, which
+ * closes its vote.
+ */
 @Component({
   selector: 'app-evidence-review',
   templateUrl: './evidence-review.html',
@@ -22,6 +29,7 @@ const ALERT_KEYS = { playback: 'captain-playback' } as const;
   changeDetection: ChangeDetectionStrategy.OnPush,
   /* prettier-ignore */
   imports: [
+    CaseCard,
     Dropdown,
     Icon,
     NgIcon,
@@ -34,11 +42,20 @@ export class EvidenceReview {
   private readonly time = inject(LeagueTime);
   private readonly alerts = inject(AlertService);
   readonly duties = inject(DutyService);
+  readonly cases = inject(CaseService);
   readonly fixtures = inject(FixtureService);
   readonly records = inject(LeagueRecordsService);
   readonly reasonDialog = input.required<ReasonDialog>();
   when(review: ReviewView): string {
     return this.time.relative(review.evidence.submittedAt);
+  }
+
+  /** Where the evidence's vote stands, for the override row. */
+  voteState(review: ReviewView): string | null {
+    const c = review.evidence.evidenceCase;
+    if (c?.status === 'open') return `Members voting until ${this.time.format(c.closesAt)}`;
+    if (c?.status === 'in_review') return 'Vetoed: waiting for a ruling';
+    return null;
   }
 
   completion(review: ReviewView): string {
@@ -55,12 +72,13 @@ export class EvidenceReview {
       title: decision === 'accepted' ? 'Accept this evidence?' : 'Reject this evidence?',
       description:
         decision === 'accepted'
-          ? `${duty.title} for ${duty.memberName} will be completed as of ${this.completionInstant(review)}. Marks already earned stay on the record.`
-          : `${duty.memberName} keeps the duty open and can submit again. Say what was missing.`,
+          ? `${duty.title} for ${duty.memberName} will be completed as of ${this.completionInstant(review)}, closing the members' vote. Marks already earned stay on the record.`
+          : `${duty.memberName} keeps the duty open and can submit again. This closes the members' vote. Say what was missing.`,
       submitLabel: decision === 'accepted' ? 'Accept evidence' : 'Reject evidence',
       required: decision === 'rejected',
       spoon: duty.spoon,
       action: (reason) => this.dutyControl.decideEvidence(evidence.id, decision, reason),
+      refused: overrideRefusal,
       done: () =>
         this.alerts.success(
           decision === 'accepted'

@@ -64,7 +64,7 @@ describe('NotificationControlService', () => {
   it('marks one item read without touching the rest, then everything at once', async () => {
     const { notifications: service, control } = await setup('2026-10-05T10:00:00Z', 2);
     await control.markRead('feed:feed-8');
-    expect(service.unread()).toBe(6);
+    expect(service.unread()).toBe(7);
     expect(service.read()).toEqual({ readAt: null, readKeys: ['feed:feed-8'] });
     await control.markRead('feed:feed-8');
     expect(service.read().readKeys).toEqual(['feed:feed-8']);

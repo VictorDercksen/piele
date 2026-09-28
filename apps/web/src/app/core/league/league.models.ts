@@ -43,6 +43,21 @@ export type EvidenceDecision = 'pending' | 'accepted' | 'rejected' | 'superseded
 
 export type DutyEvidence = components['schemas']['EvidenceLink'];
 
+/**
+ * One piece of evidence under the league's vote (`GET /evidence/cases`). No field says who
+ * voted how: the viewer sees participation, their own response and, for the permitted
+ * reviewer only, the pending veto's reason.
+ */
+export type EvidenceCase = components['schemas']['EvidenceCase'];
+/** The evidence's case as the duty register carries it. */
+export type EvidenceCaseSummary = components['schemas']['EvidenceCaseSummary'];
+export type CaseStatus = EvidenceCase['status'];
+export type CaseResolution = NonNullable<EvidenceCase['resolution']>;
+export type CaseChoice = components['schemas']['CaseResponse']['choice'];
+export type VetoRuling = components['schemas']['VetoReview']['ruling'];
+/** Reviews vetoes when the captain is involved. Both null when none is named. */
+export type StandInReviewer = components['schemas']['StandInReviewer'];
+
 export type DutyMarks = components['schemas']['Marks'];
 
 export interface Duty {
@@ -120,6 +135,8 @@ export type FeedKind =
   | 'evidence_submitted'
   | 'evidence_accepted'
   | 'evidence_rejected'
+  | 'evidence_vetoed'
+  | 'evidence_veto_dismissed'
   | 'match_result'
   | 'poll_opened'
   | 'poll_closed'

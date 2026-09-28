@@ -516,7 +516,8 @@ def test_captain_submits_on_behalf_with_claimed_completion_time(client: TestClie
     upload_and_submit(client, storage, captain, [duty["id"]], subjectMemberId=str(mo_id), claimedCompletedAt=claimed)
     link = client.get(lp(client, "/duties"), params={"round": 2}, headers=captain).json()[0]["evidence"][0]
     assert link["submitterName"] == "Captain" and link["claimedCompletedAt"].startswith("2026-09-20T09:00")
-    assert client.post(lp(client, f"/evidence/links/{link['id']}/decision"), json={"decision": "accepted"}, headers=captain).status_code == 204
+    # Only Ola could vote, and Ola's name is unclaimed: the evidence is accepted at once.
+    assert link["decision"] == "accepted" and link["evidenceCase"]["resolution"] == "no_voters"
     done = client.get(lp(client, "/duties"), params={"round": 2}, headers=captain).json()[0]
     assert done["completedAt"].startswith("2026-09-20T09:00")
 
@@ -1021,8 +1022,9 @@ def test_withdrawing_a_member_voids_live_duties_and_takes_them_off_every_list(cl
     submission = upload_and_submit(client, storage, mo, [reviewed["id"]])
     done = open_duty(client, UUID(mo_id), round_number=4)
     upload_and_submit(client, storage, captain, [done["id"]], subjectMemberId=mo_id, claimedCompletedAt=weeks_ago)
+    # Nobody with a claimed name can vote on it, so it is accepted at once.
     link = next(d for d in client.get(lp(client, "/duties"), headers=captain).json() if d["id"] == done["id"])["evidence"][0]
-    assert client.post(lp(client, f"/evidence/links/{link['id']}/decision"), json={"decision": "accepted"}, headers=captain).status_code == 204
+    assert link["decision"] == "accepted"
     assert put_standings(client, 1, {UUID(mo_id): 7, UUID(ola_id): 3}).status_code == 200
 
     # Only the captain or the admin removes members, and a reason is required.

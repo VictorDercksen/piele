@@ -1,0 +1,14 @@
+:host {
+  display: block;
+}
+.field {
+  display: grid;
+  gap: 6px;
+  max-width: 360px;
+  margin-bottom: 10px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.context-note {
+  margin-bottom: 14px;
+}

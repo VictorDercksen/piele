@@ -7,6 +7,7 @@ import { AlertService } from '../../../core/feedback/alert.service';
 import { RoundDutyView } from '../../../core/league/duties/duty.models';
 import { DutyService } from '../../../core/league/duties/duty.service';
 import { openPlaybackTab } from '../../../core/league/duties/playback-tab';
+import { caseOutcome } from '../../../core/league/cases/case-wording';
 import { LeaguePathPipe } from '../../../core/league/league-path.pipe';
 import { DutyEvidence } from '../../../core/league/league.models';
 import { Icon } from '../../../shared/icon/icon';
@@ -92,6 +93,10 @@ export class DutyCard {
     if (duty.status === 'completed')
       return `Accepted · completed ${this.time.format(duty.completedAt)}`;
     if (duty.status === 'voided') return `Voided · ${duty.voidReason || 'no reason given'}`;
+    const live = duty.liveCase;
+    if (live?.status === 'open')
+      return `Submitted for review · members vote until ${this.time.format(live.closesAt)}`;
+    if (live?.status === 'in_review') return 'Submitted for review · vetoed, awaiting a ruling';
     if (duty.evidence.some((e) => e.decision === 'pending')) return 'Submitted for review';
     if (duty.evidence.some((e) => e.decision === 'rejected')) return 'Rejected · submit again';
     return 'Not submitted';
@@ -110,6 +115,16 @@ export class DutyCard {
         superseded: 'Superseded',
       }[evidence.decision] ?? evidence.decision
     );
+  }
+
+  /** Where the evidence's vote stands: open with its close time, in review, or how it ended. */
+  caseState(evidence: DutyEvidence): string | null {
+    const c = evidence.evidenceCase;
+    if (!c) return null;
+    if (c.status === 'open') return `Voting open until ${this.time.format(c.closesAt)}`;
+    if (c.status === 'in_review') return 'Vetoed: an uninvolved reviewer will rule';
+    if (c.status === 'superseded') return null;
+    return caseOutcome(c.status, c.resolution);
   }
 
   async watch(evidence: DutyEvidence): Promise<void> {

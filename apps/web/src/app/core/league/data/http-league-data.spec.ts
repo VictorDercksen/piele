@@ -3,7 +3,8 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { environment } from '../../../../environments/environment';
 import { AuthService } from '../../auth/auth.service';
-import { HttpLeagueData } from './http-league-data';
+import { HttpLeagueData, SETTLE_DELAY_MS } from './http-league-data';
+import { NO_STAND_IN } from './league-data';
 import { DEFAULT_RULES } from '../superbru';
 
 const API = `${environment.apiUrl}/v1/leagues/l-1`;
@@ -65,8 +66,16 @@ describe('HttpLeagueData', () => {
     members = '/members',
   ) {
     http.expectOne(`${base}/standings`).flush(standings);
-    for (const path of [members, '/duties', '/marks', '/feed?limit=200', '/picks'])
+    for (const path of [
+      members,
+      '/duties',
+      '/marks',
+      '/evidence/cases',
+      '/feed?limit=200',
+      '/picks',
+    ])
       http.expectOne(`${base}${path}`).flush([]);
+    http.expectOne(`${base}/stand-in-reviewer`).flush(NO_STAND_IN);
   }
 
   async function settle() {
@@ -175,7 +184,9 @@ describe('HttpLeagueData', () => {
     const first = league.load('l-1');
     http.expectOne(`${API}/me`).flush(me({ favouriteTeamId: 'dhl-stormers', photoUrl: null }));
     await settle();
-    flushRecords(http, [{ roundNumber: 1, memberId: 'm-1', memberName: 'Trokkie', rank: 1, points: 5 }]);
+    flushRecords(http, [
+      { roundNumber: 1, memberId: 'm-1', memberName: 'Trokkie', rank: 1, points: 5 },
+    ]);
     expect(await first).toBe('member');
     expect(league.standings().length).toBe(1);
     // The same league again shares what is loaded.
@@ -186,9 +197,11 @@ describe('HttpLeagueData', () => {
     expect(league.leagueId()).toBe('l-2');
     expect(league.standings()).toEqual([]);
     expect(league.profile()).toBeNull();
-    http
-      .expectOne(`${OTHER}/me`)
-      .flush({ ...me({ favouriteTeamId: 'ospreys', photoUrl: null }), leagueId: 'l-2', memberId: 'm-9' });
+    http.expectOne(`${OTHER}/me`).flush({
+      ...me({ favouriteTeamId: 'ospreys', photoUrl: null }),
+      leagueId: 'l-2',
+      memberId: 'm-9',
+    });
     await settle();
     flushRecords(http, [], OTHER);
     expect(await second).toBe('member');
@@ -254,16 +267,32 @@ describe('HttpLeagueData', () => {
     });
     await settle();
     http.expectOne(`${API}/members?include=withdrawn`).flush(members);
-    for (const path of ['/standings', '/duties', '/marks', '/feed?limit=200', '/picks'])
+    for (const path of [
+      '/standings',
+      '/duties',
+      '/marks',
+      '/evidence/cases',
+      '/feed?limit=200',
+      '/picks',
+    ])
       http.expectOne(`${API}${path}`).flush([]);
+    http.expectOne(`${API}/stand-in-reviewer`).flush(NO_STAND_IN);
     expect(await loaded).toBe('member');
   }
 
   /** The records a write reloads, with the steward's team sheet. */
   function flushRefresh(http: HttpTestingController, members: unknown[] = []) {
     http.expectOne(`${API}/members?include=withdrawn`).flush(members);
-    for (const path of ['/standings', '/duties', '/marks', '/feed?limit=200', '/picks'])
+    for (const path of [
+      '/standings',
+      '/duties',
+      '/marks',
+      '/evidence/cases',
+      '/feed?limit=200',
+      '/picks',
+    ])
       http.expectOne(`${API}${path}`).flush([]);
+    http.expectOne(`${API}/stand-in-reviewer`).flush(NO_STAND_IN);
   }
 
   const member = (id: string, extra: Record<string, unknown> = {}) => ({
@@ -329,7 +358,11 @@ describe('HttpLeagueData', () => {
     await settle();
     flushRefresh(http, [
       member('m-1'),
-      member('m-2', { status: 'withdrawn', leftAt: '2026-09-26T10:00:00Z', withdrawalReason: 'Moved to Perth' }),
+      member('m-2', {
+        status: 'withdrawn',
+        leftAt: '2026-09-26T10:00:00Z',
+        withdrawalReason: 'Moved to Perth',
+      }),
     ]);
     await withdrawing;
     expect(league.members().map((m) => m.id)).toEqual(['m-1']);
@@ -401,7 +434,11 @@ describe('HttpLeagueData', () => {
     expect(put.request.method).toBe('PUT');
     expect(put.request.body).toEqual({ emblemPreset: 'posts', accentColour: '#c8742a' });
     put.flush(steward({ emblemPreset: 'posts', accentColour: '#c8742a' }));
-    expect(await preset).toEqual({ emblemPreset: 'posts', emblemUrl: null, accentColour: '#c8742a' });
+    expect(await preset).toEqual({
+      emblemPreset: 'posts',
+      emblemUrl: null,
+      accentColour: '#c8742a',
+    });
 
     // Removing a preset clears only the preset field.
     const clearing = league.saveAppearance({ emblem: null });
@@ -415,7 +452,11 @@ describe('HttpLeagueData', () => {
     const grant = http.expectOne(`${API}/emblem/uploads`);
     expect(grant.request.method).toBe('POST');
     expect(grant.request.body).toEqual({ contentType: 'image/jpeg', sizeBytes: 6 });
-    grant.flush({ bucket: 'evidence', path: 'emblems/l-1/0123456789abcdef0123456789abcdef.jpg', token: 'tok' });
+    grant.flush({
+      bucket: 'evidence',
+      path: 'emblems/l-1/0123456789abcdef0123456789abcdef.jpg',
+      token: 'tok',
+    });
     await settle();
     expect(uploads).toEqual(['emblems/l-1/0123456789abcdef0123456789abcdef.jpg']);
     const save = http.expectOne(`${API}/appearance`);
@@ -478,7 +519,9 @@ describe('HttpLeagueData', () => {
       },
       { id: 'd-2', memberId: 'm-1', roundNumber: 1, type: 'spoon' },
     ]);
-    for (const path of ['/members', '/marks', '/feed?limit=200']) http.expectOne(`${API}${path}`).flush([]);
+    for (const path of ['/members', '/marks', '/evidence/cases', '/feed?limit=200'])
+      http.expectOne(`${API}${path}`).flush([]);
+    http.expectOne(`${API}/stand-in-reviewer`).flush(NO_STAND_IN);
     http.expectOne(`${API}/picks`).flush([apiFixture('292584')]);
     await loaded;
     expect(league.picks()).toEqual([
@@ -566,9 +609,11 @@ describe('HttpLeagueData', () => {
     expect(put.request.body).toEqual({ bonusPoint: false });
     put.flush({ ...DEFAULT_RULES, bonusPoint: false });
     await settle();
-    http.expectOne(`${API}/feed?limit=200`).flush([
-      { id: 'f-1', kind: 'rules_updated', roundNumber: null, title: 'Superbru rules updated.' },
-    ]);
+    http
+      .expectOne(`${API}/feed?limit=200`)
+      .flush([
+        { id: 'f-1', kind: 'rules_updated', roundNumber: null, title: 'Superbru rules updated.' },
+      ]);
     await saving;
     expect(league.rules().bonusPoint).toBe(false);
     expect(league.feed()[0].kind).toBe('rules_updated');
@@ -647,6 +692,128 @@ describe('HttpLeagueData', () => {
     await settle();
     flushRefresh(http);
     await creating;
+    http.verify();
+  });
+  /** The records a reload fetches, with the given evidence cases. */
+  function flushWithCases(http: HttpTestingController, cases: unknown[]) {
+    http.expectOne(`${API}/members?include=withdrawn`).flush([]);
+    for (const path of ['/standings', '/duties', '/marks', '/feed?limit=200', '/picks'])
+      http.expectOne(`${API}${path}`).flush([]);
+    http.expectOne(`${API}/evidence/cases`).flush(cases);
+    http.expectOne(`${API}/stand-in-reviewer`).flush({ memberId: 'm-2', memberName: 'M-2' });
+  }
+
+  const apiCase = (closesAt: string, status = 'open') => ({
+    id: 'c-1',
+    dutyId: 'd-1',
+    linkId: 'l-1',
+    status,
+    closesAt,
+    canRespond: true,
+  });
+
+  it('responds to and rules on evidence cases, then reloads the records', async () => {
+    const { league, http } = setup();
+    await loadSteward(http, league);
+
+    const vetoing = league.respondToCase('c 1', 'veto', 'Wrong round');
+    const veto = http.expectOne(`${API}/evidence/cases/c%201/response`);
+    expect(veto.request.method).toBe('POST');
+    expect(veto.request.body).toEqual({ choice: 'veto', reason: 'Wrong round' });
+    veto.flush(apiCase('2026-10-05T08:00:00Z', 'in_review'));
+    await settle();
+    flushRefresh(http);
+    await vetoing;
+
+    const ruling = league.reviewCase('c-1', 'dismissed', 'Visible at 0:40', 3);
+    const review = http.expectOne(`${API}/evidence/cases/c-1/review`);
+    expect(review.request.body).toEqual({
+      ruling: 'dismissed',
+      reason: 'Visible at 0:40',
+      version: 3,
+    });
+    review.flush(apiCase('2026-10-05T08:00:00Z'));
+    await settle();
+    flushRefresh(http);
+    await ruling;
+
+    const refused = league.respondToCase('c-1', 'accept', '');
+    http
+      .expectOne(`${API}/evidence/cases/c-1/response`)
+      .flush(
+        { detail: { code: 'voting_closed', message: 'Voting on this evidence has closed.' } },
+        { status: 409, statusText: 'Conflict' },
+      );
+    await expect(refused).rejects.toMatchObject({ status: 409, code: 'voting_closed' });
+    http.verify();
+  });
+
+  it('names and clears the stand-in reviewer', async () => {
+    const { league, http } = setup();
+    await loadSteward(http, league);
+    const naming = league.setStandInReviewer('m-2');
+    const put = http.expectOne(`${API}/stand-in-reviewer`);
+    expect(put.request.method).toBe('PUT');
+    expect(put.request.body).toEqual({ memberId: 'm-2' });
+    put.flush({ memberId: 'm-2', memberName: 'M-2' });
+    await settle();
+    expect(league.standInReviewer()).toEqual({ memberId: 'm-2', memberName: 'M-2' });
+    flushWithCases(http, []);
+    await naming;
+
+    const clearing = league.setStandInReviewer(null);
+    const clear = http.expectOne(`${API}/stand-in-reviewer`);
+    expect(clear.request.body).toEqual({ memberId: null });
+    clear.flush(NO_STAND_IN);
+    await settle();
+    flushRefresh(http);
+    await clearing;
+    expect(league.standInReviewer()).toEqual(NO_STAND_IN);
+    http.verify();
+  });
+
+  it('reads the records again once an open case’s voting window closes', async () => {
+    const { league, http } = setup();
+    await loadSteward(http, league);
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      league.reload();
+      flushWithCases(http, [apiCase(new Date(Date.now() + 60_000).toISOString())]);
+      for (let i = 0; i < 10; i++) await Promise.resolve();
+      expect(league.cases().map((c) => c.status)).toEqual(['open']);
+      vi.advanceTimersByTime(60_000 + SETTLE_DELAY_MS - 1_000);
+      http.expectNone(`${API}/evidence/cases`);
+      vi.advanceTimersByTime(1_000);
+      // The API settles the case on this read.
+      flushWithCases(http, [apiCase(new Date().toISOString(), 'accepted')]);
+      for (let i = 0; i < 10; i++) await Promise.resolve();
+      expect(league.cases().map((c) => c.status)).toEqual(['accepted']);
+      vi.advanceTimersByTime(24 * 60 * 60_000);
+      http.expectNone(`${API}/evidence/cases`);
+    } finally {
+      vi.useRealTimers();
+    }
+    http.verify();
+  });
+
+  it('reads the records again on coming back to the tab after a window closed', async () => {
+    const { league, http } = setup();
+    await loadSteward(http, league);
+    league.reload();
+    flushWithCases(http, [apiCase(new Date(Date.now() - 1_000).toISOString())]);
+    await settle();
+    const visibility = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
+    try {
+      document.dispatchEvent(new Event('visibilitychange'));
+      flushRefresh(http);
+      await settle();
+      expect(league.cases()).toEqual([]);
+      document.dispatchEvent(new Event('visibilitychange'));
+      http.expectNone(`${API}/evidence/cases`);
+    } finally {
+      visibility.mockRestore();
+    }
+    league.clear();
     http.verify();
   });
 });

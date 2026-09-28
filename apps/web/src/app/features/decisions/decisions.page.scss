@@ -93,3 +93,11 @@
 .poll-card h2 {
   font-size: 29px;
 }
+.case-list {
+  display: grid;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.case-list .page-description {
+  margin: 0;
+}

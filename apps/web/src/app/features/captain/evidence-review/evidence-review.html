@@ -1,47 +1,82 @@
 <app-dropdown heading="Evidence to decide." headingId="review-heading">
+  @if (cases.reviewQueue().length) {
+    <span class="tag warn" dropdownSide>{{ cases.reviewQueue().length }} VETOED</span>
+  }
   @if (duties.reviewCount()) {
     <span class="tag" dropdownSide>{{ duties.reviewCount() }} PENDING</span>
   }
-  <p class="page-description">
-    {{ duties.reviewCount() }} {{ duties.reviewCount() === 1 ? 'item' : 'items' }} for
-    {{ fixtures.round().title }}. Accepting sets the completion time; rejecting keeps the duty open.
-  </p>
-  @for (review of duties.reviews(); track review.evidence.id) {
-    <div class="review-row" [class.spoon-duty]="review.duty.spoon">
-      <app-icon name="shield" />
-      <div class="review-body">
-        <h3>{{ review.duty.memberName }} · {{ review.duty.title }}</h3>
-        <p>{{ completion(review) }} · submitted {{ when(review) }}</p>
-        @if (review.evidence.note) {
-          <p class="note">“{{ review.evidence.note }}”</p>
+  @if (cases.reviewQueue().length || duties.reviews().length) {
+    @if (cases.reviewQueue().length) {
+      <h3 class="queue-heading">Vetoes to rule on</h3>
+      <p class="page-description">
+        A veto stops the members' vote on {{ fixtures.round().title }} evidence until an uninvolved
+        reviewer upholds it (the evidence is rejected) or dismisses it (voting reopens on the
+        original timer).
+      </p>
+      <div class="veto-queue">
+        @for (evidenceCase of cases.reviewQueue(); track evidenceCase.id) {
+          <app-case-card
+            [evidenceCase]="evidenceCase"
+            [reasonDialog]="reasonDialog()"
+            [sample]="records.sample"
+            [roundCode]="fixtures.round().code"
+          />
         }
-        <div class="review-actions">
-          @if (!records.sample) {
-            <button hlmBtn type="button" class="text-button" (click)="watch(review)">
-              Watch video<ng-icon class="link-icon" name="lucidePlay" />
-            </button>
-          }
-          @if (review.selfReview) {
-            <span class="tag">NEEDS AN UNINVOLVED REVIEWER</span>
-          } @else {
-            <button
-              hlmBtn
-              type="button"
-              class="primary-button"
-              (click)="decide(review, 'accepted')"
-            >
-              <app-icon name="check" />Accept
-            </button>
-            <button hlmBtn type="button" class="text-button" (click)="decide(review, 'rejected')">
-              Reject
-              <ng-icon class="link-icon" name="lucideX" />
-            </button>
-          }
-        </div>
       </div>
-      <span class="tag">PENDING</span>
-    </div>
-  } @empty {
+    }
+    @if (duties.reviews().length) {
+      <h3 class="queue-heading">Captain's override</h3>
+      <p class="page-description">
+        {{ duties.reviewCount() }} {{ duties.reviewCount() === 1 ? 'item' : 'items' }} for
+        {{ fixtures.round().title }}. Members vote on new evidence for 24 hours; accepting or
+        rejecting it here decides it now and closes its vote.
+      </p>
+      @for (review of duties.reviews(); track review.evidence.id) {
+        <div class="review-row" [class.spoon-duty]="review.duty.spoon">
+          <app-icon name="shield" />
+          <div class="review-body">
+            <h3>{{ review.duty.memberName }} · {{ review.duty.title }}</h3>
+            <p>{{ completion(review) }} · submitted {{ when(review) }}</p>
+            @if (voteState(review); as state) {
+              <p>{{ state }}</p>
+            }
+            @if (review.evidence.note) {
+              <p class="note">“{{ review.evidence.note }}”</p>
+            }
+            <div class="review-actions">
+              @if (!records.sample) {
+                <button hlmBtn type="button" class="text-button" (click)="watch(review)">
+                  Watch video<ng-icon class="link-icon" name="lucidePlay" />
+                </button>
+              }
+              @if (review.selfReview) {
+                <span class="tag">NEEDS AN UNINVOLVED REVIEWER</span>
+              } @else {
+                <button
+                  hlmBtn
+                  type="button"
+                  class="primary-button"
+                  (click)="decide(review, 'accepted')"
+                >
+                  <app-icon name="check" />Accept
+                </button>
+                <button
+                  hlmBtn
+                  type="button"
+                  class="text-button"
+                  (click)="decide(review, 'rejected')"
+                >
+                  Reject
+                  <ng-icon class="link-icon" name="lucideX" />
+                </button>
+              }
+            </div>
+          </div>
+          <span class="tag">PENDING</span>
+        </div>
+      }
+    }
+  } @else {
     <div class="round-empty"><h3>Nothing needs your decision in this round.</h3></div>
   }
 </app-dropdown>

@@ -46,6 +46,9 @@ leagues = Table(
     Column("accent_colour", String(7)),
     # Null closes the league to joining by code.
     Column("join_code", String(16)),
+    # Reviews vetoes when the captain is involved (20260928090000_evidence_cases.sql).
+    # Never the captain.
+    Column("stand_in_reviewer_membership_id", UUID(as_uuid=True)),
     # 'active' or 'archived'. An archived league keeps every row but is left out of the
     # account's list, and its league routes answer 404 `unknown_league`.
     Column("status", String(20), nullable=False),
@@ -180,6 +183,54 @@ duty_evidence_links = Table(
     _ts("decided_at"),
     Column("reason", Text),
     _ts("effective_completed_at"),
+    Column("version", Integer, nullable=False),
+    _ts("updated_at", nullable=False),
+)
+
+# Evidence cases (20260928090000_evidence_cases.sql): one per evidence link, voted on by the
+# members frozen into evidence_case_voters when it opens. Voter rows are ballots: the API
+# never returns whose they are.
+evidence_cases = Table(
+    "evidence_cases",
+    metadata,
+    Column("id", UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")),
+    Column("league_id", UUID(as_uuid=True), nullable=False),
+    Column("season_id", UUID(as_uuid=True), nullable=False),
+    Column("duty_id", UUID(as_uuid=True), nullable=False),
+    Column("link_id", UUID(as_uuid=True), nullable=False),
+    Column("subject_membership_id", UUID(as_uuid=True), nullable=False),
+    _ts("opened_at", nullable=False),
+    _ts("closes_at", nullable=False),
+    Column("eligible_count", Integer, nullable=False),
+    # open, in_review, accepted, rejected or superseded.
+    Column("status", String(20), nullable=False),
+    # majority, auto, no_voters, veto_upheld or captain; set when accepted or rejected.
+    Column("resolution", String(20)),
+    _ts("resolved_at"),
+    Column("version", Integer, nullable=False),
+    _ts("updated_at", nullable=False),
+)
+
+evidence_case_voters = Table(
+    "evidence_case_voters",
+    metadata,
+    Column("id", UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")),
+    Column("league_id", UUID(as_uuid=True), nullable=False),
+    Column("case_id", UUID(as_uuid=True), nullable=False),
+    Column("membership_id", UUID(as_uuid=True), nullable=False),
+    # null, accept or veto.
+    Column("choice", String(10)),
+    Column("veto_reason", String(500)),
+    _ts("responded_at"),
+    # The account that responded: only it sees or changes the ballot, so a released name
+    # passes none to its next claimant.
+    Column("responded_by_user_id", UUID(as_uuid=True)),
+    # A veto's review: pending, upheld or dismissed.
+    Column("review_status", String(20)),
+    Column("reviewed_by_membership_id", UUID(as_uuid=True)),
+    Column("reviewed_by_label", String(80)),
+    _ts("reviewed_at"),
+    Column("review_reason", String(500)),
     Column("version", Integer, nullable=False),
     _ts("updated_at", nullable=False),
 )

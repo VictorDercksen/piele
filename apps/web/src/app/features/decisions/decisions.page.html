@@ -27,11 +27,38 @@
       Sample decision. Confidential, revisable ballots remain a proposed behaviour.
     </p>
   }
-} @else {
+}
+@if (cases.cases().length) {
+  <section class="case-list" aria-labelledby="cases-heading">
+    <div class="section-title">
+      <h2 id="cases-heading">Evidence under the league's vote.</h2>
+      <span>ROUND {{ fixtures.round().code }}</span>
+    </div>
+    <p class="page-description">
+      Members accept or veto each submission for 24 hours. A majority accepts it at once; a veto
+      goes to an uninvolved reviewer; with neither, it is accepted when voting closes.
+    </p>
+    @for (evidenceCase of cases.cases(); track evidenceCase.id) {
+      <app-case-card
+        [evidenceCase]="evidenceCase"
+        [reasonDialog]="reasonDialog()"
+        [sample]="records.sample"
+        [roundCode]="fixtures.round().code"
+      />
+    }
+    @if (records.sample) {
+      <p class="context-note">
+        Sample evidence. Responses and rulings stay in this browser until you reload.
+      </p>
+    }
+  </section>
+}
+@if (!polls.poll() && !cases.cases().length) {
   <div class="round-empty">
     <app-icon name="decisions" />
     <h2>No decisions in Round {{ fixtures.round().code }}.</h2>
-    <p>Votes and cases linked to this round will appear here.</p>
+    <p>League votes and evidence under review in this round will appear here.</p>
   </div>
 }
 <app-vote-dialog />
+<app-reason-dialog />

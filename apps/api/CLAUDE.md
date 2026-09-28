@@ -15,7 +15,7 @@ FastAPI, Pydantic, SQLAlchemy Core, Psycopg, Supabase PostgreSQL/Auth/private St
 | --- | --- |
 | App/config/database | `app/main.py`, `config.py`, `db.py`. Exact-origin CORS, request IDs, `Cache-Control: no-store`, lazy engine. |
 | Member authentication and authority | `app/league/auth.py`, `context.py`. Reuse verified request dependencies. |
-| League operations | `app/league/service.py`, `tables.py`, models, and `app/routers/league.py`. Audit/feed changes belong in the same transaction. |
+| League operations | `app/league/service.py`, `tables.py`, models, and `app/routers/league.py`. Evidence cases: `app/league/cases.py`. Audit/feed changes belong in the same transaction. |
 | Account, join, admin | `app/routers/account.py`, `admin.py`. League creation is shared with `app/league/bootstrap.py`. |
 | House marks and media | `app/league/marks.py` is authoritative. `storage.py` issues scoped grants, validates stored media, and deletes replaced uploads. |
 | Competitions | `app/competitions/__init__.py` registry, `base.py` contracts, competition folders such as `urc_2026_27`. Add a folder/registry entry rather than hard-coding another competition into shared code. |
@@ -56,6 +56,7 @@ FastAPI, Pydantic, SQLAlchemy Core, Psycopg, Supabase PostgreSQL/Auth/private St
 - Use `actor.competition` for teams, schedules, round bounds, labels, and next-round deadlines. Unknown competitions/rounds return explicit errors. Preserve fixture source, external ID, season, and retrieval time. Imports are idempotent and retain last good data on partial failure. Unknown dates remain nullable. Public fixture access grants no Superbru account access.
 - Store UTC instants and display league time explicitly. Reschedules cannot silently move confirmed duties/deadlines. Spoon duties default to the next round's first kickoff.
 - Accepted member evidence completes a duty at submission time. Captain-recorded evidence uses the entered completion time. Captains cannot decide their own evidence. Challenges never pause accrual. A successful challenge resets the overdue clock. Future Superbru sync proposes Spoon duties for confirmation rather than creating them automatically.
+- Every evidence link opens a 24-hour case. The electorate is frozen at opening: active claimed members except the subject and submitter; none accepts at once. A later claim does not join; a released name's uncast ballot leaves live cases. First event wins: majority accept accepts, a veto (with reason) goes to review, expiry auto-accepts at `closes_at`. The uninvolved captain reviews, else the stand-in, else only a membership-less admin. A dismissed veto reopens voting on the original timer. The captain override closes the case. No scheduler: `cases.settle_due` runs lazily once per transaction, before any duty lock, ahead of duty, case, marks and feed reads/writes; locked case writes re-check `closes_at`. Never return voter identities; case feed entries carry no actor.
 - Keep house marks and Superbru points separate. Pending constitutional interpretations are not enforceable rules. Voluntary participation cannot trigger default marks. Keep ballot choices private and apply the season-closure media retention workflow when implemented.
 
 ## Picks, rules, and previews
@@ -68,7 +69,7 @@ FastAPI, Pydantic, SQLAlchemy Core, Psycopg, Supabase PostgreSQL/Auth/private St
 
 ## Implemented limits
 
-Do not describe sample UI or proposals as completed backend features. Superbru sync, cases, voting, token invitations, accepted captain transfers, member-initiated leave, Jev, Machine picks, and results entry are not built. The live URC lineup query and private Storage REST shapes remain unverified against live services.
+Do not describe sample UI or proposals as completed backend features. Superbru sync, cases and voting other than evidence cases, token invitations, accepted captain transfers, member-initiated leave, Jev, Machine picks, and results entry are not built. The live URC lineup query and private Storage REST shapes remain unverified against live services.
 
 ## Verification
 

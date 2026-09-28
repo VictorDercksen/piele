@@ -12,7 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.competitions import Competition
 from app.config import Settings
-from app.league import service
+from app.league import cases, service
 from app.league.context import Actor, actor_dependency, steward_dependency
 from app.league.storage import Storage
 
@@ -23,6 +23,10 @@ DutyType = Literal["spoon", "pick_confirmation"]
 Email = Annotated[str, Field(pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$", max_length=320)]
 Lifecycle = Literal["pending_deadline", "open", "completed", "voided"]
 Display = Literal["pending_deadline", "open", "overdue", "under_review", "completed", "voided"]
+# Evidence cases (app/league/cases.py).
+CaseStatus = Literal["open", "in_review", "accepted", "rejected", "superseded"]
+CaseResolution = Literal["majority", "auto", "no_voters", "veto_upheld", "captain"]
+CaseChoice = Literal["accept", "veto"]
 
 
 def settings_of(request: Request) -> Settings:
@@ -442,6 +446,17 @@ def update_member(member_id: UUID, body: MemberUpdate, actor: Actor = Depends(st
 # Duties -------------------------------------------------------------------------------
 
 
+class EvidenceCaseSummary(BaseModel):
+    """The evidence's case, for the duty card. resolution and resolvedAt are set once it is
+    accepted or rejected (resolvedAt also once superseded)."""
+
+    id: UUID
+    status: CaseStatus
+    resolution: CaseResolution | None
+    closesAt: datetime
+    resolvedAt: datetime | None
+
+
 class EvidenceLink(BaseModel):
     id: UUID
     submissionId: UUID
@@ -455,6 +470,8 @@ class EvidenceLink(BaseModel):
     note: str
     submitterId: UUID
     submitterName: str
+    # Null for evidence submitted before cases existed and decided then.
+    evidenceCase: EvidenceCaseSummary | None
 
 
 class Marks(BaseModel):
@@ -524,6 +541,17 @@ def _duty(competition: Competition, view: service.DutyView) -> Duty:
                 note=link.note,
                 submitterId=link.submitter_membership_id,
                 submitterName=link.submitter_name,
+                evidenceCase=(
+                    EvidenceCaseSummary(
+                        id=link.case_id,
+                        status=link.case_status,
+                        resolution=link.case_resolution,
+                        closesAt=link.case_closes_at,
+                        resolvedAt=link.case_resolved_at,
+                    )
+                    if link.case_id is not None
+                    else None
+                ),
             )
             for link in view.links
         ],
@@ -832,7 +860,160 @@ class Decision(BaseModel):
 
 @router.post("/evidence/links/{link_id}/decision", status_code=204)
 def decide(link_id: UUID, body: Decision, actor: Actor = Depends(actor_dependency)) -> None:
+    """The captain's (or admin's) override: decides the evidence at any time and closes its
+    case with resolution `captain`. 403 `self_review` for the captain's own evidence."""
     service.decide_link(actor, link_id, decision=body.decision, reason=body.reason.strip())
+
+
+class EvidenceCase(BaseModel):
+    """One piece of evidence under the league's vote. Nothing here says who voted how:
+    members see participation (respondedCount of eligibleCount), their own response, and
+    once closed the outcome (status) and how it came about (resolution)."""
+
+    id: UUID
+    dutyId: UUID
+    linkId: UUID
+    submissionId: UUID
+    # For GET /evidence/assets/{assetId}/playback.
+    assetId: UUID
+    roundNumber: int | None
+    dutyType: DutyType
+    dutyTitle: str
+    subjectId: UUID
+    subjectName: str
+    submitterName: str
+    submittedAt: datetime
+    note: str
+    openedAt: datetime
+    # Voting ends then; a case still open at that time is accepted, dated closesAt. A
+    # dismissed veto reopens voting until the same time.
+    closesAt: datetime
+    status: CaseStatus
+    resolution: CaseResolution | None
+    resolvedAt: datetime | None
+    # Frozen when the case opened: active members with a claimed name other than the duty's
+    # member and the submitter (less any released since without voting). A majority is
+    # more than half of eligibleCount.
+    eligibleCount: int
+    respondedCount: int
+    # The caller's ballot: in the electorate, their response and their own veto's reason,
+    # and whether they may respond now (accept, or change an accept to a veto).
+    isVoter: bool
+    myResponse: CaseChoice | None
+    myVetoReason: str | None
+    canRespond: bool
+    # Whether the caller may rule on the pending veto; only then is its reason given.
+    canReview: bool
+    vetoReason: str | None
+    # A veto is waiting and no member may rule on it (the captain is involved and there is
+    # no uninvolved stand-in). Only ever true for the admin without a membership, who may
+    # rule on it, and for the captain on their own duty with no stand-in named; false for
+    # everyone else, so it never says who vetoed.
+    needsReviewer: bool
+    # Changes whenever the case does; a review sends the version it was based on.
+    version: int
+
+
+def _case(view: cases.CaseView) -> EvidenceCase:
+    row = view.row
+    return EvidenceCase(
+        id=row.id,
+        dutyId=row.duty_id,
+        linkId=row.link_id,
+        submissionId=row.submission_id,
+        assetId=row.asset_id,
+        roundNumber=row.round_number,
+        dutyType=row.duty_type,
+        dutyTitle=view.duty_title,
+        subjectId=row.subject_membership_id,
+        subjectName=row.subject_name,
+        submitterName=row.submitter_name,
+        submittedAt=row.submitted_at,
+        note=row.note,
+        openedAt=row.opened_at,
+        closesAt=row.closes_at,
+        status=row.status,
+        resolution=row.resolution,
+        resolvedAt=row.resolved_at,
+        eligibleCount=row.eligible_count,
+        respondedCount=view.responded_count,
+        isVoter=view.is_voter,
+        myResponse=view.my_response,
+        myVetoReason=view.my_veto_reason,
+        canRespond=view.can_respond,
+        canReview=view.can_review,
+        vetoReason=view.veto_reason,
+        needsReviewer=view.needs_reviewer,
+        version=row.version,
+    )
+
+
+@router.get("/evidence/cases", response_model=list[EvidenceCase])
+def list_cases(round: int | None = Query(default=None, ge=1), actor: Actor = Depends(actor_dependency)) -> list[EvidenceCase]:
+    """The active season's evidence cases, newest first; one round's with `round`. Cases
+    whose window has closed are settled first."""
+    if round is not None:
+        actor.competition.validate_round(round)
+    return [_case(view) for view in cases.list_cases(actor, round_number=round)]
+
+
+class CaseResponse(BaseModel):
+    choice: CaseChoice
+    # Required for a veto (422 `reason_required`).
+    reason: str = Field(default="", max_length=500)
+
+
+@router.post("/evidence/cases/{case_id}/response", response_model=EvidenceCase)
+def respond_to_case(case_id: UUID, body: CaseResponse, actor: Actor = Depends(actor_dependency)) -> EvidenceCase:
+    """An eligible voter accepts or vetoes while voting is open: 403 `not_a_voter`, 409
+    `voting_closed`, 409 `veto_final` (a veto cannot be changed). A veto sends the case to
+    review; the accept that makes a majority accepts the evidence."""
+    return _case(cases.respond(actor, case_id, choice=body.choice, reason=body.reason.strip()))
+
+
+class VetoReview(BaseModel):
+    ruling: Literal["upheld", "dismissed"]
+    reason: str = Field(min_length=1, max_length=500)
+    # The EvidenceCase version the ruling is based on (409 `stale_case` if it changed).
+    version: int
+
+
+@router.post("/evidence/cases/{case_id}/review", response_model=EvidenceCase)
+def review_case(case_id: UUID, body: VetoReview, actor: Actor = Depends(actor_dependency)) -> EvidenceCase:
+    """Rules on the pending veto: 409 `stale_case` (the case changed since `version`), 409
+    `not_in_review`, 403 `not_reviewer` for anyone but the uninvolved captain, the stand-in
+    when the captain is involved, or the admin. Upheld rejects the evidence; dismissed
+    reopens voting on the original timer."""
+    return _case(cases.review(actor, case_id, ruling=body.ruling, reason=body.reason.strip(), version=body.version))
+
+
+class StandInReviewer(BaseModel):
+    """Reviews vetoes when the captain is involved. Both null when none is named."""
+
+    memberId: UUID | None
+    memberName: str | None
+
+
+def _stand_in(actor: Actor) -> StandInReviewer:
+    row = cases.stand_in(actor)
+    return StandInReviewer(memberId=row.id if row else None, memberName=row.display_name if row else None)
+
+
+@router.get("/stand-in-reviewer", response_model=StandInReviewer)
+def get_stand_in_reviewer(actor: Actor = Depends(actor_dependency)) -> StandInReviewer:
+    return _stand_in(actor)
+
+
+class StandInChange(BaseModel):
+    # An active, claimed member other than the captain; null clears it.
+    memberId: UUID | None
+
+
+@router.put("/stand-in-reviewer", response_model=StandInReviewer)
+def set_stand_in_reviewer(body: StandInChange, actor: Actor = Depends(steward_dependency)) -> StandInReviewer:
+    """404 `unknown_member`, 409 `captain_cannot_stand_in`, 409 `not_claimed`."""
+    cases.set_stand_in(actor, body.memberId)
+    return _stand_in(actor)
 
 
 class Playback(BaseModel):

@@ -65,6 +65,11 @@
           @if (evidence.note) {
             <span class="evidence-note">“{{ evidence.note }}”</span>
           }
+          @if (caseState(evidence); as state) {
+            <span class="evidence-case" [attr.data-case]="evidence.evidenceCase?.status">{{
+              state
+            }}</span>
+          }
           @if (evidence.reason) {
             <span class="evidence-note">Reviewer: {{ evidence.reason }}</span>
           }
@@ -78,6 +83,16 @@
     </ul>
   }
   <div class="card-actions">
+    @if (duty().liveCase) {
+      <a
+        hlmBtn
+        class="text-button"
+        [routerLink]="'/decisions' | leaguePath"
+        queryParamsHandling="preserve"
+        >{{ duty().liveCase?.status === 'open' ? 'View the vote' : 'View the veto'
+        }}<ng-icon class="link-icon" name="lucideArrowRight"
+      /></a>
+    }
     @if (canUpload()) {
       <button hlmBtn type="button" class="primary-button" (click)="upload.emit()">
         <app-icon name="upload" />Upload evidence
