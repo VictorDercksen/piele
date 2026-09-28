@@ -154,7 +154,7 @@ export class EmptyLeagueData extends LeagueData {
     return Promise.resolve();
   }
 
-  saveNotificationsRead(read: NotificationsRead): Promise<void> {
+  async saveNotificationsRead(read: NotificationsRead): Promise<void> {
     this.read.set(read);
     storeRead(read, this.slug);
     return Promise.resolve();

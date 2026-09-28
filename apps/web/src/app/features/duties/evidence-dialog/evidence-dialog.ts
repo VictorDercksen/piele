@@ -34,7 +34,12 @@ export const EVIDENCE_FAILURE = 'evidence-failed';
   templateUrl: './evidence-dialog.html',
   styleUrl: './evidence-dialog.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, Icon, Loader],
+  // prettier-ignore
+  imports: [
+    ReactiveFormsModule,
+    Icon,
+    Loader,
+  ],
 })
 export class EvidenceDialog {
   private readonly alerts = inject(AlertService);

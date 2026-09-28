@@ -13,11 +13,11 @@ import { ScoringView } from '../scoring';
   templateUrl: './scoring-panel.html',
   styleUrl: './scoring-panel.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Dropdown],
   host: {
     '[class.open]': 'open()',
     '[class.live]': 'view().live',
   },
+  imports: [Dropdown],
 })
 export class ScoringPanel {
   readonly view = input.required<ScoringView>();

@@ -64,6 +64,12 @@ Alerts: every problem with an input, upload, save, the clipboard, storage or the
 
 ## Data and project boundaries
 
+The league shell is loaded through the route's `loadComponent` boundary, so public and account pages do not eagerly load league navigation and widgets.
+
+Transport types are generated from the local FastAPI OpenAPI schema in `src/app/core/api/generated.ts`. Run `npm run generate:api` after backend contract changes and `npm run check:api` to detect drift. The generator uses the API's `.venv` Python (or `API_PYTHON`) without starting a server or connecting to a database. Its locked tooling dependencies live in `scripts/api-types` because the generator requires TypeScript 5 while Angular uses TypeScript 6. Keep domain adaptations and compatibility with older API responses explicit in the consuming model files. Match-provider section extras are not fully specified in OpenAPI and retain explicit frontend contracts.
+
+Page sections own their local presentation and forms. The home page composes `next-actions` and `standings-summary`; the captain page composes `evidence-review` and `members-card` alongside its existing cards. The match page owns resource loading and route reconciliation, while `weather-panel`, `teamsheets-panel`, `player-list` and `pool-picks-table` render their inputs. League creation and editing share the native `select[appTimeZoneSelect]`. Keep these boundaries when extending a section instead of returning its markup or state to the page.
+
 Use feature folders as features grow, services for domain I/O, and dedicated models for shared contracts. The backend sibling is ../api and its guide is ../api/CLAUDE.md. Generate API types from OpenAPI when a real API exists. Do not invent endpoints or migrations merely for a visual change.
 
 Store fixture source, season and retrieval date alongside imported schedule data. Preserve unknown dates and times as unknown. Do not substitute another season or manufacture results. Kickoffs are absolute UTC timestamps displayed in the league's time zone (the league's `timezone`, Africa/Johannesburg by default). Competition API calls (`core/api`) use `/v1/competitions/{competitionId}/...` with `CompetitionService.current().id`. Schedule changes must not automatically change confirmed house deadlines.
@@ -75,6 +81,7 @@ From apps/web:
 - npm start starts the local Angular server.
 - npm run build produces the production build.
 - npm test -- --watch=false runs Vitest component and logic tests.
+- Vitest uses four workers to bound browser-fixture memory use. `src/test-setup.ts` binds storage to the actual JSDOM window so Node's native storage does not shadow it.
 - npm run test:e2e runs Playwright against the local server. Set PIELE_WEB_PORT when port 4200 is taken by another app, because the config reuses an existing server on that port.
 - npm run test:e2e:production serves the production build with the vercel.json headers and rewrites (scripts/serve-dist.mjs) and checks deep links, 404s and the Content-Security-Policy. Run npm run build first. The CSP forbids inline scripts, so critical CSS inlining stays off; keep new code free of inline event handlers and external origins other than HTTPS API calls.
 

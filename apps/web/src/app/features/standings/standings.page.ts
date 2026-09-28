@@ -10,15 +10,14 @@ import {
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { map } from 'rxjs';
+import { StandingsPreferences } from '../../core/storage/standings-preferences';
+export { BREAKDOWN_STORAGE_KEY } from '../../core/storage/standings-preferences';
 import { BADGES } from '../../core/league/badges';
 import { RoundViewService } from '../../core/league/round-view.service';
 import { MemberAvatar } from '../../shared/member-avatar/member-avatar';
 
 /** The standings tables: the selected round, the season up to it, and house marks. */
 export type StandingsMeasure = 'round' | 'season' | 'marks';
-
-/** Where the breakdown toggle is remembered in this browser. */
-export const BREAKDOWN_STORAGE_KEY = 'pavilion-standings-breakdown-v1';
 
 const MEASURES: readonly StandingsMeasure[] = ['round', 'season', 'marks'];
 
@@ -32,13 +31,18 @@ const MEASURES: readonly StandingsMeasure[] = ['round', 'season', 'marks'];
   templateUrl: './standings.page.html',
   styleUrl: './standings.page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, MemberAvatar],
+  // prettier-ignore
+  imports: [
+    DecimalPipe,
+    MemberAvatar,
+  ],
 })
 export class StandingsPage {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   readonly view = inject(RoundViewService);
   readonly badges = BADGES;
+  private readonly preferences = inject(StandingsPreferences);
   private readonly tableParam = toSignal(
     this.route.queryParamMap.pipe(map((params) => measureFrom(params.get('table')))),
     { initialValue: measureFrom(this.route.snapshot.queryParamMap.get('table')) },
@@ -46,7 +50,7 @@ export class StandingsPage {
   /** The tab shown: from `?table=`, else the round. */
   readonly measure = linkedSignal<StandingsMeasure>(() => this.tableParam());
   /** Whether the WP, MP, GSP and BP columns and bars show; remembered in this browser. */
-  readonly breakdown = signal(readBreakdown());
+  readonly breakdown = signal(this.preferences.readBreakdown());
   /** The round's status tag: live points are provisional; a settled round is complete. */
   readonly roundStatus = computed<'provisional' | 'complete' | 'awaiting picks'>(() => {
     if (this.view.roundProvisional()) return 'provisional';
@@ -98,24 +102,12 @@ export class StandingsPage {
   toggleBreakdown(): void {
     const next = !this.breakdown();
     this.breakdown.set(next);
-    try {
-      localStorage.setItem(BREAKDOWN_STORAGE_KEY, next ? '1' : '0');
-    } catch {
-      // Storage unavailable: the toggle still works for this visit.
-    }
+    this.preferences.saveBreakdown(next);
   }
 }
 
 function measureFrom(value: string | null): StandingsMeasure {
   return MEASURES.find((measure) => measure === value) ?? 'round';
-}
-
-function readBreakdown(): boolean {
-  try {
-    return localStorage.getItem(BREAKDOWN_STORAGE_KEY) === '1';
-  } catch {
-    return false;
-  }
 }
 
 /** One line of the round or season table as the page draws it. */

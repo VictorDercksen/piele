@@ -12,7 +12,13 @@ import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormArray, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideArrowRight, lucidePlus, lucideX } from '@ng-icons/lucide';
+import {
+  lucideArrowRight,
+  lucidePlus,
+  lucideRotateCcw,
+  lucideUserRound,
+  lucideX,
+} from '@ng-icons/lucide';
 import { map } from 'rxjs';
 import { COMPETITIONS } from '../../../core/competition/registry';
 import { AlertService } from '../../../core/feedback/alert.service';
@@ -42,7 +48,7 @@ import {
 import { FormProblem, problemDetails } from '../form-problems';
 import { membersValidator, notBlank, slugValidator, zoneValidator } from '../manage-validators';
 import { MAX_MEMBERS, MemberRow, MemberRowError, checkMembers } from '../member-rows';
-import { timeZoneGroups } from '../time-zones';
+import { TimeZoneSelect } from '../time-zone-select/time-zone-select';
 
 /** API refusals that concern one field (a warning that highlights it); any other code is an error. */
 const FIELD_OF_CODE: Readonly<Partial<Record<string, ApiField>>> = {
@@ -72,8 +78,18 @@ const STARTING_ROWS = 3;
   templateUrl: './create-league-form.html',
   styleUrls: ['../manage-fields.scss', './create-league-form.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, NgIcon, EmblemPicker, LeagueCrest, Loader, RulesFields],
-  viewProviders: [provideIcons({ lucideArrowRight, lucidePlus, lucideX })],
+  imports: [
+    TimeZoneSelect,
+    ReactiveFormsModule,
+    NgIcon,
+    EmblemPicker,
+    LeagueCrest,
+    Loader,
+    RulesFields,
+  ],
+  viewProviders: [
+    provideIcons({ lucideArrowRight, lucidePlus, lucideRotateCcw, lucideUserRound, lucideX }),
+  ],
 })
 export class CreateLeagueForm {
   private readonly admin = inject(AdminService);
@@ -139,7 +155,6 @@ export class CreateLeagueForm {
     return `${ready}, ${toFix} ${toFix === 1 ? 'row' : 'rows'} to fix.`;
   });
   readonly canAddRow = computed(() => this.value().members.length < MAX_MEMBERS);
-  readonly zoneGroups = computed(() => timeZoneGroups(this.value().timezone));
   readonly accentValue = computed(() => this.value().accentColour ?? DEFAULT_ACCENT);
   readonly presetLabel = computed(() => {
     const preset = this.value().emblemPreset;

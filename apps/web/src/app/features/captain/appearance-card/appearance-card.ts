@@ -1,3 +1,5 @@
+import { lucideRotateCcw, lucideTrash2, lucideX } from '@ng-icons/lucide';
+import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -33,7 +35,15 @@ const ALERT_KEY = 'captain-appearance';
   templateUrl: './appearance-card.html',
   styleUrl: './appearance-card.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Dropdown, EmblemPicker, LeagueCrest, Loader],
+  viewProviders: [provideIcons({ lucideRotateCcw, lucideTrash2, lucideX })],
+  // prettier-ignore
+  imports: [
+    NgIcon,
+    Dropdown,
+    EmblemPicker,
+    LeagueCrest,
+    Loader,
+  ],
 })
 export class AppearanceCard {
   private readonly context = inject(LeagueContext);

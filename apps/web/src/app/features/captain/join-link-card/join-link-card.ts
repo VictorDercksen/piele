@@ -9,7 +9,7 @@ import {
   signal,
 } from '@angular/core';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideCopy, lucideRefreshCw } from '@ng-icons/lucide';
+import { lucideCopy, lucideLockKeyhole, lucideRefreshCw } from '@ng-icons/lucide';
 import { AlertService } from '../../../core/feedback/alert.service';
 import { LeagueContext } from '../../../core/league/league-context';
 import { LeagueData } from '../../../core/league/league-data';
@@ -30,8 +30,14 @@ const ALERT_KEY = 'captain-join-link';
   templateUrl: './join-link-card.html',
   styleUrl: './join-link-card.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Dropdown, Icon, NgIcon, Loader],
-  viewProviders: [provideIcons({ lucideCopy, lucideRefreshCw })],
+  // prettier-ignore
+  imports: [
+    Dropdown,
+    Icon,
+    NgIcon,
+    Loader,
+  ],
+  viewProviders: [provideIcons({ lucideCopy, lucideLockKeyhole, lucideRefreshCw })],
 })
 export class JoinLinkCard {
   private readonly league = inject(LeagueData);

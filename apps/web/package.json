@@ -8,7 +8,9 @@
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "test:e2e": "playwright test",
-    "test:e2e:production": "playwright test --config playwright.production.config.ts"
+    "test:e2e:production": "playwright test --config playwright.production.config.ts",
+    "generate:api": "npm --prefix scripts/api-types ci --ignore-scripts && node scripts/generate-api-types.mjs",
+    "check:api": "npm --prefix scripts/api-types ci --ignore-scripts && node scripts/generate-api-types.mjs --check"
   },
   "private": true,
   "packageManager": "npm@11.17.0",

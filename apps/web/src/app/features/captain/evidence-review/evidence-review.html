@@ -1,0 +1,42 @@
+<app-dropdown heading="Evidence to decide." headingId="review-heading">
+  @if (view.reviewCount()) {
+    <span class="tag" dropdownSide>{{ view.reviewCount() }} PENDING</span>
+  }
+  <p class="page-description">
+    {{ view.reviewCount() }} {{ view.reviewCount() === 1 ? 'item' : 'items' }} for
+    {{ view.round().title }}. Accepting sets the completion time; rejecting keeps the duty open.
+  </p>
+  @for (review of view.reviews(); track review.evidence.id) {
+    <div class="review-row" [class.spoon-duty]="review.duty.spoon">
+      <app-icon name="shield" />
+      <div class="review-body">
+        <h3>{{ review.duty.memberName }} · {{ review.duty.title }}</h3>
+        <p>{{ completion(review) }} · submitted {{ when(review) }}</p>
+        @if (review.evidence.note) {
+          <p class="note">“{{ review.evidence.note }}”</p>
+        }
+        <div class="review-actions">
+          @if (!view.sample) {
+            <button type="button" class="text-button" (click)="watch(review)">
+              Watch video<ng-icon class="link-icon" name="lucidePlay" />
+            </button>
+          }
+          @if (review.selfReview) {
+            <span class="tag">NEEDS AN UNINVOLVED REVIEWER</span>
+          } @else {
+            <button type="button" class="primary-button" (click)="decide(review, 'accepted')">
+              <app-icon name="check" />Accept
+            </button>
+            <button type="button" class="text-button" (click)="decide(review, 'rejected')">
+              Reject
+              <ng-icon class="link-icon" name="lucideX" />
+            </button>
+          }
+        </div>
+      </div>
+      <span class="tag">PENDING</span>
+    </div>
+  } @empty {
+    <div class="round-empty"><h3>Nothing needs your decision in this round.</h3></div>
+  }
+</app-dropdown>

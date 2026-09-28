@@ -1,0 +1,87 @@
+@let p = picks();
+@if (rows().length) {
+  <table class="pool" [class.locked]="p.locked">
+    <caption class="visually-hidden">
+      Picks for
+      {{
+        p.fixture.home
+      }}
+      v
+      {{
+        p.fixture.away
+      }}
+    </caption>
+    <colgroup>
+      <col class="col-avatar" />
+      <col />
+      <col class="col-pick" />
+      @if (p.locked) {
+        <col class="col-mark" />
+        <col class="col-mark" />
+        <col class="col-mark" />
+        <col class="col-points" />
+      }
+    </colgroup>
+    <thead>
+      <tr>
+        <th scope="col" class="c-member" colspan="2">Member</th>
+        <th scope="col" class="c-pick">Pick</th>
+        @if (p.locked) {
+          <th scope="col" class="c-mark"><abbr title="Outcome">W</abbr></th>
+          <th scope="col" class="c-mark">
+            <abbr [title]="'Within ' + rules().marginWindow">M</abbr>
+          </th>
+          <th scope="col" class="c-mark"><abbr title="Closest">B</abbr></th>
+          <th scope="col" class="c-points">Pts</th>
+        }
+      </tr>
+    </thead>
+    <tbody>
+      @for (entry of rows(); track entry.row.memberId) {
+        <tr [class.you]="entry.row.you">
+          <td class="c-avatar">
+            <app-member-avatar
+              [name]="entry.row.name"
+              [photo]="entry.row.photo"
+              [teamId]="entry.row.teamId"
+            />
+          </td>
+          <th scope="row" class="c-name">
+            <span class="who"
+              ><span class="name">{{ entry.row.name }}</span>
+              @if (entry.row.you) {
+                <small class="you-tag">YOU</small>
+              }
+            </span>
+          </th>
+          <td class="c-pick"><app-pick-chip [chip]="entry.chip" /></td>
+          @if (p.locked) {
+            @for (mark of entry.marks; track mark.key) {
+              <td class="c-mark">
+                @if (scored()) {
+                  <span class="mark" [class.earned]="mark.earned" aria-hidden="true">
+                    @if (mark.fraction !== null) {
+                      <span class="fraction">{{ mark.fraction | number: '1.0-2' }}</span>
+                    }
+                  </span>
+                  <span class="visually-hidden">{{ mark.text }}</span>
+                }
+              </td>
+            }
+            <td class="c-points">
+              @if (scored()) {
+                {{ entry.row.points | number: '1.0-2' }}
+              } @else {
+                <span aria-hidden="true">–</span><span class="visually-hidden">not scored yet</span>
+              }
+            </td>
+          }
+        </tr>
+      }
+    </tbody>
+  </table>
+} @else {
+  <p class="panel-empty">
+    {{ p.locked ? 'No picks were recorded for this match.' : 'No picks are in yet.' }}
+  </p>
+}

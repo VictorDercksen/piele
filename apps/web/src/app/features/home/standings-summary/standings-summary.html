@@ -1,0 +1,62 @@
+<div class="board-light" aria-hidden="true"></div>
+<div class="honours-heading">
+  <span>{{ view.leagueName().toUpperCase() }} / ROUND {{ view.round().code }}</span>
+  <h2>The pecking order.</h2>
+  @if (view.roundProvisional()) {
+    <p class="board-status"><span class="tag">provisional</span></p>
+  }
+</div>
+@if (view.standings().length) {
+  <div class="table-label">
+    <span>ROUND {{ view.round().code }} POINTS</span><span>PTS</span>
+  </div>
+  <ol class="leaderboard">
+    @for (member of topFour(); track member.memberId) {
+      <li [class.you]="member.you">
+        <span class="rank">{{ member.rank | number: '2.0-0' }}</span
+        ><app-member-avatar
+          class="member-avatar"
+          [name]="member.name"
+          [photo]="member.photo"
+          [teamId]="member.teamId"
+        /><span class="member-name">{{ member.name }}</span>
+        @if (member.cap) {
+          <img class="badge" [src]="badges.cap.src" [alt]="badges.cap.alt" />
+        }
+        @if (member.spoon) {
+          <img class="badge" [src]="badges.spoon.src" [alt]="badges.spoon.alt" />
+        }
+        <strong>{{ member.points | number: '1.1-2' }}</strong>
+      </li>
+    }
+  </ol>
+  <a class="table-link" [routerLink]="'/standings' | leaguePath" queryParamsHandling="preserve">
+    Full round standings <ng-icon class="link-icon" name="lucideArrowRight" />
+  </a>
+} @else {
+  <div class="round-empty">
+    <app-icon name="standings" />
+    <h3>No results for Round {{ view.round().code }} yet.</h3>
+    <p>Round points appear once the captain records the Superbru pool results.</p>
+  </div>
+}
+<a
+  class="season-line"
+  [routerLink]="'/standings' | leaguePath"
+  [queryParams]="{ table: 'season' }"
+  queryParamsHandling="merge"
+  ><span>
+    @if (seasonPlace(); as place) {
+      Season · You are {{ place.rank }} of {{ place.of }} · {{ place.points | number: '1.0-2' }} pts
+    } @else {
+      Season table
+    }</span
+  ><ng-icon class="link-icon" name="lucideArrowRight"
+/></a>
+<div class="house-marks">
+  <div>
+    <span>YOUR SEASON HOUSE MARKS</span>
+    <p>Separate from Superbru points.</p>
+  </div>
+  <strong>{{ view.ownMarks() }}</strong>
+</div>

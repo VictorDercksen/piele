@@ -185,42 +185,12 @@
   margin-top: 22px;
   border-top: 1px solid var(--line);
 }
-.sources-drawer summary {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 44px;
-  cursor: pointer;
-  list-style: none;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 1.2px;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-.sources-drawer summary::-webkit-details-marker {
-  display: none;
-}
-.sources-drawer summary:hover {
-  color: var(--ink);
-}
-.sources-drawer summary:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
 .sources-drawer .count {
   min-width: 20px;
   padding: 2px 6px;
   text-align: center;
   background: #ffffff14;
   font-variant-numeric: tabular-nums;
-}
-.sources-drawer .chevron {
-  margin-left: auto;
-  transition: transform 0.2s;
-}
-.sources-drawer[open] .chevron {
-  transform: rotate(180deg);
 }
 .sources {
   list-style: none;

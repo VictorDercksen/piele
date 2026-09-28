@@ -162,6 +162,20 @@ function setup(options: { locked?: boolean; result?: FixtureResult | null; refus
 describe('PicksCard', () => {
   afterEach(() => TestBed.inject(AlertService).clear());
 
+  it('detaches old row listeners on rebuild and current listeners on destruction', async () => {
+    const { fixture, rows } = setup();
+    await settle();
+    const old = fixture.componentInstance.form.at(0);
+    rows.update((items) => items.map((row) => ({ ...row, margin: 12 })));
+    await settle();
+    old.controls.side.setValue('draw');
+    expect(old.controls.margin.value).toBe('7');
+    const current = fixture.componentInstance.form.at(0);
+    fixture.destroy();
+    current.controls.side.setValue('draw');
+    expect(current.controls.margin.value).toBe('12');
+  });
+
   it('prefills the grid from the saved picks', async () => {
     const { radio, margin } = setup();
     await settle();

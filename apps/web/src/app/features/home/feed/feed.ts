@@ -13,7 +13,12 @@ import { Icon } from '../../../shared/icon/icon';
   templateUrl: './feed.html',
   styleUrl: './feed.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, LeaguePathPipe, Icon],
+  // prettier-ignore
+  imports: [
+    RouterLink,
+    LeaguePathPipe,
+    Icon,
+  ],
 })
 export class Feed {
   readonly view = inject(RoundViewService);

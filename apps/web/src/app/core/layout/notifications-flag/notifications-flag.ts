@@ -15,7 +15,7 @@ import { LeagueTime } from '../../competition/league-time';
 import { LeagueContext } from '../../league/league-context';
 import { Notice, NotificationsService, PinnedNotice } from '../../league/notifications.service';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideArrowRight } from '@ng-icons/lucide';
+import { lucideArrowRight, lucideCheck } from '@ng-icons/lucide';
 import { Icon } from '../../../shared/icon/icon';
 
 /** Rod extension plus the fabric drop, ripple and settle. Matches the stylesheet timings. */
@@ -31,14 +31,18 @@ const UNFURL_MS = 1800;
   templateUrl: './notifications-flag.html',
   styleUrl: './notifications-flag.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Icon, NgIcon],
-  viewProviders: [provideIcons({ lucideArrowRight })],
   host: {
     '[class.open]': 'open()',
     '[class.settled]': 'settled()',
     '(document:keydown.escape)': 'onEscape()',
     '(document:pointerdown)': 'onPointerDown($event)',
   },
+  // prettier-ignore
+  imports: [
+    Icon,
+    NgIcon,
+  ],
+  viewProviders: [provideIcons({ lucideArrowRight, lucideCheck })],
 })
 export class NotificationsFlag {
   private readonly router = inject(Router);

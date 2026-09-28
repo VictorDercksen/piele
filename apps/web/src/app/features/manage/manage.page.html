@@ -24,7 +24,9 @@
       @if (error(); as message) {
         <div class="load-error">
           <p class="error-message" role="alert">{{ message }}</p>
-          <button type="button" class="text-button" (click)="retry()">Try again</button>
+          <button type="button" class="text-button" (click)="retry()">
+            Try again<ng-icon class="link-icon" name="lucideRotateCcw" />
+          </button>
         </div>
       } @else if (loading() && !leagues().length) {
         <div class="loading"><app-ball-loader [size]="40" label="Loading the leagues" /></div>

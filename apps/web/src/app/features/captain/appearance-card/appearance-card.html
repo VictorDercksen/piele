@@ -52,6 +52,7 @@
           (click)="removeEmblem()"
         >
           Remove emblem
+          <ng-icon class="link-icon" name="lucideTrash2" />
         </button>
       </div>
       <p class="hint">JPG, PNG or WebP up to 5 MB, cropped to a 512 px square.</p>
@@ -68,6 +69,7 @@
         @if (preview().accentColour) {
           <button type="button" class="text-button" [disabled]="busy()" (click)="defaultAccent()">
             Use the default
+            <ng-icon class="link-icon" name="lucideRotateCcw" />
           </button>
         }
       </div>
@@ -89,6 +91,7 @@
     @if (changed()) {
       <button type="button" class="text-button" [disabled]="saving()" (click)="discard()">
         Discard changes
+        <ng-icon class="link-icon" name="lucideX" />
       </button>
     }
   </div>

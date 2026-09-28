@@ -17,7 +17,15 @@ import { ReasonDialog } from './reason-dialog/reason-dialog';
   templateUrl: './duties.page.html',
   styleUrl: './duties.page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, Icon, DutyCard, EvidenceDialog, CreateDutyDialog, ReasonDialog],
+  // prettier-ignore
+  imports: [
+    RouterLink,
+    Icon,
+    DutyCard,
+    EvidenceDialog,
+    CreateDutyDialog,
+    ReasonDialog,
+  ],
 })
 export class DutiesPage {
   private readonly alerts = inject(AlertService);

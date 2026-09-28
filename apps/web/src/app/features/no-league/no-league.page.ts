@@ -10,7 +10,7 @@ import {
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideArrowRight } from '@ng-icons/lucide';
+import { lucideArrowRight, lucideLogOut } from '@ng-icons/lucide';
 import { AuthService } from '../../core/auth/auth.service';
 import { AlertService } from '../../core/feedback/alert.service';
 import { highlightProblem } from '../../core/feedback/problem-highlight';
@@ -27,8 +27,14 @@ import { Loader } from '../../shared/loader/loader';
   templateUrl: './no-league.page.html',
   styleUrls: ['../join/join.page.scss', './no-league.page.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, RouterLink, NgIcon, Loader],
-  viewProviders: [provideIcons({ lucideArrowRight })],
+  // prettier-ignore
+  imports: [
+    ReactiveFormsModule,
+    RouterLink,
+    NgIcon,
+    Loader,
+  ],
+  viewProviders: [provideIcons({ lucideArrowRight, lucideLogOut })],
 })
 export class NoLeaguePage {
   private readonly router = inject(Router);

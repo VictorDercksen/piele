@@ -1,0 +1,60 @@
+@let weather = forecast();
+<section
+  class="panel weather"
+  [class.has-sky]="sky()"
+  [attr.data-sky]="sky()?.scene"
+  [attr.data-time]="sky()?.time"
+  aria-labelledby="weather-title"
+>
+  @if (sky()) {
+    <div class="sky" aria-hidden="true">
+      <span class="sky-glow"></span>
+      <span class="sky-clouds"></span>
+      <span class="sky-precip"></span>
+    </div>
+  }
+  <div class="section-title">
+    <h2 id="weather-title">Kickoff forecast.</h2>
+    <span class="tag">{{ weather.status.replace('_', ' ') }}</span>
+  </div>
+  @if (weather.status === 'ok') {
+    <div class="forecast-body">
+      <div class="forecast">
+        @if (sky(); as s) {
+          <ng-icon class="condition-icon" [name]="s.icon" aria-hidden="true" />
+        }
+        <strong class="temperature">{{ weather.temperatureC | number: '1.0-0' }}°</strong>
+        <span class="condition">{{ weather.condition }}</span>
+      </div>
+      <dl class="forecast-facts">
+        <div>
+          <dt>Feels like</dt>
+          <dd>{{ weather.feelsLikeC | number: '1.0-0' }}°</dd>
+        </div>
+        <div>
+          <dt>Rain chance</dt>
+          <dd>{{ weather.rainChancePercent ?? '—' }}%</dd>
+        </div>
+        <div>
+          <dt>Wind</dt>
+          <dd>{{ weather.windKmh | number: '1.0-0' }} km/h</dd>
+        </div>
+        <div>
+          <dt>Gusts</dt>
+          <dd>{{ weather.gustKmh | number: '1.0-0' }} km/h</dd>
+        </div>
+      </dl>
+    </div>
+    <p class="panel-source">
+      {{ weather.stadium }}, {{ weather.city }} at
+      {{ weather.forecastHourUtc | leagueTime: 'HH:mm z' : zone() }} ·
+      {{ weather.source }}
+      @if (weather.fetchedAt; as at) {
+        · updated {{ at | leagueTime: 'd MMM HH:mm' : zone() }}
+      }
+    </p>
+  } @else {
+    <p class="panel-empty">{{ message() }}</p>
+    <p class="panel-source">{{ weather.source }}</p>
+  }
+</section>

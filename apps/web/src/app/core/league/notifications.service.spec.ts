@@ -1,3 +1,4 @@
+import { AlertService } from '../feedback/alert.service';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
@@ -231,6 +232,22 @@ describe('NotificationsService', () => {
     expect(saves.mock.calls[1][0]).toEqual(saves.mock.calls[0][0]);
     await service.refresh();
     expect(saves).toHaveBeenCalledTimes(2);
+  });
+
+  it('reports blocked browser persistence and retries the read state after storage recovers', async () => {
+    const service = await setup('2026-10-05T10:00:00Z', 2);
+    const storage = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
+    await service.markAllRead();
+    expect(
+      TestBed.inject(AlertService)
+        .alerts()
+        .some((a) => a.severity === 'error' && a.message.includes('read notifications')),
+    ).toBe(true);
+    storage.mockRestore();
+    await service.refresh();
+    expect(localStorage.getItem('pavilion-notifications-read-v2:piele')).toContain('readAt');
   });
 
   it('drops a refused read state once another league is shown', async () => {

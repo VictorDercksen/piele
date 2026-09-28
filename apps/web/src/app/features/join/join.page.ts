@@ -8,7 +8,7 @@ import {
 } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideArrowRight } from '@ng-icons/lucide';
+import { lucideArrowRight, lucideLogOut } from '@ng-icons/lucide';
 import { AuthService } from '../../core/auth/auth.service';
 import { AlertService } from '../../core/feedback/alert.service';
 import { ApiError } from '../../core/league/http-league-data';
@@ -29,8 +29,15 @@ import { Loader } from '../../shared/loader/loader';
   templateUrl: './join.page.html',
   styleUrl: './join.page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, NgIcon, BallLoader, LeagueCrest, Loader],
-  viewProviders: [provideIcons({ lucideArrowRight })],
+  // prettier-ignore
+  imports: [
+    RouterLink,
+    NgIcon,
+    BallLoader,
+    LeagueCrest,
+    Loader,
+  ],
+  viewProviders: [provideIcons({ lucideArrowRight, lucideLogOut })],
 })
 export class JoinPage {
   private readonly auth = inject(AuthService);

@@ -1,0 +1,122 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+.sheets {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+}
+/*
+ * Each teamsheet carries its club's banner artwork: the pattern shows faintly at the top
+ * and fades into the panel, with a large faint crest in the corner. Rows stay on the plain
+ * surface so names remain readable whatever the club palette.
+ */
+.sheet {
+  position: relative;
+  isolation: isolate;
+  min-width: 0;
+}
+.sheet.has-banner {
+  overflow: hidden;
+  padding: 14px 14px 16px;
+  border: 1px solid #ffffff1f;
+  background: var(--surface);
+}
+.sheet-pattern,
+.sheet-watermark {
+  position: absolute;
+  pointer-events: none;
+}
+.sheet-pattern {
+  inset: 0 0 auto;
+  z-index: -2;
+  width: 100%;
+  height: 260px;
+  object-fit: cover;
+  object-position: center top;
+  opacity: 0.24;
+  mask-image: linear-gradient(180deg, #000, #0003 55%, #0000);
+}
+.sheet-watermark {
+  right: -40px;
+  bottom: -30px;
+  z-index: -1;
+  width: 220px;
+  height: 220px;
+  object-fit: contain;
+  opacity: 0.07;
+}
+.sheet-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 28px;
+  margin-bottom: 10px;
+}
+.has-banner .sheet-head {
+  margin-bottom: 14px;
+}
+.sheet-crest {
+  flex: none;
+  width: 38px;
+  height: 38px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 4px #0008);
+}
+.sheet h3 {
+  font-size: 12px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin: 0;
+  color: var(--chalk);
+  text-shadow: 0 1px 3px #000a;
+}
+.average-age {
+  margin-left: auto;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 1.2px;
+  line-height: 1.2;
+  text-align: right;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--muted);
+}
+.average-age strong {
+  display: block;
+  font-size: 18px;
+  letter-spacing: 0;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.bench-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 16px 0 6px;
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  color: var(--muted);
+}
+.panel-empty {
+  color: var(--muted);
+  margin: 6px 0 12px;
+}
+.panel-source,
+.panel-note {
+  font-size: 10px;
+  letter-spacing: 0.4px;
+  color: var(--muted);
+  margin: 12px 0 0;
+}
+.panel-note {
+  padding-top: 10px;
+  border-top: 1px dashed var(--line);
+}
+
+@container (max-width: 600px) {
+  .sheets {
+    grid-template-columns: 1fr;
+  }
+}

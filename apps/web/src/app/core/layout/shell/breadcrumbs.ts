@@ -43,9 +43,11 @@ export class Breadcrumbs {
 
   constructor() {
     let restored: number | undefined;
-    this.router.events.pipe(takeUntilDestroyed()).subscribe((event) => {
-      if (event instanceof NavigationStart) restored = event.restoredState?.navigationId;
-      else if (event instanceof NavigationEnd) this.arrive(event.id, restored);
+    this.router.events.pipe(takeUntilDestroyed()).subscribe({
+      next: (event) => {
+        if (event instanceof NavigationStart) restored = event.restoredState?.navigationId;
+        else if (event instanceof NavigationEnd) this.arrive(event.id, restored);
+      },
     });
     if (this.router.navigated) this.arrive(null, undefined);
   }

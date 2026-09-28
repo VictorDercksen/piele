@@ -317,32 +317,34 @@ export class SampleLeague {
     const members = this.memberRecords();
     const active = new Set(members.map((m) => m.id));
     const picks = this.pickRecords();
-    return this.dutyRecords().filter((record) => active.has(record.memberId)).map((record) => {
-      const marks = sampleMarks(
-        record.deadlineAt,
-        record.completedAt,
-        record.status === 'voided',
-        now,
-        record.clockResetAt,
-      );
-      const pending = record.evidence.some((e) => e.decision === 'pending');
-      const display =
-        record.status !== 'open'
-          ? record.status
-          : pending
-            ? 'under_review'
-            : record.deadlineAt && now.getTime() > new Date(record.deadlineAt).getTime()
-              ? 'overdue'
-              : 'open';
-      return {
-        ...record,
-        memberName: members.find((m) => m.id === record.memberId)?.name ?? 'Unknown member',
-        title: this.title(record.type, record.roundId),
-        display,
-        marks,
-        pickFixtureIds: picks.filter((p) => p.dutyId === record.id).map((p) => p.fixtureId),
-      };
-    });
+    return this.dutyRecords()
+      .filter((record) => active.has(record.memberId))
+      .map((record) => {
+        const marks = sampleMarks(
+          record.deadlineAt,
+          record.completedAt,
+          record.status === 'voided',
+          now,
+          record.clockResetAt,
+        );
+        const pending = record.evidence.some((e) => e.decision === 'pending');
+        const display =
+          record.status !== 'open'
+            ? record.status
+            : pending
+              ? 'under_review'
+              : record.deadlineAt && now.getTime() > new Date(record.deadlineAt).getTime()
+                ? 'overdue'
+                : 'open';
+        return {
+          ...record,
+          memberName: members.find((m) => m.id === record.memberId)?.name ?? 'Unknown member',
+          title: this.title(record.type, record.roundId),
+          display,
+          marks,
+          pickFixtureIds: picks.filter((p) => p.dutyId === record.id).map((p) => p.fixtureId),
+        };
+      });
   });
   readonly marks = computed<readonly MemberMarks[]>(() => {
     const totals = new Map<string, MemberMarks>();
@@ -356,10 +358,13 @@ export class SampleLeague {
       totals.set(duty.memberId, {
         ...entry,
         marks: entry.marks + duty.marks.marks,
-        openDuties: entry.openDuties + (duty.status === 'open' || duty.status === 'pending_deadline' ? 1 : 0),
+        openDuties:
+          entry.openDuties + (duty.status === 'open' || duty.status === 'pending_deadline' ? 1 : 0),
       });
     }
-    return [...totals.values()].sort((a, b) => b.marks - a.marks || a.memberName.localeCompare(b.memberName));
+    return [...totals.values()].sort(
+      (a, b) => b.marks - a.marks || a.memberName.localeCompare(b.memberName),
+    );
   });
   private readonly pollRecords: WritableSignal<readonly Poll[]>;
   readonly polls: Signal<readonly Poll[]>;
@@ -434,7 +439,10 @@ export class SampleLeague {
       const name = members.get(record.memberId);
       if (name === undefined) continue;
       const { fixtureId, ...pick } = record;
-      byFixture.set(fixtureId, [...(byFixture.get(fixtureId) ?? []), { ...pick, memberName: name }]);
+      byFixture.set(fixtureId, [
+        ...(byFixture.get(fixtureId) ?? []),
+        { ...pick, memberName: name },
+      ]);
     }
     return this.competition
       .current()
@@ -465,7 +473,8 @@ export class SampleLeague {
     if (change.timezone) this.zoneState.set(change.timezone);
     if (change.status && change.status !== this.status()) {
       this.statusState.set(change.status);
-      if (change.status === 'active') this.post('league_restored', null, `${this.name()} is open again.`, '', null);
+      if (change.status === 'active')
+        this.post('league_restored', null, `${this.name()} is open again.`, '', null);
     }
   }
 
@@ -493,20 +502,27 @@ export class SampleLeague {
     this.post(
       withdrawn ? 'member_returned' : 'member_joined',
       null,
-      withdrawn ? `${record.name} is back as admin.` : `${record.name} joined the clubhouse as admin.`,
+      withdrawn
+        ? `${record.name} is back as admin.`
+        : `${record.name} joined the clubhouse as admin.`,
       '',
       record.name,
     );
     return !withdrawn;
   }
 
-  saveNotificationsRead(read: NotificationsRead): Promise<void> {
+  async saveNotificationsRead(read: NotificationsRead): Promise<void> {
     this.readState.set(read);
     storeRead(read, this.seed.summary.slug);
     return Promise.resolve();
   }
 
-  submitEvidence({ dutyIds, note, subjectMemberId, claimedCompletedAt }: EvidenceSubmission): Promise<void> {
+  submitEvidence({
+    dutyIds,
+    note,
+    subjectMemberId,
+    claimedCompletedAt,
+  }: EvidenceSubmission): Promise<void> {
     if (!this.memberId) return notAMember();
     const subject = subjectMemberId ?? ME;
     const now = new Date().toISOString();
@@ -514,7 +530,8 @@ export class SampleLeague {
     let touched: DutyRecord[] = [];
     this.dutyRecords.update((duties) =>
       duties.map((duty) => {
-        if (!dutyIds.includes(duty.id) || duty.memberId !== subject || duty.status !== 'open') return duty;
+        if (!dutyIds.includes(duty.id) || duty.memberId !== subject || duty.status !== 'open')
+          return duty;
         const evidence: DutyEvidence = {
           id: `link-${duty.id}-${Date.now()}`,
           submissionId,
@@ -536,7 +553,13 @@ export class SampleLeague {
     );
     if (!touched.length) return Promise.reject(new Error('That duty is no longer open.'));
     const name = this.memberRecords().find((m) => m.id === subject)?.name ?? 'Member';
-    this.post('evidence_submitted', touched[0].roundId, `${name} submitted evidence for ${touched.map((d) => this.title(d.type, d.roundId)).join(', ')}.`, subject === ME ? 'Waiting for an uninvolved reviewer.' : 'Recorded by the captain.', name);
+    this.post(
+      'evidence_submitted',
+      touched[0].roundId,
+      `${name} submitted evidence for ${touched.map((d) => this.title(d.type, d.roundId)).join(', ')}.`,
+      subject === ME ? 'Waiting for an uninvolved reviewer.' : 'Recorded by the captain.',
+      name,
+    );
     return Promise.resolve();
   }
 
@@ -544,9 +567,21 @@ export class SampleLeague {
     if (!this.memberId) return notAMember();
     const member = this.memberRecords().find((m) => m.id === duty.memberId);
     if (!member) return Promise.reject(new Error('Unknown member.'));
-    if (this.dutyRecords().some((d) => d.memberId === duty.memberId && d.roundId === duty.roundId && d.type === duty.type && (d.status === 'open' || d.status === 'pending_deadline')))
-      return Promise.reject(new Error('That member already has a live duty of this type in this round.'));
-    const deadlineAt = duty.deadlineAt ?? (duty.type === 'spoon' ? this.competition.current().firstKickoff(duty.roundId + 1) : null);
+    if (
+      this.dutyRecords().some(
+        (d) =>
+          d.memberId === duty.memberId &&
+          d.roundId === duty.roundId &&
+          d.type === duty.type &&
+          (d.status === 'open' || d.status === 'pending_deadline'),
+      )
+    )
+      return Promise.reject(
+        new Error('That member already has a live duty of this type in this round.'),
+      );
+    const deadlineAt =
+      duty.deadlineAt ??
+      (duty.type === 'spoon' ? this.competition.current().firstKickoff(duty.roundId + 1) : null);
     const id = `duty-${Date.now()}`;
     const fixtureIds = duty.type === 'pick_confirmation' ? (duty.pickFixtureIds ?? []) : [];
     if (fixtureIds.some((fixtureId) => !this.fixture(fixtureId)))
@@ -557,7 +592,10 @@ export class SampleLeague {
         p.memberId === duty.memberId && fixtureIds.includes(p.fixtureId) ? { ...p, dutyId: id } : p,
       ),
       ...fixtureIds
-        .filter((fixtureId) => !records.some((p) => p.memberId === duty.memberId && p.fixtureId === fixtureId))
+        .filter(
+          (fixtureId) =>
+            !records.some((p) => p.memberId === duty.memberId && p.fixtureId === fixtureId),
+        )
         .map((fixtureId) => ({
           fixtureId,
           memberId: duty.memberId,
@@ -584,7 +622,13 @@ export class SampleLeague {
         evidence: [],
       },
     ]);
-    this.post('duty_created', duty.roundId, `${member.name}: ${this.title(duty.type, duty.roundId)}.`, duty.reason || (deadlineAt ? '' : 'Deadline to be confirmed.'), member.name);
+    this.post(
+      'duty_created',
+      duty.roundId,
+      `${member.name}: ${this.title(duty.type, duty.roundId)}.`,
+      duty.reason || (deadlineAt ? '' : 'Deadline to be confirmed.'),
+      member.name,
+    );
     return Promise.resolve();
   }
 
@@ -596,26 +640,48 @@ export class SampleLeague {
     this.dutyRecords.update((duties) =>
       duties.map((d) =>
         d.id === dutyId
-          ? { ...d, status: 'voided', voidReason: reason, evidence: d.evidence.map((e) => (e.decision === 'pending' ? { ...e, decision: 'superseded' } : e)) }
+          ? {
+              ...d,
+              status: 'voided',
+              voidReason: reason,
+              evidence: d.evidence.map((e) =>
+                e.decision === 'pending' ? { ...e, decision: 'superseded' } : e,
+              ),
+            }
           : d,
       ),
     );
     const name = this.memberRecords().find((m) => m.id === duty.memberId)?.name ?? 'Member';
-    this.post('duty_voided', duty.roundId, `${name}: ${this.title(duty.type, duty.roundId)} voided.`, reason, name);
+    this.post(
+      'duty_voided',
+      duty.roundId,
+      `${name}: ${this.title(duty.type, duty.roundId)} voided.`,
+      reason,
+      name,
+    );
     return Promise.resolve();
   }
 
   resetClock(dutyId: string, reason: string): Promise<void> {
     if (!this.memberId) return notAMember();
     const duty = this.dutyRecords().find((d) => d.id === dutyId);
-    if (!duty || duty.status !== 'open') return Promise.reject(new Error('Only an open duty’s clock can be reset.'));
+    if (!duty || duty.status !== 'open')
+      return Promise.reject(new Error('Only an open duty’s clock can be reset.'));
     if (duty.memberId === ME)
-      return Promise.reject(new Error('A challenge about your own duty needs an uninvolved decision.'));
+      return Promise.reject(
+        new Error('A challenge about your own duty needs an uninvolved decision.'),
+      );
     this.dutyRecords.update((duties) =>
       duties.map((d) => (d.id === dutyId ? { ...d, clockResetAt: new Date().toISOString() } : d)),
     );
     const name = this.memberRecords().find((m) => m.id === duty.memberId)?.name ?? 'Member';
-    this.post('duty_clock_reset', duty.roundId, `${name}: ${this.title(duty.type, duty.roundId)} clock reset.`, reason, name);
+    this.post(
+      'duty_clock_reset',
+      duty.roundId,
+      `${name}: ${this.title(duty.type, duty.roundId)} clock reset.`,
+      reason,
+      name,
+    );
     return Promise.resolve();
   }
 
@@ -623,9 +689,14 @@ export class SampleLeague {
     if (!this.memberId) return notAMember();
     const duty = this.dutyRecords().find((d) => d.evidence.some((e) => e.id === linkId));
     const link = duty?.evidence.find((e) => e.id === linkId);
-    if (!duty || !link || link.decision !== 'pending') return Promise.reject(new Error('This evidence was already decided.'));
-    if (duty.memberId === ME) return Promise.reject(new Error('Your own evidence needs an uninvolved reviewer.'));
-    const effective = link.submitterId === duty.memberId ? link.submittedAt : (link.claimedCompletedAt ?? link.submittedAt);
+    if (!duty || !link || link.decision !== 'pending')
+      return Promise.reject(new Error('This evidence was already decided.'));
+    if (duty.memberId === ME)
+      return Promise.reject(new Error('Your own evidence needs an uninvolved reviewer.'));
+    const effective =
+      link.submitterId === duty.memberId
+        ? link.submittedAt
+        : (link.claimedCompletedAt ?? link.submittedAt);
     const now = new Date().toISOString();
     this.dutyRecords.update((duties) =>
       duties.map((d) =>
@@ -637,7 +708,13 @@ export class SampleLeague {
               completedAt: decision === 'accepted' ? effective : d.completedAt,
               evidence: d.evidence.map((e) =>
                 e.id === linkId
-                  ? { ...e, decision, decidedAt: now, reason, effectiveCompletedAt: decision === 'accepted' ? effective : null }
+                  ? {
+                      ...e,
+                      decision,
+                      decidedAt: now,
+                      reason,
+                      effectiveCompletedAt: decision === 'accepted' ? effective : null,
+                    }
                   : decision === 'accepted' && e.decision === 'pending'
                     ? { ...e, decision: 'superseded' }
                     : e,
@@ -646,7 +723,13 @@ export class SampleLeague {
       ),
     );
     const name = this.memberRecords().find((m) => m.id === duty.memberId)?.name ?? 'Member';
-    this.post(decision === 'accepted' ? 'evidence_accepted' : 'evidence_rejected', duty.roundId, `${name}: ${this.title(duty.type, duty.roundId)} ${decision === 'accepted' ? 'completed' : 'evidence rejected'}.`, reason, name);
+    this.post(
+      decision === 'accepted' ? 'evidence_accepted' : 'evidence_rejected',
+      duty.roundId,
+      `${name}: ${this.title(duty.type, duty.roundId)} ${decision === 'accepted' ? 'completed' : 'evidence rejected'}.`,
+      reason,
+      name,
+    );
     return Promise.resolve();
   }
 
@@ -654,7 +737,11 @@ export class SampleLeague {
     const id = `member-${Date.now()}`;
     this.memberRecords.update((members) => [
       ...members,
-      { ...memberRecord(id, member.name, member.fullName, ''), claimed: false, email: member.email },
+      {
+        ...memberRecord(id, member.name, member.fullName, ''),
+        claimed: false,
+        email: member.email,
+      },
     ]);
     this.post('member_added', null, `${member.name} was added to the league.`, '', member.name);
     return Promise.resolve();
@@ -670,7 +757,9 @@ export class SampleLeague {
   }
 
   updateMember(memberId: string, email: string | null): Promise<void> {
-    this.memberRecords.update((members) => members.map((m) => (m.id === memberId ? { ...m, email } : m)));
+    this.memberRecords.update((members) =>
+      members.map((m) => (m.id === memberId ? { ...m, email } : m)),
+    );
     return Promise.resolve();
   }
 
@@ -695,10 +784,16 @@ export class SampleLeague {
    */
   withdrawMember(memberId: string, reason: string): Promise<void> {
     const text = reason.trim();
-    if (!text || text.length > 500) return refuse(422, 'validation', 'Give a reason of up to 500 characters.');
+    if (!text || text.length > 500)
+      return refuse(422, 'validation', 'Give a reason of up to 500 characters.');
     if (memberId === this.captain())
-      return refuse(409, 'captain_membership', 'The captain cannot be removed. Appoint another captain first.');
-    if (memberId === this.memberId) return refuse(409, 'own_membership', 'You cannot remove yourself.');
+      return refuse(
+        409,
+        'captain_membership',
+        'The captain cannot be removed. Appoint another captain first.',
+      );
+    if (memberId === this.memberId)
+      return refuse(409, 'own_membership', 'You cannot remove yourself.');
     if (this.withdrawnRecords().some((m) => m.id === memberId))
       return refuse(409, 'already_withdrawn', 'That member was already removed.');
     const member = this.memberRecords().find((m) => m.id === memberId);
@@ -761,7 +856,8 @@ export class SampleLeague {
     const changed =
       next.emblemPreset !== this.look().emblemPreset || next.emblemUrl !== this.look().emblemUrl;
     this.look.set(next);
-    if (changed) this.post('emblem_updated', null, `The ${this.name()} emblem was updated.`, '', null);
+    if (changed)
+      this.post('emblem_updated', null, `The ${this.name()} emblem was updated.`, '', null);
     return Promise.resolve(next);
   }
 
@@ -769,32 +865,43 @@ export class SampleLeague {
   savePick(fixtureId: string, pick: NewPick): Promise<void> {
     const me = this.memberId;
     if (!me) return notAMember();
-    if (!this.fixture(fixtureId)) return refuse(404, 'unknown_fixture', 'That match is not in the schedule.');
+    if (!this.fixture(fixtureId))
+      return refuse(404, 'unknown_fixture', 'That match is not in the schedule.');
     if (this.locked(fixtureId, Date.now()))
       return refuse(422, 'picks_locked', 'Picks for this match closed at kickoff.');
     if (!validPick(pick, false)) return invalidPick();
     const kept = this.pickRecords().find((p) => p.fixtureId === fixtureId && p.memberId === me);
     this.upsertPicks(fixtureId, [
-      { memberId: me, side: pick.side, margin: pick.margin, isDefault: false, dutyId: kept?.dutyId ?? null },
+      {
+        memberId: me,
+        side: pick.side,
+        margin: pick.margin,
+        isDefault: false,
+        dutyId: kept?.dutyId ?? null,
+      },
     ]);
     return Promise.resolve();
   }
 
   /** Steward: records the listed members' picks at any time, as `PUT /matches/{id}/picks`. */
   recordPicks(fixtureId: string, picks: readonly StewardPick[]): Promise<void> {
-    if (!this.fixture(fixtureId)) return refuse(404, 'unknown_fixture', 'That match is not in the schedule.');
+    if (!this.fixture(fixtureId))
+      return refuse(404, 'unknown_fixture', 'That match is not in the schedule.');
     const ids = picks.map((p) => p.memberId);
     if (new Set(ids).size !== ids.length)
       return refuse(422, 'duplicate_member', 'Each member can have one pick per match.');
     const active = new Set(this.memberRecords().map((m) => m.id));
-    if (ids.some((id) => !active.has(id))) return refuse(404, 'unknown_member', 'That member is not on the team sheet.');
+    if (ids.some((id) => !active.has(id)))
+      return refuse(404, 'unknown_member', 'That member is not on the team sheet.');
     if (picks.some((p) => !validPick(p, p.isDefault ?? false))) return invalidPick();
     const duties = this.dutyRecords();
     if (
       picks.some(
         (p) =>
           p.dutyId &&
-          !duties.some((d) => d.id === p.dutyId && d.memberId === p.memberId && d.type === 'pick_confirmation'),
+          !duties.some(
+            (d) => d.id === p.dutyId && d.memberId === p.memberId && d.type === 'pick_confirmation',
+          ),
       )
     )
       return refuse(404, 'unknown_duty', 'That pick confirmation duty is not this member’s.');
@@ -825,7 +932,11 @@ export class SampleLeague {
 
   /** Steward: changes some rules, validated like `PUT /rules`. */
   saveRules(change: Partial<LeagueRules>): Promise<void> {
-    const next = withDefaultRules({ ...this.rulesState(), ...change, winPoints: { ...this.rulesState().winPoints, ...change.winPoints } });
+    const next = withDefaultRules({
+      ...this.rulesState(),
+      ...change,
+      winPoints: { ...this.rulesState().winPoints, ...change.winPoints },
+    });
     const numbers = [
       next.marginPoint,
       next.marginWindow,
@@ -838,11 +949,22 @@ export class SampleLeague {
     if (numbers.some((n) => typeof n !== 'number' || !Number.isFinite(n) || n < 0))
       return refuse(422, 'validation', 'Points and ranges must be zero or more.');
     const lastRound = this.competition.current().lastRound;
-    if (!Number.isInteger(next.startingRound) || next.startingRound < 1 || next.startingRound > lastRound)
+    if (
+      !Number.isInteger(next.startingRound) ||
+      next.startingRound < 1 ||
+      next.startingRound > lastRound
+    )
       return refuse(422, 'validation', `The starting round must be between 1 and ${lastRound}.`);
     const champion = next.previousChampionMemberId;
-    if (champion && ![...this.memberRecords(), ...this.withdrawnRecords()].some((m) => m.id === champion))
-      return refuse(404, 'unknown_member', 'The previous champion must be a member of this league.');
+    if (
+      champion &&
+      ![...this.memberRecords(), ...this.withdrawnRecords()].some((m) => m.id === champion)
+    )
+      return refuse(
+        404,
+        'unknown_member',
+        'The previous champion must be a member of this league.',
+      );
     this.rulesState.set(next);
     this.post('rules_updated', null, 'Superbru rules updated.', '', null);
     return Promise.resolve();
@@ -910,7 +1032,10 @@ export class SampleLeague {
     return !!sampleResults[fixtureId] || (!!kickoff && Date.parse(kickoff) <= now);
   }
 
-  private upsertPicks(fixtureId: string, picks: readonly Omit<SamplePickRecord, 'fixtureId'>[]): void {
+  private upsertPicks(
+    fixtureId: string,
+    picks: readonly Omit<SamplePickRecord, 'fixtureId'>[],
+  ): void {
     const ids = new Set(picks.map((p) => p.memberId));
     this.pickRecords.update((records) => [
       ...records.filter((p) => !(p.fixtureId === fixtureId && ids.has(p.memberId))),
@@ -924,14 +1049,27 @@ export class SampleLeague {
     return title(type, roundId, (id) => competition.roundCode(id));
   }
 
-  private post(kind: FeedItem['kind'], roundId: number | null, titleText: string, detail: string, subjectName: string | null): void {
+  private post(
+    kind: FeedItem['kind'],
+    roundId: number | null,
+    titleText: string,
+    detail: string,
+    subjectName: string | null,
+  ): void {
     this.feedRecords.update((items) => [
-      feedItem(`feed-${Date.now()}`, kind, roundId, titleText, detail, new Date().toISOString(), subjectName),
+      feedItem(
+        `feed-${Date.now()}`,
+        kind,
+        roundId,
+        titleText,
+        detail,
+        new Date().toISOString(),
+        subjectName,
+      ),
       ...items,
     ]);
   }
 }
-
 
 /** `?sampleAdmin=0` on the first page makes the sample account a plain member. */
 function sampleAdmin(): boolean {
@@ -968,5 +1106,9 @@ function refuse<T>(status: number, code: string, message: string): Promise<T> {
 
 /** The admin viewing a league it is not in cannot do what is recorded against a member. */
 function notAMember<T>(): Promise<T> {
-  return refuse(409, 'admin_not_a_member', 'Add yourself to this league from the management centre first.');
+  return refuse(
+    409,
+    'admin_not_a_member',
+    'Add yourself to this league from the management centre first.',
+  );
 }

@@ -11,7 +11,7 @@ import {
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideArrowRight, lucideChevronDown, lucidePlus } from '@ng-icons/lucide';
+import { lucideArrowRight, lucideChevronDown, lucidePlus, lucideRotateCcw } from '@ng-icons/lucide';
 import { AlertService } from '../../core/feedback/alert.service';
 import { AdminService } from '../../core/league/admin.service';
 import { BallLoader } from '../../shared/ball-loader/ball-loader';
@@ -30,8 +30,18 @@ import { LeagueCard, LeagueChange } from './league-card/league-card';
   templateUrl: './manage.page.html',
   styleUrl: './manage.page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, NgIcon, BallLoader, ReasonDialog, CreateLeagueForm, LeagueCard],
-  viewProviders: [provideIcons({ lucideArrowRight, lucideChevronDown, lucidePlus })],
+  // prettier-ignore
+  imports: [
+    RouterLink,
+    NgIcon,
+    BallLoader,
+    ReasonDialog,
+    CreateLeagueForm,
+    LeagueCard,
+  ],
+  viewProviders: [
+    provideIcons({ lucideArrowRight, lucideChevronDown, lucidePlus, lucideRotateCcw }),
+  ],
 })
 export class ManagePage {
   private readonly admin = inject(AdminService);
