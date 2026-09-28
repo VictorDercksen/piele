@@ -663,13 +663,43 @@ app-round-picker {
   .demo-label {
     display: none;
   }
+  // Leaving Home or Match, the bar folds with its ribbon drawer, margin included, and only
+  // then leaves the layout (display waits through allow-discrete), so no hidden box extends
+  // the page. Coming back, it unfolds from @starting-style.
   .round-bar {
     top: 64px;
+    transition:
+      margin-bottom 0.35s ease,
+      display 0.35s allow-discrete;
+  }
+  .round-bar + .page-heading {
+    transition: padding-top 0.35s ease;
   }
   .round-bar.mobile-empty {
     display: none;
+    margin-bottom: 0;
   }
   .round-bar.mobile-empty + .page-heading {
     padding-top: 22px;
+  }
+  @starting-style {
+    .round-bar {
+      margin-bottom: 0;
+    }
+    .round-bar .ribbon-drawer.open {
+      grid-template-rows: 0fr;
+    }
+    .round-bar .ribbon-drawer.open > app-fixture-ribbon {
+      transform: translateY(-100%);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .round-bar,
+    .round-bar + .page-heading,
+    .ribbon-drawer,
+    .ribbon-drawer.open,
+    .ribbon-drawer > app-fixture-ribbon {
+      transition: none;
+    }
   }
 }

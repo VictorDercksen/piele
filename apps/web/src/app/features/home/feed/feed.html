@@ -10,21 +10,8 @@
     role="group"
     aria-label="Feed scope"
   >
-    <button
-      hlmBtn
-      type="button"
-      hlmToggleGroupItem
-      value="round"
-    >
-      R{{ view.round().code }}</button
-    ><button
-      hlmBtn
-      type="button"
-      hlmToggleGroupItem
-      value="season"
-    >
-      Season
-    </button>
+    <button hlmBtn type="button" hlmToggleGroupItem value="round">R{{ view.round().code }}</button
+    ><button hlmBtn type="button" hlmToggleGroupItem value="season">Season</button>
   </div>
 </div>
 @if (view.poll(); as poll) {

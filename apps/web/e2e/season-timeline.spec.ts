@@ -391,6 +391,76 @@ test('fixture strip sits under the round header and features a match on the home
   await expect(strip).toBeVisible();
 });
 
+test('on a phone the fixture ribbon folds up under the round header and back down', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 740 });
+  await page.goto('/piele?round=3');
+  await expect(page.getByRole('group', { name: 'Round 03 fixtures' })).toBeVisible();
+  const bar = page.locator('.round-bar');
+  await expect.poll(() => bar.evaluate((el) => el.getAnimations({ subtree: true }).length)).toBe(0);
+  const full = await bar.evaluate((el) => el.getBoundingClientRect().height);
+  expect(full).toBeGreaterThan(40);
+  // Waits for the bar's `mobile-empty` class to flip, then records the transitions that start
+  // at that moment and the bar's height in each following frame until they end. Under a full
+  // test run the browser may skip frames, so the transitions, not the samples, prove the slide.
+  const fold = (empty: boolean) =>
+    bar.evaluate(
+      (el, empty) =>
+        new Promise<{ transitions: string[]; frames: number[] }>((resolve) => {
+          const observer = new MutationObserver(() => {
+            if (el.classList.contains('mobile-empty') !== empty) return;
+            observer.disconnect();
+            getComputedStyle(el).marginBottom;
+            const animations = el.getAnimations({ subtree: true });
+            const transitions = animations.map((animation) =>
+              animation instanceof CSSTransition ? animation.transitionProperty : animation.id,
+            );
+            const frames: number[] = [];
+            const tick = () => {
+              frames.push(el.getBoundingClientRect().height);
+              if (animations.some((animation) => animation.playState === 'running'))
+                requestAnimationFrame(tick);
+              else resolve({ transitions, frames });
+            };
+            requestAnimationFrame(tick);
+          });
+          observer.observe(el, { attributes: true, attributeFilter: ['class'] });
+        }),
+      empty,
+    );
+  const nav = page.getByRole('navigation', { name: 'Mobile league navigation' });
+
+  const folding = fold(true);
+  await nav.getByRole('link', { name: 'Duties', exact: true }).click();
+  const out = await folding;
+  // The drawer folds and the bar's margin closes together, the height never growing...
+  expect(out.transitions).toEqual(expect.arrayContaining(['grid-template-rows', 'margin-bottom']));
+  out.frames
+    .slice(1)
+    .forEach((height, i) => expect(height).toBeLessThanOrEqual(out.frames[i] + 0.5));
+  // ...then the bar leaves the layout: no box, no margin, nothing extending the page past its footer.
+  await expect(bar).toHaveCSS('display', 'none');
+  const excess = await page.evaluate(() => {
+    const nav = document.querySelector('.mobile-nav')!;
+    const footer = document.querySelector('.club-footer')!.getBoundingClientRect().bottom;
+    const padding = nav.getBoundingClientRect().height + parseFloat(getComputedStyle(nav).bottom);
+    return (
+      document.documentElement.scrollHeight - Math.max(innerHeight, footer + scrollY + padding)
+    );
+  });
+  expect(Math.abs(excess)).toBeLessThanOrEqual(1);
+
+  const unfolding = fold(false);
+  await nav.getByRole('link', { name: 'Home', exact: true }).click();
+  const back = await unfolding;
+  expect(back.transitions).toEqual(expect.arrayContaining(['grid-template-rows', 'margin-bottom']));
+  back.frames
+    .slice(1)
+    .forEach((height, i) => expect(height).toBeGreaterThanOrEqual(back.frames[i] - 0.5));
+  await expect.poll(() => bar.evaluate((el) => el.getBoundingClientRect().height)).toBe(full);
+});
+
 test('captain creates, records and decides duties; the feed follows', async ({ page }) => {
   await page.goto('/piele/duties?round=2&scope=league');
   await expect(page.locator('.register-card')).toHaveCount(2);
