@@ -225,25 +225,10 @@
   min-height: 30px;
   font-size: 12px;
 }
-// The spoon photograph scales down with the slip so it never outgrows a short card.
-:host(.spoon-duty) > .spoon-art {
-  --spoon-art-height: 170px;
-  inset: 12px 0 auto auto;
-  width: 150px;
-}
+// A spoon card's photograph sits behind its lead panel (src/styles/ui.scss), so the content
+// takes the full width the corner photograph used to share.
 :host(.spoon-duty) > .spoon-content {
-  width: calc(100% - 140px);
-}
-@container spoon (max-width: 520px) {
-  :host(.spoon-duty) > .spoon-art {
-    --spoon-art-height: 120px;
-    inset: auto;
-    width: 100%;
-    margin-bottom: 12px;
-  }
-  :host(.spoon-duty) > .spoon-content {
-    width: 100%;
-  }
+  width: 100%;
 }
 @container (max-width: 600px) {
   :host {

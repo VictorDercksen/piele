@@ -1,7 +1,4 @@
 @let c = evidenceCase();
-@if (c.spoon) {
-  <div class="spoon-art" aria-hidden="true"></div>
-}
 <div class="spoon-content">
   <div class="register-heading">
     <span class="tag" [class.warn]="c.status === 'in_review'">{{ c.statusLabel }}</span
@@ -14,7 +11,12 @@
       <p class="note">“{{ c.note }}”</p>
     }
   </div>
-  <section class="case-panel" [class.ruling]="c.canReview" [attr.data-panel]="panel()">
+  <section
+    class="case-panel"
+    [class.ruling]="c.canReview"
+    [class.spoon-haze]="c.spoon"
+    [attr.data-panel]="panel()"
+  >
     @switch (panel()) {
       @case ('ballot') {
         <div>
