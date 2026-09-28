@@ -88,8 +88,9 @@ dd small {
   color: var(--accent);
 }
 .evidence-trail .text-button {
-  min-height: 28px;
-  padding: 0;
+  min-height: 34px;
+  padding-block: 0;
+  margin-top: 6px;
   justify-self: start;
 }
 .card-actions {
