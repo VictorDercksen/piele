@@ -105,7 +105,7 @@ test('sample league duties, evidence, votes and round scoping', async ({ page })
   await nav.getByRole('link', { name: 'Duties', exact: true }).click();
   await expect(page).toHaveURL(/\/piele\/duties\?round=2/);
   await expect(page.locator('.register-card')).toHaveCount(1);
-  await expect(page.locator('.register-card')).toContainText('Submitted for review');
+  await expect(page.locator('.register-card')).toContainText('Members are voting on the evidence');
   await page.getByRole('button', { name: 'League duties', exact: true }).click();
   await expect(page.locator('.register-card')).toHaveCount(2);
   await expect(page.locator('.register-card.spoon-duty')).toHaveCount(1);
@@ -475,9 +475,9 @@ test('captain creates, records and decides duties; the feed follows', async ({ p
     page.getByRole('status').filter({ hasText: 'Round 02 Spoon duty created for Johan' }),
   ).toBeVisible();
   const card = page.locator('.register-card').filter({ hasText: 'Johan' });
-  await expect(card).toContainText('09 Oct 2026 · 20:45 SAST');
+  await expect(card).toContainText('Due 09 Oct · 20:45');
   await expect(card).toContainText('0 marks');
-  await expect(card).toContainText('Next mark 16 Oct 2026 · 20:45 SAST');
+  await expect(card).toContainText('next 16 Oct · 20:45');
   await card.getByRole('button', { name: 'Record evidence' }).click();
   const evidence = page.getByRole('dialog').filter({ hasText: 'Record the evidence.' });
   await evidence.locator('input[type=file]').setInputFiles({

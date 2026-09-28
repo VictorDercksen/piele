@@ -15,10 +15,28 @@
   align-self: center;
   margin-block: 8px;
 }
+// The register scrolls sideways, one card at a time; the next card peeks in to show there
+// is more. The bottom padding keeps the cards' shadows inside the scroller.
 .duty-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 440px), 1fr));
+  display: flex;
+  align-items: flex-start;
   gap: 16px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: 2px;
+  padding: 2px 2px 24px;
+  margin-bottom: -8px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+.duty-list > app-duty-card {
+  flex: 0 0 min(440px, 86%);
+  min-width: 0;
+  scroll-snap-align: start;
+}
+.duty-list > app-duty-card:only-child {
+  flex-basis: min(560px, 100%);
 }
 @container (max-width:600px) {
   .register-toolbar .primary-button {
