@@ -16,14 +16,17 @@ import { CompetitionRound } from '../../competition/competition.models';
 @Component({
   selector: 'app-season-timeline',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { '[class.sheet]': "presentation() === 'sheet'" },
   template: ` <nav class="season-timeline" aria-label="Season timeline">
     <div class="timeline-heading">
       <img class="season-logo" [src]="emblem()" [alt]="competitionName()" /><strong>{{
         season()
-      }}</strong
-      ><button hlmBtn type="button" class="current-link" (click)="choose.emit(current())">
-        Current round<ng-icon class="link-icon" name="lucideLocateFixed" />
-      </button>
+      }}</strong>
+      @if (selected() !== current()) {
+        <button hlmBtn type="button" class="current-link" (click)="confirm(current())">
+          Current round<ng-icon class="link-icon" name="lucideLocateFixed" />
+        </button>
+      }
     </div>
     <div #track class="round-track">
       @for (round of rounds(); track round.id) {
@@ -36,7 +39,7 @@ import { CompetitionRound } from '../../competition/competition.models';
           [class.current]="round.id === current()"
           [attr.aria-pressed]="selected() === round.id"
           [attr.aria-label]="round.title + ', ' + round.status"
-          (click)="choose.emit(round.id)"
+          (click)="confirm(round.id)"
           (keydown)="move($event, round.id)"
         >
           <span class="round-node">
@@ -64,6 +67,7 @@ import { CompetitionRound } from '../../competition/competition.models';
   viewProviders: [provideIcons({ lucideCheck, lucideLocateFixed })],
 })
 export class SeasonTimeline {
+  readonly presentation = input<'rail' | 'sheet'>('rail');
   readonly current = input(1);
   /** `26 / 27`. */
   readonly season = input.required<string>();
@@ -74,6 +78,7 @@ export class SeasonTimeline {
   readonly rounds = input.required<readonly CompetitionRound[]>();
   readonly selected = input.required<number>();
   readonly choose = output<number>();
+  readonly confirmed = output<void>();
   readonly track = viewChild.required<ElementRef<HTMLElement>>('track');
   readonly stops = viewChildren<ElementRef<HTMLElement>>('stop');
   constructor() {
@@ -87,6 +92,11 @@ export class SeasonTimeline {
         selected.offsetTop - track.offsetTop - (track.clientHeight - selected.clientHeight) / 2;
     });
   }
+  confirm(id: number): void {
+    this.choose.emit(id);
+    this.confirmed.emit();
+  }
+
   move(event: KeyboardEvent, id: number): void {
     const next =
       event.key === 'Home'

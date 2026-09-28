@@ -48,7 +48,10 @@ test('all published rounds, playoffs, timezone and selection persistence', async
 test('keyboard timeline and playoff layout on a phone', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 850 });
   await page.goto('/piele?round=18');
-  const timeline = page.getByRole('navigation', { name: 'Season timeline' });
+  const picker = page.getByRole('button', { name: /^Choose round,/ });
+  await picker.click();
+  const dialog = page.getByRole('dialog', { name: 'Choose a round' });
+  const timeline = dialog.getByRole('navigation', { name: 'Season timeline' });
   const round18 = timeline.getByRole('button', { name: 'Round 18, Upcoming', exact: true });
   await round18.focus();
   await page.keyboard.press('ArrowRight');
@@ -58,6 +61,9 @@ test('keyboard timeline and playoff layout on a phone', async ({ page }) => {
   ).toBeFocused();
   await page.keyboard.press('End');
   await expect(page).toHaveURL(/round=21/);
+  await page.keyboard.press('Enter');
+  await expect(dialog).toHaveCount(0);
+  await expect(picker).toBeFocused();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await expect(
     page
@@ -72,9 +78,7 @@ test('keyboard timeline and playoff layout on a phone', async ({ page }) => {
 test('sample league duties, evidence, votes and round scoping', async ({ page }) => {
   await page.goto('/piele?round=2');
   const nav = page.getByRole('navigation', { name: 'League navigation', exact: true });
-  await expect(page.getByRole('region', { name: 'Selected round' })).toContainText(
-    'Round 02',
-  );
+  await expect(page.getByRole('region', { name: 'Selected round' })).toContainText('Round 02');
   await expect(page.locator('.duty-feature')).toContainText('Victor Dercksen');
   await expect(page.locator('.duty-feature')).toHaveClass(/spoon-duty/);
   await page.getByRole('button', { name: 'Upload evidence', exact: true }).click();

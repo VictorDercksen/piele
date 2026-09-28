@@ -40,6 +40,7 @@ import { FixtureRibbon } from '../fixture-ribbon/fixture-ribbon';
 import { LeagueSwitcher } from '../league-switcher/league-switcher';
 import { NotificationsFlag } from '../notifications-flag/notifications-flag';
 import { SeasonTimeline } from '../season-timeline/season-timeline';
+import { RoundPicker } from '../round-picker/round-picker';
 import { Breadcrumbs, FROM_NAV_BAR } from './breadcrumbs';
 import { PageData } from './page-data';
 
@@ -60,6 +61,7 @@ const LEAGUE_LOAD_ALERT = 'league-load';
     Icon,
     BallLoader,
     SeasonTimeline,
+    RoundPicker,
     NotificationsFlag,
     FixtureRibbon,
     StadiumBackdrop,

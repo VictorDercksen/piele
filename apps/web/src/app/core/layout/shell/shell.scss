@@ -611,3 +611,60 @@ app-season-timeline {
     font-size: 10px;
   }
 }
+
+// Mobile has one context bar. Round browsing moves into its modal sheet.
+app-round-picker {
+  display: none;
+}
+@container (max-width: 1050px) {
+  .league {
+    grid-template: 'top' auto 'main' 1fr / minmax(0, 1fr);
+  }
+  .season-rail,
+  .desktop-nav,
+  .round-context {
+    display: none;
+  }
+  .top-bar {
+    height: 64px;
+    padding-inline: 12px;
+    gap: 10px;
+  }
+  .top-bar .club-brand {
+    flex: 0 0 44px;
+  }
+  app-round-picker {
+    display: block;
+    flex: 1;
+    min-width: 0;
+    max-width: 230px;
+  }
+  .header-right {
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  .header-profile {
+    width: 44px;
+    height: 44px;
+    padding: 3px;
+    border-radius: 50%;
+    justify-content: center;
+  }
+  .header-profile .identity-avatar {
+    width: 34px;
+    height: 34px;
+  }
+  .profile-text,
+  .demo-label {
+    display: none;
+  }
+  .round-bar {
+    top: 64px;
+  }
+  .round-bar.mobile-empty {
+    display: none;
+  }
+  .round-bar.mobile-empty + .page-heading {
+    padding-top: 22px;
+  }
+}

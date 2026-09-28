@@ -1,0 +1,72 @@
+<button
+  hlmBtn
+  type="button"
+  class="round-picker-trigger"
+  [attr.aria-label]="'Choose round, ' + round().title"
+  aria-haspopup="dialog"
+  [attr.aria-expanded]="dialog.stateComputed() === 'open'"
+  (click)="dialog.open()"
+>
+  <span class="round-picker-title">{{ round().title }}</span>
+  <ng-icon name="lucideChevronDown" aria-hidden="true" />
+</button>
+<hlm-dialog
+  #dialog
+  [positionStrategy]="position"
+  aria-labelledby="round-picker-title"
+  autoFocus=".round-stop.selected"
+>
+  <hlm-dialog-content *hlmDialogPortal class="round-sheet" [showCloseButton]="false">
+    <div class="sheet-heading">
+      <div>
+        <p class="eyebrow">{{ leagueName() }}</p>
+        <h2 id="round-picker-title">Choose a round</h2>
+      </div>
+      <button
+        hlmBtn
+        type="button"
+        class="sheet-close"
+        aria-label="Close round picker"
+        (click)="dialog.close()"
+      >
+        <ng-icon name="lucideX" aria-hidden="true" />
+      </button>
+    </div>
+    <div class="sheet-pager" aria-label="Adjacent rounds">
+      <button
+        hlmBtn
+        type="button"
+        aria-label="Previous round"
+        [disabled]="round().id === 1"
+        (click)="select(round().id - 1)"
+      >
+        <img src="assets/images/arrows/arrow-left.webp" alt="" />
+      </button>
+      <div aria-live="polite">
+        <strong>{{ round().title }}</strong
+        ><span>{{ round().status }}</span>
+      </div>
+      <button
+        hlmBtn
+        type="button"
+        aria-label="Next round"
+        [disabled]="round().id === rounds().length"
+        (click)="select(round().id + 1)"
+      >
+        <img src="assets/images/arrows/arrow-right.webp" alt="" />
+      </button>
+    </div>
+    <app-season-timeline
+      presentation="sheet"
+      [rounds]="rounds()"
+      [current]="currentRound()"
+      [season]="season()"
+      [emblem]="emblem()"
+      [competitionName]="competitionName()"
+      [regularRounds]="regularRounds()"
+      [selected]="round().id"
+      (choose)="select($event)"
+      (confirmed)="dialog.close()"
+    />
+  </hlm-dialog-content>
+</hlm-dialog>

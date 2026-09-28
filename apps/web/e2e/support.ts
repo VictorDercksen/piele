@@ -37,7 +37,7 @@ export async function openSection(page: Page, heading: string): Promise<void> {
 
 /**
  * Scrolls an open dropdown's body up under the shell's bars and checks its heading row stays
- * pinned just below the round header, drawn as a bar.
+ * pinned just below the visible shell bars.
  */
 export async function expectPinnedHeading(page: Page, heading: string): Promise<void> {
   const { head, chevron } = dropdown(page, heading);
@@ -47,7 +47,10 @@ export async function expectPinnedHeading(page: Page, heading: string): Promise<
   });
   await expect(head).toHaveClass(/stuck/);
   const gap = await head.evaluate((element) => {
-    const bar = document.querySelector('.round-bar')!.getBoundingClientRect().bottom;
+    const bar = Math.max(
+      document.querySelector('.top-bar')!.getBoundingClientRect().bottom,
+      document.querySelector('.round-bar')!.getBoundingClientRect().bottom,
+    );
     return Math.abs(element.getBoundingClientRect().top - bar);
   });
   expect(gap).toBeLessThan(2);

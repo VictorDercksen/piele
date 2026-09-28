@@ -150,73 +150,59 @@ button {
   line-height: 1.4;
   color: var(--muted);
 }
-@container (max-width:1050px) {
+:host(.sheet) {
   .season-timeline {
-    height: auto;
-    padding: 13px 18px 0;
+    padding: 14px 0 0;
   }
   .timeline-heading {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 0;
-    border: 0;
-    .season-logo {
-      width: 21px;
-      height: 22px;
-    }
-    strong {
-      font-size: 18px;
-      margin: 0;
-    }
-    .current-link {
-      margin-left: auto;
-      font-size: 10px;
-    }
+    gap: 10px;
+    padding: 0 0 10px;
   }
-  .round-track {
-    display: flex;
-    flex: none;
-    // Bleed past the 18px side padding so rounds scroll to the screen edge.
-    margin: 8px -18px 0;
-    mask-image: none;
-    overflow-x: auto;
-    overflow-y: hidden;
-    padding: 0 18px 7px;
-    scroll-padding-inline: 18px;
-    scrollbar-width: none;
+  .timeline-heading .season-logo {
+    width: 24px;
+    height: 28px;
   }
-  .round-stop {
-    min-width: 118px;
-    width: 118px;
-    min-height: 68px;
-    padding: 10px 8px;
-    gap: 8px;
-    &::before {
-      left: 0;
-      right: 0;
-      top: 24px !important;
-      bottom: auto !important;
-      height: 1px;
-      width: auto;
-    }
-    &.selected {
-      box-shadow: inset 0 -3px var(--orange);
-    }
+  .timeline-heading strong {
+    font-size: 22px;
+    margin: 0;
   }
-  .round-node {
-    width: 27px;
-    height: 27px;
-    font-size: 10px;
-  }
-  .round-label strong {
+  .current-link {
+    margin-left: auto;
+    min-height: 44px;
+    padding: 8px;
     font-size: 12px;
   }
-  .round-label small {
-    font-size: 8px;
+  .round-track {
+    margin-top: 8px;
+    padding: 0;
+    mask-image: none;
+    scroll-padding-block: 6px;
   }
+  .round-stop {
+    min-height: 76px;
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 3px;
+  }
+  .round-stop::before {
+    display: none;
+  }
+  .round-stop.selected {
+    box-shadow: inset 0 0 0 1px #ffa17c66;
+  }
+  .round-node {
+    border-radius: 8px;
+    width: 32px;
+    height: 32px;
+  }
+  .round-label strong {
+    font-size: 15px;
+  }
+  .round-label small,
   .round-label em {
-    font-size: 8px;
+    font-size: 11px;
   }
   .timeline-foot {
     display: none;

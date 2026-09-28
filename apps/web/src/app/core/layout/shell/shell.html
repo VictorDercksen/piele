@@ -20,6 +20,7 @@
   </aside>
   <header class="top-bar" #topBar>
     <app-league-switcher class="club-brand" />
+    <app-round-picker />
     <nav class="desktop-nav" aria-label="League navigation">
       @for (item of nav; track item.path) {
         <a
@@ -79,7 +80,11 @@
         <app-icon name="shield" />Admin view. You are not a member of this league.
       </p>
     }
-    <div class="round-bar" #roundBar>
+    <div
+      class="round-bar"
+      [class.mobile-empty]="!showRibbon() || !view.fixtures().length"
+      #roundBar
+    >
       <section class="round-context" aria-label="Selected round" aria-live="polite">
         <div>
           <strong
