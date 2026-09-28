@@ -1,4 +1,4 @@
-import type { PickRowView } from '../../../core/league/round-view.service';
+import type { PickRowView } from '../../../core/league/picks/pick.models';
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 
 /**

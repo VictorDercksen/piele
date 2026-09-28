@@ -1,6 +1,7 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Subject } from 'rxjs';
+import { FixtureService } from '../../../core/competition/fixture.service';
 import { competition } from '../../../core/competition/registry';
 import { AlertService } from '../../../core/feedback/alert.service';
 import { ApiError } from '../../../core/api/api-error';
@@ -10,7 +11,12 @@ import {
   StandingEntry,
   StewardPick,
 } from '../../../core/league/league.models';
-import { RoundViewService } from '../../../core/league/round-view.service';
+import { MemberService } from '../../../core/league/members/member.service';
+import { PickControlService } from '../../../core/league/picks/pick-control.service';
+import { PickService } from '../../../core/league/picks/pick.service';
+import { RulesService } from '../../../core/league/rules/rules.service';
+import { StandingControlService } from '../../../core/league/standings/standing-control.service';
+import { StandingService } from '../../../core/league/standings/standing.service';
 import { DEFAULT_RULES } from '../../../core/league/superbru';
 import { PicksCard } from './picks-card';
 
@@ -56,12 +62,16 @@ function setup(options: { locked?: boolean; result?: FixtureResult | null; refus
   const recorded: { fixtureId: string; picks: readonly StewardPick[] }[] = [];
   const removed: string[] = [];
   const standings: { roundId: number; entries: readonly StandingEntry[] }[] = [];
-  const view = {
+  const fixtures = {
     round: signal(ROUND).asReadonly(),
     fixtures: signal(ROUND.fixtures).asReadonly(),
+  };
+  const members = {
     members: signal(MEMBERS).asReadonly(),
     withdrawn: signal([]).asReadonly(),
-    rules: signal(DEFAULT_RULES).asReadonly(),
+  };
+  const rules = { rules: signal(DEFAULT_RULES).asReadonly() };
+  const standingService = {
     roundBadges: signal({ cap: [], spoon: [] }).asReadonly(),
     derivedVsRecorded: signal(
       MEMBERS.map((m, i) => ({
@@ -76,6 +86,8 @@ function setup(options: { locked?: boolean; result?: FixtureResult | null; refus
         differs: m.id === 'b',
       })),
     ).asReadonly(),
+  };
+  const pickService = {
     picksFor: (id: string) => {
       const scoredResult = id === FID ? result() : null;
       const live = !!scoredResult && scoredResult.state !== 'full_time';
@@ -98,6 +110,8 @@ function setup(options: { locked?: boolean; result?: FixtureResult | null; refus
         })),
       };
     },
+  };
+  const pickControl = {
     recordPicks: (fixtureId: string, picks: readonly StewardPick[]) => {
       recorded.push({ fixtureId, picks });
       return options.refusal ? Promise.reject(options.refusal) : Promise.resolve();
@@ -106,13 +120,25 @@ function setup(options: { locked?: boolean; result?: FixtureResult | null; refus
       removed.push(`${fixtureId}/${memberId}`);
       return Promise.resolve();
     },
+  };
+  const standingControl = {
     recordStandings: (roundId: number, entries: readonly StandingEntry[]) => {
       standings.push({ roundId, entries });
       return Promise.resolve();
     },
     clearStanding: () => Promise.resolve(),
   };
-  TestBed.configureTestingModule({ providers: [{ provide: RoundViewService, useValue: view }] });
+  TestBed.configureTestingModule({
+    providers: [
+      { provide: FixtureService, useValue: fixtures },
+      { provide: MemberService, useValue: members },
+      { provide: RulesService, useValue: rules },
+      { provide: StandingService, useValue: standingService },
+      { provide: PickService, useValue: pickService },
+      { provide: PickControlService, useValue: pickControl },
+      { provide: StandingControlService, useValue: standingControl },
+    ],
+  });
   const fixture = TestBed.createComponent(PicksCard);
   fixture.componentRef.setInput('dialog', { open: () => undefined });
   fixture.componentRef.setInput('dutyDialog', { open: () => undefined });

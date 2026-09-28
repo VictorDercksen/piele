@@ -4,10 +4,10 @@ import { RouterLink } from '@angular/router';
 import { CompetitionService } from '../../../core/competition/competition.service';
 import { LeagueTime } from '../../../core/competition/league-time';
 import { AlertService } from '../../../core/feedback/alert.service';
-import { LeagueData } from '../../../core/league/data/league-data';
+import { RoundDutyView } from '../../../core/league/duties/duty.models';
+import { DutyService } from '../../../core/league/duties/duty.service';
 import { LeaguePathPipe } from '../../../core/league/league-path.pipe';
 import { DutyEvidence } from '../../../core/league/league.models';
-import { RoundDutyView } from '../../../core/league/round-view.service';
 import { Icon } from '../../../shared/icon/icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideArrowRight, lucidePlay, lucideRotateCcw, lucideX } from '@ng-icons/lucide';
@@ -36,7 +36,7 @@ import { lucideArrowRight, lucidePlay, lucideRotateCcw, lucideX } from '@ng-icon
 })
 export class DutyCard {
   private readonly alerts = inject(AlertService);
-  private readonly league = inject(LeagueData);
+  private readonly duties = inject(DutyService);
   private readonly time = inject(LeagueTime);
   private readonly competition = inject(CompetitionService);
   readonly duty = input.required<RoundDutyView>();
@@ -114,7 +114,7 @@ export class DutyCard {
   async watch(evidence: DutyEvidence): Promise<void> {
     const key = `playback-${evidence.assetId}`;
     try {
-      const url = await this.league.playbackUrl(evidence.assetId);
+      const url = await this.duties.playbackUrl(evidence.assetId);
       this.alerts.dismissKey(key);
       window.open(url, '_blank', 'noopener');
     } catch (error) {

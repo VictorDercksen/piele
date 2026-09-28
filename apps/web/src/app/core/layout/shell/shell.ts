@@ -26,12 +26,15 @@ import {
 } from '@angular/router';
 import { debounce, filter, map, of, timer } from 'rxjs';
 import { CompetitionService, shortSeason } from '../../competition/competition.service';
+import { FixtureService } from '../../competition/fixture.service';
 import { SelectedRoundService } from '../../competition/selected-round.service';
 import { AlertService } from '../../feedback/alert.service';
 import { LayoutInsets } from '../../feedback/layout-insets';
 import { LeagueContext } from '../../league/league-context';
 import { LeaguePathPipe } from '../../league/league-path.pipe';
-import { RoundViewService } from '../../league/round-view.service';
+import { LeagueRecordsService } from '../../league/league-records.service';
+import { MemberService } from '../../league/members/member.service';
+import { PollService } from '../../league/polls/poll.service';
 import { ProfileStore } from '../../profile/profile.store';
 import { Icon } from '../../../shared/icon/icon';
 import { BallLoader } from '../../../shared/ball-loader/ball-loader';
@@ -78,7 +81,10 @@ export class Shell {
   private readonly context = inject(LeagueContext);
   private readonly alerts = inject(AlertService);
   private readonly insets = inject(LayoutInsets);
-  readonly view = inject(RoundViewService);
+  readonly fixtures = inject(FixtureService);
+  readonly records = inject(LeagueRecordsService);
+  readonly members = inject(MemberService);
+  readonly polls = inject(PollService);
 
   readonly profile = this.profileStore.profile;
   readonly favouriteTeam = this.profileStore.team;
@@ -124,7 +130,7 @@ export class Shell {
   readonly pageBackground = computed(() => {
     const path = this.leaguePath();
     const stadiums = this.competition.current().stadiums;
-    if (path === '/') return stadiums.background(this.view.featured()?.venue);
+    if (path === '/') return stadiums.background(this.fixtures.featured()?.venue);
     if (path.startsWith('/match/')) {
       const fixture = this.competition.locate(path.slice('/match/'.length))?.fixture;
       return stadiums.background(fixture?.venue);
@@ -168,12 +174,12 @@ export class Shell {
     });
     // The league's records failed to load: a red card with a retry until they arrive.
     effect(() => {
-      const message = this.view.error();
+      const message = this.records.error();
       untracked(() => {
         if (message) {
           this.alerts.error(message, {
             key: LEAGUE_LOAD_ALERT,
-            action: { label: 'Retry', run: () => this.view.reload() },
+            action: { label: 'Retry', run: () => this.records.reload() },
           });
         } else {
           this.alerts.dismissKey(LEAGUE_LOAD_ALERT);

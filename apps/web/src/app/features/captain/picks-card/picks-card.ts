@@ -25,17 +25,21 @@ import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideArrowRight, lucidePencil, lucideTrash2, lucideX } from '@ng-icons/lucide';
 import { ClubTeam, Fixture } from '../../../core/competition/competition.models';
 import { CompetitionService } from '../../../core/competition/competition.service';
+import { FixtureService } from '../../../core/competition/fixture.service';
 import { LeagueTime } from '../../../core/competition/league-time';
 import { AlertService } from '../../../core/feedback/alert.service';
 import { highlightProblem } from '../../../core/feedback/problem-highlight';
 import { BADGES } from '../../../core/league/badges';
 import { ApiError } from '../../../core/api/api-error';
 import { MemberPick, StewardPick } from '../../../core/league/league.models';
-import {
-  DerivedVsRecorded,
-  PickRowView,
-  RoundViewService,
-} from '../../../core/league/round-view.service';
+import { MemberService } from '../../../core/league/members/member.service';
+import { PickControlService } from '../../../core/league/picks/pick-control.service';
+import { PickRowView } from '../../../core/league/picks/pick.models';
+import { PickService } from '../../../core/league/picks/pick.service';
+import { RulesService } from '../../../core/league/rules/rules.service';
+import { StandingControlService } from '../../../core/league/standings/standing-control.service';
+import { DerivedVsRecorded } from '../../../core/league/standings/standing.models';
+import { StandingService } from '../../../core/league/standings/standing.service';
 import { Dropdown } from '../../../shared/dropdown/dropdown';
 import { Loader } from '../../../shared/loader/loader';
 import { MemberAvatar } from '../../../shared/member-avatar/member-avatar';
@@ -89,7 +93,13 @@ const REFUSALS: Readonly<Record<string, string>> = {
   viewProviders: [provideIcons({ lucideArrowRight, lucidePencil, lucideTrash2, lucideX })],
 })
 export class PicksCard {
-  readonly view = inject(RoundViewService);
+  readonly fixtureService = inject(FixtureService);
+  private readonly memberService = inject(MemberService);
+  private readonly pickService = inject(PickService);
+  private readonly pickControl = inject(PickControlService);
+  private readonly rulesService = inject(RulesService);
+  readonly standingService = inject(StandingService);
+  private readonly standingControl = inject(StandingControlService);
   private readonly competition = inject(CompetitionService);
   private readonly time = inject(LeagueTime);
   private readonly alerts = inject(AlertService);
@@ -104,18 +114,18 @@ export class PicksCard {
   readonly dutyDialog = input.required<CreateDutyDialog>();
 
   /** Members who pick this season, in team-sheet order. */
-  readonly members = computed(() => this.view.members().filter((m) => m.inSeason));
+  readonly members = computed(() => this.memberService.members().filter((m) => m.inSeason));
   /** How each member shows (photo and team), by id. */
   private readonly looks = computed(
-    () => new Map(this.view.derivedVsRecorded().map((row) => [row.memberId, row])),
+    () => new Map(this.standingService.derivedVsRecorded().map((row) => [row.memberId, row])),
   );
 
   private readonly chosenId = signal<string | null>(null);
   /** The round's fixtures with their pick state, for the strip. */
   readonly strip = computed<readonly StripItem[]>(() => {
     const members = this.members();
-    return this.view.fixtures().map((fixture) => {
-      const picks = this.view.picksFor(fixture.id);
+    return this.fixtureService.fixtures().map((fixture) => {
+      const picks = this.pickService.picksFor(fixture.id);
       const picked = new Set(picks?.rows.map((row) => row.memberId) ?? []);
       const missing = members.filter((m) => !picked.has(m.id)).length;
       const locked = picks?.locked ?? false;
@@ -156,7 +166,7 @@ export class PicksCard {
   });
   readonly picks = computed(() => {
     const chosen = this.chosen();
-    return chosen ? this.view.picksFor(chosen.fixture.id) : null;
+    return chosen ? this.pickService.picksFor(chosen.fixture.id) : null;
   });
   /** Before kickoff members make their own picks: the grid only shows them. */
   readonly readOnly = computed(() => !this.picks()?.locked);
@@ -169,7 +179,7 @@ export class PicksCard {
     () => new Map((this.picks()?.rows ?? []).map((row) => [row.memberId, row])),
   );
   readonly badges = BADGES;
-  readonly defaultPicks = computed(() => this.view.rules().defaultPicks);
+  readonly defaultPicks = computed(() => this.rulesService.rules().defaultPicks);
 
   /**
    * The saved picks the grid starts from, compared by content so a live score or a clock tick
@@ -215,8 +225,8 @@ export class PicksCard {
 
   /** The selected round's spoon holders, once the round is complete. */
   readonly spoon = computed(() => {
-    const ids = this.view.roundBadges().spoon;
-    return this.view
+    const ids = this.standingService.roundBadges().spoon;
+    return this.standingService
       .derivedVsRecorded()
       .filter((row) => ids.includes(row.memberId))
       .map((row) => ({ id: row.memberId, name: row.name }));
@@ -296,8 +306,8 @@ export class PicksCard {
     this.busy.set(true);
     this.form.disable({ emitEvent: false });
     try {
-      if (record.length) await this.view.recordPicks(fixtureId, record);
-      for (const memberId of remove) await this.view.removePick(fixtureId, memberId);
+      if (record.length) await this.pickControl.recordPicks(fixtureId, record);
+      for (const memberId of remove) await this.pickControl.removePick(fixtureId, memberId);
       this.alerts.success(
         chosen ? `Picks saved for ${chosen.homeName} v ${chosen.awayName}.` : 'Picks saved.',
       );
@@ -345,10 +355,10 @@ export class PicksCard {
     }
     this.alerts.dismissKey(ALERT_KEYS.override);
     const points = Number(this.overrideControl.value);
-    const round = this.view.round();
+    const round = this.fixtureService.round();
     // A round's recorded totals are replaced as a whole: keep everyone else's.
     const entries = [
-      ...this.view
+      ...this.standingService
         .derivedVsRecorded()
         .filter((r) => r.memberId !== row.memberId && r.recorded !== null)
         .map((r) => ({ memberId: r.memberId, points: r.recorded! })),
@@ -356,7 +366,7 @@ export class PicksCard {
     ];
     this.overrideBusy.set(true);
     try {
-      await this.view.recordStandings(round.id, entries);
+      await this.standingControl.recordStandings(round.id, entries);
       this.alerts.success(`${row.name}'s ${round.title} total is recorded as ${points}.`);
       this.cancelOverride();
     } catch (error) {
@@ -372,7 +382,7 @@ export class PicksCard {
   }
 
   clearOverride(row: DerivedVsRecorded): void {
-    const round = this.view.round();
+    const round = this.fixtureService.round();
     this.dialog().open({
       title: `Clear ${row.name}'s recorded total?`,
       description: `${row.name}'s ${round.title} total goes back to ${row.derived}, the total computed from the picks.`,
@@ -380,7 +390,7 @@ export class PicksCard {
       required: false,
       noReason: true,
       action: async () => {
-        await this.view.clearStanding(round.id, row.memberId);
+        await this.standingControl.clearStanding(round.id, row.memberId);
         this.overriding.set(null);
       },
       done: () => {
@@ -391,7 +401,7 @@ export class PicksCard {
   }
 
   proposeSpoon(member: { readonly id: string; readonly name: string }): void {
-    const round = this.view.round();
+    const round = this.fixtureService.round();
     this.dutyDialog().open({
       memberId: member.id,
       type: 'spoon',

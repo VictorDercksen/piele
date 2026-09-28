@@ -1,8 +1,8 @@
-@if (view.poll(); as poll) {
+@if (polls.poll(); as poll) {
   <article class="poll-card">
     <div class="register-heading">
       <span class="tag">{{ poll.status === 'Open' ? 'VOTING OPEN' : 'VOTE CLOSED' }}</span
-      ><span class="eyebrow">ROUND {{ view.round().code }} / LEAGUE DECISION</span>
+      ><span class="eyebrow">ROUND {{ fixtures.round().code }} / LEAGUE DECISION</span>
     </div>
     <h2>{{ poll.question }}</h2>
     <p>{{ poll.description }}</p>
@@ -22,7 +22,7 @@
       <p class="context-note">Closed {{ poll.closes }}. This vote can no longer be changed.</p>
     }
   </article>
-  @if (view.sample) {
+  @if (records.sample) {
     <p class="context-note">
       Sample decision. Confidential, revisable ballots remain a proposed behaviour.
     </p>
@@ -30,7 +30,7 @@
 } @else {
   <div class="round-empty">
     <app-icon name="decisions" />
-    <h2>No decisions in Round {{ view.round().code }}.</h2>
+    <h2>No decisions in Round {{ fixtures.round().code }}.</h2>
     <p>Votes and cases linked to this round will appear here.</p>
   </div>
 }

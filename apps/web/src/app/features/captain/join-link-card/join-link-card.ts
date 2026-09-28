@@ -14,8 +14,9 @@ import {
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideCopy, lucideLockKeyhole, lucideRefreshCw } from '@ng-icons/lucide';
 import { AlertService } from '../../../core/feedback/alert.service';
+import { JoinCodeControlService } from '../../../core/league/join/join-code-control.service';
+import { JoinCodeService } from '../../../core/league/join/join-code.service';
 import { LeagueContext } from '../../../core/league/league-context';
-import { LeagueData } from '../../../core/league/data/league-data';
 import { Dropdown } from '../../../shared/dropdown/dropdown';
 import { Icon } from '../../../shared/icon/icon';
 import { Loader } from '../../../shared/loader/loader';
@@ -46,13 +47,13 @@ const ALERT_KEY = 'captain-join-link';
   viewProviders: [provideIcons({ lucideCopy, lucideLockKeyhole, lucideRefreshCw })],
 })
 export class JoinLinkCard {
-  private readonly league = inject(LeagueData);
+  private readonly joinCodeControl = inject(JoinCodeControlService);
   private readonly alerts = inject(AlertService);
   private readonly origin = inject(DOCUMENT).location.origin;
   readonly leagueName = inject(LeagueContext).name;
   /** The captain's desk's confirmation dialog. */
   readonly dialog = input.required<ReasonDialog>();
-  readonly code = this.league.joinCode;
+  readonly code = inject(JoinCodeService).joinCode;
   readonly link = computed(() => {
     const code = this.code();
     return code ? `${this.origin}/join/${code}` : null;
@@ -101,7 +102,7 @@ export class JoinLinkCard {
       noReason: true,
       action: async () => {
         this.copied.set(false);
-        await this.league.rotateJoinCode();
+        await this.joinCodeControl.rotateJoinCode();
       },
       done: () => this.alerts.success('A new join link is ready. The old one no longer works.'),
     });
@@ -116,7 +117,7 @@ export class JoinLinkCard {
       noReason: true,
       action: async () => {
         this.copied.set(false);
-        await this.league.closeJoinCode();
+        await this.joinCodeControl.closeJoinCode();
       },
       done: () => this.alerts.success('Joining is closed.'),
     });
@@ -126,7 +127,7 @@ export class JoinLinkCard {
   async openJoining(): Promise<void> {
     this.opening.set(true);
     try {
-      await this.league.rotateJoinCode();
+      await this.joinCodeControl.rotateJoinCode();
       this.alerts.success('Joining is open with a new link.', { key: ALERT_KEY });
     } catch (error) {
       this.alerts.error(error instanceof Error ? error.message : 'Joining could not be opened.', {

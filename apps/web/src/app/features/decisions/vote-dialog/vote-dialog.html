@@ -2,7 +2,7 @@
   <hlm-dialog-content *hlmDialogPortal [showCloseButton]="false" class="detail-dialog">
     <div class="dialog-top">
       <span class="eyebrow"
-        >{{ view.leagueName().toUpperCase() }} / ROUND {{ view.round().code }}</span
+        >{{ context.name().toUpperCase() }} / ROUND {{ fixtures.round().code }}</span
       ><button hlmBtn type="button" class="icon-button" aria-label="Close dialog" (click)="close()">
         <app-icon name="close" />
       </button>
@@ -11,7 +11,7 @@
       <h2 id="vote-title">{{ poll.question }}</h2>
       <p>{{ poll.description }}</p>
       <fieldset hlmRadioGroup [formControl]="choice" class="vote-options">
-        <legend>Your choice for Round {{ view.round().code }}</legend>
+        <legend>Your choice for Round {{ fixtures.round().code }}</legend>
         @for (option of poll.options; track option) {
           <label hlmLabel [class.chosen]="chosen() === option"
             ><hlm-radio [value]="option" /><span>{{ option }}</span></label

@@ -41,7 +41,10 @@ import { highlightProblem } from '../../../core/feedback/problem-highlight';
 import { ApiError } from '../../../core/api/api-error';
 import { LeaguePathPipe } from '../../../core/league/league-path.pipe';
 import { MemberPick, NewPick } from '../../../core/league/league.models';
-import { RoundViewService } from '../../../core/league/round-view.service';
+import { MemberService } from '../../../core/league/members/member.service';
+import { PickControlService } from '../../../core/league/picks/pick-control.service';
+import { PickService } from '../../../core/league/picks/pick.service';
+import { RulesService } from '../../../core/league/rules/rules.service';
 import { roundType } from '../../../core/league/superbru';
 import { Dropdown } from '../../../shared/dropdown/dropdown';
 import { PickChip, PickChipView, chipOf } from './pick-chip';
@@ -75,8 +78,8 @@ function marginValidator(control: AbstractControl<string>): ValidationErrors | n
  * `quick` margins and the typed margin, all writing the same two form controls). Once their
  * pick is in they see their own pick, and can edit theirs until kickoff. After kickoff their
  * line carries their points and place. The pool's split and the pool table itself (every pick
- * with its outcome, margin and bonus marks and points, as the view scores them) are the body of
- * the panel's dropdown (`#picks-pool`), closed by default and for every new fixture; the form
+ * with its outcome, margin and bonus marks and points, as PickService scores them) are the body
+ * of the panel's dropdown (`#picks-pool`), closed by default and for every new fixture; the form
  * or the pick above it is the dropdown's lead. The admin viewing a league it is not in sees the
  * pool without a form.
  */
@@ -108,14 +111,17 @@ export class PicksPanel {
   private readonly competition = inject(CompetitionService);
   private readonly time = inject(LeagueTime);
   private readonly injector = inject(Injector);
-  protected readonly view = inject(RoundViewService);
+  private readonly pickService = inject(PickService);
+  private readonly pickControl = inject(PickControlService);
+  private readonly members = inject(MemberService);
+  protected readonly rules = inject(RulesService);
   /** The display zone for the kickoff. */
   protected readonly zone = this.time.zone;
 
   readonly fixtureId = input.required<string>();
 
-  /** The fixture's picks as the view gives them. */
-  readonly picks = computed(() => this.view.picksFor(this.fixtureId()));
+  /** The fixture's picks as the pick service gives them. */
+  readonly picks = computed(() => this.pickService.picksFor(this.fixtureId()));
   /** The member reopened the form to change a pick that is in. */
   readonly editing = linkedSignal({ source: this.fixtureId, computation: () => false });
   readonly submitted = signal(false);
@@ -203,7 +209,7 @@ export class PicksPanel {
   readonly showForm = computed(() => {
     const picks = this.picks();
     return (
-      !!picks && !picks.locked && !this.view.adminView() && (!picks.recorded || this.editing())
+      !!picks && !picks.locked && !this.members.adminView() && (!picks.recorded || this.editing())
     );
   });
   /** The pool's picks show once the member's pick is in, after kickoff, or for the admin. */
@@ -217,7 +223,7 @@ export class PicksPanel {
     if (picks.void) return 'void';
     if (picks.final) return 'final';
     if (picks.provisional) return 'provisional';
-    return picks.recorded || this.view.adminView() ? 'locked' : 'awaiting picks';
+    return picks.recorded || this.members.adminView() ? 'locked' : 'awaiting picks';
   });
   /** Scores are in (live or full time): marks and points show. */
   readonly scored = computed(() => {
@@ -263,7 +269,7 @@ export class PicksPanel {
   /** The member's own line: pick chip, points and place. Null for the admin view. */
   readonly mine = computed(() => {
     const picks = this.picks();
-    if (!picks || this.view.adminView()) return null;
+    if (!picks || this.members.adminView()) return null;
     const row = picks.rows.find((r) => r.you) ?? null;
     return {
       row,
@@ -275,15 +281,15 @@ export class PicksPanel {
   /** Steward: some active member has no pick for a match that has kicked off. */
   readonly missingPicks = computed(() => {
     const picks = this.picks();
-    if (!picks?.locked || !this.view.administers()) return false;
+    if (!picks?.locked || !this.members.administers()) return false;
     const picked = new Set(picks.rows.filter((r) => r.side !== 'missed').map((r) => r.memberId));
-    return this.view.members().some((member) => !picked.has(member.id));
+    return this.members.members().some((member) => !picked.has(member.id));
   });
 
   /** The rules line under the table, from the season's rules and this round's win points. */
   readonly legend = computed(() => {
     const picks = this.picks();
-    const rules = this.view.rules();
+    const rules = this.rules.rules();
     const wp = picks ? rules.winPoints[roundType(picks.round.id, this.competition.current())] : 0;
     const parts = [
       'Superbru scoring',
@@ -397,7 +403,7 @@ export class PicksPanel {
       side === 'draw' ? { side: 'draw', margin: 0 } : { side, margin: Number(margin.trim()) };
     this.saving.set(true);
     try {
-      await this.view.savePick(this.fixtureId(), pick);
+      await this.pickControl.savePick(this.fixtureId(), pick);
       this.alerts.dismissKey(this.failureKey());
       this.alerts.success(`Pick saved: ${this.describe(pick)}.`, { key: this.savedKey() });
       this.editing.set(false);

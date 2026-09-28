@@ -14,10 +14,13 @@ import {
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { map } from 'rxjs';
+import { FixtureService } from '../../core/competition/fixture.service';
 import { StandingsPreferences } from '../../core/storage/standings-preferences';
 export { BREAKDOWN_STORAGE_KEY } from '../../core/storage/standings-preferences';
 import { BADGES } from '../../core/league/badges';
-import { RoundViewService } from '../../core/league/round-view.service';
+import { LeagueContext } from '../../core/league/league-context';
+import { MarkService } from '../../core/league/marks/mark.service';
+import { StandingService } from '../../core/league/standings/standing.service';
 import { MemberAvatar } from '../../shared/member-avatar/member-avatar';
 
 /** The standings tables: the selected round, the season up to it, and house marks. */
@@ -48,7 +51,10 @@ const MEASURES: readonly StandingsMeasure[] = ['round', 'season', 'marks'];
 export class StandingsPage {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
-  readonly view = inject(RoundViewService);
+  private readonly standings = inject(StandingService);
+  readonly context = inject(LeagueContext);
+  readonly fixtures = inject(FixtureService);
+  readonly marks = inject(MarkService);
   readonly badges = BADGES;
   private readonly preferences = inject(StandingsPreferences);
   private readonly tableParam = toSignal(
@@ -61,14 +67,14 @@ export class StandingsPage {
   readonly breakdown = signal(this.preferences.readBreakdown());
   /** The round's status tag: live points are provisional; a settled round is complete. */
   readonly roundStatus = computed<'provisional' | 'complete' | 'awaiting picks'>(() => {
-    if (this.view.roundProvisional()) return 'provisional';
-    const rows = this.view.roundTable();
+    if (this.fixtures.roundProvisional()) return 'provisional';
+    const rows = this.standings.roundTable();
     return rows.length && rows.every((row) => row.complete) ? 'complete' : 'awaiting picks';
   });
   /** The rows of the Superbru tab shown, with each breakdown bar's segment widths. */
   readonly rows = computed<readonly PointsRow[]>(() => {
     const season = this.measure() === 'season';
-    const rows = season ? this.view.seasonStandings() : this.view.roundTable();
+    const rows = season ? this.standings.seasonStandings() : this.standings.roundTable();
     const top = Math.max(
       0,
       ...rows.map((row) => Math.max(row.points, row.wp + row.mp + row.gsp + row.bp)),

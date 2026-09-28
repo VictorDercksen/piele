@@ -27,9 +27,9 @@ import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { LeagueTime } from '../../../core/competition/league-time';
 import { AlertService } from '../../../core/feedback/alert.service';
 import { highlightProblem } from '../../../core/feedback/problem-highlight';
-import { LeagueData } from '../../../core/league/data/league-data';
 import { LeagueMember } from '../../../core/league/league.models';
-import { RoundViewService } from '../../../core/league/round-view.service';
+import { MemberControlService } from '../../../core/league/members/member-control.service';
+import { MemberService } from '../../../core/league/members/member.service';
 import { Dropdown } from '../../../shared/dropdown/dropdown';
 import { Loader } from '../../../shared/loader/loader';
 import { ReasonDialog } from '../../duties/reason-dialog/reason-dialog';
@@ -62,10 +62,10 @@ const ALERT_KEYS = {
   ],
 })
 export class MembersCard {
-  private readonly league = inject(LeagueData);
+  private readonly memberControl = inject(MemberControlService);
   private readonly time = inject(LeagueTime);
   private readonly alerts = inject(AlertService);
-  readonly view = inject(RoundViewService);
+  readonly members = inject(MemberService);
   private readonly injector = inject(Injector);
   readonly reasonDialog = input.required<ReasonDialog>();
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
@@ -119,7 +119,7 @@ export class MembersCard {
     this.alerts.dismissKey(ALERT_KEYS.email);
     this.memberBusy.set(member.id);
     try {
-      await this.league.updateMember(member.id, this.emailControl.value.trim() || null);
+      await this.memberControl.updateMember(member.id, this.emailControl.value.trim() || null);
       this.editing.set(null);
       this.alerts.success(
         this.emailControl.value.trim()
@@ -141,18 +141,18 @@ export class MembersCard {
       description: `The account that claimed ${member.name} loses access to the clubhouse and the name becomes claimable again. Duties and marks stay with ${member.name}.`,
       submitLabel: 'Release name',
       required: false,
-      action: () => this.league.releaseMember(member.id),
+      action: () => this.memberControl.releaseMember(member.id),
       done: () => this.alerts.success(`${member.name} can be claimed again.`),
     });
   }
 
   /** Every row but the league captain's and the steward's own. The API decides the rest. */
   removable(member: LeagueMember): boolean {
-    return member.id !== this.view.captainId() && member.id !== this.view.memberId();
+    return member.id !== this.members.captainId() && member.id !== this.members.memberId();
   }
 
   remove(member: LeagueMember): void {
-    const deleted = !member.claimed && !this.view.hasRecords(member.id);
+    const deleted = !member.claimed && !this.members.hasRecords(member.id);
     this.reasonDialog().open({
       title: `Remove ${member.name}?`,
       description: deleted
@@ -163,7 +163,7 @@ export class MembersCard {
       action: async (reason) => {
         this.memberBusy.set(member.id);
         try {
-          await this.league.withdrawMember(member.id, reason);
+          await this.memberControl.withdrawMember(member.id, reason);
         } finally {
           this.memberBusy.set(null);
         }
@@ -191,7 +191,7 @@ export class MembersCard {
   async reinstate(member: LeagueMember): Promise<void> {
     this.memberBusy.set(member.id);
     try {
-      await this.league.reinstateMember(member.id);
+      await this.memberControl.reinstateMember(member.id);
       this.alerts.success(`${member.name} is back on the team sheet.`, {
         key: ALERT_KEYS.reinstate,
       });
@@ -240,7 +240,7 @@ export class MembersCard {
     const { name, fullName, email } = this.newMember.getRawValue();
     this.addingMember.set(true);
     try {
-      await this.league.addMember({
+      await this.memberControl.addMember({
         name: name.trim(),
         fullName: fullName.trim(),
         email: email.trim() || null,

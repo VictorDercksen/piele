@@ -23,7 +23,7 @@ import { AuthService } from '../../core/auth/auth.service';
 import { AlertService } from '../../core/feedback/alert.service';
 import { highlightProblem } from '../../core/feedback/problem-highlight';
 import { LeagueContext } from '../../core/league/league-context';
-import { LeagueData } from '../../core/league/data/league-data';
+import { MemberService } from '../../core/league/members/member.service';
 import { preparePhoto } from '../../core/profile/profile-photo';
 import { ProfileStore } from '../../core/profile/profile.store';
 import { CompetitionService, shortSeason } from '../../core/competition/competition.service';
@@ -58,7 +58,7 @@ import { StadiumBackdrop } from '../../shared/stadium-backdrop/stadium-backdrop'
 export class ProfileEditor {
   private readonly store = inject(ProfileStore);
   private readonly auth = inject(AuthService);
-  private readonly data = inject(LeagueData);
+  private readonly members = inject(MemberService);
   private readonly context = inject(LeagueContext);
   private readonly competition = inject(CompetitionService);
   private readonly alerts = inject(AlertService);
@@ -78,7 +78,7 @@ export class ProfileEditor {
   readonly leagueHome = computed(() => this.context.url());
   readonly persisted = this.store.persisted;
   /** The league's nickname for the member, which the browser profile cannot override. */
-  readonly leagueName = this.data.currentMemberName();
+  readonly leagueName = this.members.leagueMemberName();
   readonly canSignOut = this.auth.configured;
   readonly accountEmail = this.auth.email;
   readonly teams = computed(() => this.competition.current().teams);

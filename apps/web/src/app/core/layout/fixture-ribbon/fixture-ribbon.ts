@@ -3,10 +3,10 @@ import { ChangeDetectionStrategy, Component, effect, inject } from '@angular/cor
 import { Router } from '@angular/router';
 import { Fixture } from '../../competition/competition.models';
 import { CompetitionService } from '../../competition/competition.service';
+import { FixtureService } from '../../competition/fixture.service';
 import { MatchArtwork } from '../../competition/match-artwork';
 import { ribbonStatus } from '../../competition/match-status';
 import { LeagueContext } from '../../league/league-context';
-import { RoundViewService } from '../../league/round-view.service';
 
 /**
  * The selected round's fixtures. Choosing one features it in the home match centre,
@@ -17,15 +17,15 @@ import { RoundViewService } from '../../league/round-view.service';
   template: `<div
     class="fixture-ribbon"
     role="group"
-    [attr.aria-label]="view.round().title + ' fixtures'"
+    [attr.aria-label]="fixtures.round().title + ' fixtures'"
   >
-    @for (match of view.fixtures(); track match.id) {
+    @for (match of fixtures.fixtures(); track match.id) {
       <button
         hlmBtn
         type="button"
-        [class.active]="view.featured()?.id === match.id"
+        [class.active]="fixtures.featured()?.id === match.id"
         [class.live]="match.state === 'live' || match.state === 'half_time'"
-        [attr.aria-pressed]="view.featured()?.id === match.id"
+        [attr.aria-pressed]="fixtures.featured()?.id === match.id"
         (click)="choose(match.id)"
         (pointerenter)="prepare(match)"
         (focus)="prepare(match)"
@@ -50,11 +50,11 @@ export class FixtureRibbon {
   private readonly context = inject(LeagueContext);
   private readonly artwork = inject(MatchArtwork);
   private readonly competition = inject(CompetitionService);
-  readonly view = inject(RoundViewService);
+  readonly fixtures = inject(FixtureService);
   readonly status = ribbonStatus;
 
   constructor() {
-    effect(() => this.artwork.warm(this.view.fixtures()));
+    effect(() => this.artwork.warm(this.fixtures.fixtures()));
   }
 
   /** The club's jersey, or the placeholder for an unconfirmed side. */
@@ -79,6 +79,6 @@ export class FixtureRibbon {
       });
       return;
     }
-    this.view.feature(fixtureId);
+    this.fixtures.feature(fixtureId);
   }
 }

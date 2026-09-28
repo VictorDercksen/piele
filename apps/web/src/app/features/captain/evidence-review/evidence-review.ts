@@ -2,10 +2,13 @@ import { HlmButton } from '@spartan-ng/helm/button';
 import { ChangeDetectionStrategy, Component, inject, input } from '@angular/core';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucidePlay, lucideX } from '@ng-icons/lucide';
+import { FixtureService } from '../../../core/competition/fixture.service';
 import { LeagueTime } from '../../../core/competition/league-time';
 import { AlertService } from '../../../core/feedback/alert.service';
-import { LeagueData } from '../../../core/league/data/league-data';
-import { ReviewView, RoundViewService } from '../../../core/league/round-view.service';
+import { DutyControlService } from '../../../core/league/duties/duty-control.service';
+import { ReviewView } from '../../../core/league/duties/duty.models';
+import { DutyService } from '../../../core/league/duties/duty.service';
+import { LeagueRecordsService } from '../../../core/league/league-records.service';
 import { Dropdown } from '../../../shared/dropdown/dropdown';
 import { Icon } from '../../../shared/icon/icon';
 import { ReasonDialog } from '../../duties/reason-dialog/reason-dialog';
@@ -26,10 +29,12 @@ const ALERT_KEYS = { playback: 'captain-playback' } as const;
   viewProviders: [provideIcons({ lucidePlay, lucideX })],
 })
 export class EvidenceReview {
-  private readonly league = inject(LeagueData);
+  private readonly dutyControl = inject(DutyControlService);
   private readonly time = inject(LeagueTime);
   private readonly alerts = inject(AlertService);
-  readonly view = inject(RoundViewService);
+  readonly duties = inject(DutyService);
+  readonly fixtures = inject(FixtureService);
+  readonly records = inject(LeagueRecordsService);
   readonly reasonDialog = input.required<ReasonDialog>();
   when(review: ReviewView): string {
     return this.time.relative(review.evidence.submittedAt);
@@ -54,7 +59,7 @@ export class EvidenceReview {
       submitLabel: decision === 'accepted' ? 'Accept evidence' : 'Reject evidence',
       required: decision === 'rejected',
       spoon: duty.spoon,
-      action: (reason) => this.league.decideEvidence(evidence.id, decision, reason),
+      action: (reason) => this.dutyControl.decideEvidence(evidence.id, decision, reason),
       done: () =>
         this.alerts.success(
           decision === 'accepted'
@@ -66,7 +71,7 @@ export class EvidenceReview {
 
   async watch(review: ReviewView): Promise<void> {
     try {
-      window.open(await this.league.playbackUrl(review.evidence.assetId), '_blank', 'noopener');
+      window.open(await this.duties.playbackUrl(review.evidence.assetId), '_blank', 'noopener');
       this.alerts.dismissKey(ALERT_KEYS.playback);
     } catch (error) {
       this.alerts.error(error instanceof Error ? error.message : 'The video is unavailable.', {

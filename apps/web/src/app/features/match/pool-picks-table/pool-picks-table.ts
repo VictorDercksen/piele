@@ -1,7 +1,7 @@
 import { DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { LeagueRules } from '../../../core/league/league.models';
-import { FixturePicksView, PickRowView } from '../../../core/league/round-view.service';
+import { FixturePicksView, PickRowView } from '../../../core/league/picks/pick.models';
 import { sameTotal } from '../../../core/league/superbru';
 import { MemberAvatar } from '../../../shared/member-avatar/member-avatar';
 import { PickChip, PickChipView, chipOf } from '../picks-panel/pick-chip';

@@ -4,14 +4,19 @@ import { inPlayWindow } from '../api/live-scores.service';
 import { RoundUpdatesService } from '../api/round-updates.service';
 import { CompetitionRound, Fixture } from '../competition/competition.models';
 import { CompetitionService } from '../competition/competition.service';
+import { FixtureService } from '../competition/fixture.service';
 import { DEFAULT_ZONE, LeagueTime, zoneAbbreviation } from '../competition/league-time';
 import { AlertService } from '../feedback/alert.service';
 import { ProfileStore } from '../profile/profile.store';
-import { feedIcon, feedLabel, feedPath } from './feed-presentation';
-import { LeagueContext } from './league-context';
 import { LeagueData } from './data/league-data';
+import { DutyService } from './duties/duty.service';
+import { feedIcon, feedLabel, feedPath } from './feed-presentation';
+import { FeedService } from './feed/feed.service';
+import { LeagueContext } from './league-context';
+import { LeagueRecordsService } from './league-records.service';
 import { FeedItem, NotificationsRead } from './league.models';
-import { RoundViewService } from './round-view.service';
+import { MemberService } from './members/member.service';
+import { PollService } from './polls/poll.service';
 
 /** League events from other rounds stay in the panel this long; fixtures this close count. */
 export const RECENT_MS = 7 * 24 * 60 * 60_000;
@@ -31,12 +36,18 @@ const MAX_READ_KEYS = 200;
  */
 @Injectable({ providedIn: 'root' })
 export class NotificationsService {
+  /** The read state and its saving, and the feed's refresh. */
   private readonly league = inject(LeagueData);
+  private readonly records = inject(LeagueRecordsService);
+  private readonly members = inject(MemberService);
+  private readonly fixtures = inject(FixtureService);
+  private readonly duties = inject(DutyService);
+  private readonly polls = inject(PollService);
+  private readonly feed = inject(FeedService);
   private readonly context = inject(LeagueContext);
   private readonly competition = inject(CompetitionService);
   private readonly time = inject(LeagueTime);
   private readonly profile = inject(ProfileStore);
-  private readonly view = inject(RoundViewService);
   private readonly updates = inject(RoundUpdatesService);
   private readonly alerts = inject(AlertService);
 
@@ -75,7 +86,7 @@ export class NotificationsService {
   /** Fixtures that get their own line: the favourite team's and the featured one. */
   private readonly highlighted = computed<ReadonlySet<string>>(() => {
     const team = this.profile.profile()?.teamId;
-    const featured = this.view.featured()?.id;
+    const featured = this.fixtures.featured()?.id;
     const ids = new Set<string>();
     for (const round of this.rounds())
       for (const fixture of round.fixtures) {
@@ -90,7 +101,7 @@ export class NotificationsService {
   /** The member's live duties and the current round's poll, kept at the top and never counted. */
   readonly pinned = computed<PinnedNotice[]>(() => {
     const current = this.currentRound();
-    const items: PinnedNotice[] = this.view
+    const items: PinnedNotice[] = this.duties
       .seasonDuties()
       .filter((duty) => duty.mine && duty.status !== 'voided' && duty.status !== 'completed')
       .map((duty) => ({
@@ -106,7 +117,7 @@ export class NotificationsService {
         round: duty.roundId,
         spoon: duty.spoon,
       }));
-    const poll = this.league.polls().find((p) => p.roundId === current.id);
+    const poll = this.polls.seasonPolls().find((p) => p.roundId === current.id);
     if (poll)
       items.push({
         key: `poll:${poll.id}`,
@@ -130,8 +141,8 @@ export class NotificationsService {
     const fixtures = new Map<string, LocatedFixture>();
     for (const round of this.rounds())
       for (const fixture of round.fixtures) fixtures.set(fixture.id, { fixture, round: round.id });
-    const league = this.league
-      .feed()
+    const league = this.feed
+      .seasonFeed()
       .filter(
         (item) =>
           (item.roundId !== null && rounds.includes(item.roundId)) || recent(item.occurredAt),
@@ -233,7 +244,7 @@ export class NotificationsService {
   }
 
   private member(): boolean {
-    return this.league.source !== 'api' || !!this.league.currentMemberId();
+    return this.records.source !== 'api' || !!this.members.memberId();
   }
 
   private since(): number {

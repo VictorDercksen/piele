@@ -15,11 +15,14 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FixtureService } from '../../../core/competition/fixture.service';
 import { LeagueTime } from '../../../core/competition/league-time';
 import { AlertService } from '../../../core/feedback/alert.service';
 import { highlightProblem } from '../../../core/feedback/problem-highlight';
-import { LeagueData } from '../../../core/league/data/league-data';
-import { RoundDutyView, RoundViewService } from '../../../core/league/round-view.service';
+import { DutyControlService } from '../../../core/league/duties/duty-control.service';
+import { RoundDutyView } from '../../../core/league/duties/duty.models';
+import { LeagueRecordsService } from '../../../core/league/league-records.service';
+import { MemberService } from '../../../core/league/members/member.service';
 import { Icon } from '../../../shared/icon/icon';
 import { Loader } from '../../../shared/loader/loader';
 
@@ -54,11 +57,13 @@ export const EVIDENCE_FAILURE = 'evidence-failed';
 })
 export class EvidenceDialog {
   private readonly alerts = inject(AlertService);
-  private readonly league = inject(LeagueData);
+  private readonly dutyControl = inject(DutyControlService);
+  private readonly members = inject(MemberService);
   private readonly time = inject(LeagueTime);
   /** The display zone's abbreviation, for the completion time label. */
   readonly zoneName = this.time.abbreviation;
-  readonly view = inject(RoundViewService);
+  readonly fixtures = inject(FixtureService);
+  readonly records = inject(LeagueRecordsService);
   private readonly dialog = viewChild.required(HlmDialog);
   private readonly fileInput = viewChild.required<ElementRef<HTMLInputElement>>('fileInput');
   private readonly completedInput = viewChild<ElementRef<HTMLInputElement>>('completedInput');
@@ -85,7 +90,7 @@ export class EvidenceDialog {
 
   open(duty: RoundDutyView): void {
     const live = duty.status === 'open' || duty.status === 'pending_deadline';
-    if (!live || (!duty.mine && !this.view.administers())) return;
+    if (!live || (!duty.mine && !this.members.administers())) return;
     this.duty.set(duty);
     this.file.set(null);
     this.invalid.set(null);
@@ -148,7 +153,7 @@ export class EvidenceDialog {
     this.alerts.dismissKey(EVIDENCE_WARNING);
     this.busy.set(true);
     try {
-      await this.league.submitEvidence({
+      await this.dutyControl.submitEvidence({
         dutyIds: [duty.id],
         file,
         note: this.note.value.trim(),
@@ -161,7 +166,7 @@ export class EvidenceDialog {
         ? `Evidence recorded for ${duty.memberName}. Accept it from the captain's desk.`
         : 'Evidence submitted for review.';
       this.alerts.success(
-        this.view.sample ? `Sample only: ${outcome} No file was uploaded.` : outcome,
+        this.records.sample ? `Sample only: ${outcome} No file was uploaded.` : outcome,
       );
     } catch (error) {
       this.alerts.error(error instanceof Error ? error.message : 'Unable to submit evidence.', {

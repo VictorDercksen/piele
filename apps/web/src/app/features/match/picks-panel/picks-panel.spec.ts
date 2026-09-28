@@ -7,11 +7,11 @@ import { problemTarget } from '../../../core/feedback/problem-highlight';
 import { ApiError } from '../../../core/api/api-error';
 import { LeagueContext } from '../../../core/league/league-context';
 import { LeagueMember, MemberPick, NewPick, PickSide } from '../../../core/league/league.models';
-import {
-  FixturePicksView,
-  PickRowView,
-  RoundViewService,
-} from '../../../core/league/round-view.service';
+import { MemberService } from '../../../core/league/members/member.service';
+import { PickControlService } from '../../../core/league/picks/pick-control.service';
+import { FixturePicksView, PickRowView } from '../../../core/league/picks/pick.models';
+import { PickService } from '../../../core/league/picks/pick.service';
+import { RulesService } from '../../../core/league/rules/rules.service';
 import { DEFAULT_RULES } from '../../../core/league/superbru';
 import { PicksPanel } from './picks-panel';
 import { ordinal } from '../../../shared/format/ordinal';
@@ -118,12 +118,12 @@ describe('PicksPanel', () => {
     saved = [];
     refusal = null;
     const current = signal(start);
-    const view = {
-      picksFor: () => current(),
+    const members = {
       adminView: signal(options.admin ?? false),
       administers: signal(options.steward ?? options.admin ?? false),
-      rules: signal(DEFAULT_RULES),
       members: signal(MEMBERS),
+    };
+    const pickControl = {
       savePick: (fixtureId: string, value: NewPick) => {
         saved.push([fixtureId, value]);
         if (refusal) return Promise.reject(refusal);
@@ -134,7 +134,10 @@ describe('PicksPanel', () => {
     TestBed.configureTestingModule({
       providers: [
         provideRouter([]),
-        { provide: RoundViewService, useValue: view },
+        { provide: PickService, useValue: { picksFor: () => current() } },
+        { provide: PickControlService, useValue: pickControl },
+        { provide: MemberService, useValue: members },
+        { provide: RulesService, useValue: { rules: signal(DEFAULT_RULES) } },
         { provide: LeagueContext, useValue: { url: (path = '') => `/piele${path}` } },
       ],
     });

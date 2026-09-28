@@ -36,7 +36,8 @@
 <p class="page-description">
   @switch (measure()) {
     @case ('round') {
-      {{ view.round().title }} only. Superbru points and symbolic house marks are separate measures.
+      {{ fixtures.round().title }} only. Superbru points and symbolic house marks are separate
+      measures.
     }
     @case ('season') {
       Whole season up to the selected round, computed from every round's picks; recorded totals
@@ -61,8 +62,8 @@
   <div class="board-light" aria-hidden="true"></div>
   <div class="honours-heading">
     <span
-      >{{ view.leagueName().toUpperCase() }} /
-      {{ measure() === 'round' ? 'ROUND ' + view.round().code : 'SEASON' }}</span
+      >{{ context.name().toUpperCase() }} /
+      {{ measure() === 'round' ? 'ROUND ' + fixtures.round().code : 'SEASON' }}</span
     >
     <h2>
       {{
@@ -80,10 +81,10 @@
     }
   </div>
   @if (measure() === 'marks') {
-    @if (view.marksTable().length) {
+    @if (marks.marksTable().length) {
       <div class="full-table">
         <div class="table-label"><span>MEMBER</span><span>SEASON MARKS</span></div>
-        @for (member of view.marksTable(); track member.memberId) {
+        @for (member of marks.marksTable(); track member.memberId) {
           <div class="standing-row" [class.you]="member.you">
             <app-member-avatar
               [name]="member.name"
@@ -211,7 +212,7 @@
     </div>
   } @else if (measure() === 'round') {
     <div class="round-empty">
-      <h2>No picks or results for {{ view.round().title }} yet.</h2>
+      <h2>No picks or results for {{ fixtures.round().title }} yet.</h2>
       <p>Picks appear once members record them and the matches kick off.</p>
     </div>
   } @else {

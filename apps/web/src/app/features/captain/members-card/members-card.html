@@ -5,7 +5,7 @@
     wrong account claimed it; remove a member who has left the league.
   </p>
   <ul class="member-list">
-    @for (member of view.members(); track member.id) {
+    @for (member of members.members(); track member.id) {
       <li>
         <span class="member-name"
           ><strong>{{ member.name }}</strong
@@ -54,7 +54,7 @@
             }}</small>
           </span>
           <span class="member-actions">
-            @if (member.claimed && member.id !== view.memberId()) {
+            @if (member.claimed && member.id !== members.memberId()) {
               <button
                 hlmBtn
                 type="button"
@@ -98,14 +98,14 @@
       </li>
     }
   </ul>
-  @if (view.withdrawn().length) {
+  @if (members.withdrawn().length) {
     <div hlmCollapsible class="withdrawn" #withdrawnGroup>
       <button hlmBtn hlmCollapsibleTrigger class="disclosure-trigger" type="button">
-        Withdrawn <span class="count">{{ view.withdrawn().length }}</span>
+        Withdrawn <span class="count">{{ members.withdrawn().length }}</span>
       </button>
       <div hlmCollapsibleContent class="disclosure-content">
         <ul class="member-list">
-          @for (member of view.withdrawn(); track member.id) {
+          @for (member of members.withdrawn(); track member.id) {
             <li>
               <span class="member-name"
                 ><strong>{{ member.name }}</strong

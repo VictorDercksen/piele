@@ -10,11 +10,11 @@
     role="group"
     aria-label="Feed scope"
   >
-    <button hlmBtn type="button" hlmToggleGroupItem value="round">R{{ view.round().code }}</button
+    <button hlmBtn type="button" hlmToggleGroupItem value="round">R{{ round().code }}</button
     ><button hlmBtn type="button" hlmToggleGroupItem value="season">Season</button>
   </div>
 </div>
-@if (view.poll(); as poll) {
+@if (polls.poll(); as poll) {
   @if (scope() === 'round') {
     <a class="feed-item" [routerLink]="'/decisions' | leaguePath" queryParamsHandling="preserve">
       <span class="feed-icon"><app-icon name="decisions" /></span
@@ -80,9 +80,9 @@
   <div class="feed-item">
     <span class="feed-icon neutral"><app-icon name="rounds" /></span
     ><span
-      ><span class="feed-label">ROUND {{ view.round().code }} / UPDATE</span
-      ><strong>{{ view.round().status }}</strong
-      ><small>{{ view.activity() }}</small></span
+      ><span class="feed-label">ROUND {{ round().code }} / UPDATE</span
+      ><strong>{{ round().status }}</strong
+      ><small>{{ notes.activity() }}</small></span
     >
   </div>
 }

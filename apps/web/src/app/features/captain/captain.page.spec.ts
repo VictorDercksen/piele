@@ -8,6 +8,8 @@ import { problemTarget } from '../../core/feedback/problem-highlight';
 import { LeagueContext } from '../../core/league/league-context';
 import { LeagueData } from '../../core/league/data/league-data';
 import { SampleLeagueData } from '../../core/league/data/sample-league-data';
+import { MemberControlService } from '../../core/league/members/member-control.service';
+import { MemberService } from '../../core/league/members/member.service';
 import { CaptainPage } from './captain.page';
 
 async function settle() {
@@ -54,7 +56,8 @@ async function open() {
     alerts,
     warn,
     error,
-    data: TestBed.inject(LeagueData),
+    members: TestBed.inject(MemberService),
+    memberControl: TestBed.inject(MemberControlService),
   };
 }
 
@@ -102,8 +105,8 @@ describe('CaptainPage notices', () => {
   });
 
   it('shows a failed add as an error card', async () => {
-    const { root, button, type, warn, error, data } = await open();
-    vi.spyOn(data, 'addMember').mockRejectedValue(new Error('The API is away.'));
+    const { root, button, type, warn, error, memberControl } = await open();
+    vi.spyOn(memberControl, 'addMember').mockRejectedValue(new Error('The API is away.'));
     type('#new-member-name', 'Kallie');
     type('#new-member-fullName', 'Kallie Kotze');
     button('Add member', root.querySelector('form.add-member')!).click();
@@ -114,10 +117,10 @@ describe('CaptainPage notices', () => {
   });
 
   it('warns about a reserved email on its row and highlights that row’s input', async () => {
-    const { root, input, type, warn, data } = await open();
-    await data.addMember({ name: 'Kallie', fullName: 'Kallie Kotze', email: null });
+    const { root, input, type, warn, members, memberControl } = await open();
+    await memberControl.addMember({ name: 'Kallie', fullName: 'Kallie Kotze', email: null });
     await settle();
-    const unclaimed = data.members().find((m) => !m.claimed)!;
+    const unclaimed = members.members().find((m) => !m.claimed)!;
     root
       .querySelector<HTMLButtonElement>(
         `button[aria-label="Reserve ${unclaimed.name} for an email"]`,

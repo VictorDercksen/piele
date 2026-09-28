@@ -10,9 +10,11 @@ export class MemberService {
   private readonly profile = inject(ProfileStore);
 
   readonly memberId = this.data.currentMemberId;
+  /** The league's nickname for the member, or null when the league has none for them. */
+  readonly leagueMemberName = this.data.currentMemberName;
   /** The league's name for the member, else the browser profile's. */
   readonly memberName = computed(
-    () => this.data.currentMemberName() ?? this.profile.profile()?.displayName ?? 'You',
+    () => this.leagueMemberName() ?? this.profile.profile()?.displayName ?? 'You',
   );
   readonly isCaptain = computed(
     () =>

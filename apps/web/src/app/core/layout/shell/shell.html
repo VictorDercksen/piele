@@ -32,14 +32,14 @@
           ariaCurrentWhenActive="page"
         >
           <span>{{ item.label }}</span>
-          @if (item.path === '/decisions' && view.pollNeedsVote()) {
+          @if (item.path === '/decisions' && polls.pollNeedsVote()) {
             <i class="nav-dot" aria-hidden="true"></i>
           }
         </a>
       }
     </nav>
     <div class="header-right">
-      @if (view.sample) {
+      @if (records.sample) {
         <span class="demo-label">SAMPLE LEAGUE</span>
       }
       <app-notifications-flag />
@@ -57,7 +57,7 @@
           }
         </span>
         <span class="profile-text">
-          <strong>{{ view.memberName() }}</strong>
+          <strong>{{ members.memberName() }}</strong>
           <small>
             @if (favouriteTeam(); as team) {
               {{ team.shortName }} supporter<img
@@ -82,7 +82,7 @@
     }
     <div
       class="round-bar"
-      [class.mobile-empty]="!showRibbon() || !view.fixtures().length"
+      [class.mobile-empty]="!showRibbon() || !fixtures.fixtures().length"
       #roundBar
     >
       <section class="round-context" aria-label="Selected round" aria-live="polite">
@@ -111,7 +111,7 @@
           </button>
         </div>
       </section>
-      @if (view.fixtures().length) {
+      @if (fixtures.fixtures().length) {
         <div class="ribbon-drawer" [class.open]="showRibbon()">
           <app-fixture-ribbon />
         </div>

@@ -2,10 +2,11 @@ import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { CompetitionService } from '../../core/competition/competition.service';
+import { FixtureService } from '../../core/competition/fixture.service';
 import { LeagueTime } from '../../core/competition/league-time';
 import { LeagueContext } from '../../core/league/league-context';
 import { LeaguePathPipe } from '../../core/league/league-path.pipe';
-import { RoundViewService } from '../../core/league/round-view.service';
+import { MemberService } from '../../core/league/members/member.service';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideArrowRight, lucideExternalLink } from '@ng-icons/lucide';
 import { Icon } from '../../shared/icon/icon';
@@ -27,8 +28,11 @@ import { Icon } from '../../shared/icon/icon';
   viewProviders: [provideIcons({ lucideArrowRight, lucideExternalLink })],
 })
 export class MorePage {
-  readonly view = inject(RoundViewService);
+  private readonly context = inject(LeagueContext);
+  readonly fixtures = inject(FixtureService);
+  readonly members = inject(MemberService);
   readonly competition = inject(CompetitionService);
-  readonly league = inject(LeagueContext).current;
+  readonly league = this.context.current;
+  readonly leagueName = this.context.name;
   readonly zoneName = inject(LeagueTime).abbreviation;
 }

@@ -1,14 +1,14 @@
 <div class="board-light" aria-hidden="true"></div>
 <div class="honours-heading">
-  <span>{{ view.leagueName().toUpperCase() }} / ROUND {{ view.round().code }}</span>
+  <span>{{ context.name().toUpperCase() }} / ROUND {{ fixtures.round().code }}</span>
   <h2>The pecking order.</h2>
-  @if (view.roundProvisional()) {
+  @if (fixtures.roundProvisional()) {
     <p class="board-status"><span class="tag">provisional</span></p>
   }
 </div>
-@if (view.standings().length) {
+@if (standings.standings().length) {
   <div class="table-label">
-    <span>ROUND {{ view.round().code }} POINTS</span><span>PTS</span>
+    <span>ROUND {{ fixtures.round().code }} POINTS</span><span>PTS</span>
   </div>
   <ol class="leaderboard">
     @for (member of topFour(); track member.memberId) {
@@ -36,7 +36,7 @@
 } @else {
   <div class="round-empty">
     <app-icon name="standings" />
-    <h3>No results for Round {{ view.round().code }} yet.</h3>
+    <h3>No results for Round {{ fixtures.round().code }} yet.</h3>
     <p>Round points appear once the captain records the Superbru pool results.</p>
   </div>
 }
@@ -58,5 +58,5 @@
     <span>YOUR SEASON HOUSE MARKS</span>
     <p>Separate from Superbru points.</p>
   </div>
-  <strong>{{ view.ownMarks() }}</strong>
+  <strong>{{ marks.ownMarks() }}</strong>
 </div>

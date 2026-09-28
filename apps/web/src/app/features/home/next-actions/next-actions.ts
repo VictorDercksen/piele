@@ -3,9 +3,12 @@ import { ChangeDetectionStrategy, Component, inject, output } from '@angular/cor
 import { RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideArrowRight } from '@ng-icons/lucide';
+import { FixtureService } from '../../../core/competition/fixture.service';
 import { LeagueTime } from '../../../core/competition/league-time';
+import { RoundDutyView } from '../../../core/league/duties/duty.models';
+import { DutyService } from '../../../core/league/duties/duty.service';
 import { LeaguePathPipe } from '../../../core/league/league-path.pipe';
-import { RoundDutyView, RoundViewService } from '../../../core/league/round-view.service';
+import { MemberService } from '../../../core/league/members/member.service';
 import { Icon } from '../../../shared/icon/icon';
 
 /** The current member's next duty and the steward's review queue. */
@@ -26,7 +29,9 @@ import { Icon } from '../../../shared/icon/icon';
 })
 export class NextActions {
   private readonly time = inject(LeagueTime);
-  readonly view = inject(RoundViewService);
+  readonly fixtures = inject(FixtureService);
+  readonly members = inject(MemberService);
+  readonly dutyService = inject(DutyService);
   readonly upload = output<RoundDutyView>();
   readonly duties = output<void>();
   deadline(duty: RoundDutyView): string {

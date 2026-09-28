@@ -19,12 +19,15 @@ import {
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { CompetitionService } from '../../../core/competition/competition.service';
+import { FixtureService } from '../../../core/competition/fixture.service';
 import { LeagueTime } from '../../../core/competition/league-time';
 import { AlertService } from '../../../core/feedback/alert.service';
 import { highlightProblem } from '../../../core/feedback/problem-highlight';
-import { LeagueData } from '../../../core/league/data/league-data';
+import { DutyControlService } from '../../../core/league/duties/duty-control.service';
+import { LeagueContext } from '../../../core/league/league-context';
 import { DutyType } from '../../../core/league/league.models';
-import { RoundViewService } from '../../../core/league/round-view.service';
+import { MemberService } from '../../../core/league/members/member.service';
+import { PickService } from '../../../core/league/picks/pick.service';
 import { Icon } from '../../../shared/icon/icon';
 import { Loader } from '../../../shared/loader/loader';
 
@@ -58,12 +61,15 @@ export const CREATE_DUTY_FAILURE = 'create-duty-failed';
 })
 export class CreateDutyDialog {
   private readonly alerts = inject(AlertService);
-  private readonly league = inject(LeagueData);
+  private readonly dutyControl = inject(DutyControlService);
+  private readonly fixtures = inject(FixtureService);
+  private readonly memberService = inject(MemberService);
+  private readonly picks = inject(PickService);
   private readonly competition = inject(CompetitionService);
   private readonly time = inject(LeagueTime);
   /** The display zone's abbreviation, for the deadline label. */
   readonly zoneName = this.time.abbreviation;
-  readonly view = inject(RoundViewService);
+  readonly context = inject(LeagueContext);
   private readonly dialog = viewChild.required(HlmDialog);
   private readonly memberSelect = viewChild.required<unknown, ElementRef<HTMLElement>>(
     'memberSelect',
@@ -87,7 +93,7 @@ export class CreateDutyDialog {
   readonly type = computed(() => this.values().type ?? 'spoon');
   readonly roundId = computed(() => Number(this.values().roundId ?? 1));
   readonly memberId = computed(() => this.values().memberId ?? '');
-  readonly members = computed(() => this.view.members().filter((m) => m.inSeason));
+  readonly members = computed(() => this.memberService.members().filter((m) => m.inSeason));
   /** The plan's default: due when the following round kicks off. */
   readonly defaultDeadline = computed(() =>
     this.type() === 'spoon' && this.roundId() < this.rounds().length
@@ -110,7 +116,7 @@ export class CreateDutyDialog {
     if (this.type() !== 'pick_confirmation' || !memberId) return [];
     const round = this.competition.round(this.roundId());
     return (round?.fixtures ?? []).flatMap((fixture) => {
-      const picks = this.view.picksFor(fixture.id);
+      const picks = this.picks.picksFor(fixture.id);
       if (!picks?.locked) return [];
       const pick = picks.rows.find((row) => row.memberId === memberId);
       if (pick && pick.side !== 'missed' && !pick.isDefault) return [];
@@ -154,7 +160,7 @@ export class CreateDutyDialog {
     this.form.reset({
       memberId: prefill.memberId ?? '',
       type: prefill.type ?? 'spoon',
-      roundId: prefill.roundId ?? this.view.round().id,
+      roundId: prefill.roundId ?? this.fixtures.round().id,
       deadline: '',
       reason: prefill.reason ?? '',
     });
@@ -232,7 +238,7 @@ export class CreateDutyDialog {
         : [];
     this.busy.set(true);
     try {
-      await this.league.createDuty({
+      await this.dutyControl.createDuty({
         memberId,
         type,
         roundId: Number(roundId),

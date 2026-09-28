@@ -52,7 +52,9 @@ describe('MemberService', () => {
   it('names the member from the league, else the browser profile, else You', () => {
     const { members, data, profile } = setup();
     expect(members.memberName()).toBe('Me in the league');
+    expect(members.leagueMemberName()).toBe('Me in the league');
     data.currentMemberName.set(null);
+    expect(members.leagueMemberName()).toBeNull();
     expect(members.memberName()).toBe('Browser name');
     profile.set(null);
     expect(members.memberName()).toBe('You');

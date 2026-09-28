@@ -1,18 +1,18 @@
 <div class="section-title">
   <h2>Your next move.</h2>
-  <span>ROUND {{ view.round().code }}</span>
+  <span>ROUND {{ fixtures.round().code }}</span>
 </div>
-@if (view.myDuty(); as duty) {
+@if (dutyService.myDuty(); as duty) {
   <article class="duty-feature" [class.spoon-duty]="duty.spoon">
     @if (duty.spoon) {
       <div class="spoon-art" aria-hidden="true"></div>
     }
     <div class="spoon-content">
-      <span class="duty-watermark" aria-hidden="true">{{ view.round().code }}</span
-      ><span class="duty-slip-label">THE POST-MATCH PAPERWORK / R{{ view.round().code }}</span>
+      <span class="duty-watermark" aria-hidden="true">{{ fixtures.round().code }}</span
+      ><span class="duty-slip-label">THE POST-MATCH PAPERWORK / R{{ fixtures.round().code }}</span>
       <div class="duty-top">
         <span class="tag">{{ duty.statusLabel.toUpperCase() }}</span
-        ><span class="duty-round">{{ view.memberName() }}</span>
+        ><span class="duty-round">{{ members.memberName() }}</span>
       </div>
       @if (duty.display === 'open' || duty.display === 'pending_deadline') {
         <h3>{{ duty.spoon ? 'The Spoon has your name on it.' : duty.title }}</h3>
@@ -70,10 +70,10 @@
 } @else {
   <article class="round-empty">
     <app-icon name="check" />
-    <h3>No duties for you in Round {{ view.round().code }}.</h3>
+    <h3>No duties for you in Round {{ fixtures.round().code }}.</h3>
     <p>
       {{
-        view.round().status === 'Completed'
+        fixtures.round().status === 'Completed'
           ? 'Your personal register is clear for this completed round.'
           : 'Only confirmed duties for this round will appear here.'
       }}
@@ -84,16 +84,20 @@
       [routerLink]="'/duties' | leaguePath"
       [queryParams]="{ scope: 'league' }"
       queryParamsHandling="merge"
-      >League duties ({{ view.duties().length }})<ng-icon class="link-icon" name="lucideArrowRight"
+      >League duties ({{ dutyService.duties().length }})<ng-icon
+        class="link-icon"
+        name="lucideArrowRight"
     /></a>
   </article>
 }
-@if (view.administers() && view.reviewCount()) {
+@if (members.administers() && dutyService.reviewCount()) {
   <a class="captain-queue" [routerLink]="'/captain' | leaguePath" queryParamsHandling="preserve">
     <app-icon name="shield" /><span
       ><strong>Captain, you're up.</strong
-      ><small>{{ view.reviewCount() }} items in Round {{ view.round().code }}</small></span
-    ><span class="queue-count">{{ view.reviewCount() }}</span
+      ><small
+        >{{ dutyService.reviewCount() }} items in Round {{ fixtures.round().code }}</small
+      ></span
+    ><span class="queue-count">{{ dutyService.reviewCount() }}</span
     ><ng-icon class="link-icon" name="lucideArrowRight" />
   </a>
 }
