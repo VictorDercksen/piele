@@ -45,6 +45,29 @@
   background: var(--surface-grain), #142628;
   box-shadow: 0 -16px 60px #0006;
   overflow: hidden;
+  // The sheet rises from the viewport's bottom edge and sinks back on closing. Brain keeps the
+  // dialog attached until the animation started by data-state="closed" ends. Keyframes, since
+  // a @starting-style transition did not run for content attached to the CDK overlay.
+  animation: sheet-rise 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+}
+.round-sheet[data-state='closed'] {
+  animation: sheet-sink 0.25s cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+@keyframes sheet-rise {
+  from {
+    transform: translateY(100%);
+  }
+}
+@keyframes sheet-sink {
+  to {
+    transform: translateY(100%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .round-sheet,
+  .round-sheet[data-state='closed'] {
+    animation: none;
+  }
 }
 .sheet-heading {
   display: flex;

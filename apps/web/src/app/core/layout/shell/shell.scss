@@ -14,7 +14,11 @@
   // The container the shell and its pages query. It applies inline-size containment only, so
   // it is not a containing block for the fixed bottom navigation.
   container-type: inline-size;
+  // A short page fills the screen without scrolling. iOS Safari's 100vh is the viewport with
+  // its toolbars collapsed, taller than the visible area, so a short page could be scrolled by
+  // the toolbars' height; 100svh is the area with the toolbars shown (100vh on desktop).
   min-height: 100vh;
+  min-height: 100svh;
   background: var(--night);
   color: var(--ink);
   font-family: 'Titillium Web', sans-serif;
@@ -30,6 +34,7 @@
     'rail main' 1fr
     / 175px minmax(0, 1fr);
   min-height: 100vh;
+  min-height: 100svh;
   position: relative;
   background: var(--surface-grain), var(--paper);
 }
@@ -658,13 +663,43 @@ app-round-picker {
   .demo-label {
     display: none;
   }
+  // Leaving Home or Match, the bar folds with its ribbon drawer, margin included, and only
+  // then leaves the layout (display waits through allow-discrete), so no hidden box extends
+  // the page. Coming back, it unfolds from @starting-style.
   .round-bar {
     top: 64px;
+    transition:
+      margin-bottom 0.35s ease,
+      display 0.35s allow-discrete;
+  }
+  .round-bar + .page-heading {
+    transition: padding-top 0.35s ease;
   }
   .round-bar.mobile-empty {
     display: none;
+    margin-bottom: 0;
   }
   .round-bar.mobile-empty + .page-heading {
     padding-top: 22px;
+  }
+  @starting-style {
+    .round-bar {
+      margin-bottom: 0;
+    }
+    .round-bar .ribbon-drawer.open {
+      grid-template-rows: 0fr;
+    }
+    .round-bar .ribbon-drawer.open > app-fixture-ribbon {
+      transform: translateY(-100%);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .round-bar,
+    .round-bar + .page-heading,
+    .ribbon-drawer,
+    .ribbon-drawer.open,
+    .ribbon-drawer > app-fixture-ribbon {
+      transition: none;
+    }
   }
 }

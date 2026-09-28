@@ -90,6 +90,22 @@ brn-switch {
 .pavilion-dialog-backdrop {
   background: #0c1722ad;
   backdrop-filter: blur(4px);
+  // Spartan's preset pins every backdrop at full opacity with no transition; its variables
+  // restore a short fade in as the CDK adds its showing class. Only the round picker's sheet
+  // fades it out (keyed on Brain's data-state), so other dialogs still close at once.
+  --spartan-overlay-backdrop-opacity: 0;
+  --spartan-overlay-backdrop-transition: opacity 0.2s ease;
+}
+.pavilion-dialog-backdrop.cdk-overlay-backdrop-showing {
+  --spartan-overlay-backdrop-opacity: 1;
+}
+.pavilion-dialog-backdrop[data-state='closed']:has(~ * .round-sheet) {
+  --spartan-overlay-backdrop-opacity: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pavilion-dialog-backdrop {
+    --spartan-overlay-backdrop-transition: none;
+  }
 }
 .cdk-overlay-container {
   z-index: 1000;
@@ -227,7 +243,10 @@ brn-switch {
     inset 0 1px 0 #ffd1b514,
     0 2px 5px #0003;
 }
+/* Two short segments: the pill keeps them on one row and wraps under the heading as a whole. */
 :root body .feed-scope[hlmToggleGroup] {
+  flex-wrap: nowrap;
+  flex-shrink: 0;
   padding: 3px;
   border-radius: 13px;
 }

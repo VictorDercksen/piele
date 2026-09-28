@@ -1,5 +1,24 @@
-import { expect, test } from '@playwright/test';
+import { expect, Page, test } from '@playwright/test';
 import { seedProfile } from './support';
+
+/** The round sheet's top edge in every frame for `ms`, while it is attached. */
+function sheetTops(page: Page, ms: number): Promise<number[]> {
+  return page.evaluate(
+    (ms) =>
+      new Promise<number[]>((resolve) => {
+        const tops: number[] = [];
+        const start = performance.now();
+        const tick = () => {
+          const sheet = document.querySelector('.round-sheet');
+          if (sheet) tops.push(sheet.getBoundingClientRect().y);
+          if (performance.now() - start < ms) requestAnimationFrame(tick);
+          else resolve(tops);
+        };
+        requestAnimationFrame(tick);
+      }),
+    ms,
+  );
+}
 
 for (const width of [320, 768]) {
   test(`one mobile header and a bounded round sheet at ${width}px`, async ({ page }, testInfo) => {
@@ -19,13 +38,23 @@ for (const width of [320, 768]) {
     );
     await page.screenshot({ path: testInfo.outputPath('mobile-header.png') });
 
+    const rising = sheetTops(page, 600);
     await picker.click();
     const sheet = page.getByRole('dialog', { name: 'Choose a round' });
     const selected = sheet.getByRole('button', { name: /^Round 02,/ });
+    // The sheet slides up from below the viewport and settles on its bottom edge.
+    const tops = await rising;
+    const rest = await sheet
+      .locator('.round-sheet')
+      .evaluate((el) => innerHeight - el.offsetHeight);
+    expect(tops[0]).toBeGreaterThan(rest + 50);
+    expect(tops.some((top) => top > rest + 5 && top < 739)).toBe(true);
+    expect(Math.abs(tops.at(-1)! - rest)).toBeLessThan(1);
     await expect(selected).toBeFocused();
     await expect(selected).toHaveAttribute('aria-pressed', 'true');
     await expect(sheet).toContainText('Piele');
-    await expect(sheet).toContainText('2 – 3 Oct');
+    // Chromium versions differ on the spaces around the en dash.
+    await expect(sheet).toContainText(/2 ?– ?3 Oct/);
     const box = (await sheet.locator('.round-sheet').boundingBox())!;
     expect(Math.abs(box.y + box.height - 740)).toBeLessThan(1);
     expect(box.height).toBeLessThanOrEqual(740 * 0.85 + 1);
@@ -40,7 +69,14 @@ for (const width of [320, 768]) {
     await page.reload();
     await expect(updated).toBeVisible();
     await updated.click();
+    await expect(sheet.locator('.round-sheet')).toBeVisible();
+    await expect
+      .poll(() => sheet.locator('.round-sheet').evaluate((el) => el.getAnimations().length))
+      .toBe(0);
+    // Closing, it slides back down before the dialog is removed.
+    const sinking = sheetTops(page, 500);
     await page.keyboard.press('Escape');
+    expect(Math.max(...(await sinking))).toBeGreaterThan(rest + 50);
     await expect(sheet).toHaveCount(0);
     await expect(updated).toBeFocused();
   });
