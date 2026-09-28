@@ -97,10 +97,13 @@ describe('CaseCard', () => {
   it('shows the countdown and participation, never who voted, and accepts', async () => {
     const { root, control, alerts, button, settle } = setup(OPEN);
     expect(root.textContent).toContain('VOTING OPEN');
-    expect(root.textContent).toContain('ROUND 02 / Johan');
-    expect(root.textContent).toContain('5 h 0 min left');
+    // The list heading names the round, so the card names only the subject.
+    expect(root.querySelector('.register-heading .eyebrow')?.textContent).toBe('Johan');
+    expect(root.textContent).toContain('5 h 0 min left · closes 05 Oct · 10:00');
     expect(root.textContent).toContain('1 of 5 members responded');
-    expect(root.textContent).toContain('Not yet');
+    expect(root.querySelector('.case-panel')?.textContent).toContain(
+      'Is this proof the duty was done?',
+    );
     expect(root.textContent).toContain('Accepted once 3 of 5 members accept');
     const success = vi.spyOn(alerts, 'success');
     button('Accept')!.click();
@@ -110,12 +113,13 @@ describe('CaseCard', () => {
   });
 
   it('vetoes only with a reason, through the reason dialog', async () => {
-    const { control, button, overlay, giveReason, settle } = setup({
+    const { root, control, button, overlay, giveReason, settle } = setup({
       ...OPEN,
       myResponse: 'accept',
     });
     // An accept can still become a veto, so Accept gives way to Veto alone.
     expect(button('Accept')).toBeUndefined();
+    expect(root.querySelector('.case-panel')?.textContent).toContain('You accepted');
     button('Veto')!.click();
     await settle();
     expect(overlay()?.textContent).toContain('Veto this evidence?');

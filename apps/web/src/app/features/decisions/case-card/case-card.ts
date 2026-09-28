@@ -1,7 +1,8 @@
 import { HlmButton } from '@spartan-ng/helm/button';
 import { Component, computed, inject, input, signal } from '@angular/core';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucidePlay, lucideX } from '@ng-icons/lucide';
+import { lucideCheck, lucideChevronDown, lucideClock, lucidePlay, lucideX } from '@ng-icons/lucide';
+import { NgTemplateOutlet } from '@angular/common';
 import { LeagueTime } from '../../../core/competition/league-time';
 import { AlertService } from '../../../core/feedback/alert.service';
 import { CaseControlService } from '../../../core/league/cases/case-control.service';
@@ -18,9 +19,16 @@ import { caseRefusal } from './case-card.refusals';
 import { myResponseText } from './case-card.view';
 
 /**
- * One piece of evidence under the league's vote: the duty, the video, the countdown,
- * participation (never who) and the viewer's own response, with Accept and Veto while voting
- * is open and, for the permitted reviewer, Uphold and Dismiss on a pending veto.
+ * Which lead panel the viewer sees: a voter's two steps (`ballot`), a voter who accepted and
+ * may still veto, the permitted reviewer's ruling, a veto awaiting someone else's ruling, a
+ * vote the viewer only watches, or how a closed case ended.
+ */
+export type CasePanel = 'ballot' | 'accepted' | 'ruling' | 'vetoed' | 'watching' | 'outcome';
+
+/**
+ * One piece of evidence under the league's vote, the viewer's call first: a panel says what
+ * the viewer can do (watch then accept or veto, rule on a veto) or where the vote stands, with
+ * participation (never who) and the countdown at its foot.
  */
 @Component({
   selector: 'app-case-card',
@@ -35,9 +43,12 @@ import { myResponseText } from './case-card.view';
     Icon,
     Loader,
     NgIcon,
+    NgTemplateOutlet,
     HlmButton,
   ],
-  viewProviders: [provideIcons({ lucidePlay, lucideX })],
+  viewProviders: [
+    provideIcons({ lucideCheck, lucideChevronDown, lucideClock, lucidePlay, lucideX }),
+  ],
 })
 export class CaseCard {
   private readonly alerts = inject(AlertService);
@@ -56,15 +67,39 @@ export class CaseCard {
   readonly roundLabel = computed(() =>
     this.evidenceCase().roundNumber === null ? 'SEASON' : `ROUND ${this.roundCode()}`,
   );
+  /** The subject, with `SEASON` for a duty that belongs to no round; the list names the round. */
+  readonly subjectLabel = computed(() => {
+    const c = this.evidenceCase();
+    return c.roundNumber === null ? `SEASON / ${c.subjectName}` : c.subjectName;
+  });
   readonly accepting = signal(false);
+  /** The viewer opened the video from this card, which ticks the ballot's first step. */
+  readonly watched = signal(false);
+  readonly panel = computed((): CasePanel => {
+    const c = this.evidenceCase();
+    if (c.status === 'open') {
+      if (!c.canRespond) return 'watching';
+      return c.myResponse === 'accept' ? 'accepted' : 'ballot';
+    }
+    if (c.status === 'in_review') return c.canReview ? 'ruling' : 'vetoed';
+    return 'outcome';
+  });
+  /** `05 Oct · 10:00` on the league's clock. */
+  readonly closes = computed(() =>
+    this.time.pattern(this.evidenceCase().closesAt, 'dd MMM · HH:mm'),
+  );
+  /** One slot per voting member: filled once responded, the majority's slot marked. */
+  readonly slots = computed(() => {
+    const { respondedCount, eligibleCount } = this.evidenceCase();
+    return Array.from({ length: eligibleCount }, (_, i) => ({
+      on: i < respondedCount,
+      needed: i === this.majority() - 1,
+    }));
+  });
   readonly submitted = computed(() => this.time.relative(this.evidenceCase().submittedAt));
   readonly resolved = computed(() => {
     const at = this.evidenceCase().resolvedAt;
-    return at ? this.time.format(at) : null;
-  });
-  readonly turnout = computed(() => {
-    const { respondedCount, eligibleCount } = this.evidenceCase();
-    return eligibleCount ? Math.min(100, (respondedCount / eligibleCount) * 100) : 0;
+    return at ? this.time.pattern(at, 'dd MMM · HH:mm') : null;
   });
   readonly myResponse = computed(() => myResponseText(this.evidenceCase()));
   /** A majority is more than half of the members voting. */
@@ -140,6 +175,7 @@ export class CaseCard {
     const key = `playback-${this.evidenceCase().assetId}`;
     try {
       await openPlaybackTab(() => this.duties.playbackUrl(this.evidenceCase().assetId));
+      this.watched.set(true);
       this.alerts.dismissKey(key);
     } catch (error) {
       this.alerts.error(error instanceof Error ? error.message : 'The video is unavailable.', {

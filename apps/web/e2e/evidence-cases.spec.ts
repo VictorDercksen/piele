@@ -50,7 +50,7 @@ test('a dismissed veto reopens voting; the captain’s own veto waits for anothe
   await expect(card).toContainText('IN REVIEW');
   await expect(card).toContainText('You vetoed: “Still the Round 01 page.”');
   // The captain cannot rule on their own veto; nothing says who vetoed.
-  await expect(card).toContainText('An uninvolved reviewer will rule on it.');
+  await expect(card).toContainText('Vetoed: an uninvolved reviewer will rule');
   await expect(card).not.toContainText('NEEDS AN UNINVOLVED REVIEWER');
   await expect(card.getByRole('button', { name: 'Uphold veto' })).toHaveCount(0);
 
@@ -105,7 +105,7 @@ test('a member accepts evidence under the league’s vote', async ({ page }) => 
   await expect(card).toContainText('VOTING OPEN');
   // Riaan has not claimed his name, so four members vote.
   await expect(card).toContainText('1 of 4 members responded');
-  await expect(card).toContainText('Not yet');
+  await expect(card).toContainText('Is this proof the duty was done?');
   await card.getByRole('button', { name: 'Accept', exact: true }).click();
   await expect(card).toContainText('2 of 4 members responded');
   await expect(card).toContainText('You accepted');

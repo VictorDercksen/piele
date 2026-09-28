@@ -1,7 +1,10 @@
+// The viewer's call leads: heading row, title and note, then one panel with what the viewer
+// can do (or where the vote stands), with turnout and the countdown at its foot.
 :host {
-  display: block;
+  display: grid;
+  gap: 14px;
   background: var(--surface-grain), var(--surface);
-  padding: 18px 22px 20px;
+  padding: 18px 20px;
   border-top: 3px solid #d4d9c4;
   box-shadow: 0 8px 24px #0003;
 }
@@ -9,69 +12,98 @@
   opacity: 0.86;
 }
 h3 {
-  margin: 12px 0 6px;
-  font-size: 20px;
+  margin: 0;
+  font-size: 21px;
   font-weight: 700;
   line-height: 1.15;
   letter-spacing: -0.4px;
+  text-wrap: balance;
 }
 .submitted {
+  margin-top: 3px;
   color: var(--muted);
   font-size: 13px;
 }
 .note {
-  margin-top: 6px;
+  margin-top: 4px;
   font-size: 13px;
-}
-dl {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 28px;
-  margin: 14px 0 0;
-  padding: 12px 0;
-  border-top: 1px solid var(--line);
-}
-dl > div {
-  min-width: 0;
-}
-dt {
-  margin-bottom: 3px;
-  color: var(--muted);
-  font-size: 10px;
-}
-dd {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 600;
   overflow-wrap: anywhere;
-}
-dd small {
-  display: block;
-  margin-top: 2px;
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 400;
-}
-.participation-track {
-  height: 5px;
-  margin-bottom: 14px;
-  background: var(--line);
-}
-.participation-track span {
-  display: block;
-  height: 100%;
-  background: var(--orange);
 }
 .tag.warn {
   background: #4a1f1a;
   color: #ffb3a3;
 }
-.veto-reason,
+.case-panel {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  background: #0003;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.case-panel.ruling {
+  border-color: #ffb3a366;
+}
+.case-panel.ruling > div > .eyebrow {
+  color: #ffb3a3;
+}
+.case-panel[data-panel='outcome'] > div > .eyebrow {
+  color: var(--muted);
+}
+h4 {
+  margin: 2px 0 0;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.3;
+}
 .closed-result {
-  margin-bottom: 8px;
-  padding: 12px 14px;
+  color: #7fe0c2;
+}
+.panel-detail {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.case-steps {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.case-steps li {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+.case-steps p {
+  margin: 2px 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.step {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+.step.done {
+  background: #7fe0c2;
+  border-color: #7fe0c2;
+  color: var(--paper);
+  --ng-icon__size: 14px;
+}
+.veto-reason {
+  padding: 10px 12px;
   background: var(--paper);
-  border-left: 3px solid var(--accent);
+  border-left: 3px solid #ffb3a3;
   color: var(--ink);
   font-size: 13px;
   overflow-wrap: anywhere;
@@ -88,17 +120,117 @@ dd small {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px 16px;
-  margin-top: 14px;
+  gap: 10px;
 }
 .case-actions:empty {
   display: none;
+}
+.case-actions .primary-button {
+  min-height: 42px;
+  padding-block: 9px;
+  min-width: 150px;
+}
+.watch {
+  min-height: 34px;
+  padding-block: 0;
+  font-size: 12px;
+}
+.watch ng-icon {
+  --ng-icon__size: 14px;
+}
+.ghost-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 42px;
+  padding: 0 16px;
+  min-width: 120px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 700;
+}
+.ghost-button:hover {
+  background: #ffffff0d;
+}
+.ghost-button.danger {
+  color: #ffb3a3;
+  border-color: #ffb3a366;
+}
+.case-foot {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 6px 16px;
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.turnout,
+.countdown {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.countdown ng-icon {
+  --ng-icon__size: 13px;
+}
+.turnout-meter {
+  display: inline-flex;
+  gap: 3px;
+  width: calc(var(--slots, 4) * 21px);
+  max-width: 120px;
+}
+.turnout-meter span {
+  flex: 1;
+  height: 6px;
+  background: var(--line);
+}
+.turnout-meter span.on {
+  background: var(--orange);
+}
+.turnout-meter span.needed {
+  outline: 1px solid var(--muted);
+  outline-offset: 1px;
+}
+.how {
+  font-size: 12px;
+}
+.how summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  color: var(--muted);
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+.how summary::-webkit-details-marker {
+  display: none;
+}
+.how[open] summary ng-icon {
+  transform: rotate(180deg);
+}
+.how p {
+  margin-top: 4px;
+  max-width: 60ch;
+  color: var(--muted);
+  line-height: 1.55;
 }
 @container (max-width: 500px) {
   :host {
     padding: 16px;
   }
-  .case-actions .primary-button {
-    flex: 1 1 100%;
+  .case-panel {
+    padding: 12px;
+  }
+  .case-actions .primary-button,
+  .case-actions .ghost-button {
+    flex: 1 1 0;
+    min-width: 0;
   }
 }

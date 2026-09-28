@@ -1,44 +1,71 @@
 @let c = evidenceCase();
 <div class="register-heading">
   <span class="tag" [class.warn]="c.status === 'in_review'">{{ c.statusLabel }}</span
-  ><span class="eyebrow">{{ roundLabel() }} / {{ c.subjectName }}</span>
+  ><span class="eyebrow">{{ subjectLabel() }}</span>
 </div>
-<h3>{{ c.dutyTitle }}</h3>
-<p class="submitted">Submitted by {{ c.submitterName }} · {{ submitted() }}</p>
-@if (c.note) {
-  <p class="note">“{{ c.note }}”</p>
-}
-<dl>
-  <div>
-    <dt>{{ c.status === 'open' ? 'Voting closes' : 'Voting window' }}</dt>
-    <dd>
-      {{ c.closes }}
-      @if (c.status === 'open') {
-        <small>{{ cases.countdown(c) }}</small>
-      }
-    </dd>
-  </div>
-  <div>
-    <dt>Participation</dt>
-    <dd>{{ c.respondedCount }} of {{ c.eligibleCount }} members responded</dd>
-  </div>
-  <div>
-    <dt>Your response</dt>
-    <dd>{{ myResponse() }}</dd>
-  </div>
-</dl>
-<div class="participation-track" aria-hidden="true">
-  <span [style.width.%]="turnout()"></span>
-</div>
-@switch (c.status) {
-  @case ('open') {
-    <p class="context-note">
-      Accepted once {{ majority() }} of {{ c.eligibleCount }} members accept, or automatically when
-      voting closes unless someone vetoes. Nobody sees who responded how.
-    </p>
+<div class="case-title">
+  <h3>{{ c.dutyTitle }}</h3>
+  <p class="submitted">{{ c.submitterName }} · {{ submitted() }}</p>
+  @if (c.note) {
+    <p class="note">“{{ c.note }}”</p>
   }
-  @case ('in_review') {
-    @if (c.canReview) {
+</div>
+<section class="case-panel" [class.ruling]="c.canReview" [attr.data-panel]="panel()">
+  @switch (panel()) {
+    @case ('ballot') {
+      <div>
+        <span class="eyebrow">YOUR CALL</span>
+        <h4>Is this proof the duty was done?</h4>
+      </div>
+      @if (sample()) {
+        <div class="case-actions">
+          <ng-container *ngTemplateOutlet="acceptButton" />
+          <ng-container *ngTemplateOutlet="vetoButton" />
+        </div>
+      } @else {
+        <ol class="case-steps">
+          <li>
+            <span class="step" [class.done]="watched()">
+              @if (watched()) {
+                <ng-icon name="lucideCheck" aria-label="Done" />
+              } @else {
+                1
+              }
+            </span>
+            <div>
+              <p>Watch the video</p>
+              <ng-container *ngTemplateOutlet="watchButton" />
+            </div>
+          </li>
+          <li>
+            <span class="step">2</span>
+            <div>
+              <p>Accept it, or veto with a reason</p>
+              <div class="case-actions">
+                <ng-container *ngTemplateOutlet="acceptButton" />
+                <ng-container *ngTemplateOutlet="vetoButton" />
+              </div>
+            </div>
+          </li>
+        </ol>
+      }
+    }
+    @case ('accepted') {
+      <div>
+        <span class="eyebrow">YOUR CALL</span>
+        <h4>You accepted</h4>
+        <p class="panel-detail">You can still veto it until voting closes.</p>
+      </div>
+      <div class="case-actions">
+        <ng-container *ngTemplateOutlet="watchButton" />
+        <ng-container *ngTemplateOutlet="vetoButton" />
+      </div>
+    }
+    @case ('ruling') {
+      <div>
+        <span class="eyebrow">YOUR RULING</span>
+        <h4>A member vetoed this evidence</h4>
+      </div>
       @if (c.needsReviewer) {
         <p class="review-flag">
           <span class="tag warn">NEEDS AN UNINVOLVED REVIEWER</span>
@@ -46,63 +73,123 @@
         </p>
       }
       <p class="veto-reason"><strong>Veto:</strong> “{{ c.vetoReason }}”</p>
-      <p class="context-note">
-        You may rule on this veto. Upholding rejects the evidence; dismissing reopens voting until
-        {{ c.closes }}.
+      <p class="panel-detail">
+        Upholding rejects the evidence. Dismissing reopens voting until {{ closes() }}.
       </p>
-    } @else if (c.needsReviewer) {
-      <p class="review-flag">
-        <span class="tag warn">NEEDS AN UNINVOLVED REVIEWER</span>
-        This is your own duty and no stand-in reviewer is named, so only the admin can rule. Name a
-        stand-in on the captain's desk.
-      </p>
-    } @else {
-      <p class="context-note">Voting stopped on a veto. An uninvolved reviewer will rule on it.</p>
+      <div class="case-actions">
+        <ng-container *ngTemplateOutlet="watchButton" />
+      </div>
+      <div class="case-actions">
+        <button hlmBtn type="button" class="primary-button" (click)="rule('upheld')">
+          <app-icon name="shield" />Uphold veto
+        </button>
+        <button type="button" class="ghost-button" (click)="rule('dismissed')">
+          <ng-icon name="lucideX" aria-hidden="true" />Dismiss veto
+        </button>
+      </div>
+    }
+    @case ('vetoed') {
+      <div>
+        <span class="eyebrow">NOW</span>
+        <h4>Vetoed: an uninvolved reviewer will rule</h4>
+        <p class="panel-detail">{{ myResponse() }}</p>
+      </div>
+      @if (c.needsReviewer) {
+        <p class="review-flag">
+          <span class="tag warn">NEEDS AN UNINVOLVED REVIEWER</span>
+          This is your own duty and no stand-in reviewer is named, so only the admin can rule. Name
+          a stand-in on the captain's desk.
+        </p>
+      }
+      <div class="case-actions">
+        <ng-container *ngTemplateOutlet="watchButton" />
+      </div>
+    }
+    @case ('watching') {
+      <div>
+        <span class="eyebrow">NOW</span>
+        <h4>Members are voting</h4>
+        <p class="panel-detail">{{ myResponse() }}</p>
+      </div>
+      <div class="case-actions">
+        <ng-container *ngTemplateOutlet="watchButton" />
+      </div>
+    }
+    @default {
+      <div>
+        <span class="eyebrow">OUTCOME</span>
+        <h4 class="closed-result">{{ c.outcome }}</h4>
+        <p class="panel-detail">
+          @if (resolved(); as at) {
+            {{ at }} ·
+          }
+          {{ myResponse() }}
+        </p>
+      </div>
+      <div class="case-actions">
+        <ng-container *ngTemplateOutlet="watchButton" />
+      </div>
     }
   }
-  @default {
-    <p class="closed-result">
-      {{ c.outcome }}
-      @if (resolved(); as at) {
-        · {{ at }}
+  <div class="case-foot">
+    <span class="turnout">
+      <span class="turnout-meter" aria-hidden="true" [style.--slots]="c.eligibleCount">
+        @for (slot of slots(); track $index) {
+          <span [class.on]="slot.on" [class.needed]="slot.needed"></span>
+        }
+      </span>
+      {{ c.respondedCount }} of {{ c.eligibleCount }} members responded
+      @if (c.status === 'open') {
+        · {{ majority() }} accepts settle it
       }
+    </span>
+    @if (c.status === 'open') {
+      <span class="countdown"
+        ><ng-icon name="lucideClock" aria-hidden="true" />{{ cases.countdown(c) }} · closes
+        {{ closes() }}</span
+      >
+    } @else if (c.status === 'in_review') {
+      <span class="countdown">Voting paused</span>
+    }
+  </div>
+</section>
+@if (c.status === 'open') {
+  <details class="how">
+    <summary>How this vote works<ng-icon name="lucideChevronDown" aria-hidden="true" /></summary>
+    <p>
+      Accepted once {{ majority() }} of {{ c.eligibleCount }} members accept, or automatically when
+      voting closes unless someone vetoes. A veto goes to an uninvolved reviewer. Nobody sees who
+      responded how.
     </p>
-  }
+  </details>
 }
-<div class="case-actions">
-  @if (c.canRespond && c.myResponse !== 'accept') {
-    <button
-      hlmBtn
-      type="button"
-      class="primary-button"
-      [disabled]="accepting()"
-      [attr.aria-busy]="accepting()"
-      (click)="accept()"
-    >
-      @if (accepting()) {
-        <app-loader [size]="16" aria-hidden="true" />
-      } @else {
-        <app-icon name="check" />
-      }
-      Accept
-    </button>
-  }
-  @if (c.canRespond) {
-    <button hlmBtn type="button" class="text-button" (click)="veto()">
-      Veto<ng-icon class="link-icon" name="lucideX" />
-    </button>
-  }
-  @if (c.canReview) {
-    <button hlmBtn type="button" class="primary-button" (click)="rule('upheld')">
-      <app-icon name="shield" />Uphold veto
-    </button>
-    <button hlmBtn type="button" class="text-button" (click)="rule('dismissed')">
-      Dismiss veto<ng-icon class="link-icon" name="lucideX" />
-    </button>
-  }
+
+<ng-template #watchButton>
   @if (!sample()) {
-    <button hlmBtn type="button" class="text-button" (click)="watch()">
-      Watch video<ng-icon class="link-icon" name="lucidePlay" />
+    <button hlmBtn type="button" class="text-button watch" (click)="watch()">
+      <ng-icon name="lucidePlay" aria-hidden="true" />Watch video
     </button>
   }
-</div>
+</ng-template>
+<ng-template #acceptButton>
+  <button
+    hlmBtn
+    type="button"
+    class="primary-button"
+    [disabled]="accepting()"
+    [attr.aria-busy]="accepting()"
+    (click)="accept()"
+  >
+    @if (accepting()) {
+      <app-loader [size]="16" aria-hidden="true" />
+    } @else {
+      <app-icon name="check" />
+    }
+    Accept
+  </button>
+</ng-template>
+<ng-template #vetoButton>
+  <button type="button" class="ghost-button danger" (click)="veto()">
+    <ng-icon name="lucideX" aria-hidden="true" />Veto
+  </button>
+</ng-template>

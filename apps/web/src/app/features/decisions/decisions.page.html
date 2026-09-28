@@ -34,10 +34,6 @@
       <h2 id="cases-heading">Evidence under the league's vote.</h2>
       <span>ROUND {{ fixtures.round().code }}</span>
     </div>
-    <p class="page-description">
-      Members accept or veto each submission for 24 hours. A majority accepts it at once; a veto
-      goes to an uninvolved reviewer; with neither, it is accepted when voting closes.
-    </p>
     @for (evidenceCase of cases.cases(); track evidenceCase.id) {
       <app-case-card
         [evidenceCase]="evidenceCase"
