@@ -66,3 +66,54 @@ test('profile artwork previews unsaved team choices and respects reduced motion'
   await page.setViewportSize({ width: 320, height: 850 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
+
+test('on a phone the artwork runs to the end of a short page and fades out on a long one', async ({
+  page,
+}) => {
+  // The room under the content for the fixed bottom navigation belongs to the content, and
+  // the content fills the screen on its own, so the backdrop (which covers the content) does
+  // not stop at the footer with a strip of plain paper under it. Past 1500 px it fades into
+  // the paper, as on Home.
+  await page.setViewportSize({ width: 390, height: 664 });
+  const geometry = () =>
+    page.evaluate(() => {
+      const bottom = (element: Element) => element.getBoundingClientRect().bottom + scrollY;
+      const backdrop = document.querySelector('.page-backdrop')!;
+      return {
+        backdropTop: backdrop.getBoundingClientRect().top + scrollY,
+        backdropBottom: bottom(backdrop),
+        imageBottom: bottom(document.querySelector('.page-backdrop img.visible')!),
+        footerBottom: bottom(document.querySelector('.club-footer')!),
+        pageEnd: document.documentElement.scrollHeight,
+        viewport: innerHeight,
+      };
+    });
+  for (const path of ['/piele/decisions?round=1', '/piele/more?round=1', '/piele/duties?round=1']) {
+    await page.goto(path);
+    await expect(page.locator('.page-backdrop img.visible')).toBeVisible();
+    await expect(page.locator('.page-loading')).toHaveCount(0);
+    const size = await geometry();
+    expect(
+      size.backdropBottom - size.backdropTop,
+      `${path} fills the screen`,
+    ).toBeGreaterThanOrEqual(size.viewport - 64 - 1);
+    expect(
+      Math.abs(size.backdropBottom - size.pageEnd),
+      `${path} reaches the page's end`,
+    ).toBeLessThanOrEqual(1);
+    expect(
+      Math.abs(size.imageBottom - size.pageEnd),
+      `${path} image reaches the page's end`,
+    ).toBeLessThanOrEqual(1);
+    expect(
+      size.pageEnd - size.footerBottom,
+      `${path} clears the bottom navigation`,
+    ).toBeGreaterThan(60);
+  }
+  await page.goto('/piele?round=1');
+  await expect(page.locator('.page-backdrop img.visible')).toBeVisible();
+  await expect(page.locator('app-feed .feed-item').first()).toBeVisible();
+  const home = await geometry();
+  expect(home.pageEnd).toBeGreaterThan(home.backdropTop + 1500);
+  expect(home.backdropBottom - home.backdropTop).toBe(1500);
+});
