@@ -1,12 +1,15 @@
 // The viewer's call leads: heading row, title and note, then one panel with what the viewer
 // can do (or where the vote stands), with turnout and the countdown at its foot.
 :host {
-  display: grid;
-  gap: 14px;
+  display: block;
   background: var(--surface-grain), var(--surface);
   padding: 18px 20px;
   border-top: 3px solid #d4d9c4;
   box-shadow: 0 8px 24px #0003;
+}
+.spoon-content {
+  display: grid;
+  gap: 14px;
 }
 :host(.closed-case) {
   opacity: 0.86;
@@ -233,4 +236,9 @@ h4 {
     flex: 1 1 0;
     min-width: 0;
   }
+}
+// A spoon card's photograph sits behind its lead panel (src/styles/ui.scss), so the content
+// takes the full width the corner photograph used to share.
+:host(.spoon-duty) > .spoon-content {
+  width: 100%;
 }

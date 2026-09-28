@@ -1,6 +1,3 @@
-@if (duty().spoon) {
-  <div class="spoon-art" aria-hidden="true"></div>
-}
 <div class="spoon-content">
   <div class="register-heading">
     <span class="tag" [class.warn]="duty().display === 'overdue'">{{ duty().statusLabel }}</span
@@ -45,7 +42,7 @@
       </ul>
     </div>
   }
-  <section class="duty-step" [attr.data-step]="step().eyebrow">
+  <section class="duty-step" [class.spoon-haze]="duty().spoon" [attr.data-step]="step().eyebrow">
     <div>
       <span class="eyebrow">{{ step().eyebrow }}</span>
       <p class="step-headline">{{ step().headline }}</p>
