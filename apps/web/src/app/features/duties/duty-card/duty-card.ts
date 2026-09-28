@@ -6,6 +6,7 @@ import { LeagueTime } from '../../../core/competition/league-time';
 import { AlertService } from '../../../core/feedback/alert.service';
 import { RoundDutyView } from '../../../core/league/duties/duty.models';
 import { DutyService } from '../../../core/league/duties/duty.service';
+import { openPlaybackTab } from '../../../core/league/duties/playback-tab';
 import { LeaguePathPipe } from '../../../core/league/league-path.pipe';
 import { DutyEvidence } from '../../../core/league/league.models';
 import { Icon } from '../../../shared/icon/icon';
@@ -114,9 +115,8 @@ export class DutyCard {
   async watch(evidence: DutyEvidence): Promise<void> {
     const key = `playback-${evidence.assetId}`;
     try {
-      const url = await this.duties.playbackUrl(evidence.assetId);
+      await openPlaybackTab(() => this.duties.playbackUrl(evidence.assetId));
       this.alerts.dismissKey(key);
-      window.open(url, '_blank', 'noopener');
     } catch (error) {
       this.alerts.error(error instanceof Error ? error.message : 'The video is unavailable.', {
         key,

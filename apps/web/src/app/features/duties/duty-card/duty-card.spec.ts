@@ -68,6 +68,8 @@ describe('DutyCard', () => {
     fixture.detectChanges();
     const alerts = TestBed.inject(AlertService);
     const error = vi.spyOn(alerts, 'error');
+    const tab = { opener: {}, location: { replace: vi.fn() }, close: vi.fn() };
+    vi.spyOn(window, 'open').mockReturnValue(tab as unknown as Window);
     const root = fixture.nativeElement as HTMLElement;
     const watch = Array.from(root.querySelectorAll('button')).find((b) =>
       b.textContent?.includes('Watch video'),
@@ -78,5 +80,6 @@ describe('DutyCard', () => {
     expect(error).toHaveBeenCalledOnce();
     expect(error).toHaveBeenCalledWith('The video is unavailable.', { key: 'playback-asset-1' });
     expect(root.querySelector('[role="alert"], .error-message')).toBeNull();
+    expect(tab.close).toHaveBeenCalledOnce();
   });
 });

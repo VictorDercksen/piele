@@ -8,6 +8,7 @@ import { AlertService } from '../../../core/feedback/alert.service';
 import { DutyControlService } from '../../../core/league/duties/duty-control.service';
 import { ReviewView } from '../../../core/league/duties/duty.models';
 import { DutyService } from '../../../core/league/duties/duty.service';
+import { openPlaybackTab } from '../../../core/league/duties/playback-tab';
 import { LeagueRecordsService } from '../../../core/league/league-records.service';
 import { Dropdown } from '../../../shared/dropdown/dropdown';
 import { Icon } from '../../../shared/icon/icon';
@@ -71,7 +72,7 @@ export class EvidenceReview {
 
   async watch(review: ReviewView): Promise<void> {
     try {
-      window.open(await this.duties.playbackUrl(review.evidence.assetId), '_blank', 'noopener');
+      await openPlaybackTab(() => this.duties.playbackUrl(review.evidence.assetId));
       this.alerts.dismissKey(ALERT_KEYS.playback);
     } catch (error) {
       this.alerts.error(error instanceof Error ? error.message : 'The video is unavailable.', {
