@@ -1,23 +1,19 @@
 :host {
   display: block;
 }
-.feed-scope {
-  display: inline-flex;
-  border: 1px solid var(--line);
+/* The heading keeps a readable width; when the scope pill does not fit beside it, the pill wraps below. */
+.section-title {
+  flex-wrap: wrap;
 }
+.section-title h2 {
+  flex: 1 1 9rem;
+  min-width: 0;
+}
+/* Shape, spacing and the coral pressed state come from the shared toggle-group theme. */
 .feed-scope button {
-  border: 0;
-  background: none;
-  color: var(--muted);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 1px;
-  padding: 0 12px;
-  min-height: 32px;
-}
-.feed-scope button.active {
-  background: var(--tint);
-  color: var(--ink);
 }
 .feed-item {
   display: flex;

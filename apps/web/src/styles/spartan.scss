@@ -227,7 +227,10 @@ brn-switch {
     inset 0 1px 0 #ffd1b514,
     0 2px 5px #0003;
 }
+/* Two short segments: the pill keeps them on one row and wraps under the heading as a whole. */
 :root body .feed-scope[hlmToggleGroup] {
+  flex-wrap: nowrap;
+  flex-shrink: 0;
   padding: 3px;
   border-radius: 13px;
 }
