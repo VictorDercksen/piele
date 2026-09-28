@@ -99,8 +99,16 @@ export abstract class LeagueData {
    * open. An accept may become a veto; a veto is final.
    */
   abstract respondToCase(caseId: string, choice: CaseChoice, reason: string): Promise<void>;
-  /** The permitted reviewer upholds (rejects the evidence) or dismisses the pending veto. */
-  abstract reviewCase(caseId: string, ruling: VetoRuling, reason: string): Promise<void>;
+  /**
+   * The permitted reviewer upholds (rejects the evidence) or dismisses the pending veto.
+   * `version` is the case's version the ruling is based on: 409 `stale_case` if it changed.
+   */
+  abstract reviewCase(
+    caseId: string,
+    ruling: VetoRuling,
+    reason: string,
+    version: number,
+  ): Promise<void>;
   /** Captain or admin: names the stand-in reviewer, or clears it with null. */
   abstract setStandInReviewer(memberId: string | null): Promise<void>;
   /** A short-lived playback URL for a submitted video. */

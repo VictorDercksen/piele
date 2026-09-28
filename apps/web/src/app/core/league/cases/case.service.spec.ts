@@ -34,6 +34,7 @@ const evidenceCase = (id: string, change: Partial<EvidenceCase> = {}): EvidenceC
   canReview: false,
   vetoReason: null,
   needsReviewer: false,
+  version: 1,
   ...change,
 });
 
@@ -64,6 +65,7 @@ function setup() {
         canRespond: false,
       }),
       evidenceCase('earlier-vote', { roundNumber: 1 }),
+      evidenceCase('season', { roundNumber: null, canRespond: false }),
     ]),
     standInReviewer: signal(NO_STAND_IN),
   };
@@ -83,7 +85,7 @@ describe('CaseService', () => {
 
   it('decorates the season’s cases and scopes them to the selected round', () => {
     const { cases, round } = setup();
-    expect(cases.seasonCases()).toHaveLength(7);
+    expect(cases.seasonCases()).toHaveLength(8);
     expect(
       cases.cases().map((c) => [c.id, c.statusLabel, c.live, c.mine, c.spoon, c.subjectName]),
     ).toEqual([
@@ -92,11 +94,14 @@ describe('CaseService', () => {
       ['mine', 'VOTING OPEN', true, true, true, 'Test Member'],
       ['veto', 'IN REVIEW', true, false, false, 'Other'],
       ['stuck', 'IN REVIEW', true, false, true, 'Other'],
+      // A season-wide duty's case shows with every round.
+      ['season', 'VOTING OPEN', true, false, true, 'Other'],
     ]);
     round.set({ id: 1 });
     expect(cases.cases().map((c) => [c.id, c.outcome])).toEqual([
       ['earlier', 'Accepted automatically: no veto within 24 hours'],
       ['earlier-vote', null],
+      ['season', null],
     ]);
   });
 

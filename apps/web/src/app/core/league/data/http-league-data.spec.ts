@@ -725,9 +725,13 @@ describe('HttpLeagueData', () => {
     flushRefresh(http);
     await vetoing;
 
-    const ruling = league.reviewCase('c-1', 'dismissed', 'Visible at 0:40');
+    const ruling = league.reviewCase('c-1', 'dismissed', 'Visible at 0:40', 3);
     const review = http.expectOne(`${API}/evidence/cases/c-1/review`);
-    expect(review.request.body).toEqual({ ruling: 'dismissed', reason: 'Visible at 0:40' });
+    expect(review.request.body).toEqual({
+      ruling: 'dismissed',
+      reason: 'Visible at 0:40',
+      version: 3,
+    });
     review.flush(apiCase('2026-10-05T08:00:00Z'));
     await settle();
     flushRefresh(http);

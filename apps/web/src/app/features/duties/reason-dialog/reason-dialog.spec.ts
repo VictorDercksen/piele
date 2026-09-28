@@ -127,6 +127,23 @@ describe('ReasonDialog', () => {
     expect(alerts.alerts()).toEqual([]);
   });
 
+  it('shows a refusal the request names as a warning and closes', async () => {
+    const { fixture, request, settle, submit, type, alerts, warn, error, refuse, dialog } = setup();
+    refuse(new Error('Already decided.'));
+    fixture.componentInstance.open({
+      ...request,
+      refused: (e) =>
+        e instanceof Error && e.message === 'Already decided.' ? 'Look again.' : null,
+    });
+    await settle();
+    await type('Fine');
+    await submit();
+    expect(warn).toHaveBeenCalledWith('Look again.', { key: 'reason-failed' });
+    expect(error).not.toHaveBeenCalled();
+    expect(!!dialog()).toBe(false);
+    expect(alerts.alerts().map((a) => a.severity)).toEqual(['warning']);
+  });
+
   it('asks for nothing in a plain confirmation', async () => {
     const { fixture, request, settle, submit, warn, reasons, root } = setup();
     fixture.componentInstance.open({ ...request, required: false, noReason: true });

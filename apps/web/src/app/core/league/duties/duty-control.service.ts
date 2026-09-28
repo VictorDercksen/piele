@@ -1,4 +1,5 @@
 import { Service, inject } from '@angular/core';
+import { ApiError } from '../../api/api-error';
 import { LeagueData } from '../data/league-data';
 import { EvidenceSubmission, NewDuty } from '../league.models';
 
@@ -15,8 +16,21 @@ export class DutyControlService {
     return this.data.submitEvidence(submission);
   }
 
-  decideEvidence(linkId: string, decision: 'accepted' | 'rejected', reason: string): Promise<void> {
-    return this.data.decideEvidence(linkId, decision, reason);
+  /**
+   * The captain's override. Refused `already_decided` when the evidence was decided first,
+   * for instance by its vote closing just now: the records reload to show the outcome.
+   */
+  async decideEvidence(
+    linkId: string,
+    decision: 'accepted' | 'rejected',
+    reason: string,
+  ): Promise<void> {
+    try {
+      await this.data.decideEvidence(linkId, decision, reason);
+    } catch (error) {
+      if (error instanceof ApiError && error.code === 'already_decided') this.data.reload();
+      throw error;
+    }
   }
 
   voidDuty(dutyId: string, reason: string): Promise<void> {

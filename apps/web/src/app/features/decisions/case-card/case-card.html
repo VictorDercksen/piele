@@ -1,7 +1,7 @@
 @let c = evidenceCase();
 <div class="register-heading">
   <span class="tag" [class.warn]="c.status === 'in_review'">{{ c.statusLabel }}</span
-  ><span class="eyebrow">ROUND {{ roundCode() }} / {{ c.subjectName }}</span>
+  ><span class="eyebrow">{{ roundLabel() }} / {{ c.subjectName }}</span>
 </div>
 <h3>{{ c.dutyTitle }}</h3>
 <p class="submitted">Submitted by {{ c.submitterName }} · {{ submitted() }}</p>
@@ -39,6 +39,12 @@
   }
   @case ('in_review') {
     @if (c.canReview) {
+      @if (c.needsReviewer) {
+        <p class="review-flag">
+          <span class="tag warn">NEEDS AN UNINVOLVED REVIEWER</span>
+          No member of the league may rule on this veto. As the admin, you can.
+        </p>
+      }
       <p class="veto-reason"><strong>Veto:</strong> “{{ c.vetoReason }}”</p>
       <p class="context-note">
         You may rule on this veto. Upholding rejects the evidence; dismissing reopens voting until
@@ -47,8 +53,8 @@
     } @else if (c.needsReviewer) {
       <p class="review-flag">
         <span class="tag warn">NEEDS AN UNINVOLVED REVIEWER</span>
-        The captain is involved and no uninvolved stand-in reviewer is named. Name one on the
-        captain's desk, or ask the admin to rule.
+        This is your own duty and no stand-in reviewer is named, so only the admin can rule. Name a
+        stand-in on the captain's desk.
       </p>
     } @else {
       <p class="context-note">Voting stopped on a veto. An uninvolved reviewer will rule on it.</p>

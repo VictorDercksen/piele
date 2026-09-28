@@ -14,6 +14,7 @@ import { VetoRuling } from '../../../core/league/league.models';
 import { Icon } from '../../../shared/icon/icon';
 import { Loader } from '../../../shared/loader/loader';
 import { ReasonDialog } from '../../duties/reason-dialog/reason-dialog';
+import { caseRefusal } from './case-card.refusals';
 import { myResponseText } from './case-card.view';
 
 /**
@@ -51,6 +52,10 @@ export class CaseCard {
   /** Sample evidence has no video to watch. */
   readonly sample = input(false);
   readonly roundCode = input('');
+  /** `ROUND 02`, or `SEASON` for a duty that belongs to no round. */
+  readonly roundLabel = computed(() =>
+    this.evidenceCase().roundNumber === null ? 'SEASON' : `ROUND ${this.roundCode()}`,
+  );
   readonly accepting = signal(false);
   readonly submitted = computed(() => this.time.relative(this.evidenceCase().submittedAt));
   readonly resolved = computed(() => {
@@ -78,9 +83,15 @@ export class CaseCard {
           : `You accepted the evidence for ${c.dutyTitle}. You can still veto it until voting closes.`,
       );
     } catch (error) {
-      this.alerts.error(error instanceof Error ? error.message : 'Your accept was not recorded.', {
-        key: this.alertKey(),
-      });
+      const warning = caseRefusal(error);
+      if (warning) this.alerts.warn(warning, { key: this.alertKey() });
+      else
+        this.alerts.error(
+          error instanceof Error ? error.message : 'Your accept was not recorded.',
+          {
+            key: this.alertKey(),
+          },
+        );
     } finally {
       this.accepting.set(false);
     }
@@ -96,6 +107,7 @@ export class CaseCard {
       required: true,
       spoon: c.spoon,
       action: (reason) => this.caseControl.veto(c.id, reason),
+      refused: caseRefusal,
       done: () =>
         this.alerts.success('Your veto is recorded. An uninvolved reviewer will rule on it.'),
     });
@@ -113,7 +125,8 @@ export class CaseCard {
       submitLabel: upheld ? 'Uphold veto' : 'Dismiss veto',
       required: true,
       spoon: c.spoon,
-      action: (reason) => this.caseControl.review(c.id, ruling, reason),
+      action: (reason) => this.caseControl.review(c, ruling, reason),
+      refused: caseRefusal,
       done: () =>
         this.alerts.success(
           upheld
@@ -140,6 +153,6 @@ export class CaseCard {
   }
 
   private eyebrow(): string {
-    return `${this.leagueName().toUpperCase()} / ROUND ${this.roundCode()} DECISION`;
+    return `${this.leagueName().toUpperCase()} / ${this.roundLabel()} DECISION`;
   }
 }

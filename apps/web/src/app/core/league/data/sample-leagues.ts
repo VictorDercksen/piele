@@ -47,6 +47,11 @@ export interface SampleDutyRecord {
 export interface SampleCaseVoter {
   readonly memberId: string;
   readonly choice: CaseChoice | null;
+  /**
+   * The account that cast the ballot. A cast ballot belongs to that account, not to the
+   * name: whoever claims a released name later does not inherit it.
+   */
+  readonly castBy: string | null;
   readonly vetoReason: string | null;
   /** A veto's review: pending until the reviewer rules; null for anything but a veto. */
   readonly review: 'pending' | 'upheld' | 'dismissed' | null;
@@ -67,7 +72,14 @@ export interface SampleCaseRecord {
   readonly status: CaseStatus;
   readonly resolution: CaseResolution | null;
   readonly resolvedAt: string | null;
+  /**
+   * The member names that may vote, frozen at opening: active members who had claimed their
+   * name, other than the duty's member and the submitter, less a name released since
+   * without voting.
+   */
   readonly voters: readonly SampleCaseVoter[];
+  /** Changes whenever the case does (not a ballot alone); a ruling names the one it saw. */
+  readonly version: number;
 }
 
 /** A stored pick, as the sample league keeps it; names come from the team sheet. */
@@ -169,6 +181,8 @@ function voter(
   return {
     memberId,
     choice,
+    // Another member's own account cast it.
+    castBy: choice ? `account-${memberId}` : null,
     vetoReason: choice === 'veto' ? vetoReason : null,
     review: choice === 'veto' ? 'pending' : null,
   };
@@ -440,6 +454,7 @@ const PIELE: SampleLeagueSeed = {
       status: 'in_review',
       resolution: null,
       resolvedAt: null,
+      version: 1,
       voters: [
         voter('member-jp', 'veto', 'The recording shows the Round 01 picks, not Round 02.'),
         voter('member-pw', 'accept'),
@@ -699,12 +714,12 @@ const POFADDER: SampleLeagueSeed = {
       status: 'open',
       resolution: null,
       resolvedAt: null,
+      version: 1,
       voters: [
         voter('member-ds'),
         voter('member-kk', 'accept'),
         voter(SAMPLE_ME),
         voter('member-sl'),
-        voter('member-rb'),
       ],
     },
   ],
@@ -848,11 +863,11 @@ const THIRD: SampleLeagueSeed = {
       status: 'in_review',
       resolution: null,
       resolvedAt: null,
+      version: 1,
       voters: [
         voter('member-hm', 'veto', 'The spoon is out of shot for most of the video.'),
         voter('member-ck', 'accept'),
         voter('member-nv'),
-        voter('member-wj'),
       ],
     },
   ],

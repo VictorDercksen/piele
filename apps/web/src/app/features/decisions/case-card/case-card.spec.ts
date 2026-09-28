@@ -1,5 +1,6 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { ApiError } from '../../../core/api/api-error';
 import { AlertService } from '../../../core/feedback/alert.service';
 import { CaseControlService } from '../../../core/league/cases/case-control.service';
 import { CaseService } from '../../../core/league/cases/case.service';
@@ -37,6 +38,7 @@ const OPEN: CaseView = {
   canReview: false,
   vetoReason: null,
   needsReviewer: false,
+  version: 3,
   mine: false,
   spoon: true,
   live: true,
@@ -140,10 +142,54 @@ describe('CaseCard', () => {
     expect(overlay()?.textContent).toContain('Voting reopens until 05 Oct 2026 · 10:00 SAST');
     await giveReason('Round 02 is visible at 0:40.');
     expect(control.review).toHaveBeenCalledWith(
-      'case-1',
+      expect.objectContaining({ id: 'case-1', version: 3 }),
       'dismissed',
       'Round 02 is visible at 0:40.',
     );
+  });
+
+  it('warns and closes the dialog when the case changed before the ruling', async () => {
+    const { control, alerts, button, overlay, giveReason, settle } = setup({
+      ...OPEN,
+      status: 'in_review',
+      canRespond: false,
+      canReview: true,
+      vetoReason: 'Wrong round.',
+    });
+    control.review.mockRejectedValueOnce(
+      new ApiError(409, 'stale_case', 'This evidence case changed. Reload it and review again.'),
+    );
+    const warn = vi.spyOn(alerts, 'warn');
+    const error = vi.spyOn(alerts, 'error');
+    button('Uphold veto')!.click();
+    await settle();
+    await giveReason('The wrong round is shown.');
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('This case changed'), {
+      key: 'reason-failed',
+    });
+    expect(error).not.toHaveBeenCalled();
+    expect(overlay()).toBeNull();
+  });
+
+  it('warns when voting closed before an accept', async () => {
+    const { control, alerts, button, settle } = setup(OPEN);
+    control.accept.mockRejectedValueOnce(
+      new ApiError(409, 'voting_closed', 'Voting on this evidence has closed.'),
+    );
+    const warn = vi.spyOn(alerts, 'warn');
+    button('Accept')!.click();
+    await settle();
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('Voting on this evidence has closed'),
+      {
+        key: 'case-case-1',
+      },
+    );
+  });
+
+  it('labels a season-wide duty’s case with the season, not a round', () => {
+    const { root } = setup({ ...OPEN, roundNumber: null });
+    expect(root.textContent).toContain('SEASON / Johan');
   });
 
   it('flags a veto nobody in the league may rule on, and states a closed outcome', () => {

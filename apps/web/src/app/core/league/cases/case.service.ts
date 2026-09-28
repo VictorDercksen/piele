@@ -26,9 +26,14 @@ export class CaseService {
 
   /** Every case in the season, newest first. */
   readonly seasonCases = computed(() => this.data.cases().map((c) => this.decorate(c)));
-  /** The selected round's cases. */
+  /**
+   * The selected round's cases, and those on season-wide duties (no round), which every
+   * round's pages show so they are never out of reach.
+   */
   readonly cases = computed(() =>
-    this.seasonCases().filter((c) => c.roundNumber === this.fixtures.round().id),
+    this.seasonCases().filter(
+      (c) => c.roundNumber === null || c.roundNumber === this.fixtures.round().id,
+    ),
   );
   /** Open cases in the season the member may still respond to and has not. */
   readonly awaitingResponse = computed(() =>

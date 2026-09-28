@@ -8,7 +8,7 @@ test.beforeEach(async ({ page }) => {
   await seedProfile(page, { leagues: ['piele', 'pofadder-bowl'] });
 });
 
-test('a dismissed veto reopens voting; the captain’s own veto waits for a stand-in', async ({
+test('a dismissed veto reopens voting; the captain’s own veto waits for another reviewer', async ({
   page,
 }) => {
   await page.goto('/piele?round=2');
@@ -49,7 +49,9 @@ test('a dismissed veto reopens voting; the captain’s own veto waits for a stan
   await veto.getByRole('button', { name: 'Veto evidence' }).click();
   await expect(card).toContainText('IN REVIEW');
   await expect(card).toContainText('You vetoed: “Still the Round 01 page.”');
-  await expect(card).toContainText('NEEDS AN UNINVOLVED REVIEWER');
+  // The captain cannot rule on their own veto; nothing says who vetoed.
+  await expect(card).toContainText('An uninvolved reviewer will rule on it.');
+  await expect(card).not.toContainText('NEEDS AN UNINVOLVED REVIEWER');
   await expect(card.getByRole('button', { name: 'Uphold veto' })).toHaveCount(0);
 
   // The captain names a stand-in, who may rule on the captain's own veto.
@@ -57,7 +59,7 @@ test('a dismissed veto reopens voting; the captain’s own veto waits for a stan
   await page.getByRole('link', { name: "Round 02 captain's desk" }).click();
   await openSection(page, 'Evidence to decide.');
   const queue = page.locator('app-evidence-review app-case-card');
-  await expect(queue).toContainText('NEEDS AN UNINVOLVED REVIEWER');
+  await expect(queue).toHaveCount(0);
   await openSection(page, 'The stand-in reviewer.');
   await chooseOption(page.getByRole('combobox', { name: 'Stand-in reviewer' }), {
     label: 'Franco',
@@ -101,12 +103,13 @@ test('a member accepts evidence under the league’s vote', async ({ page }) => 
   await expect(page).toHaveURL(/\/pofadder-bowl\/decisions\?round=2/);
   const card = page.locator('app-case-card').filter({ hasText: 'Thabo' });
   await expect(card).toContainText('VOTING OPEN');
-  await expect(card).toContainText('1 of 5 members responded');
+  // Riaan has not claimed his name, so four members vote.
+  await expect(card).toContainText('1 of 4 members responded');
   await expect(card).toContainText('Not yet');
   await card.getByRole('button', { name: 'Accept', exact: true }).click();
-  await expect(card).toContainText('2 of 5 members responded');
+  await expect(card).toContainText('2 of 4 members responded');
   await expect(card).toContainText('You accepted');
-  // Two of five is no majority: voting stays open until it closes.
+  // Two of four is no majority: voting stays open until it closes.
   await expect(card).toContainText('VOTING OPEN');
 
   await page.setViewportSize({ width: 320, height: 800 });

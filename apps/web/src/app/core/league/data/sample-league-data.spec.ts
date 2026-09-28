@@ -5,6 +5,7 @@ import {
   SAMPLE_ACCOUNT,
   SAMPLE_LEAGUES,
   SampleCaseRecord,
+  SampleCaseVoter,
   SampleLeagueSeed,
   votingCloses,
 } from './sample-leagues';
@@ -478,7 +479,11 @@ describe('sample evidence cases', () => {
    * Piele with one open case on Liam's evidence opened `hoursAgo`, voted on by the listed
    * members (the sample member among them) and nobody else.
    */
-  function league(voters: string[], hoursAgo = 1, isAdmin = true): SampleLeague {
+  function league(
+    voters: (string | SampleCaseVoter)[],
+    hoursAgo = 1,
+    change: Partial<SampleCaseRecord> = {},
+  ): SampleLeague {
     const openedAt = new Date(Date.now() - hoursAgo * HOUR).toISOString();
     const record: SampleCaseRecord = {
       id: 'case-x',
@@ -490,12 +495,13 @@ describe('sample evidence cases', () => {
       status: 'open',
       resolution: null,
       resolvedAt: null,
-      voters: voters.map((memberId) => ({
-        memberId,
-        choice: null,
-        vetoReason: null,
-        review: null,
-      })),
+      version: 1,
+      voters: voters.map((v) =>
+        typeof v === 'string'
+          ? { memberId: v, choice: null, castBy: null, vetoReason: null, review: null }
+          : v,
+      ),
+      ...change,
     };
     const seed: SampleLeagueSeed = {
       ...PIELE,
@@ -506,8 +512,23 @@ describe('sample evidence cases', () => {
       ),
       cases: [record],
     };
-    return new SampleLeague(seed, TestBed.inject(CompetitionService), isAdmin);
+    return new SampleLeague(seed, TestBed.inject(CompetitionService), true);
   }
+
+  /** A ballot another member's account cast. */
+  const cast = (
+    memberId: string,
+    choice: 'accept' | 'veto',
+    vetoReason: string | null = null,
+  ): SampleCaseVoter => ({
+    memberId,
+    choice,
+    castBy: `account-${memberId}`,
+    vetoReason,
+    review: choice === 'veto' ? 'pending' : null,
+  });
+  const version = (data: { cases: () => readonly { id: string; version: number }[] }, id: string) =>
+    data.cases().find((c) => c.id === id)!.version;
 
   const caseOf = (data: { cases: () => readonly { id: string }[] }, id: string) =>
     data.cases().find((c) => c.id === id) as ReturnType<SampleLeague['cases']>[number];
@@ -548,10 +569,16 @@ describe('sample evidence cases', () => {
       status: 409,
       code: 'voting_closed',
     });
-    await expect(data.reviewCase('case-3', 'dismissed', ' ')).rejects.toMatchObject({
-      code: 'reason_required',
-    });
-    await data.reviewCase('case-3', 'dismissed', 'Round 02 is visible at 0:40.');
+    await expect(
+      data.reviewCase('case-3', 'dismissed', ' ', version(data, 'case-3')),
+    ).rejects.toMatchObject({ code: 'reason_required' });
+    // A ruling on a case that changed since it was read is refused.
+    await expect(
+      data.reviewCase('case-3', 'dismissed', 'Fine', version(data, 'case-3') - 1),
+    ).rejects.toMatchObject({ status: 409, code: 'stale_case' });
+    const before = version(data, 'case-3');
+    await data.reviewCase('case-3', 'dismissed', 'Round 02 is visible at 0:40.', before);
+    expect(version(data, 'case-3')).toBeGreaterThan(before);
     expect(caseOf(data, 'case-3')).toEqual(
       expect.objectContaining({ status: 'open', closesAt, canRespond: true, canReview: false }),
     );
@@ -566,7 +593,8 @@ describe('sample evidence cases', () => {
       expect.objectContaining({ status: 'open', myResponse: 'accept', respondedCount: 3 }),
     );
 
-    // An accept may become a veto; the captain's own veto needs an uninvolved reviewer.
+    // An accept may become a veto; the captain's own veto needs an uninvolved reviewer, but
+    // the case does not say so to the captain: that would tell who vetoed.
     await expect(data.respondToCase('case-3', 'veto', '')).rejects.toMatchObject({
       code: 'reason_required',
     });
@@ -578,13 +606,15 @@ describe('sample evidence cases', () => {
         myVetoReason: 'Still the wrong round.',
         canReview: false,
         vetoReason: null,
-        needsReviewer: true,
+        needsReviewer: false,
       }),
     );
     expect(data.feed()[0]).toEqual(
       expect.objectContaining({ kind: 'evidence_vetoed', actorName: null }),
     );
-    await expect(data.reviewCase('case-3', 'upheld', 'Mine')).rejects.toMatchObject({
+    await expect(
+      data.reviewCase('case-3', 'upheld', 'Mine', version(data, 'case-3')),
+    ).rejects.toMatchObject({
       status: 403,
       code: 'not_reviewer',
     });
@@ -598,14 +628,13 @@ describe('sample evidence cases', () => {
     });
     await data.setStandInReviewer('member-fb');
     expect(data.standInReviewer()).toEqual({ memberId: 'member-fb', memberName: 'Franco' });
-    expect(caseOf(data, 'case-3').needsReviewer).toBe(false);
     await data.setStandInReviewer(null);
     expect(data.standInReviewer()).toEqual({ memberId: null, memberName: null });
   });
 
   it('upholds a veto: the evidence is rejected and the duty stays open for new evidence', async () => {
     const data = sample();
-    await data.reviewCase('case-3', 'upheld', 'Wrong round on the recording.');
+    await data.reviewCase('case-3', 'upheld', 'Wrong round on the recording.', 1);
     const duty = data.duties().find((d) => d.id === 'duty-3')!;
     expect(duty.status).toBe('open');
     expect(duty.evidence[0]).toEqual(
@@ -614,10 +643,13 @@ describe('sample evidence cases', () => {
     expect(caseOf(data, 'case-3')).toEqual(
       expect.objectContaining({ status: 'rejected', resolution: 'veto_upheld' }),
     );
-    expect(data.feed()[0].kind).toBe('evidence_rejected');
-    await expect(data.reviewCase('case-3', 'upheld', 'Again')).rejects.toMatchObject({
-      code: 'not_in_review',
-    });
+    // The ruling names no reviewer in the feed.
+    expect(data.feed()[0]).toEqual(
+      expect.objectContaining({ kind: 'evidence_rejected', actorName: null }),
+    );
+    await expect(
+      data.reviewCase('case-3', 'upheld', 'Again', version(data, 'case-3')),
+    ).rejects.toMatchObject({ code: 'not_in_review' });
   });
 
   it('accepts at once when accepts reach a majority, from the submission time', async () => {
@@ -652,9 +684,9 @@ describe('sample evidence cases', () => {
         expect.objectContaining({ status: 'accepted', resolution: 'auto', resolvedAt: closesAt }),
       );
       expect(data.duties().find((d) => d.id === 'duty-3')?.status).toBe('completed');
-      expect(data.feed()[0]).toEqual(
-        expect.objectContaining({ kind: 'evidence_accepted', occurredAt: closesAt }),
-      );
+      // The feed entry is dated when the case settled, after the window closed.
+      expect(data.feed()[0].kind).toBe('evidence_accepted');
+      expect(Date.parse(data.feed()[0].occurredAt)).toBeGreaterThan(Date.parse(closesAt));
     } finally {
       vi.useRealTimers();
     }
@@ -744,7 +776,7 @@ describe('sample evidence cases', () => {
     await expect(data.respondToCase('case-st-1', 'accept', '')).rejects.toMatchObject({
       code: 'admin_not_a_member',
     });
-    await data.reviewCase('case-st-1', 'dismissed', 'The spoon is visible at the end.');
+    await data.reviewCase('case-st-1', 'dismissed', 'The spoon is visible at the end.', 1);
     expect(data.cases()[0].status).toBe('open');
   });
 
@@ -759,5 +791,101 @@ describe('sample evidence cases', () => {
     });
     await data.setStandInReviewer('member-kk');
     expect(data.standInReviewer().memberName).toBe('Kallie');
+  });
+
+  it('tells the captain a veto on their own duty needs a reviewer until a stand-in is named', async () => {
+    const openedAt = new Date(Date.now() - HOUR).toISOString();
+    const link = {
+      ...PIELE.duties.find((d) => d.id === 'duty-3')!.evidence[0],
+      id: 'link-own',
+      submittedAt: openedAt,
+      submitterId: 'member-me',
+      submitterName: 'You',
+    };
+    const seed: SampleLeagueSeed = {
+      ...PIELE,
+      duties: PIELE.duties.map((d) => (d.id === 'duty-2' ? { ...d, evidence: [link] } : d)),
+      cases: [
+        {
+          id: 'case-own',
+          dutyId: 'duty-2',
+          linkId: 'link-own',
+          subjectId: 'member-me',
+          openedAt,
+          closesAt: votingCloses(openedAt),
+          status: 'in_review',
+          resolution: null,
+          resolvedAt: null,
+          version: 1,
+          voters: [cast('member-jp', 'veto', 'Blurry'), cast('member-pw', 'accept')],
+        },
+      ],
+    };
+    const data = new SampleLeague(seed, TestBed.inject(CompetitionService), true);
+    expect(data.cases()[0]).toEqual(
+      expect.objectContaining({ canReview: false, vetoReason: null, needsReviewer: true }),
+    );
+    await data.setStandIn('member-fb');
+    expect(data.cases()[0].needsReviewer).toBe(false);
+  });
+
+  it('dismisses a veto after the window closed: accepted at once, saying so', async () => {
+    const data = league(['member-me', cast('member-jp', 'veto', 'Wrong round')], 30, {
+      status: 'in_review',
+    });
+    await data.reviewCase('case-x', 'dismissed', 'Round 02 is visible.', 1);
+    expect(data.cases()[0]).toEqual(
+      expect.objectContaining({ status: 'accepted', resolution: 'auto' }),
+    );
+    const link = data.duties().find((d) => d.id === 'duty-3')!.evidence[0];
+    expect(link.reason).toBe('Veto dismissed after voting closed.');
+    expect(data.feed()[0].detail).toBe('Veto dismissed: Round 02 is visible.');
+  });
+
+  it('lets only claimed names vote, and a released name leaves its live cases', async () => {
+    const data = sample();
+    await data.releaseMember('member-lm');
+    await data.submitEvidence({ dutyIds: ['duty-2'], file: FILE, note: '' });
+    // Johan, PieterW, Franco and Arno: Liam's released name does not vote.
+    expect(data.cases()[0]).toEqual(
+      expect.objectContaining({ dutyId: 'duty-2', eligibleCount: 4 }),
+    );
+
+    // Franco's ballot, not yet cast, leaves case-3; PieterW's cast accept stays counted.
+    const before = version(data, 'case-3');
+    await data.releaseMember('member-fb');
+    await data.releaseMember('member-pw');
+    expect(caseOf(data, 'case-3')).toEqual(
+      expect.objectContaining({ eligibleCount: 4, respondedCount: 2, status: 'in_review' }),
+    );
+    expect(version(data, 'case-3')).toBe(before + 1);
+  });
+
+  it('accepts an open case once a released name leaves a majority, or nobody, to vote', async () => {
+    const majority = league([cast('member-me', 'accept'), 'member-jp', 'member-pw']);
+    // A ballot another account cast is not the sample member's, even on its name.
+    expect(majority.cases()[0]).toEqual(
+      expect.objectContaining({ isVoter: false, myResponse: null, respondedCount: 1 }),
+    );
+    await expect(majority.respondToCase('case-x', 'veto', 'x')).rejects.toMatchObject({
+      code: 'not_a_voter',
+    });
+    await majority.releaseMember('member-pw');
+    expect(majority.cases()[0].status).toBe('open');
+    await majority.releaseMember('member-jp');
+    expect(majority.cases()[0]).toEqual(
+      expect.objectContaining({ status: 'accepted', resolution: 'majority', eligibleCount: 1 }),
+    );
+
+    const nobody = league(['member-jp']);
+    await nobody.releaseMember('member-jp');
+    expect(nobody.cases()[0]).toEqual(
+      expect.objectContaining({ status: 'accepted', resolution: 'no_voters', eligibleCount: 0 }),
+    );
+    // The captain's override now finds the evidence decided.
+    await expect(nobody.decideEvidence('link-3', 'rejected', 'Late')).rejects.toMatchObject({
+      status: 409,
+      code: 'already_decided',
+    });
   });
 });

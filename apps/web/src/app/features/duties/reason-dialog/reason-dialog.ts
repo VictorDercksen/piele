@@ -117,6 +117,12 @@ export class ReasonDialog {
       this.close();
       request.done?.();
     } catch (error) {
+      const warning = request.refused?.(error);
+      if (warning) {
+        this.alerts.warn(warning, { key: REASON_FAILURE });
+        this.close();
+        return;
+      }
       this.alerts.error(error instanceof Error ? error.message : 'That did not work.', {
         key: REASON_FAILURE,
       });

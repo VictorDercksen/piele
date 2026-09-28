@@ -40,6 +40,7 @@ import {
   SAMPLE_LEAGUES,
   SAMPLE_ME as ME,
   SampleCaseRecord as CaseRecord,
+  SampleCaseVoter as CaseVoter,
   SampleDutyRecord as DutyRecord,
   SampleLeagueSeed,
   SamplePickRecord,
@@ -184,8 +185,8 @@ export class SampleLeagueData extends LeagueData {
     return this.active().respondToCase(caseId, choice, reason);
   }
 
-  reviewCase(caseId: string, ruling: VetoRuling, reason: string): Promise<void> {
-    return this.active().reviewCase(caseId, ruling, reason);
+  reviewCase(caseId: string, ruling: VetoRuling, reason: string, version: number): Promise<void> {
+    return this.active().reviewCase(caseId, ruling, reason, version);
   }
 
   setStandInReviewer(memberId: string | null): Promise<void> {
@@ -362,11 +363,13 @@ export class SampleLeague {
           record.clockResetAt,
         );
         const pending = record.evidence.some((e) => e.decision === 'pending');
+        // A live duty with pending evidence is under review while that evidence's case runs.
+        const live = record.status === 'open' || record.status === 'pending_deadline';
         const display =
-          record.status !== 'open'
-            ? record.status
-            : pending
-              ? 'under_review'
+          live && pending
+            ? 'under_review'
+            : record.status !== 'open'
+              ? record.status
               : record.deadlineAt && now.getTime() > new Date(record.deadlineAt).getTime()
                 ? 'overdue'
                 : 'open';
@@ -422,9 +425,9 @@ export class SampleLeague {
    */
   readonly cases = computed<readonly EvidenceCase[]>(() => {
     const me = this.me();
-    const captain = this.captain();
-    const standIn = this.standInState();
-    const manages = this.isAdmin || (!!me && (captain === me || standIn === me));
+    // Read so the list follows a change of captain or stand-in.
+    this.captain();
+    this.standInState();
     const names = new Map(
       [...this.memberRecords(), ...this.withdrawnRecords()].map((m) => [m.id, m.name]),
     );
@@ -435,7 +438,7 @@ export class SampleLeague {
         const duty = duties.find((d) => d.id === record.dutyId);
         const link = duty?.evidence.find((e) => e.id === record.linkId);
         if (!duty || !link) return [];
-        const ballot = me ? record.voters.find((v) => v.memberId === me) : undefined;
+        const ballot = record.voters.find((v) => ownBallot(v, me));
         const veto =
           record.status === 'in_review'
             ? record.voters.find((v) => v.review === 'pending')
@@ -469,7 +472,8 @@ export class SampleLeague {
             canRespond: !!ballot && record.status === 'open' && ballot.choice !== 'veto',
             canReview,
             vetoReason: canReview ? (veto?.vetoReason ?? null) : null,
-            needsReviewer: manages && !!veto && this.needsReviewer(record, veto.memberId),
+            needsReviewer: !!veto && this.showsNeedsReviewer(record, veto.memberId),
+            version: record.version,
           },
         ];
       });
@@ -654,9 +658,10 @@ export class SampleLeague {
     const now = new Date().toISOString();
     const stamp = `${Date.now()}-${++this.feedSequence}`;
     const submissionId = `sub-${stamp}`;
+    // Only names claimed by now vote; a name claimed later does not join.
     const electorate = this.memberRecords()
-      .map((m) => m.id)
-      .filter((id) => id !== subject && id !== ME);
+      .filter((m) => m.claimed && m.id !== subject && m.id !== ME)
+      .map((m) => m.id);
     const superseded: string[] = [];
     let touched: DutyRecord[] = [];
     this.dutyRecords.update((duties) =>
@@ -700,9 +705,11 @@ export class SampleLeague {
       status: 'open',
       resolution: null,
       resolvedAt: null,
+      version: 1,
       voters: electorate.map((memberId) => ({
         memberId,
         choice: null,
+        castBy: null,
         vetoReason: null,
         review: null,
       })),
@@ -873,10 +880,12 @@ export class SampleLeague {
     this.settleDue();
     const duty = this.dutyRecords().find((d) => d.evidence.some((e) => e.id === linkId));
     const link = duty?.evidence.find((e) => e.id === linkId);
-    if (!duty || !link || link.decision !== 'pending')
-      return Promise.reject(new Error('This evidence was already decided.'));
+    if (!duty || !link) return refuse(404, 'unknown_link', 'Unknown evidence.');
     if (duty.memberId === ME)
-      return Promise.reject(new Error('Your own evidence needs an uninvolved reviewer.'));
+      return refuse(403, 'self_review', 'Your own evidence needs an uninvolved reviewer.');
+    // Its vote may have closed first, settled just now.
+    if (link.decision !== 'pending')
+      return refuse(409, 'already_decided', 'This evidence was already decided.');
     const now = new Date().toISOString();
     this.applyDecision({ dutyId: duty.id, linkId }, decision, reason, now);
     const live = this.caseRecords().find((c) => c.linkId === linkId && isLive(c));
@@ -913,7 +922,7 @@ export class SampleLeague {
     this.settleDue();
     const record = this.caseRecords().find((c) => c.id === caseId);
     if (!record) return refuse(404, 'unknown_case', 'Unknown evidence case.');
-    const ballot = record.voters.find((v) => v.memberId === me);
+    const ballot = record.voters.find((v) => ownBallot(v, me));
     if (!ballot) return refuse(403, 'not_a_voter', 'You cannot vote on this evidence.');
     if (record.status !== 'open')
       return refuse(409, 'voting_closed', 'Voting on this evidence has closed.');
@@ -923,7 +932,9 @@ export class SampleLeague {
     if (choice === 'accept') {
       if (ballot.choice === 'accept') return Promise.resolve();
       const next = this.updateCase(caseId, (c) => ({
-        voters: c.voters.map((v) => (v.memberId === me ? { ...v, choice: 'accept' } : v)),
+        voters: c.voters.map((v) =>
+          v.memberId === me ? { ...v, choice: 'accept', castBy: SAMPLE_USER } : v,
+        ),
       }));
       if (majority(next))
         this.closeCase(next, 'accepted', 'majority', now, 'Accepted by a majority of members.');
@@ -933,7 +944,9 @@ export class SampleLeague {
     const next = this.updateCase(caseId, (c) => ({
       status: 'in_review',
       voters: c.voters.map((v) =>
-        v.memberId === me ? { ...v, choice: 'veto', vetoReason: text, review: 'pending' } : v,
+        v.memberId === me
+          ? { ...v, choice: 'veto', castBy: SAMPLE_USER, vetoReason: text, review: 'pending' }
+          : v,
       ),
     }));
     const { name, heading, roundId } = this.describe(next);
@@ -952,15 +965,18 @@ export class SampleLeague {
   /**
    * Rules on the case's pending veto, as `POST /evidence/cases/{id}/review` does it. Upheld
    * rejects the evidence (the duty stays open); dismissed reopens voting on the original timer
-   * and accepts at once when a majority already accepted or the window has closed.
+   * and accepts at once when a majority already accepted or the window has closed. A case
+   * changed since `version` is refused `stale_case`.
    */
-  reviewCase(caseId: string, ruling: VetoRuling, reason: string): Promise<void> {
+  reviewCase(caseId: string, ruling: VetoRuling, reason: string, version: number): Promise<void> {
     const text = reason.trim();
     if (!text) return refuse(422, 'reason_required', 'Give a reason for the ruling.');
     if (text.length > 500) return refuse(422, 'validation', 'Keep the reason to 500 characters.');
     this.settleDue();
     const record = this.caseRecords().find((c) => c.id === caseId);
     if (!record) return refuse(404, 'unknown_case', 'Unknown evidence case.');
+    if (record.version !== version)
+      return refuse(409, 'stale_case', 'This evidence case changed. Reload it and review again.');
     const veto = record.voters.find((v) => v.review === 'pending');
     if (record.status !== 'in_review' || !veto)
       return refuse(409, 'not_in_review', 'This evidence has no veto waiting for review.');
@@ -971,14 +987,18 @@ export class SampleLeague {
       voters: c.voters.map((v) => (v.memberId === veto.memberId ? { ...v, review: ruling } : v)),
     }));
     if (ruling === 'upheld') {
-      this.closeCase(ruled, 'rejected', 'veto_upheld', now, text, { actorName: this.actor() });
+      this.closeCase(ruled, 'rejected', 'veto_upheld', now, text);
     } else {
       const reopened = this.updateCase(caseId, () => ({ status: 'open' }));
       const detail = `Veto dismissed: ${text}`;
       if (majority(reopened))
-        this.closeCase(reopened, 'accepted', 'majority', now, detail, { reason: text });
+        this.closeCase(reopened, 'accepted', 'majority', now, detail, {
+          reason: 'Accepted by a majority of members.',
+        });
       else if (Date.now() >= Date.parse(reopened.closesAt))
-        this.closeCase(reopened, 'accepted', 'auto', now, detail, { reason: text });
+        this.closeCase(reopened, 'accepted', 'auto', now, detail, {
+          reason: 'Veto dismissed after voting closed.',
+        });
       else {
         const { name, heading, roundId } = this.describe(reopened);
         this.post(
@@ -1046,11 +1066,38 @@ export class SampleLeague {
   releaseMember(memberId: string): Promise<void> {
     if (memberId === this.captain())
       return Promise.reject(new Error('The captain’s own membership cannot be released.'));
+    this.settleDue();
     this.memberRecords.update((members) =>
       members.map((m) => (m.id === memberId ? { ...m, claimed: false } : m)),
     );
     if (this.standInState() === memberId) this.standInState.set(null);
+    this.releaseBallots(memberId);
     return Promise.resolve();
+  }
+
+  /**
+   * A released name passes no ballot to its next claimant: in live cases its ballot not yet
+   * cast is withdrawn and the electorate shrinks by one, so an open case the remaining
+   * accepts now carry, or nobody is left to vote on, is accepted. A cast ballot stays
+   * counted and belongs to the account that cast it.
+   */
+  private releaseBallots(memberId: string): void {
+    const now = new Date().toISOString();
+    for (const record of this.caseRecords()) {
+      if (!isLive(record)) continue;
+      if (!record.voters.some((v) => v.memberId === memberId && v.choice === null)) continue;
+      const next = this.updateCase(record.id, (c) => ({
+        voters: c.voters.filter((v) => !(v.memberId === memberId && v.choice === null)),
+      }));
+      if (next.status !== 'open') continue;
+      if (!next.voters.length)
+        this.closeCase(next, 'accepted', 'no_voters', now, 'No other member can vote.', {
+          reason: 'No other member could vote.',
+        });
+      else if (majority(next))
+        this.closeCase(next, 'accepted', 'majority', now, 'Accepted by a majority of members.');
+    }
+    this.scheduleSettlement();
   }
 
   updateMember(memberId: string, email: string | null): Promise<void> {
@@ -1400,11 +1447,6 @@ export class SampleLeague {
     };
   }
 
-  /** How the sample member is named when attributed: the admin without a membership as such. */
-  private actor(): string {
-    return this.memberId ? 'You' : 'Admin';
-  }
-
   /**
    * Whether the sample member may rule on the case's pending veto: the admin without a
    * membership always; nobody on their own duty or veto; the captain (or the admin holding
@@ -1426,11 +1468,32 @@ export class SampleLeague {
     return involved.includes(this.captain()) && (!standIn || involved.includes(standIn));
   }
 
-  /** Changes one case and returns it as changed. */
+  /**
+   * Whether to say the pending veto needs an uninvolved reviewer without saying who vetoed:
+   * to the admin without a membership (who can rule) whenever it is so; to the captain only
+   * on their own duty with no stand-in named, which is so whoever vetoed; to nobody else.
+   */
+  private showsNeedsReviewer(record: CaseRecord, vetoerId: string): boolean {
+    const me = this.me();
+    if (!me) return this.isAdmin && this.needsReviewer(record, vetoerId);
+    return this.captain() === me && record.subjectId === me && !this.standInState();
+  }
+
+  /**
+   * Changes one case and returns it as changed. Like the API, the case's version moves with
+   * the case (status, electorate) but not with a ballot alone.
+   */
   private updateCase(id: string, change: (record: CaseRecord) => Partial<CaseRecord>): CaseRecord {
     let changed: CaseRecord | undefined;
     this.caseRecords.update((records) =>
-      records.map((c) => (c.id === id ? (changed = { ...c, ...change(c) }) : c)),
+      records.map((c) => {
+        if (c.id !== id) return c;
+        const next = change(c);
+        const moved =
+          Object.keys(next).some((key) => key !== 'voters') ||
+          (!!next.voters && next.voters.length !== c.voters.length);
+        return (changed = { ...c, ...next, version: c.version + (moved ? 1 : 0) });
+      }),
     );
     return changed!;
   }
@@ -1441,7 +1504,7 @@ export class SampleLeague {
     this.caseRecords.update((records) =>
       records.map((c) =>
         linkIds.includes(c.linkId) && isLive(c)
-          ? { ...c, status: 'superseded', resolvedAt: at }
+          ? { ...c, status: 'superseded', resolvedAt: at, version: c.version + 1 }
           : c,
       ),
     );
@@ -1493,8 +1556,10 @@ export class SampleLeague {
   }
 
   /**
-   * Decides the case's evidence and closes the case, with a feed entry dated `at` that names
-   * no voter. Evidence no longer pending, or a duty no longer open, only supersedes it.
+   * Decides the case's evidence and closes the case as of `at`, with a feed entry that names
+   * no voter. The entry is dated now, not `at`: a case settled late must not fall below a
+   * member's notifications read mark. Evidence no longer pending, or a duty no longer open,
+   * only supersedes it.
    */
   private closeCase(
     record: CaseRecord,
@@ -1502,7 +1567,7 @@ export class SampleLeague {
     resolution: CaseResolution,
     at: string,
     detail: string,
-    { reason = detail, actorName = null }: { reason?: string; actorName?: string | null } = {},
+    { reason = detail }: { reason?: string } = {},
   ): void {
     const duty = this.dutyRecords().find((d) => d.id === record.dutyId);
     const link = duty?.evidence.find((e) => e.id === record.linkId);
@@ -1525,7 +1590,7 @@ export class SampleLeague {
       `${name}: ${heading} ${accepted ? 'completed' : 'evidence rejected'}.`,
       detail,
       name,
-      { at, actorName },
+      { actorName: null },
     );
   }
 
@@ -1553,6 +1618,17 @@ interface FeedOptions {
 
 /** A settled case's records change this soon after its window closes. */
 const SETTLE_DELAY_MS = 1_000;
+
+/** The sample account, which casts the sample member's ballots. */
+const SAMPLE_USER = SAMPLE_ACCOUNT.userId;
+
+/**
+ * The sample member's own ballot: one not yet cast belongs to whoever holds the name; a cast
+ * one only to the account that cast it, so a released name's next claimant never inherits it.
+ */
+function ownBallot(voter: CaseVoter, me: string | null): boolean {
+  return !!me && voter.memberId === me && (voter.choice === null || voter.castBy === SAMPLE_USER);
+}
 
 /** Open for voting or waiting for a reviewer. */
 function isLive(record: CaseRecord): boolean {

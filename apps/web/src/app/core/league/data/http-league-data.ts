@@ -51,6 +51,9 @@ type ApiFixturePicks = Schemas['FixturePicks'];
 type ApiFeedItem = Schemas['FeedItem'];
 type ApiStanding = Schemas['Standing'];
 type UploadGrant = Schemas['UploadGrant'];
+type CaseResponse = Schemas['CaseResponse'];
+type VetoReview = Schemas['VetoReview'];
+type StandInChange = Schemas['StandInChange'];
 
 /** A read this soon after an evidence case's window closes finds it settled. */
 export const SETTLE_DELAY_MS = 2_000;
@@ -283,27 +286,30 @@ export class HttpLeagueData extends LeagueData {
 
   /** `POST /evidence/cases/{id}/response`; the outcome may complete a duty, so all reload. */
   async respondToCase(caseId: string, choice: CaseChoice, reason: string): Promise<void> {
-    await this.request('POST', `/evidence/cases/${encodeURIComponent(caseId)}/response`, {
-      choice,
-      reason,
-    });
+    const body: CaseResponse = { choice, reason };
+    await this.request('POST', `/evidence/cases/${encodeURIComponent(caseId)}/response`, body);
     await this.refresh();
   }
 
-  /** `POST /evidence/cases/{id}/review`: upholding rejects the evidence, dismissing reopens. */
-  async reviewCase(caseId: string, ruling: VetoRuling, reason: string): Promise<void> {
-    await this.request('POST', `/evidence/cases/${encodeURIComponent(caseId)}/review`, {
-      ruling,
-      reason,
-    });
+  /**
+   * `POST /evidence/cases/{id}/review`: upholding rejects the evidence, dismissing reopens.
+   * Carries the case version the ruling is based on; a changed case is refused `stale_case`.
+   */
+  async reviewCase(
+    caseId: string,
+    ruling: VetoRuling,
+    reason: string,
+    version: number,
+  ): Promise<void> {
+    const body: VetoReview = { ruling, reason, version };
+    await this.request('POST', `/evidence/cases/${encodeURIComponent(caseId)}/review`, body);
     await this.refresh();
   }
 
   /** `PUT /stand-in-reviewer`; who may review a pending veto changes, so the cases reload. */
   async setStandInReviewer(memberId: string | null): Promise<void> {
-    const standIn = await this.request<StandInReviewer>('PUT', '/stand-in-reviewer', {
-      memberId,
-    });
+    const body: StandInChange = { memberId };
+    const standIn = await this.request<StandInReviewer>('PUT', '/stand-in-reviewer', body);
     this.standIn.set(standIn);
     await this.refresh();
   }

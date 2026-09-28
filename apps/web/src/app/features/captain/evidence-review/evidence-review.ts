@@ -15,6 +15,7 @@ import { Dropdown } from '../../../shared/dropdown/dropdown';
 import { Icon } from '../../../shared/icon/icon';
 import { ReasonDialog } from '../../duties/reason-dialog/reason-dialog';
 import { CaseCard } from '../../decisions/case-card/case-card';
+import { overrideRefusal } from './evidence-review.refusals';
 const ALERT_KEYS = { playback: 'captain-playback' } as const;
 /**
  * The selected round's evidence on the captain's desk: vetoes waiting for a ruling (and those
@@ -77,6 +78,7 @@ export class EvidenceReview {
       required: decision === 'rejected',
       spoon: duty.spoon,
       action: (reason) => this.dutyControl.decideEvidence(evidence.id, decision, reason),
+      refused: overrideRefusal,
       done: () =>
         this.alerts.success(
           decision === 'accepted'
