@@ -29,7 +29,9 @@ describe('App routes', () => {
   it('opens the league and sends first-time visitors to its onboarding', async () => {
     const harness = await RouterTestingHarness.create('/?round=3');
     expect(TestBed.inject(Router).url).toBe('/piele/welcome?returnUrl=%2Fpiele%3Fround%3D3');
-    expect(harness.routeNativeElement?.querySelector('h1')?.textContent).toContain('allegiance.');
+    expect(harness.routeNativeElement?.querySelector('h1')?.textContent).toContain(
+      'Who do you back?',
+    );
     expect(harness.routeNativeElement?.querySelectorAll('input[type=radio]').length).toBe(16);
   });
 
