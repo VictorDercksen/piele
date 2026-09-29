@@ -1,7 +1,28 @@
 import { RoundRowView, SeasonRowView } from '../../core/league/standings/standing.models';
-import { PointsRow, StandingsMeasure } from './standings.page.models';
+import {
+  BreakdownPart,
+  BreakdownPartLabel,
+  PointsRow,
+  StandingsMeasure,
+} from './standings.page.models';
 
 const MEASURES: readonly StandingsMeasure[] = ['round', 'season', 'marks'];
+
+/** The breakdown parts in bar order. */
+export const BREAKDOWN_PARTS: readonly BreakdownPartLabel[] = [
+  { key: 'wp', abbr: 'WP', name: 'Win points' },
+  { key: 'mp', abbr: 'MP', name: 'Margin points' },
+  { key: 'gsp', abbr: 'GSP', name: 'Grand slam points' },
+  { key: 'bp', abbr: 'BP', name: 'Bonus points' },
+];
+
+/** The narrowest bar segment, in percent of the top total, that prints its value. */
+export const LABEL_MIN_WIDTH = 8;
+
+/** The part a key chip names, else none. */
+export function breakdownPartFrom(value: unknown): BreakdownPart | null {
+  return BREAKDOWN_PARTS.find((part) => part.key === value)?.key ?? null;
+}
 
 /** The tab a `table` query parameter names, else the round. */
 export function measureFrom(value: string | null): StandingsMeasure {

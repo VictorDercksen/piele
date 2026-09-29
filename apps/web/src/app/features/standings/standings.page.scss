@@ -14,7 +14,7 @@
 }
 .you {
   background: #1c3646;
-  border-left: 2px solid #ff795e !important;
+  box-shadow: inset 2px 0 0 #ff795e;
 }
 .full-table {
   border-top: 1px solid var(--line);
@@ -76,7 +76,7 @@
   }
 }
 .standing-row.you {
-  border-left: 3px solid var(--member-accent) !important;
+  box-shadow: inset 3px 0 0 var(--member-accent);
   background:
     linear-gradient(90deg, color-mix(in srgb, var(--member-colour) 20%, transparent), transparent),
     #dfbc7520 !important;
@@ -101,7 +101,7 @@
   text-transform: none;
 }
 
-// Round and season Superbru tables: a grid so the breakdown columns line up with their headings.
+// Round and season Superbru tables: a grid, with the breakdown as a labelled bar under each row.
 .standings-board {
   --seg-wp: #7fb2e5;
   --seg-mp: #74c69d;
@@ -116,122 +116,73 @@
   text-transform: uppercase;
 }
 .board-tools {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px 20px;
+  display: grid;
+  justify-items: start;
+  gap: 12px;
   margin-bottom: 14px;
 }
-.breakdown-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 44px;
-  padding: 0 16px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: transparent;
-  color: var(--ink);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.4px;
-}
-// A small switch: the knob sits right and fills when the breakdown shows.
-.breakdown-toggle::before {
-  content: '';
-  flex-shrink: 0;
-  width: 26px;
-  height: 14px;
-  border: 1px solid currentColor;
-  border-radius: 999px;
-  background: radial-gradient(circle at 7px 50%, currentColor 0 4px, transparent 4.5px);
-}
-.breakdown-toggle[aria-pressed='true'] {
-  border-color: var(--gilt);
-  color: var(--gilt);
-  background: #f1d39214;
-}
-.breakdown-toggle[aria-pressed='true']::before {
-  background: radial-gradient(circle at 19px 50%, currentColor 0 4px, transparent 4.5px);
-}
-.breakdown-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 16px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  font-size: 11px;
+.legend-hint {
+  margin: -4px 0 0;
   color: var(--muted);
-}
-.breakdown-legend li {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-.breakdown-legend strong {
-  color: var(--ink);
-  letter-spacing: 1px;
+  font-size: 11px;
 }
 .swatch {
-  width: 10px;
-  height: 10px;
+  width: 9px;
+  height: 9px;
+  flex-shrink: 0;
   border-radius: 2px;
+  background: var(--seg);
 }
-.wp {
-  background: var(--seg-wp);
+.key-chip[data-part='wp'],
+.segment.wp {
+  --seg: var(--seg-wp);
 }
-.mp {
-  background: var(--seg-mp);
+.key-chip[data-part='mp'],
+.segment.mp {
+  --seg: var(--seg-mp);
 }
-.gsp {
-  background: var(--seg-gsp);
+.key-chip[data-part='gsp'],
+.segment.gsp {
+  --seg: var(--seg-gsp);
 }
-.bp {
-  background: var(--seg-bp);
+.key-chip[data-part='bp'],
+.segment.bp {
+  --seg: var(--seg-bp);
 }
 .points-table {
   container: standings-table / inline-size;
-  --rank-col: 22px;
+  --rank-col: 24px;
   --avatar-col: 35px;
-  --cell-col: 44px;
-  --total-col: 72px;
-  --col-gap: 18px;
+  --total-col: auto;
+  --col-gap: 16px;
 }
 .points-table .table-label,
 .points-row {
   display: grid;
   grid-template-columns: var(--rank-col) var(--avatar-col) minmax(0, 1fr) var(--total-col);
-  column-gap: var(--col-gap);
+  gap: 10px var(--col-gap);
   align-items: center;
-}
-.with-breakdown .table-label,
-.with-breakdown .points-row {
-  grid-template-columns:
-    var(--rank-col) var(--avatar-col) minmax(0, 1fr) repeat(4, var(--cell-col))
-    var(--total-col);
 }
 .points-table .member-head {
   grid-column: 1 / 4;
 }
-.points-table .total-head,
-.points-table .cell {
+.points-table .total-head {
   text-align: right;
+  white-space: nowrap;
 }
-.points-table abbr {
-  text-decoration: none;
-  cursor: help;
-}
-.points-row .cell {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
+.points-row .rank {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 15px;
+  font-variant-numeric: lining-nums tabular-nums;
+  text-align: center;
 }
 .points-row strong {
   margin-left: 0;
   text-align: right;
+}
+.points-row.lead .rank,
+.points-row.lead strong {
+  color: var(--gilt);
 }
 .member-line {
   display: flex;
@@ -270,17 +221,41 @@
   font-weight: 400;
   letter-spacing: 0;
 }
+// The bar spans the member and total columns; widths are shares of the table's top total.
 .breakdown-bar {
+  grid-column: 3 / -1;
   display: flex;
-  width: 100%;
-  height: 6px;
-  margin-top: 8px;
+  // Gaps between neighbouring parts; the leader's full bar shrinks to fit them.
+  gap: 2px;
+  height: 18px;
   overflow: hidden;
   border-radius: 3px;
-  background: #ffffff12;
+  background: #ffffff0d;
 }
 .segment {
+  display: grid;
+  flex: 0 1 auto;
+  place-items: center;
+  min-width: 0;
   height: 100%;
+  overflow: hidden;
+  background: var(--seg);
+  color: #0d1b1d;
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  transition: opacity 0.15s;
+}
+// Highlighting a part in the key dims the other parts of every bar.
+.points-table[data-highlight] .segment {
+  opacity: 0.22;
+}
+.points-table[data-highlight='wp'] .segment.wp,
+.points-table[data-highlight='mp'] .segment.mp,
+.points-table[data-highlight='gsp'] .segment.gsp,
+.points-table[data-highlight='bp'] .segment.bp {
+  opacity: 1;
 }
 .visually-hidden {
   position: absolute;
@@ -290,26 +265,22 @@
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
+@media (prefers-reduced-motion: reduce) {
+  .segment {
+    transition: none;
+  }
+}
 @container standings-table (max-width: 600px) {
   .points-table .table-label,
   .points-row {
-    --rank-col: 20px;
+    --rank-col: 22px;
     --avatar-col: 28px;
-    --cell-col: 34px;
-    --total-col: 56px;
     --col-gap: 10px;
   }
-  .points-row .cell {
-    font-size: 13px;
-  }
 }
-// Phones: the breakdown columns give way to the bar; the badges shrink.
+// Phones: the total heading shortens to one word; the badges shrink.
 @container standings-table (max-width: 440px) {
-  .with-breakdown .table-label,
-  .with-breakdown .points-row {
-    grid-template-columns: var(--rank-col) var(--avatar-col) minmax(0, 1fr) var(--total-col);
-  }
-  .points-table .cell {
+  .total-scope {
     display: none;
   }
   .badge {
@@ -318,5 +289,11 @@
   }
   .points-row .member-line {
     gap: 3px 6px;
+  }
+  .breakdown-bar {
+    height: 16px;
+  }
+  .segment {
+    font-size: 10px;
   }
 }
