@@ -21,7 +21,7 @@ import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideArrowRight, lucideCheck } from '@ng-icons/lucide';
 import { Icon } from '../../../shared/icon/icon';
 
-/** Rod extension plus the fabric drop, ripple and settle. Matches the stylesheet timings. */
+/** Rod extension plus the fabric drop and settle. Matches the stylesheet timings. */
 const UNFURL_MS = 1800;
 
 /**
@@ -57,10 +57,9 @@ export class NotificationsFlag {
   private readonly competition = inject(CompetitionService);
   private readonly time = inject(LeagueTime);
   private readonly trigger = viewChild.required<ElementRef<HTMLButtonElement>>('trigger');
-  private readonly ripple = viewChild.required<ElementRef<SVGElement>>('ripple');
 
   readonly open = signal(false);
-  /** True once the fabric has come to rest, so the flag renders without animation filters. */
+  /** True once the fabric has come to rest, so the spent roll fades away. */
   readonly settled = signal(false);
   private settleTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -160,7 +159,7 @@ export class NotificationsFlag {
     this.settled.set(false);
   }
 
-  /** Restart the cloth ripple with every opening and drop the filter once the fabric is at rest. */
+  /** Mark the fabric at rest once the drop has played. */
   private unfurl(): void {
     clearTimeout(this.settleTimer);
     this.settled.set(false);
@@ -169,9 +168,6 @@ export class NotificationsFlag {
       this.settled.set(true);
       return;
     }
-    this.ripple()
-      .nativeElement.querySelectorAll<SVGAnimateElement>('animate')
-      .forEach((animation) => animation.beginElement?.());
     this.settleTimer = setTimeout(() => this.settled.set(true), UNFURL_MS);
   }
 }
