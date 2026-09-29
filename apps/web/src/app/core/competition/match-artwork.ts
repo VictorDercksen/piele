@@ -1,12 +1,20 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { Competition, Fixture } from './competition.models';
 import { CompetitionService } from './competition.service';
+import { StadiumSceneService } from './stadium-scene.service';
 
 /** Longest a matchup switch waits for artwork before showing it as it arrives. */
 const MAX_WAIT_MS = 600;
 
-/** Club artwork and venue images decoded together before changing the match hero. */
-export function matchArtwork(competition: Competition, fixture: Fixture): string[] {
+/**
+ * Club artwork and venue images decoded together before changing the match hero, with the
+ * venue's background for the kickoff weather.
+ */
+export function matchArtwork(
+  competition: Competition,
+  fixture: Fixture,
+  background: string | undefined,
+): string[] {
   const home = competition.banners[fixture.homeAsset];
   const away = competition.banners[fixture.awayAsset];
   const { stadiums } = competition;
@@ -17,7 +25,7 @@ export function matchArtwork(competition: Competition, fixture: Fixture): string
     away?.crest,
     stadiums.country(fixture.venue)?.flag,
     stadiums.icon(fixture.venue),
-    stadiums.background(fixture.venue),
+    background,
   ].filter((url): url is string => !!url);
 }
 
@@ -28,13 +36,45 @@ export function matchArtwork(competition: Competition, fixture: Fixture): string
 @Injectable({ providedIn: 'root' })
 export class MatchArtwork {
   private readonly competition = inject(CompetitionService);
+  private readonly scenes = inject(StadiumSceneService);
   /** Decoded images, held so the browser keeps them in its memory cache. */
   private readonly images = new Map<string, HTMLImageElement>();
   private readonly settled = signal<ReadonlySet<string>>(new Set());
 
-  /** Starts loading and decoding the fixture's artwork. Repeat calls are free. */
+  /**
+   * Starts loading and decoding the fixture's artwork. Repeat calls are free. Called from
+   * an effect, it follows the forecast, so a changed background is loaded too.
+   */
   preload(fixture: Fixture): void {
-    for (const url of matchArtwork(this.competition.current(), fixture)) {
+    this.load(this.urls(fixture));
+  }
+
+  /**
+   * Loads a round's artwork once the browser is idle, so later switches need no wait. The
+   * images are chosen now, so an effect calling this follows the forecast.
+   */
+  warm(fixtures: readonly Fixture[]): void {
+    const urls = fixtures.flatMap((fixture) => this.urls(fixture));
+    const idle = window.requestIdleCallback ?? ((run: () => void) => setTimeout(run, 200));
+    idle(() => this.load(urls));
+  }
+
+  /** Whether the fixture's artwork has decoded, failed or taken too long to wait for. */
+  ready(fixture: Fixture): boolean {
+    const settled = this.settled();
+    return this.urls(fixture).every((url) => settled.has(url));
+  }
+
+  private urls(fixture: Fixture): string[] {
+    return matchArtwork(
+      this.competition.current(),
+      fixture,
+      this.scenes.fixtureBackground(fixture),
+    );
+  }
+
+  private load(urls: readonly string[]): void {
+    for (const url of urls) {
       if (this.images.has(url)) continue;
       const image = new Image();
       image.src = url;
@@ -44,18 +84,6 @@ export class MatchArtwork {
         this.settled.update((urls) => new Set(urls).add(url)),
       );
     }
-  }
-
-  /** Loads a round's artwork once the browser is idle, so later switches need no wait. */
-  warm(fixtures: readonly Fixture[]): void {
-    const idle = window.requestIdleCallback ?? ((run: () => void) => setTimeout(run, 200));
-    idle(() => fixtures.forEach((fixture) => this.preload(fixture)));
-  }
-
-  /** Whether the fixture's artwork has decoded, failed or taken too long to wait for. */
-  ready(fixture: Fixture): boolean {
-    const settled = this.settled();
-    return matchArtwork(this.competition.current(), fixture).every((url) => settled.has(url));
   }
 }
 

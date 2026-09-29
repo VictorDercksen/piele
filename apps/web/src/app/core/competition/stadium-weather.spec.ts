@@ -1,4 +1,4 @@
-import type { SkyScene } from '../../features/match/weather-sky';
+import type { SkyScene } from './sky-scene';
 import { competition } from './registry';
 import { pickBackground, StadiumCondition, stadiumCondition } from './stadium-weather';
 

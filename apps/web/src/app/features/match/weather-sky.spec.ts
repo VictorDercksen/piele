@@ -1,5 +1,5 @@
 import { WeatherSection } from '../../core/api/match-centre.models';
-import { skyScene, weatherSky } from './weather-sky';
+import { weatherSky } from './weather-sky';
 
 function forecast(overrides: Partial<WeatherSection>): WeatherSection {
   return {
@@ -33,10 +33,6 @@ describe('weather sky', () => {
       'storm',
       'cloudy',
     ]);
-  });
-
-  it('exports the code mapping, reading a missing code as cloudy', () => {
-    expect([0, 61, 73, null].map(skyScene)).toEqual(['clear', 'rain', 'snow', 'cloudy']);
   });
 
   it('uses isDay for the time of day and icon', () => {

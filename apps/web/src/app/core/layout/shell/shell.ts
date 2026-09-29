@@ -28,6 +28,7 @@ import { debounce, filter, map, of, timer } from 'rxjs';
 import { CompetitionService, shortSeason } from '../../competition/competition.service';
 import { FixtureService } from '../../competition/fixture.service';
 import { SelectedRoundService } from '../../competition/selected-round.service';
+import { StadiumSceneService } from '../../competition/stadium-scene.service';
 import { AlertService } from '../../feedback/alert.service';
 import { LayoutInsets } from '../../feedback/layout-insets';
 import { LeagueContext } from '../../league/league-context';
@@ -81,6 +82,7 @@ export class Shell {
   private readonly context = inject(LeagueContext);
   private readonly alerts = inject(AlertService);
   private readonly insets = inject(LayoutInsets);
+  private readonly scenes = inject(StadiumSceneService);
   readonly fixtures = inject(FixtureService);
   readonly records = inject(LeagueRecordsService);
   readonly members = inject(MemberService);
@@ -127,15 +129,18 @@ export class Shell {
   readonly isMatch = computed(() => this.leaguePath().startsWith('/match/'));
   /** The fixture ribbon features or opens a match, so it only shows where that happens. */
   readonly showRibbon = computed(() => this.isHome() || this.isMatch());
+  /**
+   * Home shows the featured match's venue and the match page its fixture's, in the kickoff
+   * weather. Other pages follow the favourite team's fixture of the round.
+   */
   readonly pageBackground = computed(() => {
     const path = this.leaguePath();
-    const stadiums = this.competition.current().stadiums;
-    if (path === '/') return stadiums.background(this.fixtures.featured()?.venue);
+    if (path === '/') return this.scenes.fixtureBackground(this.fixtures.featured());
     if (path.startsWith('/match/')) {
       const fixture = this.competition.locate(path.slice('/match/'.length))?.fixture;
-      return stadiums.background(fixture?.venue);
+      return this.scenes.fixtureBackground(fixture);
     }
-    return this.favouriteTeam()?.stadiumBackground;
+    return this.scenes.favouriteBackground(this.favouriteTeam());
   });
   readonly page = computed<PageData>(() => {
     this.navigated();

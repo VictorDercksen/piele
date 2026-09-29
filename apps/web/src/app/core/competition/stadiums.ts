@@ -6,7 +6,8 @@ import { StadiumBackgrounds } from './stadium-weather';
 export interface Stadium extends Coordinates {
   readonly country: Country;
   readonly icon: string;
-  readonly background?: string;
+  /** The club whose home ground this is. */
+  readonly club?: string;
   readonly backgrounds?: StadiumBackgrounds;
 }
 
@@ -17,7 +18,8 @@ export function stadiumCatalogue(venues: Readonly<Record<string, Stadium>>): Sta
   return {
     country: (venue) => find(venue)?.country,
     icon: (venue) => find(venue)?.icon,
-    background: (venue) => find(venue)?.background,
+    home: (teamId) =>
+      teamId ? Object.keys(venues).find((name) => venues[name].club === teamId) : undefined,
     backgrounds: (venue) => find(venue)?.backgrounds,
     position: (venue) => {
       const found = find(venue);
@@ -125,7 +127,7 @@ function stadium(
     latitude,
     longitude,
     icon: `assets/images/stadiums/${icon}.webp`,
-    background: team?.stadiumBackground,
+    club: team?.id,
     backgrounds: team?.stadiumBackgrounds,
   };
 }

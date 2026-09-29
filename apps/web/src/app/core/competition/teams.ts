@@ -43,7 +43,6 @@ function team(
     illustrated,
     jersey: `assets/images/jerseys/${id}.${illustrated ? 'svg' : 'png'}`,
     avatar: `assets/images/teams/${id}.png`,
-    stadiumBackground: `assets/images/match-nights/${id}.webp`,
     stadiumBackgrounds: stadiumBackgrounds(id),
   };
 }

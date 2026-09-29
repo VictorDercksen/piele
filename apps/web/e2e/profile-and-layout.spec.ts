@@ -54,7 +54,7 @@ test('first visit requires a favourite team and saves a personal identity', asyn
     .poll(() => stadiumIcon.evaluate((img: HTMLImageElement) => img.naturalWidth))
     .toBeGreaterThan(0);
   const stadiumBackground = page.locator('.page-backdrop img.visible');
-  await expect(stadiumBackground).toHaveAttribute('src', /match-nights\/connacht-rugby\.webp/);
+  await expect(stadiumBackground).toHaveAttribute('src', /stadium-weather\/connacht-rugby\//);
   await expect
     .poll(() => stadiumBackground.evaluate((img: HTMLImageElement) => img.naturalWidth))
     .toBeGreaterThan(0);
@@ -64,6 +64,8 @@ test('first visit requires a favourite team and saves a personal identity', asyn
 });
 
 test('profile photo, replacement, removal and team changes persist', async ({ page }) => {
+  // Round 01 is current, so Munster's featured match is at Thomond Park.
+  await page.clock.setFixedTime(new Date('2026-09-20T10:00:00Z'));
   await page.goto('/piele');
   await join(page);
   await page.getByRole('link', { name: 'My profile', exact: true }).click();
@@ -100,7 +102,7 @@ test('profile photo, replacement, removal and team changes persist', async ({ pa
   await expect(page.locator('.score-bug')).toContainText('Munster');
   await expect(page.locator('.page-backdrop img.visible')).toHaveAttribute(
     'src',
-    /match-nights\/munster-rugby\.webp/,
+    /stadium-weather\/munster-rugby\//,
   );
   await expect(page.locator('.header-profile .identity-avatar img')).toHaveCount(1);
   await page.reload();

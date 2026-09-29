@@ -41,7 +41,6 @@ export interface ClubTeam {
   readonly jersey: string;
   /** Square club artwork used for member avatars. */
   readonly avatar: string;
-  readonly stadiumBackground: string;
   /** Home-ground artwork by weather condition, in public/assets/images/stadium-weather. */
   readonly stadiumBackgrounds: StadiumBackgrounds;
   readonly illustrated: boolean;
@@ -73,8 +72,8 @@ export interface StadiumCatalogue {
   country(venue: string | null | undefined): Country | undefined;
   /** The icon of a known venue, or undefined for an unconfirmed or unknown one. */
   icon(venue: string | null | undefined): string | undefined;
-  /** Match-night artwork for the actual venue. Alternate grounds have none. */
-  background(venue: string | null | undefined): string | undefined;
+  /** The name of a club's home ground, or undefined for a club without one. */
+  home(teamId: string | null | undefined): string | undefined;
   /** Weather artwork for the actual venue. Alternate grounds have none. */
   backgrounds(venue: string | null | undefined): StadiumBackgrounds | undefined;
   /** Where a known venue stands, or undefined for an unconfirmed or unknown one. */

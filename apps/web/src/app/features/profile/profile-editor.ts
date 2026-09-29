@@ -28,6 +28,7 @@ import { preparePhoto } from '../../core/profile/profile-photo';
 import { ProfileControlService } from '../../core/profile/profile-control.service';
 import { ProfileService } from '../../core/profile/profile.service';
 import { CompetitionService, shortSeason } from '../../core/competition/competition.service';
+import { StadiumSceneService } from '../../core/competition/stadium-scene.service';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideArrowRight, lucideLogOut, lucideTrash2, lucideX } from '@ng-icons/lucide';
 import { Loader } from '../../shared/loader/loader';
@@ -64,6 +65,7 @@ export class ProfileEditor {
   private readonly members = inject(MemberService);
   private readonly context = inject(LeagueContext);
   private readonly competition = inject(CompetitionService);
+  private readonly scenes = inject(StadiumSceneService);
   private readonly alerts = inject(AlertService);
   private readonly injector = inject(Injector);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
@@ -105,6 +107,8 @@ export class ProfileEditor {
     initialValue: this.form.controls.displayName.value,
   });
   readonly selectedTeam = computed(() => this.competition.current().team(this.teamId()));
+  /** The chosen (possibly unsaved) club's home ground, in its weather for the round. */
+  readonly posterBackground = computed(() => this.scenes.homeGroundBackground(this.selectedTeam()));
   /** The chosen club's jersey, or the competition's placeholder shirt before a choice. */
   readonly stageJersey = computed(() => this.competition.current().jersey(this.teamId()));
   readonly stageJerseyAlt = computed(() => {

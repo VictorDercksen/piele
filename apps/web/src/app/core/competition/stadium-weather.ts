@@ -1,4 +1,4 @@
-import type { SkyScene } from '../../features/match/weather-sky';
+import type { SkyScene } from './sky-scene';
 
 /** The weather variants of a stadium's artwork, in fallback order. */
 export const STADIUM_CONDITIONS = [
