@@ -24,7 +24,15 @@ import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideArrowRight, lucideLock, lucidePencil, lucideX } from '@ng-icons/lucide';
+import {
+  lucideArrowRight,
+  lucideEyeOff,
+  lucideLock,
+  lucideMinus,
+  lucidePencil,
+  lucidePlus,
+  lucideX,
+} from '@ng-icons/lucide';
 import { map } from 'rxjs';
 import { CompetitionService } from '../../../core/competition/competition.service';
 import { LeagueTime } from '../../../core/competition/league-time';
@@ -45,6 +53,7 @@ import { chipOf } from './pick-chip.view';
 import {
   createPickForm,
   pickFormValue,
+  parseMargin,
   pickFromForm,
   pickProblems,
   signedMargin,
@@ -61,10 +70,10 @@ import {
 
 /**
  * The match centre's "Pool picks." panel. Before kickoff a member without a pick sees only
- * their own pick form: the margin scale, a strip in the scoring panel's shape with a crest at
- * each end and a range between them, where the marker's distance from the middle is the margin
- * toward that side and the middle is a draw (`slide`, `nudge` from either crest, `pickDraw`, the
- * `quick` margins and the typed margin, all writing the same two form controls). Once their
+ * their own pick form: the matchup, a crest button for each side, over the margin scale, a range
+ * where the marker's distance from the middle is the margin toward that side and the middle is a
+ * draw (`slide`, `nudge` from either crest, `pickDraw`, the `quick` margins, the typed margin and
+ * its stepper, all writing the same two form controls). Once their
  * pick is in they see their own pick, and can edit theirs until kickoff. After kickoff their
  * line carries their points and place. The pool's split and the pool table itself (every pick
  * with its outcome, margin and bonus marks and points, as PickService scores them) are the body
@@ -93,7 +102,17 @@ import {
     HlmLabel,
     HlmSlider,
   ],
-  viewProviders: [provideIcons({ lucideArrowRight, lucideLock, lucidePencil, lucideX })],
+  viewProviders: [
+    provideIcons({
+      lucideArrowRight,
+      lucideEyeOff,
+      lucideLock,
+      lucideMinus,
+      lucidePencil,
+      lucidePlus,
+      lucideX,
+    }),
+  ],
 })
 export class PicksPanel {
   private readonly alerts = inject(AlertService);
@@ -157,12 +176,6 @@ export class PicksPanel {
     const { side, margin } = this.value();
     return scaleOf(side, margin, this.sides());
   });
-
-  /**
-   * Which side of the Draw chip the margin field sits: the chosen club's, and the last club's
-   * while a draw is chosen or nothing is yet.
-   */
-  readonly marginSlot = signal<'home' | 'away'>('home');
 
   /** The member's own form: before kickoff, for a member, until the pick is in or while editing. */
   readonly showForm = computed(() => {
@@ -257,7 +270,6 @@ export class PicksPanel {
     this.form.controls.side.valueChanges.pipe(takeUntilDestroyed()).subscribe({
       next: (side) => {
         const margin = this.form.controls.margin;
-        if (side === 'home' || side === 'away') this.marginSlot.set(side);
         if (side === 'draw') {
           margin.setValue('');
           margin.disable();
@@ -310,6 +322,21 @@ export class PicksPanel {
     }
     this.form.controls.side.setValue(signed < 0 ? 'home' : 'away');
     this.form.controls.margin.setValue(String(Math.abs(signed)));
+  }
+
+  /** The margin stepper works once a club is chosen. */
+  stepsMargin(): boolean {
+    this.status();
+    const side = this.value().side;
+    return side === 'home' || side === 'away';
+  }
+
+  /** The stepper moved the margin a point, keeping the side and staying from 1 to 150. */
+  stepMargin(delta: 1 | -1): void {
+    const { side, margin } = this.form.getRawValue();
+    if (side !== 'home' && side !== 'away') return;
+    const next = Math.max(1, Math.min(150, (parseMargin(margin) ?? 0) + delta));
+    this.form.controls.margin.setValue(String(next));
   }
 
   marginDisabled(): boolean {

@@ -14,28 +14,60 @@
         @if (sides(); as sides) {
           @let s = scale();
           <form class="pick-form" [formGroup]="form" (ngSubmit)="save()" novalidate>
-            <div class="scale-field">
+            <div class="form-head">
               <span class="legend" id="pick-scale-legend">Your pick</span>
+              <span class="lock"
+                ><ng-icon name="lucideLock" aria-hidden="true" />Picks lock at kickoff{{
+                  p.fixture.kickoffUtc ? ', ' : ''
+                }}{{ p.fixture.kickoffUtc | leagueTime: 'd MMM HH:mm z' : zone() }}.</span
+              >
+            </div>
+            <div class="matchup">
+              <button
+                hlmBtn
+                type="button"
+                class="end home"
+                [class.dim]="s.side === 'away'"
+                [class.won]="s.side === 'home'"
+                [style.--club]="sides.home.colour"
+                [style.--club-banner]="sides.home.banner"
+                [style.--club-accent]="sides.home.accent"
+                [attr.aria-label]="'One point toward ' + sides.home.name"
+                (click)="nudge('home')"
+              >
+                <img [src]="sides.home.crest ?? sides.home.jersey" alt="" />
+                <span class="end-name"
+                  ><b>{{ sides.home.name }}</b
+                  ><small>Home</small></span
+                >
+              </button>
+              <span class="versus" aria-hidden="true">v</span>
+              <button
+                hlmBtn
+                type="button"
+                class="end away"
+                [class.dim]="s.side === 'home'"
+                [class.won]="s.side === 'away'"
+                [style.--club]="sides.away.colour"
+                [style.--club-banner]="sides.away.banner"
+                [style.--club-accent]="sides.away.accent"
+                [attr.aria-label]="'One point toward ' + sides.away.name"
+                (click)="nudge('away')"
+              >
+                <img [src]="sides.away.crest ?? sides.away.jersey" alt="" />
+                <span class="end-name"
+                  ><b>{{ sides.away.name }}</b
+                  ><small>Away</small></span
+                >
+              </button>
+            </div>
+            <div class="scale-field">
               <div
                 #scaleStrip
                 class="scale"
                 [class.picked]="s.side !== null"
                 [attr.aria-invalid]="invalid('side')"
               >
-                <button
-                  hlmBtn
-                  type="button"
-                  class="end home"
-                  [class.dim]="s.side !== 'home'"
-                  [class.won]="s.side === 'home'"
-                  [style.--club]="sides.home.colour"
-                  [style.--club-accent]="sides.home.accent"
-                  [attr.aria-label]="'One point toward ' + sides.home.name"
-                  (click)="nudge('home')"
-                >
-                  <img [src]="sides.home.crest ?? sides.home.jersey" alt="" />
-                  <b>{{ sides.home.name }}</b>
-                </button>
                 <div class="track">
                   <span class="axis" aria-hidden="true"></span>
                   <span class="tick t0" aria-hidden="true"></span>
@@ -43,11 +75,6 @@
                   <span class="tick t50" aria-hidden="true"></span>
                   <span class="tick t75" aria-hidden="true"></span>
                   <span class="tick t100" aria-hidden="true"></span>
-                  <span class="tick-label t0" aria-hidden="true">{{ reach }}</span>
-                  <span class="tick-label quarter t25" aria-hidden="true">{{ reach / 2 }}</span>
-                  <span class="tick-label t50" aria-hidden="true">Draw</span>
-                  <span class="tick-label quarter t75" aria-hidden="true">{{ reach / 2 }}</span>
-                  <span class="tick-label t100" aria-hidden="true">{{ reach }}</span>
                   <span
                     class="fill"
                     [style.left.%]="s.fillLeft"
@@ -60,6 +87,7 @@
                     [class.draw]="s.side === 'draw'"
                     [class.none]="s.side === null"
                     [style.left.%]="s.pct"
+                    [style.--club]="s.side === 'away' ? sides.away.accent : sides.home.accent"
                     aria-hidden="true"
                     >{{ s.thumb }}</span
                   >
@@ -76,27 +104,21 @@
                     (valueChange)="slide($event)"
                   />
                 </div>
-                <button
-                  hlmBtn
-                  type="button"
-                  class="end away"
-                  [class.dim]="s.side !== 'away'"
-                  [class.won]="s.side === 'away'"
-                  [style.--club]="sides.away.colour"
-                  [style.--club-accent]="sides.away.accent"
-                  [attr.aria-label]="'One point toward ' + sides.away.name"
-                  (click)="nudge('away')"
-                >
-                  <img [src]="sides.away.crest ?? sides.away.jersey" alt="" />
-                  <b>{{ sides.away.name }}</b>
-                </button>
+              </div>
+              <div class="tick-labels" aria-hidden="true">
+                <span class="tick-label t0">{{ reach }}</span>
+                <span class="tick-label quarter t25">{{ reach / 2 }}</span>
+                <span class="tick-label t50">Draw</span>
+                <span class="tick-label quarter t75">{{ reach / 2 }}</span>
+                <span class="tick-label t100">{{ reach }}</span>
               </div>
             </div>
-            <div class="scale-under">
+            <div class="quick-row">
               <div
                 class="quick home"
                 role="group"
                 [attr.aria-label]="'Quick margins for ' + sides.home.name"
+                [style.--club]="sides.home.banner"
               >
                 @for (m of homeQuick; track m; let first = $first) {
                   <button
@@ -112,10 +134,20 @@
                   </button>
                 }
               </div>
+              <button
+                hlmBtn
+                type="button"
+                class="draw-pick"
+                [attr.aria-pressed]="s.side === 'draw'"
+                (click)="pickDraw()"
+              >
+                Draw
+              </button>
               <div
                 class="quick away"
                 role="group"
                 [attr.aria-label]="'Quick margins for ' + sides.away.name"
+                [style.--club]="sides.away.banner"
               >
                 @for (m of awayQuick; track m; let last = $last) {
                   <button
@@ -131,53 +163,64 @@
                   </button>
                 }
               </div>
-              <button
-                hlmBtn
-                type="button"
-                class="draw-pick"
-                [attr.aria-pressed]="s.side === 'draw'"
-                (click)="pickDraw()"
-              >
-                Draw
-              </button>
-              <div class="field margin-field" [class.away]="marginSlot() === 'away'">
+            </div>
+            <div class="form-foot">
+              <div class="field margin-field">
                 <label hlmLabel for="pick-margin">Margin <span>(points)</span></label>
-                <input
-                  hlmInput
-                  #marginInput
-                  id="pick-margin"
-                  formControlName="margin"
-                  inputmode="numeric"
-                  autocomplete="off"
-                  maxlength="3"
-                  [aria-invalid]="invalid('margin')"
-                  [attr.aria-describedby]="marginDisabled() ? 'pick-margin-hint' : null"
-                />
+                <div class="stepper">
+                  <button
+                    hlmBtn
+                    type="button"
+                    class="step"
+                    aria-label="One point less"
+                    [disabled]="!stepsMargin()"
+                    (click)="stepMargin(-1)"
+                  >
+                    <ng-icon name="lucideMinus" aria-hidden="true" />
+                  </button>
+                  <input
+                    hlmInput
+                    #marginInput
+                    id="pick-margin"
+                    formControlName="margin"
+                    inputmode="numeric"
+                    autocomplete="off"
+                    maxlength="3"
+                    [aria-invalid]="invalid('margin')"
+                    [attr.aria-describedby]="marginDisabled() ? 'pick-margin-hint' : null"
+                  />
+                  <button
+                    hlmBtn
+                    type="button"
+                    class="step"
+                    aria-label="One point more"
+                    [disabled]="!stepsMargin()"
+                    (click)="stepMargin(1)"
+                  >
+                    <ng-icon name="lucidePlus" aria-hidden="true" />
+                  </button>
+                </div>
+              </div>
+              <div class="form-actions">
+                <button hlmBtn type="submit" class="primary-button" [disabled]="saving()">
+                  {{ saving() ? 'Saving' : 'Save pick' }}
+                </button>
+                @if (editing()) {
+                  <button hlmBtn type="button" class="text-button" (click)="cancel()">
+                    Cancel<ng-icon class="link-icon" name="lucideX" />
+                  </button>
+                }
               </div>
             </div>
             @if (marginDisabled()) {
               <p id="pick-margin-hint" class="hint">A draw has no margin.</p>
             }
-            <div class="form-actions">
-              <button hlmBtn type="submit" class="primary-button" [disabled]="saving()">
-                {{ saving() ? 'Saving' : 'Save pick' }}
-              </button>
-              @if (editing()) {
-                <button hlmBtn type="button" class="text-button" (click)="cancel()">
-                  Cancel<ng-icon class="link-icon" name="lucideX" />
-                </button>
-              }
-            </div>
-            <p class="form-note">
-              @if (!p.recorded) {
-                Make your pick to see the pool's picks.
-              }
-              <span class="lock"
-                ><ng-icon name="lucideLock" aria-hidden="true" />Picks lock at kickoff{{
-                  p.fixture.kickoffUtc ? ', ' : ''
-                }}{{ p.fixture.kickoffUtc | leagueTime: 'd MMM HH:mm z' : zone() }}.</span
-              >
-            </p>
+            @if (!p.recorded) {
+              <p class="form-note">
+                <ng-icon name="lucideEyeOff" aria-hidden="true" />Make your pick to see the pool's
+                picks.
+              </p>
+            }
           </form>
         }
       } @else if (mine(); as mine) {
