@@ -58,8 +58,10 @@ def clip(value: str, length: int) -> str:
     return value if len(value) <= length else value[: length - 1].rstrip() + "…"
 
 
-def enqueue(connection: Connection, messages: Iterable[Message]) -> None:
-    """Queues the messages; one whose dedup key is already queued is skipped."""
+def enqueue(connection: Connection, messages: Iterable[Message], *, skip_queued: bool = True) -> None:
+    """Queues the messages; with `skip_queued`, one whose dedup key is already queued is
+    skipped. That needs read access to the outbox, which only the job has: league events
+    queue with keys unique to their event and pass False."""
     rows = [
         {
             "user_id": m.user_id,
@@ -74,8 +76,11 @@ def enqueue(connection: Connection, messages: Iterable[Message]) -> None:
         }
         for m in messages
     ]
-    if rows:
-        connection.execute(insert(push_outbox).on_conflict_do_nothing(index_elements=["dedup_key"]), rows)
+    if not rows:
+        return
+    # inline(): no RETURNING of the generated id, which would need read access too.
+    statement = insert(push_outbox).inline()
+    connection.execute(statement.on_conflict_do_nothing(index_elements=["dedup_key"]) if skip_queued else statement, rows)
 
 
 def join_names(names: list[str]) -> str:

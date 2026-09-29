@@ -2,6 +2,9 @@
 // It caches nothing and handles no fetches, so every page and API response still comes from
 // the network. Messages are JSON from the API's push job: { title, body, url, tag }.
 
+// Only a path on this site: '//host' and '/\\host' would leave it.
+const appPath = (url) => (/^\/(?![/\\])/.test(url) ? url : '/');
+
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()));
 
@@ -20,14 +23,14 @@ self.addEventListener('push', (event) => {
       tag: text(message.tag, undefined),
       icon: '/assets/icons/icon-192.png',
       badge: '/assets/icons/badge-96.png',
-      data: { url: url.startsWith('/') ? url : '/' },
+      data: { url: appPath(url) },
     }),
   );
 });
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const target = new URL(event.notification.data?.url || '/', self.location.origin).href;
+  const target = new URL(appPath(event.notification.data?.url || '/'), self.location.origin).href;
   event.waitUntil(
     (async () => {
       const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });

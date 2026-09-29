@@ -39,8 +39,8 @@ Testing happens on production. Plan decision P5 (push deferred) is updated.
   Apple, Windows), checked on input and again before sending. An account keeps its 10 newest
   browsers.
 - **RLS.** The job sets `piele.job = 'push'`: it may list leagues, read memberships and work the
-  push tables; league reads still set each league's context. A league context can queue
-  (insert) and read its own league's queued messages (needed by `on conflict do nothing`).
+  push tables; league reads still set each league's context. A league context can only queue
+  (insert, without `RETURNING`) its own league's messages.
 
 ## Files
 
@@ -70,6 +70,12 @@ Testing happens on production. Plan decision P5 (push deferred) is updated.
 - Service worker in Chromium: a push delivered through DevTools
   (`ServiceWorker.deliverPushMessage`) showed a notification with the sent title, body, tag and
   link.
+- An independent review found nothing blocking. Fixed from it: sign-out and "Turn off" now end
+  the browser's subscription even when the API call fails; leases and retry times use the
+  database clock instead of the run's start; rows leased by a run that died count towards the
+  3 attempts; requests queue with a plain insert, so no league context can read the outbox, and
+  the veto message's key no longer carries the ballot id; the service worker rejects `//host`
+  and `/\host` links.
 - Not run: a real subscription through FCM, Mozilla or Apple (needs a device and the production
   keys), the Vercel Cron trigger, and the migration on the production database.
 
@@ -87,5 +93,9 @@ Testing happens on production. Plan decision P5 (push deferred) is updated.
   failure until then.
 - Evidence cases still settle lazily: an automatic accept after 24 hours (and its "Evidence
   accepted" message) happens at the next request that reads duties, cases, marks or the feed.
+- Where push is not configured (staging, local), requests still queue messages and nothing
+  clears them; the rows are small and follow league activity.
+- A push service's 403 (for example after replacing the VAPID key) is retried, not treated as a
+  dead subscription, so a broken key cannot wipe every subscription.
 - Teamsheet and preview messages go to every member with the kind on; members who want fewer
   turn `matches` off.

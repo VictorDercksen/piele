@@ -450,9 +450,18 @@ def claim(connection: Connection, now: datetime) -> tuple[list[Any], dict[UUID, 
         .where(o.c.status == "pending", o.c.league_id.is_not(None), ~member)
         .values(status="dropped", last_error="not a member")
     )
+    # Leases use the database clock, not the run's start: a long run or an overlapping one
+    # never sees a lease as expired while its batch is still being sent.
+    free = or_(o.c.lease_until.is_(None), o.c.lease_until < func.now())
+    # A run that died after claiming leaves its rows leased; they count as attempts.
+    connection.execute(
+        update(o)
+        .where(o.c.status == "pending", free, o.c.attempts >= MAX_ATTEMPTS)
+        .values(status="failed", lease_until=None, last_error="no outcome recorded")
+    )
     rows = connection.execute(
         select(o)
-        .where(o.c.status == "pending", or_(o.c.lease_until.is_(None), o.c.lease_until < now))
+        .where(o.c.status == "pending", free)
         .order_by(o.c.created_at)
         .limit(SEND_BATCH)
         .with_for_update(skip_locked=True)
@@ -460,7 +469,7 @@ def claim(connection: Connection, now: datetime) -> tuple[list[Any], dict[UUID, 
     if not rows:
         return [], {}
     connection.execute(
-        update(o).where(o.c.id.in_([r.id for r in rows])).values(lease_until=now + LEASE, attempts=o.c.attempts + 1)
+        update(o).where(o.c.id.in_([r.id for r in rows])).values(lease_until=func.now() + LEASE, attempts=o.c.attempts + 1)
     )
     subscriptions: dict[UUID, list[Any]] = {}
     for sub in connection.execute(select(s).where(s.c.user_id.in_({r.user_id for r in rows}))):
@@ -526,7 +535,7 @@ def record_outcomes(
                 failed = row.attempts + 1 >= MAX_ATTEMPTS
                 values = {
                     "status": "failed" if failed else "pending",
-                    "lease_until": None if failed else now + RETRY_AFTER,
+                    "lease_until": None if failed else func.now() + RETRY_AFTER,
                     "last_error": errors[row.id],
                 }
                 if failed:

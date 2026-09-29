@@ -111,7 +111,7 @@ def queue_for_feed(
                     (
                         reviewer,
                         "case_review",
-                        f"case_review:{veto.voter_id}",
+                        f"case_review:{veto.case_id}:{uuid4()}",
                         "A veto needs your ruling",
                         f"{veto.subject_name}: {title_of(duty)} evidence was vetoed.",
                         f"{base}/{page}",
@@ -145,7 +145,7 @@ def queue_for_feed(
             continue
         seen.add((user_id, key))
         queued.append(Message(user_id, league_id, kind, f"{key}:{user_id}", title, body, url, tag, expires))
-    enqueue(connection, queued)
+    enqueue(connection, queued, skip_queued=False)
 
 
 def _recipients(connection: Connection, league_id: UUID, members: Iterable[UUID]) -> dict[UUID, tuple[UUID, object]]:
@@ -186,7 +186,6 @@ def _pending_veto(connection: Connection, duty_id: UUID):
         select(
             c.c.id.label("case_id"),
             c.c.subject_membership_id,
-            v.c.id.label("voter_id"),
             v.c.membership_id.label("vetoer_id"),
             m.c.display_name.label("subject_name"),
         )

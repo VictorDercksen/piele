@@ -78,15 +78,19 @@ export class PushClient {
   async unsubscribe(): Promise<void> {
     const registration = await this.register();
     const subscription = await registration?.pushManager.getSubscription();
-    if (subscription) {
-      await firstValueFrom(
-        this.http.delete<void>(`${environment.apiUrl}/v1/me/push-subscriptions`, {
-          body: { endpoint: subscription.endpoint },
-        }),
-      );
-      await subscription.unsubscribe();
+    try {
+      if (subscription)
+        await firstValueFrom(
+          this.http.delete<void>(`${environment.apiUrl}/v1/me/push-subscriptions`, {
+            body: { endpoint: subscription.endpoint },
+          }),
+        );
+    } finally {
+      // The browser's subscription ends even when the API is unreachable: its endpoint then
+      // answers 410 and the job forgets it, so nothing reaches this device afterwards.
+      await subscription?.unsubscribe().catch(() => false);
+      this.subscribedState.set(false);
     }
-    this.subscribedState.set(false);
   }
 
   /** On sign-out: the next account on this device starts with push off. Never throws. */
@@ -95,7 +99,7 @@ export class PushClient {
     try {
       await this.unsubscribe();
     } catch {
-      // Signing out goes ahead; the API drops the subscription when the next account takes it.
+      // Signing out goes ahead; the browser's subscription has ended either way.
     }
     this.preferencesState.set(null);
   }

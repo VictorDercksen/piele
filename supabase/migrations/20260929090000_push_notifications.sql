@@ -72,10 +72,6 @@ create index ix_push_outbox_pending on piele.push_outbox (created_at) where stat
 alter table piele.push_outbox enable row level security;
 create policy push_outbox_queue on piele.push_outbox for insert to piele_api
   with check (league_id = piele.current_league_id() or piele.current_job() = 'push');
--- Queuing skips a message already queued (on conflict do nothing), which needs the row to be
--- readable: a league context reads its own league's messages.
-create policy push_outbox_league on piele.push_outbox for select to piele_api
-  using (league_id = piele.current_league_id());
 create policy push_outbox_job on piele.push_outbox for all to piele_api
   using (piele.current_job() = 'push') with check (piele.current_job() = 'push');
 
