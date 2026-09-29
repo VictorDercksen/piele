@@ -1,145 +1,63 @@
-<div class="section-title">
-  <h2>Your next move.</h2>
-  <span>ROUND {{ fixtures.round().code }}</span>
-</div>
-@if (dutyService.myDuty(); as duty) {
-  <article class="duty-feature" [class.spoon-duty]="duty.spoon">
-    @if (duty.spoon) {
-      <div class="spoon-art" aria-hidden="true"></div>
-    }
-    <div class="spoon-content">
-      <span class="duty-watermark" aria-hidden="true">{{ fixtures.round().code }}</span
-      ><span class="duty-slip-label">THE POST-MATCH PAPERWORK / R{{ fixtures.round().code }}</span>
-      <div class="duty-top">
-        <span class="tag">{{ duty.statusLabel.toUpperCase() }}</span
-        ><span class="duty-round">{{ members.memberName() }}</span>
-      </div>
-      @if (duty.display === 'open' || duty.display === 'pending_deadline') {
-        <h3>{{ duty.spoon ? 'The Spoon has your name on it.' : duty.title }}</h3>
-        <p>
-          {{ duty.title }}.
-          {{
-            duty.deadlineAt
-              ? 'Submit your evidence for this round before the deadline.'
-              : 'The captain still has to confirm the deadline.'
-          }}
-        </p>
-      } @else if (duty.display === 'overdue') {
-        <h3>Overdue. The clock is running.</h3>
-        <p>
-          {{ duty.title }}. {{ duty.marks.marks }} house
-          {{ duty.marks.marks === 1 ? 'mark' : 'marks' }} so far, one more every full week.
-        </p>
-      } @else if (duty.display === 'under_review') {
-        @if (duty.liveCase?.status === 'in_review') {
-          <h3>Vetoed. Awaiting a ruling.</h3>
-          <p>
-            {{ duty.title }}. A member vetoed your evidence; an uninvolved reviewer rules on the
-            veto.
-          </p>
-        } @else if (duty.liveCase?.status === 'open') {
-          <h3>Over to the league.</h3>
-          <p>
-            {{ duty.title }}. Members accept or veto your evidence until {{ closes(duty) }}; with no
-            veto it is accepted then.
-          </p>
-        } @else {
-          <h3>Over to the captain.</h3>
-          <p>{{ duty.title }}. Your evidence is waiting for an uninvolved reviewer.</p>
-        }
-      } @else if (duty.display === 'voided') {
-        <h3>Duty voided.</h3>
-        <p>{{ duty.title }}. {{ duty.voidReason || 'Closed by the captain.' }}</p>
-      } @else {
-        <h3>Duty completed.</h3>
-        <p>{{ duty.title }}. Your evidence was accepted.</p>
-      }
-      <div class="due-line">
-        <app-icon name="clock" /><span>{{ deadline(duty) }}</span>
-      </div>
-      <div class="duty-actions">
-        @if (
-          duty.display === 'open' ||
-          duty.display === 'overdue' ||
-          duty.display === 'pending_deadline'
-        ) {
-          <button hlmBtn type="button" class="primary-button" (click)="upload.emit(duty)">
-            <app-icon name="upload" />Upload evidence
-          </button>
-        } @else {
-          <button hlmBtn type="button" class="primary-button" (click)="duties.emit()">
-            <app-icon name="duties" />View duty
-          </button>
-        }
-        <a
+@if (visible()) {
+  <div class="section-title">
+    <h2>Your next move.</h2>
+    <span>ROUND {{ fixtures.round().code }}</span>
+  </div>
+  @if (duty(); as duty) {
+    <article class="duty-feature" [class.spoon-duty]="duty.spoon">
+      <a class="duty-link" [routerLink]="'/duties' | leaguePath" queryParamsHandling="preserve">
+        <span class="duty-eyebrow"
+          >{{ duty.spoon ? 'The Spoon' : 'Your duty' }} · {{ duty.statusLabel }}</span
+        >
+        <h3>{{ duty.title }}</h3>
+        <span class="duty-meta"><app-icon name="clock" />{{ status(duty) }}</span>
+      </a>
+      @if (canUpload(duty)) {
+        <button
           hlmBtn
-          class="text-button"
-          [routerLink]="'/duties' | leaguePath"
+          type="button"
+          class="primary-button duty-upload"
+          aria-label="Upload evidence"
+          (click)="upload.emit(duty)"
+        >
+          <app-icon name="upload" />
+        </button>
+      } @else {
+        <ng-icon class="link-icon" name="lucideArrowRight" aria-hidden="true" />
+      }
+    </article>
+  }
+  @if (voteCount() || rulingCount() || captainCount()) {
+    <div class="action-chips">
+      @if (voteCount(); as count) {
+        <a
+          class="action-chip"
+          [routerLink]="'/decisions' | leaguePath"
           queryParamsHandling="preserve"
-          >Duty details<ng-icon class="link-icon" name="lucideArrowRight"
-        /></a>
-      </div>
+        >
+          <app-icon name="decisions" />Evidence to vote on<span class="chip-count">{{
+            count
+          }}</span>
+        </a>
+      }
+      @if (rulingCount(); as count) {
+        <a
+          class="action-chip"
+          [routerLink]="(members.administers() ? '/captain' : '/decisions') | leaguePath"
+          queryParamsHandling="preserve"
+        >
+          <app-icon name="shield" />Veto to rule on<span class="chip-count">{{ count }}</span>
+        </a>
+      }
+      @if (captainCount(); as count) {
+        <a
+          class="action-chip"
+          [routerLink]="'/captain' | leaguePath"
+          queryParamsHandling="preserve"
+        >
+          <app-icon name="shield" />Captain review<span class="chip-count">{{ count }}</span>
+        </a>
+      }
     </div>
-  </article>
-} @else {
-  <article class="round-empty">
-    <app-icon name="check" />
-    <h3>No duties for you in Round {{ fixtures.round().code }}.</h3>
-    <p>
-      {{
-        fixtures.round().status === 'Completed'
-          ? 'Your personal register is clear for this completed round.'
-          : 'Only confirmed duties for this round will appear here.'
-      }}
-    </p>
-    <a
-      hlmBtn
-      class="text-button"
-      [routerLink]="'/duties' | leaguePath"
-      [queryParams]="{ scope: 'league' }"
-      queryParamsHandling="merge"
-      >League duties ({{ dutyService.duties().length }})<ng-icon
-        class="link-icon"
-        name="lucideArrowRight"
-    /></a>
-  </article>
-}
-@if (cases.roundAwaitingResponse().length; as count) {
-  <a class="captain-queue" [routerLink]="'/decisions' | leaguePath" queryParamsHandling="preserve">
-    <app-icon name="decisions" /><span
-      ><strong>Evidence awaits your vote.</strong
-      ><small
-        >{{ count }} {{ count === 1 ? 'case' : 'cases' }} to accept or veto in Round
-        {{ fixtures.round().code }}</small
-      ></span
-    ><span class="queue-count">{{ count }}</span
-    ><ng-icon class="link-icon" name="lucideArrowRight" />
-  </a>
-}
-@if (cases.roundAwaitingReview().length; as count) {
-  <a
-    class="captain-queue"
-    [routerLink]="(members.administers() ? '/captain' : '/decisions') | leaguePath"
-    queryParamsHandling="preserve"
-  >
-    <app-icon name="shield" /><span
-      ><strong>A veto awaits your ruling.</strong
-      ><small
-        >{{ count }} {{ count === 1 ? 'veto' : 'vetoes' }} to uphold or dismiss in Round
-        {{ fixtures.round().code }}</small
-      ></span
-    ><span class="queue-count">{{ count }}</span
-    ><ng-icon class="link-icon" name="lucideArrowRight" />
-  </a>
-}
-@if (members.administers() && dutyService.reviewCount()) {
-  <a class="captain-queue" [routerLink]="'/captain' | leaguePath" queryParamsHandling="preserve">
-    <app-icon name="shield" /><span
-      ><strong>Captain, you're up.</strong
-      ><small
-        >{{ dutyService.reviewCount() }} items in Round {{ fixtures.round().code }}</small
-      ></span
-    ><span class="queue-count">{{ dutyService.reviewCount() }}</span
-    ><ng-icon class="link-icon" name="lucideArrowRight" />
-  </a>
+  }
 }

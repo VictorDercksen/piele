@@ -79,7 +79,7 @@ test('sample league duties, evidence, votes and round scoping', async ({ page })
   await page.goto('/piele?round=2');
   const nav = page.getByRole('navigation', { name: 'League navigation', exact: true });
   await expect(page.getByRole('region', { name: 'Selected round' })).toContainText('Round 02');
-  await expect(page.locator('.duty-feature')).toContainText('Victor Dercksen');
+  await expect(page.locator('.duty-feature')).toContainText('The Spoon');
   await expect(page.locator('.duty-feature')).toHaveClass(/spoon-duty/);
   await page.getByRole('button', { name: 'Upload evidence', exact: true }).click();
   await expect(page.getByRole('dialog').locator('hlm-dialog-content')).toHaveClass(/spoon-duty/);
@@ -97,7 +97,8 @@ test('sample league duties, evidence, votes and round scoping', async ({ page })
     buffer: Buffer.from('demo'),
   });
   await page.getByRole('button', { name: 'Submit evidence' }).click();
-  await expect(page.getByRole('heading', { name: 'Over to the league.' })).toBeVisible();
+  await expect(page.locator('.duty-feature')).toContainText('The Spoon · Under review');
+  await expect(page.locator('.duty-feature')).toContainText('Members vote until');
   await expect(page.getByRole('status').filter({ hasText: 'No file was uploaded' })).toBeVisible();
   // The dialog's warning left with the problem it named.
   await expect(page.getByRole('status').filter({ hasText: 'Choose a video file' })).toHaveCount(0);

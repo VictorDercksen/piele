@@ -12,7 +12,7 @@ test('a dismissed veto reopens voting; the captain’s own veto waits for anothe
   page,
 }) => {
   await page.goto('/piele?round=2');
-  await page.getByRole('link', { name: /A veto awaits your ruling/ }).click();
+  await page.getByRole('link', { name: /Veto to rule on/ }).click();
   await expect(page).toHaveURL(/\/piele\/captain\?round=2/);
 
   const nav = page.getByRole('navigation', { name: 'League navigation', exact: true });
@@ -99,7 +99,7 @@ test('an upheld veto rejects the evidence and leaves the duty open', async ({ pa
 
 test('a member accepts evidence under the league’s vote', async ({ page }) => {
   await page.goto('/pofadder-bowl?round=2');
-  await page.getByRole('link', { name: /Evidence awaits your vote/ }).click();
+  await page.getByRole('link', { name: /Evidence to vote on/ }).click();
   await expect(page).toHaveURL(/\/pofadder-bowl\/decisions\?round=2/);
   const card = page.locator('app-case-card').filter({ hasText: 'Thabo' });
   await expect(card).toContainText('VOTING OPEN');

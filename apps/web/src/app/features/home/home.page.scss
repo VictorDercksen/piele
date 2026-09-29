@@ -110,6 +110,11 @@
   grid-column: 1/-1;
   grid-row: 3;
 }
+// With nothing waiting on the member, the feed takes the next actions' place beside the standings.
+.next-actions.empty ~ .club-feed {
+  grid-column: 1;
+  grid-row: 2;
+}
 
 .club-feed {
   padding: 22px;
