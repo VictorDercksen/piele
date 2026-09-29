@@ -29,16 +29,11 @@ import { ProfileControlService } from '../../core/profile/profile-control.servic
 import { ProfileService } from '../../core/profile/profile.service';
 import { CompetitionService, shortSeason } from '../../core/competition/competition.service';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideArrowRight, lucideCheck } from '@ng-icons/lucide';
+import { lucideArrowRight, lucideLogOut, lucideTrash2, lucideX } from '@ng-icons/lucide';
 import { Loader } from '../../shared/loader/loader';
 import { LeagueCrest } from '../../shared/league-crest/league-crest';
 import { StadiumBackdrop } from '../../shared/stadium-backdrop/stadium-backdrop';
-import {
-  createProfileForm,
-  initialsOf,
-  profileFrom,
-  profileProblems,
-} from './profile-editor.form';
+import { createProfileForm, initialsOf, profileFrom, profileProblems } from './profile-editor.form';
 
 /** Onboarding and profile form: display name, favourite team and optional photo. */
 @Component({
@@ -60,7 +55,7 @@ import {
     HlmRadioGroup,
     HlmRadio,
   ],
-  viewProviders: [provideIcons({ lucideArrowRight, lucideCheck })],
+  viewProviders: [provideIcons({ lucideArrowRight, lucideLogOut, lucideTrash2, lucideX })],
 })
 export class ProfileEditor {
   private readonly profiles = inject(ProfileService);
@@ -74,6 +69,9 @@ export class ProfileEditor {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly nameInput = viewChild.required<ElementRef<HTMLInputElement>>('nameInput');
   private readonly photoInput = viewChild.required<ElementRef<HTMLInputElement>>('photoInput');
+  private readonly teamRail = viewChild.required<string, ElementRef<HTMLElement>>('teamRail', {
+    read: ElementRef,
+  });
   readonly existing = this.profiles.profile();
   /**
    * Starts from the saved profile, else what the browser keeps (a profile from before they
@@ -107,6 +105,12 @@ export class ProfileEditor {
     initialValue: this.form.controls.displayName.value,
   });
   readonly selectedTeam = computed(() => this.competition.current().team(this.teamId()));
+  /** The chosen club's jersey, or the competition's placeholder shirt before a choice. */
+  readonly stageJersey = computed(() => this.competition.current().jersey(this.teamId()));
+  readonly stageJerseyAlt = computed(() => {
+    const team = this.selectedTeam();
+    return team ? `${team.name} jersey` : '';
+  });
   readonly initials = computed(() => initialsOf(this.name()));
   readonly photo = signal(this.start?.photo ?? null);
   readonly busy = signal(false);
@@ -116,6 +120,13 @@ export class ProfileEditor {
   readonly photoInvalid = signal(false);
 
   constructor() {
+    // On narrow screens the clubs scroll sideways; start with the chosen one in view.
+    afterNextRender(() => {
+      const rail = this.teamRail().nativeElement;
+      const chosen = rail.querySelector<HTMLElement>('.team-option.chosen');
+      if (!chosen || rail.scrollWidth <= rail.clientWidth) return;
+      rail.scrollLeft = chosen.offsetLeft - (rail.clientWidth - chosen.offsetWidth) / 2;
+    });
     // A failed save persists until dismissed; it should not outlive the editor.
     inject(DestroyRef).onDestroy(() => {
       this.alerts.dismissKey(ALERT_KEY);

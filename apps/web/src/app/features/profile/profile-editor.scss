@@ -1,7 +1,7 @@
 :host {
   display: block;
   color: var(--chalk);
-  background: var(--surface-grain), #101d20;
+  background: var(--surface-grain), #0c1719;
   min-height: 100vh;
   font-family: 'Titillium Web', sans-serif;
 }
@@ -19,46 +19,63 @@ button:disabled {
   opacity: 0.5;
   cursor: wait;
 }
+// The stadium fills the page behind everything; the scrim keeps the controls readable.
 .profile-editor {
-  display: grid;
-  grid-template-columns: minmax(340px, 0.85fr) minmax(0, 1.15fr);
+  position: relative;
+  isolation: isolate;
   min-height: 100vh;
-}
-.profile-poster {
-  position: sticky;
-  top: 0;
-  height: 100vh;
-  min-height: 650px;
-  background: #102734;
+  min-height: 100dvh;
   overflow: hidden;
-  padding: 40px;
-  display: flex;
-  flex-direction: column;
 }
-.poster-photo {
-  opacity: 0.75;
+.stage-photo {
+  z-index: -2;
 }
-.profile-poster::after {
+.profile-editor::before {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(0deg, #0b171ce6, #0b171c55 65%, #0b171c99);
+  z-index: -1;
+  background: linear-gradient(
+    180deg,
+    #081013b3 0%,
+    #0810130d 20%,
+    #08101333 50%,
+    #0c1719f2 78%,
+    #0c1719 100%
+  );
   pointer-events: none;
 }
-.profile-brand,
-.poster-copy,
-.member-preview {
-  position: relative;
-  z-index: 1;
+.profile-layout {
+  display: grid;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: 36px 56px;
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 400px);
+  grid-template-rows: auto 1fr auto auto 1fr auto;
+  grid-template-areas:
+    'bar bar'
+    'stage .'
+    'stage head'
+    'stage details'
+    'stage .'
+    'teams teams';
+  column-gap: 48px;
+}
+.profile-bar {
+  grid-area: bar;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
 }
 .profile-brand {
   display: flex;
   align-items: center;
   gap: 14px;
-  font-size: 29px;
+  font-size: 26px;
   font-weight: 800;
   letter-spacing: 3px;
-  // THE PAVILION stacks onto two lines on narrow posters.
+  // THE PAVILION stacks onto two lines on narrow screens.
   line-height: 1.05;
   color: #fff;
   text-decoration: none;
@@ -67,69 +84,112 @@ button:disabled {
   --avatar-size: 50px;
 }
 .profile-brand span {
-  font-size: 10px;
-  letter-spacing: 1px;
-  margin-left: auto;
+  margin-left: 18px;
+  padding: 4px 10px;
+  border: 1px solid #f2efdf4d;
+  border-radius: 999px;
+  font-size: 11px;
+  letter-spacing: 1.5px;
   white-space: nowrap;
 }
-.poster-copy {
-  margin: auto 0;
+.close-profile {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  margin-left: auto;
+  padding: 0;
+  border: 1px solid var(--rugby-teal);
+  --ng-icon__size: 20px;
 }
-.poster-copy > span,
-.eyebrow {
-  font-size: 10px;
+
+// A broadcast lower-third on the stadium: the club's jersey, the member and their photo.
+.stage {
+  grid-area: stage;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-end;
+  min-width: 0;
+  padding-bottom: 8px;
+}
+.caption-tag {
+  padding: 4px 12px;
+  background: var(--chalk);
+  color: #0c1719;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 2px;
-  color: var(--team-accent);
-}
-h1 {
-  font-size: clamp(48px, 5.5vw, 86px);
-  line-height: 0.95;
-  letter-spacing: -3px;
-  margin: 25px 0;
-}
-h1 em {
-  color: var(--team-accent);
-  font-weight: 700;
-}
-.poster-copy p {
-  color: #d3dde6;
-  font-size: 19px;
-  line-height: 1.6;
+  white-space: nowrap;
 }
 .member-preview {
   display: flex;
-  align-items: center;
-  gap: 15px;
-  padding: 20px;
-  border-top: 2px solid var(--team-accent);
-  background: #0b1826b3;
+  align-items: stretch;
+  width: min(100%, 620px);
+  height: 104px;
+  box-shadow: 0 16px 40px #0008;
 }
-.member-preview strong {
-  font-size: 21px;
-  display: block;
-  overflow-wrap: anywhere;
+.member-preview > * {
+  border-top: 4px solid var(--team-accent);
 }
-.member-preview div > span {
-  font-size: 12px;
+.caption-jersey {
+  display: grid;
+  place-items: center;
+  flex: 0 0 116px;
+  background: var(--team-colour);
+}
+.caption-jersey img {
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+}
+.caption-name {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  flex: 1;
+  min-width: 0;
+  padding: 0 24px;
+  background: #091215eb;
+}
+.caption-name strong {
+  font-size: 32px;
+  line-height: 1.05;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.caption-name span {
+  font-size: 17px;
+  font-weight: 600;
   color: var(--team-accent);
 }
-.preview-jersey {
-  width: 62px;
-  height: 68px;
-  object-fit: contain;
-  margin-left: auto;
+.caption-avatar {
+  display: grid;
+  place-items: center;
+  flex: 0 0 104px;
+  border-left: 1px solid #ffffff1a;
+  background: #091215eb;
+}
+.caption-avatar .profile-avatar {
+  width: 64px;
+  height: 64px;
+  font-size: 21px;
 }
 .profile-avatar {
   display: grid;
   place-items: center;
   flex-shrink: 0;
-  width: 60px;
-  height: 60px;
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
   background: var(--team-colour);
   border: 2px solid var(--team-accent);
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 700;
   overflow: hidden;
 }
@@ -138,155 +198,92 @@ h1 em {
   height: 100%;
   object-fit: cover;
 }
-.profile-form {
-  max-width: 790px;
-  width: 100%;
-  padding: 45px 48px;
-  margin: auto;
+
+// Desktop: the heading and the details read as one glass panel beside the jersey.
+.form-heading,
+.profile-details {
+  background: #0c1719cc;
+  backdrop-filter: blur(20px);
+  border: 1px solid #ffffff17;
 }
 .form-heading {
+  grid-area: head;
+  padding: 26px 28px 4px;
+  border-bottom: 0;
+  border-radius: 20px 20px 0 0;
+}
+.profile-details {
+  grid-area: details;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 25px;
+  flex-direction: column;
+  padding: 16px 28px 26px;
+  border-top: 0;
+  border-radius: 0 0 20px 20px;
 }
-h2 {
-  font-size: 38px;
-  line-height: 1.1;
-  margin: 10px 0;
+.eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 2.5px;
+  color: var(--team-accent);
 }
-.close-profile {
-  background: var(--rugby-surface), var(--rugby-white);
-  border: 1px solid var(--rugby-teal);
-  color: var(--rugby-ink);
-  width: 44px;
-  height: 44px;
-  font-size: 26px;
+h1 {
+  margin: 4px 0 0;
+  font-size: 30px;
+  line-height: 1.05;
+  font-weight: 900;
+  font-style: italic;
+  text-transform: uppercase;
 }
-.profile-form > label {
+.profile-details > label {
   display: block;
   font-size: 13px;
   font-weight: 600;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 #display-name {
   width: 100%;
   min-height: 46px;
-  background: #17292b;
+  background: #132326;
   border: 1px solid #425460;
-  border-radius: 0;
+  border-radius: 10px;
   color: #fff;
   padding: 10px 14px;
+}
+#display-name[readonly] {
+  opacity: 0.7;
 }
 #display-name[aria-invalid='true'] {
   border-color: #ffb5ab;
 }
-.team-options[aria-invalid='true'] .team-option {
-  border-color: #ffb5ab;
-}
-.profile-form input:focus-visible,
+.profile-layout input:focus-visible,
 button:focus-visible {
   outline: 2px solid var(--team-accent);
   outline-offset: 3px;
 }
-fieldset {
-  border: 0;
-  padding: 0;
-  margin: 28px 0;
-}
-legend {
-  font-size: 15px;
-  font-weight: 600;
-  display: flex;
-  width: 100%;
-  justify-content: space-between;
-}
-legend span {
-  font-size: 10px;
-  color: #9eb0bd;
-}
 .field-hint {
   font-size: 12px;
   color: #afbec9;
-  margin: 7px 0 16px;
-}
-.team-options {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
-}
-.team-option {
-  position: relative;
-  min-height: 107px;
-  background: var(--surface-grain), #192a2d;
-  border: 1px solid #344754;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  cursor: pointer;
-  padding: 9px 4px;
-}
-.team-option:hover {
-  background: #243949;
-}
-.team-option.chosen {
-  background: color-mix(in srgb, var(--club-colour) 50%, #101a22);
-  border: 2px solid var(--club-accent);
-}
-.team-option:focus-within {
-  outline: 2px solid #fff;
-  outline-offset: 2px;
-}
-.team-option input {
-  position: absolute;
-  opacity: 0;
-  width: 100%;
-  height: 100%;
-  inset: 0;
-  cursor: pointer;
-  margin: 0;
-}
-.team-option img {
-  width: 65px;
-  height: 64px;
-  object-fit: contain;
-  pointer-events: none;
-}
-.team-option > span {
-  font-size: 12px;
-  font-weight: 600;
-}
-.team-option i {
-  position: absolute;
-  top: 3px;
-  right: 7px;
-  color: var(--club-accent);
-  font-size: 12px;
-  font-style: normal;
-}
-.team-option i ng-icon {
-  --ng-icon__size: 14px;
-  display: block;
+  margin: 6px 0 0;
 }
 .photo-control {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 18px 0;
-  border-top: 1px solid #344754;
-  border-bottom: 1px solid #344754;
+  gap: 14px;
+  margin-top: 18px;
+  padding: 16px 0;
+  border-top: 1px solid #ffffff17;
+  border-bottom: 1px solid #ffffff17;
 }
 .photo-label {
   position: relative;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font-size: 14px;
   font-weight: 600;
   color: var(--team-accent);
   cursor: pointer;
-  min-height: 32px;
-  padding-top: 5px;
+  min-height: 28px;
 }
 .photo-label input {
   position: absolute;
@@ -302,28 +299,35 @@ legend span {
 .photo-control p {
   font-size: 11px;
   color: #aabcc9;
-  margin: 2px 0;
+  margin: 0;
 }
 .remove-photo {
-  background: none;
-  color: #ccd9e2;
-  font-size: 12px;
-  text-decoration: underline;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  margin-left: auto;
+  padding: 0;
   border: 0;
-  padding: 5px 0;
+  --ng-icon__size: 18px;
 }
-.save-profile {
-  margin-top: 24px;
-}
-.save-profile > p {
+.save-note {
+  margin: 14px 0 8px;
   font-size: 11px;
   color: #aabcc9;
+}
+.save-row {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
 }
 .save-button {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   min-height: 49px;
   background: var(--rugby-button);
   color: var(--rugby-ink);
@@ -335,103 +339,283 @@ legend span {
   --ng-icon__size: 20px;
 }
 .sign-out {
-  margin-top: 14px;
-  background: none;
-  border: 0;
-  color: #ffd18d;
-  font-weight: 700;
-  min-height: 44px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 49px;
+  min-height: 49px;
   padding: 0;
-  overflow-wrap: anywhere;
+  border: 1px solid #ff8a8f66;
+  border-radius: 14px;
+  background: #e5484d38;
+  color: #ffc2c4;
+  --ng-icon__size: 20px;
 }
-#display-name[readonly] {
-  opacity: 0.7;
-}
-@media (max-width: 850px) {
-  .profile-editor {
-    grid-template-columns: 1fr;
-  }
-  .profile-poster {
-    position: relative;
-    height: auto;
-    min-height: 390px;
-    padding: 24px;
-  }
-  .profile-brand {
-    font-size: 24px;
-  }
-  .poster-copy {
-    margin: 32px 0;
-  }
-  .poster-copy h1 {
-    font-size: 56px;
-    margin: 15px 0;
-  }
-  .poster-copy p {
-    display: none;
-  }
-  .member-preview {
-    padding: 12px;
-  }
-  .profile-form {
-    padding: 30px 24px;
-  }
-  .team-options {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-  .team-option img {
-    width: 54px;
-    height: 54px;
-  }
-  .team-option {
-    min-height: 96px;
-  }
-  .team-option > span {
-    font-size: 11px;
-  }
-  h2 {
-    font-size: 32px;
-  }
-}
-@media (max-width: 360px) {
-  .profile-form {
-    padding: 25px 16px;
-  }
-  .team-options {
-    gap: 5px;
-  }
-  .team-option img {
-    width: 46px;
-    height: 50px;
-  }
-  .team-option > span {
-    font-size: 10px;
-  }
-  .profile-poster {
-    padding: 20px;
-  }
-  .member-preview strong {
-    font-size: 18px;
-  }
-  .profile-avatar {
-    width: 48px;
-    height: 48px;
-  }
-}
-.photo-label app-loader {
-  margin-right: 8px;
+.sign-out:enabled:hover {
+  background: #e5484d59;
 }
 .saving {
   display: inline-flex;
   align-items: center;
   gap: 8px;
 }
-
-.profile-form h2 {
-  font-weight: 900;
-  font-style: italic;
-  text-transform: uppercase;
+.photo-label app-loader {
+  margin-right: 8px;
 }
-.profile-poster {
-  border-right: 1px solid #d4d9c447;
+
+// Clubs along the foot of the page: one row of sixteen on wide screens.
+.team-picker {
+  grid-area: teams;
+  min-width: 0;
+  margin: 28px 0 0;
+  padding: 0;
+  border: 0;
+}
+legend {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  width: 100%;
+  padding: 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+legend span {
+  font-size: 12px;
+  font-weight: 400;
+  color: #9eb0bd;
+}
+.team-picker > .field-hint {
+  margin: 2px 0 12px;
+}
+.team-options {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(16, minmax(0, 1fr));
+  gap: 8px;
+  padding-top: 6px;
+}
+// The radio group reports an empty choice as invalid from the start; flag it after a save attempt.
+.needs-team .team-option {
+  border-color: #ffb5ab;
+}
+.team-option {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 0;
+  height: 104px;
+  padding: 6px 4px;
+  border: 1.5px solid #ffffff14;
+  border-radius: 14px;
+  background: var(--surface-grain), #ffffff0d;
+  cursor: pointer;
+  transition:
+    transform 180ms,
+    border-color 150ms,
+    background-color 150ms,
+    filter 150ms;
+}
+.team-option:hover {
+  filter: brightness(1.25);
+}
+.team-option.chosen {
+  background: var(--club-colour);
+  border-color: var(--club-accent);
+  transform: translateY(-6px);
+}
+.team-option:focus-within {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+.team-option input {
+  position: absolute;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  inset: 0;
+  cursor: pointer;
+  margin: 0;
+}
+.team-option img {
+  width: 54px;
+  height: 54px;
+  object-fit: contain;
+  pointer-events: none;
+}
+.team-option > span {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+@media (max-width: 1199px) {
+  .team-options {
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+  }
+}
+
+// Phones and small tablets: jersey, clubs in a sideways rail, then the details.
+@media (max-width: 899px) {
+  .profile-layout {
+    display: flex;
+    flex-direction: column;
+    padding: 16px 0 24px;
+  }
+  .stage-photo {
+    bottom: auto;
+    height: min(100%, 100svh);
+  }
+  .profile-editor::before {
+    bottom: auto;
+    height: min(100%, 100svh);
+    background: linear-gradient(
+      180deg,
+      #081013b3 0%,
+      #0810131a 18%,
+      #08101326 40%,
+      #0c1719f0 62%,
+      #0c1719 100%
+    );
+  }
+  .profile-bar,
+  .form-heading,
+  .team-picker,
+  .profile-details {
+    padding-inline: 20px;
+  }
+  .profile-bar {
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+  .profile-brand {
+    gap: 10px;
+    font-size: 20px;
+  }
+  .profile-brand app-league-crest {
+    --avatar-size: 40px;
+  }
+  .profile-brand span {
+    margin-left: 4px;
+  }
+  .stage {
+    min-height: clamp(220px, 38svh, 320px);
+    padding: 0 16px;
+  }
+  .caption-tag {
+    font-size: 11px;
+  }
+  .member-preview {
+    width: 100%;
+    height: 76px;
+  }
+  .member-preview > * {
+    border-top-width: 3px;
+  }
+  .caption-jersey {
+    flex-basis: 76px;
+  }
+  .caption-jersey img {
+    width: 56px;
+    height: 56px;
+  }
+  .caption-name {
+    padding: 0 14px;
+  }
+  .caption-name strong {
+    font-size: 19px;
+    line-height: 1.1;
+  }
+  .caption-name span {
+    font-size: 13px;
+  }
+  .caption-avatar {
+    flex-basis: 64px;
+  }
+  .caption-avatar .profile-avatar {
+    width: 44px;
+    height: 44px;
+    font-size: 15px;
+  }
+  .form-heading,
+  .profile-details {
+    background: none;
+    backdrop-filter: none;
+    border: 0;
+    border-radius: 0;
+  }
+  .form-heading {
+    padding-top: 22px;
+    padding-bottom: 0;
+  }
+  h1 {
+    font-size: 24px;
+  }
+  .team-picker {
+    margin-top: 12px;
+  }
+  legend {
+    font-size: 16px;
+    justify-content: space-between;
+  }
+  .team-options {
+    display: flex;
+    gap: 8px;
+    margin-inline: -20px;
+    padding: 8px 20px 6px;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    scroll-padding-inline: 20px;
+    scrollbar-width: none;
+  }
+  .team-options::-webkit-scrollbar {
+    display: none;
+  }
+  .team-option {
+    flex: 0 0 76px;
+    height: 98px;
+    scroll-snap-align: start;
+  }
+  .team-option.chosen {
+    transform: translateY(-4px);
+  }
+  .team-option img {
+    width: 50px;
+    height: 50px;
+  }
+  .team-option > span {
+    font-size: 11px;
+  }
+  .profile-details {
+    padding-top: 20px;
+  }
+}
+@media (max-width: 360px) {
+  .profile-bar,
+  .form-heading,
+  .team-picker,
+  .profile-details {
+    padding-inline: 16px;
+  }
+  .stage {
+    padding-inline: 12px;
+  }
+  .caption-avatar {
+    display: none;
+  }
+  .team-options {
+    margin-inline: -16px;
+    padding-inline: 16px;
+    scroll-padding-inline: 16px;
+  }
+  .save-button {
+    padding-inline: 18px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .team-option {
+    transition: none;
+  }
 }
