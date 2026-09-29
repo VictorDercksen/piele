@@ -14,7 +14,9 @@ from app.league.auth import JwksVerifier, SecretVerifier, TokenVerifier, Unconfi
 from app.league.storage import Storage, SupabaseStorage, UnconfiguredStorage
 from app.matchcentre.cache import MemorySnapshotCache, PostgresSnapshotCache, SnapshotCache
 from app.matchcentre.service import MatchCentreService, default_http_factory
-from app.routers import account, admin, agent, health, league, matches
+from app.push.job import Sender
+from app.push.webpush import WebPushSender
+from app.routers import account, admin, agent, health, league, matches, push
 
 REQUEST_ID_HEADER = "X-Request-ID"
 _SAFE_REQUEST_ID = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
@@ -27,6 +29,7 @@ def create_app(
     snapshot_cache: SnapshotCache | None = None,
     token_verifier: TokenVerifier | None = None,
     storage: Storage | None = None,
+    push_sender: Sender | None = None,
 ) -> FastAPI:
     settings = settings or get_settings()
     # Interactive docs and the schema stay off in production; generate client types locally.
@@ -42,6 +45,7 @@ def create_app(
 
     app.state.token_verifier = token_verifier or _token_verifier(settings)
     app.state.storage = storage or _storage(settings)
+    app.state.push_sender = push_sender or _push_sender(settings)
 
     app.include_router(health.router, prefix="/v1")
     app.include_router(matches.router, prefix="/v1")
@@ -49,6 +53,7 @@ def create_app(
     app.include_router(league.router, prefix="/v1")
     app.include_router(admin.router, prefix="/v1")
     app.include_router(agent.router, prefix="/v1")
+    app.include_router(push.router, prefix="/v1")
 
     # Added first so it sits inside the request-ID middleware below.
     app.add_middleware(
@@ -97,6 +102,12 @@ def _storage(settings: Settings) -> Storage:
     return SupabaseStorage(
         settings.supabase_url, key.get_secret_value(), settings.supabase_storage_bucket, settings.external_timeout_seconds
     )
+
+
+def _push_sender(settings: Settings) -> WebPushSender | None:
+    if not settings.vapid_private_key or settings.push_problems():
+        return None
+    return WebPushSender(settings.vapid_private_key, settings.piele_vapid_subject, settings.external_timeout_seconds)
 
 
 def _http_factory(settings: Settings, transport: httpx.BaseTransport | None):

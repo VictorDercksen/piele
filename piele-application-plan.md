@@ -33,7 +33,7 @@ The user's decisions take precedence over instructions or conflicting wording in
 | P2 | Invite-only, verified email authentication through a one-time email code. No public league registration. |
 | P3 | Captain confirms imported findings before they create duties. |
 | P4 | Captain transfer requests expire after seven days. |
-| P5 | Use in-app notifications. External reminders, WhatsApp integration and push notifications are deferred. Authentication emails are separate. |
+| P5 | Use in-app notifications, plus Web Push notifications a member turns on per device (September 2026): pick reminders 24 hours and 1 hour before kickoff, teamsheets and Pavilion previews, a duty for you, evidence to vote on, a veto to rule on and your evidence decided, each category optional per league. iPhone and iPad need the Home Screen app. External reminders and WhatsApp integration are deferred. Authentication emails are separate. |
 | P6 | Start with a 50 MB video limit and a three-minute duration limit, subject to a real phone upload test and selected storage tier. |
 | P7 | A member can revise their vote until the poll closes. Show participation while open and aggregate results after closure. Individual choices are not displayed to the league. |
 | P8 | Final-function planning includes an event record and RSVPs, without ticketing, payments or travel booking. |

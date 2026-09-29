@@ -257,6 +257,23 @@ export interface paths {
         readonly patch?: never;
         readonly trace?: never;
     };
+    readonly "/v1/cron/push": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        /** Run Push */
+        readonly get: operations["run_push_v1_cron_push_get"];
+        readonly put?: never;
+        readonly post?: never;
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
     readonly "/v1/health": {
         readonly parameters: {
             readonly query?: never;
@@ -781,6 +798,24 @@ export interface paths {
         readonly patch?: never;
         readonly trace?: never;
     };
+    readonly "/v1/leagues/{leagueId}/me/push": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        /** Push Preferences */
+        readonly get: operations["push_preferences_v1_leagues__leagueId__me_push_get"];
+        /** Update Push Preferences */
+        readonly put: operations["update_push_preferences_v1_leagues__leagueId__me_push_put"];
+        readonly post?: never;
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
     readonly "/v1/leagues/{leagueId}/members": {
         readonly parameters: {
             readonly query?: never;
@@ -1014,6 +1049,47 @@ export interface paths {
          * @description The account and its leagues. First claims every name reserved for the verified email.
          */
         readonly get: operations["account_v1_me_get"];
+        readonly put?: never;
+        readonly post?: never;
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
+    readonly "/v1/me/push-subscriptions": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly get?: never;
+        /**
+         * Save Subscription
+         * @description Stores this browser's subscription for the account, or refreshes its keys.
+         */
+        readonly put: operations["save_subscription_v1_me_push_subscriptions_put"];
+        readonly post?: never;
+        /**
+         * Delete Subscription
+         * @description Forgets this browser for the account: on turning push off and on signing out.
+         */
+        readonly delete: operations["delete_subscription_v1_me_push_subscriptions_delete"];
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
+    readonly "/v1/push/key": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        /** Push Key */
+        readonly get: operations["push_key_v1_push_key_get"];
         readonly put?: never;
         readonly post?: never;
         readonly delete?: never;
@@ -2093,6 +2169,51 @@ export interface components {
              */
             readonly removePhoto: boolean;
         };
+        /** PushEndpoint */
+        readonly PushEndpoint: {
+            /** Endpoint */
+            readonly endpoint: string;
+        };
+        /** PushKey */
+        readonly PushKey: {
+            /** Publickey */
+            readonly publicKey: string;
+        };
+        /**
+         * PushPreferences
+         * @description The categories turned off in this league (app/push/outbox.py): duties, cases, picks,
+         *     matches.
+         */
+        readonly PushPreferences: {
+            /** Muted */
+            readonly muted: readonly ("duties" | "cases" | "picks" | "matches")[];
+        };
+        /** PushRun */
+        readonly PushRun: {
+            /** Announced */
+            readonly announced: number;
+            /** Dropped */
+            readonly dropped: number;
+            /** Failed */
+            readonly failed: number;
+            /** Gone */
+            readonly gone: number;
+            /** Reminders */
+            readonly reminders: number;
+            /** Sent */
+            readonly sent: number;
+            /** Teamsheetsobserved */
+            readonly teamsheetsObserved: number;
+        };
+        /**
+         * PushSubscriptionBody
+         * @description The browser's PushSubscription.toJSON(), less expirationTime.
+         */
+        readonly PushSubscriptionBody: {
+            /** Endpoint */
+            readonly endpoint: string;
+            readonly keys: components["schemas"]["SubscriptionKeys"];
+        };
         /** Reason */
         readonly Reason: {
             /** Reason */
@@ -2370,6 +2491,13 @@ export interface components {
             readonly note: string;
             /** Subjectmemberid */
             readonly subjectMemberId?: string | null;
+        };
+        /** SubscriptionKeys */
+        readonly SubscriptionKeys: {
+            /** Auth */
+            readonly auth: string;
+            /** P256Dh */
+            readonly p256dh: string;
         };
         /** UnclaimedName */
         readonly UnclaimedName: {
@@ -2918,6 +3046,26 @@ export interface operations {
                 };
                 content: {
                     readonly "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    readonly run_push_v1_cron_push_get: {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly requestBody?: never;
+        readonly responses: {
+            /** @description Successful Response */
+            readonly 200: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["PushRun"];
                 };
             };
         };
@@ -3886,6 +4034,72 @@ export interface operations {
             };
         };
     };
+    readonly push_preferences_v1_leagues__leagueId__me_push_get: {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path: {
+                readonly leagueId: string;
+            };
+            readonly cookie?: never;
+        };
+        readonly requestBody?: never;
+        readonly responses: {
+            /** @description Successful Response */
+            readonly 200: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["PushPreferences"];
+                };
+            };
+            /** @description Validation Error */
+            readonly 422: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    readonly update_push_preferences_v1_leagues__leagueId__me_push_put: {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path: {
+                readonly leagueId: string;
+            };
+            readonly cookie?: never;
+        };
+        readonly requestBody: {
+            readonly content: {
+                readonly "application/json": components["schemas"]["PushPreferences"];
+            };
+        };
+        readonly responses: {
+            /** @description Successful Response */
+            readonly 200: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["PushPreferences"];
+                };
+            };
+            /** @description Validation Error */
+            readonly 422: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     readonly list_members_v1_leagues__leagueId__members_get: {
         readonly parameters: {
             readonly query?: {
@@ -4363,6 +4577,88 @@ export interface operations {
                 };
                 content: {
                     readonly "application/json": components["schemas"]["AccountDocument"];
+                };
+            };
+        };
+    };
+    readonly save_subscription_v1_me_push_subscriptions_put: {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly requestBody: {
+            readonly content: {
+                readonly "application/json": components["schemas"]["PushSubscriptionBody"];
+            };
+        };
+        readonly responses: {
+            /** @description Successful Response */
+            readonly 204: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            readonly 422: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    readonly delete_subscription_v1_me_push_subscriptions_delete: {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly requestBody: {
+            readonly content: {
+                readonly "application/json": components["schemas"]["PushEndpoint"];
+            };
+        };
+        readonly responses: {
+            /** @description Successful Response */
+            readonly 204: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            readonly 422: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    readonly push_key_v1_push_key_get: {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly requestBody?: never;
+        readonly responses: {
+            /** @description Successful Response */
+            readonly 200: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["PushKey"];
                 };
             };
         };

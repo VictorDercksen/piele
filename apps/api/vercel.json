@@ -1,5 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "regions": ["lhr1"],
-  "ignoreCommand": "[ \"$VERCEL_GIT_COMMIT_REF\" != \"staging\" ] && [ \"$VERCEL_GIT_COMMIT_REF\" != \"master\" ]"
+  "ignoreCommand": "[ \"$VERCEL_GIT_COMMIT_REF\" != \"staging\" ] && [ \"$VERCEL_GIT_COMMIT_REF\" != \"master\" ]",
+  "crons": [{ "path": "/v1/cron/push", "schedule": "*/5 * * * *" }]
 }

@@ -24,6 +24,7 @@ All three `vercel.json` files set `ignoreCommand`, so Vercel builds only `stagin
 - Database: migration `20260924080000_runtime_role.sql` creates the restricted `piele_api` role (no login until an operator sets a password, no `BYPASSRLS`, grants on the `piele` schema only).
 - TLS: `apps/api/certs/supabase-prod-ca-2021.crt` is Supabase's public root certificate. Add `sslmode=verify-full&sslrootcert=certs/supabase-prod-ca-2021.crt` to `DATABASE_URL` to verify the server certificate.
 - Preview agent: `apps/agent` is an eve project. It needs `PIELE_API_URL` and the same `PIELE_AGENT_TOKEN` as the API in its environment; see [apps/agent/README.md](../apps/agent/README.md). Its session routes accept only the project's own Vercel OIDC tokens. Its schedule checks every 15 minutes without a model call and starts a writing session only when a fixture's teamsheets are first published; the 15-minute cron needs a paid Vercel plan.
+- Push notifications: `apps/api/vercel.json` schedules Vercel Cron to call `GET /v1/cron/push` every 5 minutes. Vercel runs cron jobs on production deployments only, so staging never sends. The job finds newly published teamsheets and first Pavilion previews, queues pick reminders (24 hours and 1 hour before a match the member has not picked) and sends everything queued, including league events (a duty for you, evidence waiting for your vote, a veto waiting for your ruling, your evidence decided). The web app serves `manifest.webmanifest` and a service worker (`sw.js`) that only shows messages and caches nothing. See step 5.
 - Smoke check: `npm run smoke -- --web <origin> --api <origin>` from the repository root.
 
 ## One-time setup, in order
@@ -60,6 +61,9 @@ All three `vercel.json` files set `ignoreCommand`, so Vercel builds only `stagin
 | `SUPABASE_STORAGE_BUCKET` | `evidence` (create it as a private bucket first) |
 | `SUPABASE_JWT_SECRET` | Only if the project still signs tokens with the legacy shared secret; leave unset for JWT signing keys (JWKS) |
 | `PIELE_AGENT_TOKEN` | Optional. A random value of 32+ characters (sensitive) shared only with the preview agent. Leave unset until the agent is deployed; the `/v1/agent` routes answer 503 without it. |
+| `PIELE_VAPID_PRIVATE_KEY` | The push notification key (sensitive), from `uv run python -m app.push.keys` in `apps/api`. Replacing it ends every browser's subscription, so members turn notifications on again. Unset turns push off. |
+| `PIELE_VAPID_SUBJECT` | A contact address push services may use, e.g. `mailto:<operator email>`. Required with the key. |
+| `CRON_SECRET` | A random value of 32+ characters (sensitive). Vercel Cron sends it to `/v1/cron/push`; the route answers 503 without it. |
 
 `piele-web`, Production environment:
 
@@ -89,6 +93,13 @@ In both projects, clear Settings > Git > Ignored Build Step; `vercel.json` now o
 
    Check that exactly one row changed. Remove it with `is_admin = false`. The admin can read a league without belonging to it, but anything recorded as done by a member (creating duties, recording standings, evidence) needs a membership in that league; the API answers `409 admin_not_a_member` until then.
 8. Management centre. Signed in as the admin, open `https://<web origin>/manage` (the API's `/v1/admin` routes; every other account gets `403 admin_only`). It lists every league, archived ones included, with its captain, member counts and join code, and creates a league: name, slug, competition, time zone, season name, the members (full name and Superbru name), the captain (by email, or the admin), an optional preset emblem and accent colour, and whether to add the admin as a member outside the season. Leagues can still be created with the bootstrap command in step 5; both use the same code and refuse a taken slug. From the same page the admin renames a league or changes its time zone, archives it (every row is kept, but it leaves everyone's league list and its links and join code stop working) or restores it, appoints any member who has claimed their name as captain, and adds themselves to a league outside the season ("Add me"), after which their own actions there are recorded under that membership. Every action is in the league's audit trail with the label `admin`. Uploaded emblems live in the `evidence` bucket under `emblems/<league id>/`; preset emblems ship with the web app.
+
+### 5. Push notifications
+
+1. From `apps/api`, run `uv run python -m app.push.keys`. Set the printed `PIELE_VAPID_PRIVATE_KEY` on `piele-api` Production (sensitive), with `PIELE_VAPID_SUBJECT` and a new `CRON_SECRET` (for example `openssl rand -hex 32`). Redeploy the API.
+2. `https://<API origin>/v1/push/key` answers with the public key once the key is set. Settings > Cron Jobs on `piele-api` lists `/v1/cron/push`; each run's log shows its counts (`announced`, `reminders`, `sent`, `dropped`, `failed`).
+3. Members turn notifications on per device under More > Notifications on this device, and choose which kinds each league sends. Android and desktop browsers work from the site. iPhone and iPad (iOS 16.4 or later) need The Pavilion added to the Home Screen from Safari's Share menu first, then opened from there.
+4. Signing out turns push off for that device. A browser signed into another account afterwards belongs to the newer account.
 
 ## Rename to The Pavilion
 
@@ -127,6 +138,10 @@ Push the four migrations with the API code that needs them, in one merge. The Su
 - Favourite team and notification read changes made on the old API are lost. The old API writes them to the account (`users.favourite_team_id`, `users.notifications_read_*`), which the new code no longer reads (they now live on each league membership), and after `20260926180000_hardening.sql` the runtime role may no longer update those columns, so those saves fail.
 
 Keep the window short: promote the API deployment as soon as the migrations have applied, then run the smoke check. A later cleanup migration drops `ux_fixture_milestones_legacy` and the old `users` columns once the new API is live.
+
+### Release notes: push notifications (migration 20260929090000)
+
+The migration is additive: `league_memberships.push_muted`, the push tables and the job's policies. The previous API ignores them. Set the variables in step 5 before or with the merge; until they are set the cron route answers 503 and nothing is sent, and the More page's card cannot turn notifications on. League events queue messages from the first request on the new API; they are sent once the variables are set, and dropped after two days.
 
 ## Rollback
 
