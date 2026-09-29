@@ -21,6 +21,7 @@ FastAPI, Pydantic, SQLAlchemy Core, Psycopg, Supabase PostgreSQL/Auth/private St
 | Competitions | `app/competitions/__init__.py` registry, `base.py` contracts, competition folders such as `urc_2026_27`. Add a folder/registry entry rather than hard-coding another competition into shared code. |
 | Match data | `app/matchcentre`, `app/routers/matches.py`. One `MatchCentreService` per competition. Cache keys include competition ID. |
 | Previews and dispatch | `app/agent`, `app/routers/agent.py`. The worker is `../agent`, with its own README. |
+| Push notifications | `app/push` (`webpush.py` encryption and VAPID, `outbox.py`, `league_events.py`, `job.py`) and `app/routers/push.py`. League events queue in `service.write_record`'s transaction; the cron job adds competition events and pick reminders and sends. |
 | Schema | `../../supabase/migrations/` is the sole migration history. Keep `app/league/tables.py` aligned. |
 | Verification | `tests/`, especially `test_database.py`, plus frontend OpenAPI generation. |
 
@@ -66,6 +67,7 @@ FastAPI, Pydantic, SQLAlchemy Core, Psycopg, Supabase PostgreSQL/Auth/private St
 - Superbru scoring, ranks, round/season tables, and badges are derived only in frontend `core/league/superbru.ts`. The API persists picks, results, and recorded-total overrides. Read results from full-time milestones, then cached scores. Do not fetch providers or recompute scoring during a league read.
 - Store only season-rule differences from `DEFAULT_RULES`, merge on read, and validate booleans, numeric bounds, starting round, and champion membership. Rules changes, creation, and admin updates use the same helpers. Pick-confirmation duties link `pickFixtureIds` and create missed records when necessary.
 - Previews are append-only revisions keyed by competition/fixture. Agent auth uses a separate constant-time-checked `PIELE_AGENT_TOKEN`. Dispatch after both teamsheets publish, with a 45-minute lease and at most three claims. Member reads require competition membership. Keep notification milestones append-only and notification read high-water marks non-decreasing.
+- Push messages go to accounts, never to their own actor, and respect the member's muted categories (`duties`, `cases`, `picks`, `matches`) per league. Queue with a dedup key; the job announces a competition event once and a pick reminder once per member, fixture and lead (24h, 1h). The job sets `piele.job = 'push'` in every transaction and a league's context for league reads. `GET /v1/cron/push` checks `CRON_SECRET` in constant time. Never log subscription endpoints or keys.
 
 ## Implemented limits
 

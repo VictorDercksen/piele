@@ -10,6 +10,7 @@ import { CompetitionService } from '../competition/competition.service';
 import { DEFAULT_ZONE, LeagueTime } from '../competition/league-time';
 import { COMPETITIONS, DEFAULT_COMPETITION_ID, competition } from '../competition/registry';
 import { toApiError } from '../api/api-error';
+import { PushClient } from '../push/push-client';
 import { HttpLeagueData } from './data/http-league-data';
 import { LeagueData } from './data/league-data';
 import { Account, AppearanceChange, LeagueAppearance, LeagueSummary } from './league.models';
@@ -33,6 +34,7 @@ export class LeagueContext {
   private readonly data = inject(LeagueData);
   private readonly competitions = inject(CompetitionService);
   private readonly time = inject(LeagueTime);
+  private readonly push = inject(PushClient);
   private readonly api = this.data instanceof HttpLeagueData ? this.data : null;
 
   private readonly accountState = signal<Account | null>(null);
@@ -173,8 +175,12 @@ export class LeagueContext {
     this.api?.clear();
   }
 
-  /** Signs out, forgets everything account-specific and returns to the sign-in page. */
+  /**
+   * Signs out, forgets everything account-specific and returns to the sign-in page. Push is
+   * turned off for this device first, while the session can still tell the API.
+   */
   async signOut(): Promise<void> {
+    await this.push.forget();
     await this.auth.signOut();
     this.clear();
     await this.router.navigateByUrl('/sign-in');

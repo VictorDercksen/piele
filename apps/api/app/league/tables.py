@@ -72,6 +72,9 @@ league_memberships = Table(
     Column("favourite_team_id", String(40)),
     _ts("notifications_read_at"),
     Column("notifications_read_keys", JSONB, nullable=False),
+    # The push message kinds the member turned off in this league
+    # (20260929090000_push_notifications.sql).
+    Column("push_muted", JSONB, nullable=False),
     _ts("joined_at", nullable=False),
     # Set together when the captain or admin withdraws the member (status 'withdrawn');
     # cleared on reinstatement.

@@ -10,8 +10,9 @@ import { MemberService } from '../../core/league/members/member.service';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideArrowRight, lucideExternalLink } from '@ng-icons/lucide';
 import { Icon } from '../../shared/icon/icon';
+import { PushCard } from './push-card/push-card';
 
-/** Secondary destinations and the schedule source. */
+/** Secondary destinations, push notifications for this device and the schedule source. */
 @Component({
   selector: 'app-more-page',
   templateUrl: './more.page.html',
@@ -24,6 +25,7 @@ import { Icon } from '../../shared/icon/icon';
     LeaguePathPipe,
     Icon,
     NgIcon,
+    PushCard,
   ],
   viewProviders: [provideIcons({ lucideArrowRight, lucideExternalLink })],
 })

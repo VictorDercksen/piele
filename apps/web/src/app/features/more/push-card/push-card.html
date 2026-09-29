@@ -1,0 +1,67 @@
+<section class="push-card" aria-labelledby="push-card-heading">
+  <div class="push-heading">
+    <app-icon name="bell" />
+    <div>
+      <h2 id="push-card-heading">Notifications on this device</h2>
+      <p>{{ summary() }}</p>
+    </div>
+  </div>
+
+  @switch (state()) {
+    @case ('install') {
+      <ol class="install-steps">
+        <li>Open The Pavilion in Safari and tap the Share button.</li>
+        <li>Choose <strong>Add to Home Screen</strong>.</li>
+        <li>Open The Pavilion from the Home Screen and turn notifications on here.</li>
+      </ol>
+    }
+    @case ('off') {
+      <button
+        hlmBtn
+        type="button"
+        class="primary-button"
+        [disabled]="busy()"
+        [attr.aria-busy]="busy()"
+        (click)="turnOn()"
+      >
+        @if (busy()) {
+          <app-loader [size]="16" aria-hidden="true" />
+        }
+        Turn on notifications
+      </button>
+    }
+    @case ('on') {
+      @if (canChooseKinds()) {
+        <ul class="switches" aria-label="Notifications in {{ leagueName() }}">
+          @for (option of categories; track option.key) {
+            <li>
+              <label hlmLabel class="switch" [for]="'push-' + option.key">
+                <hlm-switch
+                  [inputId]="'push-' + option.key"
+                  [checked]="isOn(option.key)"
+                  [disabled]="muted() === null"
+                  [aria-describedby]="'push-' + option.key + '-hint'"
+                  (checkedChange)="setKind(option.key, $event)"
+                />
+                <span class="switch-text"
+                  ><strong>{{ option.label }}</strong
+                  ><small [id]="'push-' + option.key + '-hint'">{{ option.hint }}</small></span
+                >
+              </label>
+            </li>
+          }
+        </ul>
+      }
+      <button
+        hlmBtn
+        type="button"
+        class="text-button"
+        [disabled]="busy()"
+        [attr.aria-busy]="busy()"
+        (click)="turnOff()"
+      >
+        Turn off on this device
+      </button>
+    }
+  }
+</section>

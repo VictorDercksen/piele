@@ -37,6 +37,7 @@ from app.matchcentre.cache import external_snapshots
 from app.matchcentre.providers import scores as score_feed
 from app.matchcentre.schedule import Fixture
 from app.matchcentre.service import round_scores_key
+from app.push import league_events as push_events
 
 DUTY_TYPES = ("spoon", "pick_confirmation")
 VIDEO_TYPES = ("video/",)
@@ -151,6 +152,9 @@ def write_record(
                 detail=feed.detail,
                 **({"occurred_at": feed.occurred_at} if feed.occurred_at is not None else {}),
             )
+        )
+        push_events.queue_for_feed(
+            connection, league_id=league_id, season_id=season_id, actor_membership_id=actor_membership_id, feed=feed, now=now_utc()
         )
 
 
