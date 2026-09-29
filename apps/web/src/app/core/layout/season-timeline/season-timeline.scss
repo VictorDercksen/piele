@@ -186,8 +186,18 @@ button {
     padding: 12px;
     margin-bottom: 3px;
   }
+  // Connector between the 32px nodes: centred on the node, bridging the 3px gap between stops.
   .round-stop::before {
-    display: none;
+    left: 27px;
+    bottom: -3px;
+  }
+  .round-stop:first-child::before {
+    top: 28px;
+  }
+  .round-stop:last-child::before {
+    top: 0;
+    bottom: auto;
+    height: 28px;
   }
   .round-stop.selected {
     box-shadow: inset 0 0 0 1px #ffa17c66;
