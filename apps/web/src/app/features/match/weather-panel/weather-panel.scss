@@ -123,10 +123,10 @@
   font-weight: 600;
 }
 .has-sky .forecast-facts div {
-  background: #00000033;
+  /* A solid tint, not a backdrop blur: a blur behind moving rain is redrawn every frame. */
+  background: #00000047;
   border-color: #ffffff29;
   border-radius: 12px;
-  backdrop-filter: blur(8px);
 }
 .has-sky .forecast-facts dt {
   font-weight: 600;
@@ -144,19 +144,69 @@
 .sky-precip {
   opacity: 0;
 }
+/* Soft edges come from the gradients, not a blur filter, so the drift stays cheap. */
 .sky-clouds {
   inset: -10% -30% 35% -10%;
   background:
-    radial-gradient(ellipse 30% 22% at 18% 40%, var(--cloud, #fff) 0 45%, #0000 70%),
-    radial-gradient(ellipse 26% 20% at 42% 28%, var(--cloud, #fff) 0 45%, #0000 70%),
-    radial-gradient(ellipse 34% 24% at 70% 46%, var(--cloud, #fff) 0 45%, #0000 70%),
-    radial-gradient(ellipse 24% 18% at 92% 30%, var(--cloud, #fff) 0 45%, #0000 70%);
-  filter: blur(10px);
+    radial-gradient(ellipse 30% 22% at 18% 40%, var(--cloud, #fff) 0 25%, #0000 75%),
+    radial-gradient(ellipse 26% 20% at 42% 28%, var(--cloud, #fff) 0 25%, #0000 75%),
+    radial-gradient(ellipse 34% 24% at 70% 46%, var(--cloud, #fff) 0 25%, #0000 75%),
+    radial-gradient(ellipse 24% 18% at 92% 30%, var(--cloud, #fff) 0 25%, #0000 75%);
   animation: sky-drift 60s ease-in-out infinite alternate;
 }
+[data-sky='clear'] .sky-clouds {
+  display: none;
+}
+
+/*
+ * Precipitation: two tiles of randomly placed streaks or flakes, a faint far layer and
+ * a brighter near one, falling at different speeds for depth. Each layer is taller than
+ * the panel by one tile and slides down by exactly that height, so the loop is seamless.
+ * Only `transform` animates, which the compositor runs without repainting. `.sky-fall`
+ * sets the slant and is oversized so its rotated corners stay outside the panel.
+ * Pseudo-elements get `content` only in precipitating scenes, so other skies make no layers.
+ */
 .sky-precip {
-  background-repeat: repeat;
   mask-image: linear-gradient(180deg, #000 55%, #0000 85%);
+}
+.sky-fall {
+  position: absolute;
+  inset: -160px;
+  transform: rotate(var(--fall-tilt, 10deg));
+  --rain-far: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='240'><linearGradient id='s' x2='0' y2='1'><stop stop-color='%23fff' stop-opacity='0'/><stop offset='1' stop-color='%23fff'/></linearGradient><g fill='url(%23s)'><rect x='2.2' y='90' width='1' height='13' rx='0.5' opacity='0.39'/><rect x='14.3' y='210' width='1' height='11' rx='0.5' opacity='0.55'/><rect x='23.1' y='119' width='1' height='19' rx='0.5' opacity='0.42'/><rect x='32.2' y='49' width='1' height='12' rx='0.5' opacity='0.58'/><rect x='47.1' y='176' width='1' height='20' rx='0.5' opacity='0.40'/><rect x='55.9' y='166' width='1' height='14' rx='0.5' opacity='0.56'/><rect x='62.1' y='133' width='1' height='21' rx='0.5' opacity='0.52'/><rect x='72.7' y='106' width='1' height='16' rx='0.5' opacity='0.37'/><rect x='87.6' y='120' width='1' height='21' rx='0.5' opacity='0.43'/><rect x='95.5' y='193' width='1' height='21' rx='0.5' opacity='0.56'/><rect x='104.4' y='134' width='1' height='16' rx='0.5' opacity='0.46'/><rect x='113.6' y='185' width='1' height='12' rx='0.5' opacity='0.36'/></g></svg>");
+  --rain-near: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='320'><linearGradient id='s' x2='0' y2='1'><stop stop-color='%23fff' stop-opacity='0'/><stop offset='1' stop-color='%23fff'/></linearGradient><g fill='url(%23s)'><rect x='9.7' y='39' width='1.5' height='35' rx='0.75' opacity='0.85'/><rect x='37.6' y='264' width='1.5' height='26' rx='0.75' opacity='0.58'/><rect x='65.1' y='12' width='1.5' height='37' rx='0.75' opacity='0.68'/><rect x='86.4' y='203' width='1.5' height='40' rx='0.75' opacity='0.61'/><rect x='103.9' y='146' width='1.5' height='31' rx='0.75' opacity='0.87'/><rect x='143.5' y='108' width='1.5' height='38' rx='0.75' opacity='0.81'/><rect x='157.9' y='197' width='1.5' height='28' rx='0.75' opacity='0.80'/><rect x='178.4' y='76' width='1.5' height='34' rx='0.75' opacity='0.62'/></g></svg>");
+  --snow-far: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='240'><g fill='%23fff'><circle cx='7.1' cy='89' r='0.9' opacity='0.68'/><circle cx='16.1' cy='5' r='1.2' opacity='0.75'/><circle cx='30.8' cy='237' r='1.0' opacity='0.64'/><circle cx='46.5' cy='153' r='1.3' opacity='0.55'/><circle cx='63.3' cy='125' r='1.2' opacity='0.72'/><circle cx='69.4' cy='181' r='1.2' opacity='0.68'/><circle cx='82.3' cy='206' r='1.0' opacity='0.64'/><circle cx='103.4' cy='170' r='1.2' opacity='0.78'/><circle cx='116.1' cy='107' r='1.0' opacity='0.78'/></g></svg>");
+  --snow-near: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='320'><g fill='%23fff'><circle cx='32.7' cy='43' r='1.8' opacity='0.88'/><circle cx='47.1' cy='317' r='1.7' opacity='0.75'/><circle cx='90.4' cy='145' r='2.2' opacity='0.82'/><circle cx='138.6' cy='31' r='1.8' opacity='0.76'/><circle cx='157.7' cy='131' r='1.6' opacity='0.93'/><circle cx='189.8' cy='84' r='2.0' opacity='0.95'/></g></svg>");
+}
+.sky-fall::before,
+.sky-fall::after {
+  position: absolute;
+  inset: 0;
+  background-repeat: repeat;
+  will-change: transform;
+  animation: linear infinite;
+}
+.sky-fall::before {
+  top: -240px;
+  background-image: var(--far);
+  animation-name: fall-far;
+}
+.sky-fall::after {
+  top: -320px;
+  background-image: var(--near);
+  animation-name: fall-near;
+}
+[data-sky='drizzle'],
+[data-sky='rain'],
+[data-sky='storm'],
+[data-sky='snow'] {
+  .sky-precip {
+    opacity: 1;
+  }
+  .sky-fall::before,
+  .sky-fall::after {
+    content: '';
+  }
 }
 
 /* Scenes */
@@ -196,7 +246,6 @@
       linear-gradient(180deg, #fff0 0 10%, #fff9 22%, #fff0 38%),
       linear-gradient(180deg, #fff0 40%, #fff8 55%, #fff0 70%),
       linear-gradient(180deg, #fff0 68%, #fff9 84%, #fff0 100%);
-    filter: blur(14px);
   }
 }
 [data-sky='drizzle'],
@@ -207,20 +256,37 @@
   .sky-clouds {
     opacity: 0.3;
   }
-  .sky-precip {
-    opacity: 0.35;
-    background-image: repeating-linear-gradient(
-      102deg,
-      #0000 0 14px,
-      #ffffff8c 14px 15px,
-      #0000 15px 29px
-    );
-    background-size: 29px 90px;
-    animation: sky-rain 0.9s linear infinite;
+}
+[data-sky='drizzle'],
+[data-sky='rain'],
+[data-sky='storm'] {
+  .sky-fall {
+    --far: var(--rain-far);
+    --near: var(--rain-near);
   }
 }
-[data-sky='drizzle'] .sky-precip {
-  opacity: 0.2;
+[data-sky='rain'] .sky-fall {
+  &::before {
+    opacity: 0.5;
+    animation-duration: 0.62s;
+  }
+  &::after {
+    opacity: 0.6;
+    animation-duration: 0.42s;
+  }
+}
+/* Drizzle: the same streaks squashed shorter, sparser and slower. */
+[data-sky='drizzle'] .sky-fall {
+  inset: -60% -160px;
+  transform: rotate(6deg) scaleY(0.55);
+  &::before {
+    opacity: 0.35;
+    animation-duration: 1.3s;
+  }
+  &::after {
+    opacity: 0.2;
+    animation-duration: 0.95s;
+  }
 }
 [data-sky='snow'] {
   --sky-top: #4a607c;
@@ -228,17 +294,18 @@
   .sky-clouds {
     opacity: 0.3;
   }
-  .sky-precip {
-    opacity: 0.75;
-    background-image:
-      radial-gradient(circle at 20% 30%, #fff 0 1.5px, #0000 2.5px),
-      radial-gradient(circle at 70% 70%, #fffc 0 1px, #0000 2px),
-      radial-gradient(circle at 45% 55%, #fffa 0 2px, #0000 3px);
-    background-size:
-      46px 46px,
-      31px 37px,
-      83px 71px;
-    animation: sky-snow 9s linear infinite;
+  .sky-fall {
+    --fall-tilt: 8deg;
+    --far: var(--snow-far);
+    --near: var(--snow-near);
+    &::before {
+      opacity: 0.7;
+      animation-duration: 14s;
+    }
+    &::after {
+      opacity: 0.85;
+      animation-duration: 9s;
+    }
   }
 }
 [data-sky='storm'] {
@@ -248,16 +315,16 @@
   .sky-clouds {
     opacity: 0.35;
   }
-  .sky-precip {
-    opacity: 0.35;
-    background-image: repeating-linear-gradient(
-      106deg,
-      #0000 0 12px,
-      #ffffff80 12px 13px,
-      #0000 13px 25px
-    );
-    background-size: 25px 80px;
-    animation: sky-rain 0.7s linear infinite;
+  .sky-fall {
+    --fall-tilt: 16deg;
+    &::before {
+      opacity: 0.6;
+      animation-duration: 0.45s;
+    }
+    &::after {
+      opacity: 0.75;
+      animation-duration: 0.32s;
+    }
   }
   .sky-glow {
     background: radial-gradient(ellipse at 70% 0%, #dfe6ff 0, #0000 60%);
@@ -320,17 +387,14 @@
     transform: translateX(-12%);
   }
 }
-@keyframes sky-rain {
+@keyframes fall-far {
   to {
-    background-position: -18px 90px;
+    transform: translate3d(0, 240px, 0);
   }
 }
-@keyframes sky-snow {
+@keyframes fall-near {
   to {
-    background-position:
-      20px 184px,
-      -12px 148px,
-      30px 142px;
+    transform: translate3d(0, 320px, 0);
   }
 }
 @keyframes sky-flash {

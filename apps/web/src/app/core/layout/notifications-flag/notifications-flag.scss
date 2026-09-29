@@ -1,9 +1,61 @@
+@use 'sass:list';
+@use 'sass:math';
+
 // A flag that unrolls from the notification button: the white rod extends, the rolled cloth
-// drops under its own weight, ripples as it falls, snaps taut and settles.
-@property --unroll {
-  syntax: '<number>';
-  inherits: true;
-  initial-value: 0;
+// drops under its own weight, folds travel down it as it falls, it snaps taut and settles.
+// Everything that moves animates only transform and opacity, so the compositor runs it
+// without repainting the cloth on each frame.
+
+// The drop's progress, from rolled up (0) to hanging (1), at each step, with the easing into
+// the next step: the roll gathers speed under gravity.
+$unroll-steps: (
+  0%: (
+    0,
+    cubic-bezier(0.5, 0, 0.85, 0.45),
+  ),
+  10%: (
+    0.05,
+    cubic-bezier(0.45, 0, 0.8, 0.5),
+  ),
+  30%: (
+    0.25,
+    cubic-bezier(0.35, 0.1, 0.75, 0.6),
+  ),
+  55%: (
+    0.66,
+    cubic-bezier(0.4, 0, 0.9, 0.7),
+  ),
+  78%: (
+    1,
+    null,
+  ),
+  100%: (
+    1,
+    null,
+  ),
+);
+
+// Keyframes `<name>-unroll` and `<name>-rollup` for one part of the flag, whose transform at
+// a given progress the content block writes. Every part shares the same progress curve.
+@mixin unroll-keyframes($name) {
+  @keyframes #{$name}-unroll {
+    @each $at, $step in $unroll-steps {
+      #{$at} {
+        @content (list.nth($step, 1));
+        @if list.nth($step, 2) {
+          animation-timing-function: list.nth($step, 2);
+        }
+      }
+    }
+  }
+  @keyframes #{$name}-rollup {
+    0% {
+      @content (1);
+    }
+    100% {
+      @content (0);
+    }
+  }
 }
 
 :host {
@@ -63,9 +115,6 @@
   line-height: 1;
   text-align: center;
 }
-.ripple-defs {
-  position: absolute;
-}
 
 // The assembly hangs off the trigger and drops below the header. Closed, it is not rendered:
 // the cloth hanging hidden under the sticky top bar still extended the page's scrollable area
@@ -78,7 +127,6 @@
   width: min(var(--cloth-width), calc(100vw - 96px));
   display: none;
   pointer-events: none;
-  filter: drop-shadow(0 18px 24px #0004);
   color: var(--fabric-ink);
   text-align: left;
   // A display transition shows at once and hides at its end.
@@ -113,9 +161,8 @@
   box-shadow: 0 1px 3px #0003;
 }
 
-// Swing carries the drop progress and the pendulum motion for cloth and roll together.
+// Swing carries the pendulum motion for cloth and roll together.
 .swing {
-  --unroll: 0;
   position: relative;
   margin: 0 13px 0 4px;
   transform-origin: 100% 0;
@@ -124,15 +171,58 @@
   visibility: hidden;
   transition: visibility 0s 660ms;
 }
+// The cloth's shadow, stretched with the drop rather than recomputed from the cloth's outline.
+.swing::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  box-shadow: 0 18px 24px #0004;
+  transform: scaleY(0);
+  transform-origin: top;
+  pointer-events: none;
+}
 // Closing: the cloth rolls back up, then the roll retracts into the button with the rod.
 :host(:not(.open)) .swing {
   animation:
     flag-rollup 400ms cubic-bezier(0.55, 0, 0.9, 0.45) both,
     swing-retract 260ms cubic-bezier(0.4, 0, 0.2, 1) 380ms both;
 }
+:host(:not(.open)) {
+  .swing::before {
+    animation: shade-rollup 400ms cubic-bezier(0.55, 0, 0.9, 0.45) both;
+  }
+  .cloth {
+    animation: cloth-rollup 400ms cubic-bezier(0.55, 0, 0.9, 0.45) both;
+  }
+  .fabric {
+    animation: fabric-rollup 400ms cubic-bezier(0.55, 0, 0.9, 0.45) both;
+  }
+  .roll-track {
+    animation: roll-track-rollup 400ms cubic-bezier(0.55, 0, 0.9, 0.45) both;
+  }
+  .roll {
+    animation: roll-rollup 400ms cubic-bezier(0.55, 0, 0.9, 0.45) both;
+  }
+  .roll::after {
+    animation: seams-rollup 400ms cubic-bezier(0.55, 0, 0.9, 0.45) both;
+  }
+}
+// The cloth reveals from the top down: its clipping box slides down over the fabric while the
+// fabric slides back up by the same amount, so the fabric holds still and only the clip moves.
 .cloth {
   position: relative;
-  clip-path: inset(-24px -24px calc((1 - var(--unroll)) * 100%) -24px);
+  overflow: clip;
+  transform: translateY(-100%);
+  pointer-events: none;
+}
+// The roll's track sits a cloth's height above the cloth and slides down it, so the roll
+// never reaches below the hanging cloth and adds nothing to the page's scrollable area.
+.roll-track {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: 100%;
   pointer-events: none;
 }
 // The rolled-up remainder of the cloth, thick at the top and thinning as it unrolls.
@@ -140,8 +230,8 @@
   position: absolute;
   left: -2px;
   right: -2px;
-  top: calc(var(--unroll) * 100%);
-  height: calc(34px - var(--unroll) * 26px);
+  top: 100%;
+  height: 34px;
   border-radius: 999px;
   background: linear-gradient(180deg, #e7fbfc, #9ed3d8 22%, #1c5561 55%, #0a2a34 82%, #164852);
   box-shadow:
@@ -149,6 +239,7 @@
     0 6px 10px -2px #0008,
     inset 0 -1px 0 #ffffff22;
   transform: translateY(-60%);
+  transform-origin: 50% 60%;
   overflow: hidden;
   transition: opacity 260ms;
 }
@@ -156,12 +247,12 @@
 .roll::after {
   content: '';
   position: absolute;
-  inset: 0;
+  inset: 0 0 -260px;
   background: repeating-linear-gradient(180deg, transparent 0 5px, #ffffff12 5px 6px);
-  background-position-y: calc(var(--unroll) * -260px);
 }
 .fabric {
   position: relative;
+  transform: translateY(100%);
   isolation: isolate;
   min-height: 330px;
   padding: 25px 29px 51px;
@@ -419,21 +510,40 @@ h2 {
     rod-dip 620ms 820ms ease-in-out both;
 }
 :host(.open) .swing {
-  --unroll: 1;
   visibility: visible;
   transform: perspective(1100px) rotateX(0deg);
   scale: 1 1;
   transition: none;
   animation:
     swing-extend 340ms cubic-bezier(0.2, 0.75, 0.25, 1) both,
-    flag-unroll 950ms 180ms both,
     flag-swing 1500ms 180ms both;
 }
+:host(.open) {
+  .swing::before {
+    animation: shade-unroll 950ms 180ms both;
+  }
+  .cloth {
+    animation: cloth-unroll 950ms 180ms both;
+  }
+  .fabric {
+    animation: fabric-unroll 950ms 180ms both;
+  }
+  .roll-track {
+    animation: roll-track-unroll 950ms 180ms both;
+  }
+  .roll {
+    animation: roll-unroll 950ms 180ms both;
+  }
+  .roll::after {
+    animation: seams-unroll 950ms 180ms both;
+  }
+}
 :host(.open) .cloth {
+  transform: none;
   pointer-events: auto;
 }
-:host(.open:not(.settled)) .fabric {
-  filter: url('#notifications-flag-ripple');
+:host(.open) .fabric {
+  transform: none;
 }
 :host(.open) .fall-shading {
   animation: falling-folds 1100ms 240ms both;
@@ -478,13 +588,30 @@ h2 {
 }
 @keyframes flag-rollup {
   0% {
-    --unroll: 1;
     transform: perspective(1100px) rotateX(0deg);
   }
   100% {
-    --unroll: 0;
     transform: perspective(1100px) rotateX(-12deg);
   }
+}
+@include unroll-keyframes(shade) using ($u) {
+  transform: scaleY($u);
+}
+@include unroll-keyframes(cloth) using ($u) {
+  transform: translateY(math.percentage($u - 1));
+}
+@include unroll-keyframes(fabric) using ($u) {
+  transform: translateY(math.percentage(1 - $u));
+}
+@include unroll-keyframes(roll-track) using ($u) {
+  transform: translateY(math.percentage($u));
+}
+// The roll thins from 34px to 8px as the cloth comes off it.
+@include unroll-keyframes(roll) using ($u) {
+  transform: translateY(-60%) scaleY(1 - math.div(26, 34) * $u);
+}
+@include unroll-keyframes(seams) using ($u) {
+  transform: translateY(-260px * $u);
 }
 @keyframes rod-dip {
   0%,
@@ -496,28 +623,6 @@ h2 {
   }
   70% {
     rotate: 0.3deg;
-  }
-}
-@keyframes flag-unroll {
-  0% {
-    --unroll: 0;
-    animation-timing-function: cubic-bezier(0.5, 0, 0.85, 0.45);
-  }
-  10% {
-    --unroll: 0.05;
-    animation-timing-function: cubic-bezier(0.45, 0, 0.8, 0.5);
-  }
-  30% {
-    --unroll: 0.25;
-    animation-timing-function: cubic-bezier(0.35, 0.1, 0.75, 0.6);
-  }
-  55% {
-    --unroll: 0.66;
-    animation-timing-function: cubic-bezier(0.4, 0, 0.9, 0.7);
-  }
-  78%,
-  100% {
-    --unroll: 1;
   }
 }
 @keyframes flag-swing {
@@ -608,14 +713,24 @@ h2 {
     transform: none;
   }
   :host(.open) .swing {
-    --unroll: 1;
     scale: 1 1;
   }
-  .fall-shading,
-  .roll {
-    display: none;
+  .swing::before,
+  .cloth,
+  .fabric,
+  :host(.open) .swing::before,
+  :host(.open) .cloth,
+  :host(.open) .fabric,
+  :host(:not(.open)) .swing::before,
+  :host(:not(.open)) .cloth,
+  :host(:not(.open)) .fabric {
+    animation: none;
   }
-  :host(.open:not(.settled)) .fabric {
-    filter: none;
+  :host(.open) .swing::before {
+    transform: none;
+  }
+  .fall-shading,
+  .roll-track {
+    display: none;
   }
 }
