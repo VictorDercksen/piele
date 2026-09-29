@@ -27,7 +27,7 @@ button:disabled {
   min-height: 100dvh;
   overflow: hidden;
 }
-.stage-photo {
+.poster-photo {
   z-index: -2;
 }
 .profile-editor::before {
@@ -464,7 +464,7 @@ legend span {
     flex-direction: column;
     padding: 16px 0 24px;
   }
-  .stage-photo {
+  .poster-photo {
     bottom: auto;
     height: min(100%, 100svh);
   }

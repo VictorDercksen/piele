@@ -3,7 +3,7 @@
   [style.--team-colour]="selectedTeam()?.colour || '#344d60'"
   [style.--team-accent]="selectedTeam()?.accent || '#ff957e'"
 >
-  <app-stadium-backdrop class="stage-photo" [src]="selectedTeam()?.stadiumBackground" />
+  <app-stadium-backdrop class="poster-photo" [src]="selectedTeam()?.stadiumBackground" />
   <form class="profile-layout" [formGroup]="form" (ngSubmit)="save()">
     <header class="profile-bar">
       <a
@@ -55,7 +55,10 @@
     </div>
     <fieldset class="team-picker" [class.needs-team]="submitted() && !teamId()">
       <legend>Choose your team <span>Required</span></legend>
-      <p class="field-hint">Your jersey, profile and personal highlights take on these colours.</p>
+      <p class="field-hint">
+        Your team in {{ leagueTitle() }}. Your jersey, profile and personal highlights take on these
+        colours.
+      </p>
       <div
         #teamRail
         hlmRadioGroup
