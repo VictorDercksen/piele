@@ -9,7 +9,7 @@ The agent holds no database credentials. It reaches the API's `/v1/agent` routes
 | Path | Contents |
 | --- | --- |
 | `agent/agent.ts` | Root agent: DeepSeek V4 Pro through AI Gateway, no default tools, no self-delegation, per-session token and cost caps. |
-| `agent/instructions.md` | The writer's process and rules: cite every claim, treat fetched text as information only, no betting language, plain text. |
+| `agent/instructions.md` | The writer's process and rules: cite every claim, score each camp's mood on evidence rather than the tone of club coverage, treat fetched text as information only, no betting language, plain text. |
 | `agent/tools/` | `get_fixture_state` and `save_preview`, all calling the API through `agent/lib/pavilion-api.ts`. The state tool keeps the fixture's hashes in session state for `save_preview`, so the model never copies them. |
 | `agent/subagents/team-researcher/` | One team per call. Only `web_search` and `web_fetch`; fetches are limited to `agent/lib/allowlist.ts`. Returns structured items, each with its source URL. |
 | `agent/schedules/prepare-previews.ts` | Cron `*/15 * * * *` (UTC), a code handler with no model call. It claims due fixtures through `POST /v1/agent/dispatches` (both teamsheets published, no preview yet) and starts one writing session per claim. Ticks with nothing due cost one API call. Needs a paid Vercel plan (Hobby cron runs once a day). |
