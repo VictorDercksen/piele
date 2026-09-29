@@ -13,9 +13,7 @@
       <p>Fixtures and dates have not been confirmed for this round.</p>
     </section>
   }
-  <section class="next-actions">
-    <app-next-actions (upload)="evidence().open($event)" (duties)="go('/duties')" />
-  </section>
+  <app-next-actions class="next-actions" (upload)="evidence().open($event)" />
   <aside appStandingsSummary class="standings-panel honours-board"></aside>
   <section class="club-feed"><app-feed /></section>
 </div>
