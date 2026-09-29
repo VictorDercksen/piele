@@ -237,23 +237,32 @@ test('standings show the round and season tables with badges and the breakdown',
       .getByRole('img', { name: 'Round spoon' }),
   ).toBeVisible();
 
-  // The breakdown adds WP, MP, GSP and BP with a key, and is remembered.
-  const toggle = season.getByRole('button', { name: 'Show breakdown' });
+  // The breakdown adds a labelled WP, MP, GSP and BP bar with a key, and is remembered.
+  const toggle = season.getByRole('button', { name: 'Breakdown', exact: true });
   await expect(toggle).toHaveAttribute('aria-pressed', 'false');
-  await expect(season.getByRole('list', { name: 'Breakdown key' })).toHaveCount(0);
+  await expect(season.getByRole('group', { name: 'Breakdown key' })).toHaveCount(0);
   await toggle.click();
   await expect(toggle).toHaveAttribute('aria-pressed', 'true');
-  await expect(season.getByRole('list', { name: 'Breakdown key' })).toContainText(
-    'BP Bonus points',
-  );
-  await expect(seasonRows.first().locator('.breakdown-bar .segment')).toHaveCount(4);
-  await expect(seasonRows.first().locator('.breakdown-bar .segment.bp')).toHaveCSS(
-    'background-color',
-    'rgb(217, 179, 108)',
-  );
+  const key = season.getByRole('group', { name: 'Breakdown key' });
+  await expect(key.getByRole('button')).toHaveText([
+    /WP Win points/,
+    /MP Margin points/,
+    /GSP Grand slam points/,
+    /BP Bonus points/,
+  ]);
+  const bonus = seasonRows.first().locator('.breakdown-bar .segment.bp');
+  await expect(bonus).toHaveCSS('background-color', 'rgb(217, 179, 108)');
+  await expect(bonus).toHaveText(/^[\d.]+$/);
   await expect(seasonRows.first().locator('.visually-hidden')).toContainText('win points');
+  // Highlighting a part dims the others.
+  await key.getByRole('button', { name: /Bonus points/ }).click();
+  await expect(bonus).toHaveCSS('opacity', '1');
+  await expect(seasonRows.first().locator('.breakdown-bar .segment.wp')).toHaveCSS(
+    'opacity',
+    '0.22',
+  );
   await page.reload();
-  await expect(season.getByRole('button', { name: 'Show breakdown' })).toHaveAttribute(
+  await expect(season.getByRole('button', { name: 'Breakdown', exact: true })).toHaveAttribute(
     'aria-pressed',
     'true',
   );

@@ -113,47 +113,63 @@
     }
   } @else if (rows().length) {
     <div class="board-tools">
-      <button
-        hlmBtn
-        type="button"
-        class="breakdown-toggle"
-        hlmToggle
-        [state]="breakdown() ? 'on' : 'off'"
-        (stateChange)="toggleBreakdown()"
+      <div
+        hlmToggleGroup
+        type="single"
+        [nullable]="false"
+        [value]="breakdown() ? 'breakdown' : 'totals'"
+        (valueChange)="setBreakdown($event)"
+        class="breakdown-view"
+        aria-label="Table view"
       >
-        Show breakdown
-      </button>
+        <button hlmBtn type="button" hlmToggleGroupItem value="totals">Totals</button
+        ><button hlmBtn type="button" hlmToggleGroupItem value="breakdown">Breakdown</button>
+      </div>
       @if (breakdown()) {
-        <ul class="breakdown-legend" aria-label="Breakdown key">
-          <li><span class="swatch wp" aria-hidden="true"></span><strong>WP</strong> Win points</li>
-          <li>
-            <span class="swatch mp" aria-hidden="true"></span><strong>MP</strong> Margin points
-          </li>
-          <li>
-            <span class="swatch gsp" aria-hidden="true"></span><strong>GSP</strong> Grand slam
-            points
-          </li>
-          <li>
-            <span class="swatch bp" aria-hidden="true"></span><strong>BP</strong> Bonus points
-          </li>
-        </ul>
+        <div
+          hlmToggleGroup
+          type="single"
+          [value]="highlight()"
+          (valueChange)="setHighlight($event)"
+          class="breakdown-legend"
+          aria-label="Breakdown key"
+        >
+          @for (part of parts; track part.key) {
+            <button
+              hlmBtn
+              type="button"
+              hlmToggleGroupItem
+              class="key-chip"
+              [attr.data-part]="part.key"
+              [value]="part.key"
+              [title]="part.name"
+            >
+              <span class="swatch" aria-hidden="true"></span>{{ part.abbr
+              }}<span class="visually-hidden"> {{ part.name }}</span>
+            </button>
+          }
+        </div>
+        <p class="legend-hint">Tap a key to highlight it.</p>
       }
     </div>
-    <div class="full-table points-table" [class.with-breakdown]="breakdown()">
+    <div
+      class="full-table points-table"
+      [class.with-breakdown]="breakdown()"
+      [attr.data-highlight]="breakdown() ? highlight() : null"
+    >
       <div class="table-label">
         <span class="member-head">RANK / MEMBER</span>
-        @if (breakdown()) {
-          <abbr class="cell" title="Win points">WP</abbr
-          ><abbr class="cell" title="Margin points">MP</abbr
-          ><abbr class="cell" title="Grand slam points">GSP</abbr
-          ><abbr class="cell" title="Bonus points">BP</abbr>
-        }
-        <span class="total-head">{{
-          measure() === 'round' ? 'ROUND POINTS' : 'SEASON POINTS'
-        }}</span>
+        <span class="total-head"
+          ><span class="total-scope">{{ measure() === 'round' ? 'ROUND' : 'SEASON' }} </span
+          >PTS</span
+        >
       </div>
       @for (member of rows(); track member.memberId) {
-        <div class="standing-row points-row" [class.you]="member.you">
+        <div
+          class="standing-row points-row"
+          [class.you]="member.you"
+          [class.lead]="member.rank === 1"
+        >
           <span class="rank">{{ member.rank | number: '2.0-0' }}</span>
           <app-member-avatar
             [name]="member.name"
@@ -180,33 +196,36 @@
                 >
               }
             </span>
-            @if (member.rounds !== null) {
+            @if (member.rounds !== null && !breakdown()) {
               <small class="rounds-count"
                 >{{ member.rounds }} {{ member.rounds === 1 ? 'round' : 'rounds' }}</small
               >
             }
-            @if (breakdown()) {
-              <span class="breakdown-bar" aria-hidden="true"
-                ><span class="segment wp" [style.width.%]="member.bar.wp"></span
-                ><span class="segment mp" [style.width.%]="member.bar.mp"></span
-                ><span class="segment gsp" [style.width.%]="member.bar.gsp"></span
-                ><span class="segment bp" [style.width.%]="member.bar.bp"></span
-              ></span>
-              <span class="visually-hidden"
-                >{{ member.wp | number: '1.0-2' }} win points,
-                {{ member.mp | number: '1.0-2' }} margin points,
-                {{ member.gsp | number: '1.0-2' }} grand slam points,
-                {{ member.bp | number: '1.0-2' }} bonus points</span
-              >
-            }
           </span>
-          @if (breakdown()) {
-            <span class="cell" aria-hidden="true">{{ member.wp | number: '1.0-2' }}</span
-            ><span class="cell" aria-hidden="true">{{ member.mp | number: '1.0-2' }}</span
-            ><span class="cell" aria-hidden="true">{{ member.gsp | number: '1.0-2' }}</span
-            ><span class="cell" aria-hidden="true">{{ member.bp | number: '1.0-2' }}</span>
-          }
           <strong>{{ member.points | number: '1.1-2' }}</strong>
+          @if (breakdown()) {
+            <span class="breakdown-bar" aria-hidden="true">
+              @for (part of parts; track part.key) {
+                @if (member.bar[part.key] > 0) {
+                  <span
+                    class="segment"
+                    [class]="part.key"
+                    [style.width.%]="member.bar[part.key]"
+                    [title]="part.name + ': ' + (member[part.key] | number: '1.0-2')"
+                    >{{
+                      member.bar[part.key] >= labelMin ? (member[part.key] | number: '1.0-2') : ''
+                    }}</span
+                  >
+                }
+              }
+            </span>
+            <span class="visually-hidden"
+              >{{ member.wp | number: '1.0-2' }} win points,
+              {{ member.mp | number: '1.0-2' }} margin points,
+              {{ member.gsp | number: '1.0-2' }} grand slam points,
+              {{ member.bp | number: '1.0-2' }} bonus points</span
+            >
+          }
         </div>
       }
     </div>

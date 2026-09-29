@@ -1,4 +1,3 @@
-import { HlmToggle } from '@spartan-ng/helm/toggle';
 import { HlmToggleGroup } from '@spartan-ng/helm/toggle-group';
 import { HlmToggleGroupItem } from '@spartan-ng/helm/toggle-group';
 import { HlmButton } from '@spartan-ng/helm/button';
@@ -22,8 +21,14 @@ import { LeagueContext } from '../../core/league/league-context';
 import { MarkService } from '../../core/league/marks/mark.service';
 import { StandingService } from '../../core/league/standings/standing.service';
 import { MemberAvatar } from '../../shared/member-avatar/member-avatar';
-import { PointsRow, StandingsMeasure } from './standings.page.models';
-import { measureFrom, pointsRows } from './standings.page.rows';
+import { BreakdownPart, PointsRow, StandingsMeasure } from './standings.page.models';
+import {
+  BREAKDOWN_PARTS,
+  LABEL_MIN_WIDTH,
+  breakdownPartFrom,
+  measureFrom,
+  pointsRows,
+} from './standings.page.rows';
 
 /**
  * Round and season Superbru standings with an optional points breakdown, and the season's
@@ -37,7 +42,6 @@ import { measureFrom, pointsRows } from './standings.page.rows';
   changeDetection: ChangeDetectionStrategy.OnPush,
   /* prettier-ignore */
   imports: [
-    HlmToggle,
     DecimalPipe,
     MemberAvatar,
     HlmButton,
@@ -53,6 +57,8 @@ export class StandingsPage {
   readonly fixtures = inject(FixtureService);
   readonly marks = inject(MarkService);
   readonly badges = BADGES;
+  readonly parts = BREAKDOWN_PARTS;
+  readonly labelMin = LABEL_MIN_WIDTH;
   private readonly preferences = inject(StandingsPreferences);
   private readonly tableParam = toSignal(
     this.route.queryParamMap.pipe(map((params) => measureFrom(params.get('table')))),
@@ -62,6 +68,8 @@ export class StandingsPage {
   readonly measure = linkedSignal<StandingsMeasure>(() => this.tableParam());
   /** Whether the WP, MP, GSP and BP columns and bars show; remembered in this browser. */
   readonly breakdown = signal(this.preferences.readBreakdown());
+  /** The part the key highlights across the bars, or none. */
+  readonly highlight = signal<BreakdownPart | null>(null);
   /** The round's status tag: live points are provisional; a settled round is complete. */
   readonly roundStatus = computed<'provisional' | 'complete' | 'awaiting picks'>(() => {
     if (this.fixtures.roundProvisional()) return 'provisional';
@@ -88,9 +96,16 @@ export class StandingsPage {
     });
   }
 
-  toggleBreakdown(): void {
-    const next = !this.breakdown();
+  /** Shows the totals or the breakdown, and remembers the choice in this browser. */
+  setBreakdown(view: unknown): void {
+    const next = view === 'breakdown';
+    if (next === this.breakdown()) return;
     this.breakdown.set(next);
+    this.highlight.set(null);
     this.preferences.saveBreakdown(next);
+  }
+
+  setHighlight(part: unknown): void {
+    this.highlight.set(breakdownPartFrom(part));
   }
 }

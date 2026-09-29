@@ -255,17 +255,54 @@ brn-switch {
   padding: 5px 11px;
   border-radius: 9px;
 }
-:root body .breakdown-toggle[hlmToggle] {
-  border-radius: 99px;
-  background: #14282a;
-  padding: 7px 15px;
-  border: 1px solid #536c65;
-  color: #c8d0c6;
+:root body .breakdown-view[hlmToggleGroup] {
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid #bbc7b52e;
+  border-radius: 999px;
+  background: #0000002e;
 }
-:root body .breakdown-toggle[aria-pressed='true'] {
-  background: #ffa17c19;
-  border-color: #ffa17c80;
-  color: #ffd1b5;
+:root body .breakdown-view [hlmToggleGroupItem] {
+  min-height: 32px;
+  padding: 5px 15px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #b8c4bd;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  box-shadow: none;
+}
+:root body .breakdown-view [hlmToggleGroupItem]:hover {
+  color: #f2efdf;
+}
+:root body .breakdown-view [hlmToggleGroupItem][aria-pressed='true'] {
+  background: #f1d392;
+  color: #1b1408;
+}
+/* The breakdown key: chips that highlight one part of every bar. */
+:root body .breakdown-legend[hlmToggleGroup] {
+  flex-wrap: wrap;
+  gap: 6px;
+}
+:root body .breakdown-legend [hlmToggleGroupItem] {
+  gap: 6px;
+  min-height: 30px;
+  padding: 3px 11px 3px 9px;
+  border: 1px solid #bbc7b52e;
+  border-radius: 999px;
+  background: transparent;
+  color: #f2efdf;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  box-shadow: none;
+}
+:root body .breakdown-legend [hlmToggleGroupItem][aria-pressed='true'] {
+  border-color: var(--seg);
+  background: color-mix(in srgb, var(--seg) 14%, transparent);
+  color: var(--seg);
 }
 @media (max-width: 400px) {
   :root body .content-tabs[hlmToggleGroup] {

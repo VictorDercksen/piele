@@ -154,42 +154,46 @@ describe('StandingsPage', () => {
 
   it('reveals the breakdown and remembers it in this browser', async () => {
     const { harness, element, text, button } = await open('/standings');
-    const toggle = button('Show breakdown');
+    const totals = button('Totals');
+    const toggle = button('Breakdown');
+    expect(totals.getAttribute('aria-pressed')).toBe('true');
     expect(toggle.getAttribute('aria-pressed')).toBe('false');
+    expect(element.querySelector('.breakdown-legend')).toBeNull();
     toggle.click();
     harness.detectChanges();
     expect(toggle.getAttribute('aria-pressed')).toBe('true');
     expect(localStorage.getItem(BREAKDOWN_STORAGE_KEY)).toBe('1');
-    expect(
-      [...element.querySelectorAll('.table-label abbr')].map((a) => [
-        a.textContent,
-        a.getAttribute('title'),
-      ]),
-    ).toEqual([
-      ['WP', 'Win points'],
-      ['MP', 'Margin points'],
-      ['GSP', 'Grand slam points'],
-      ['BP', 'Bonus points'],
-    ]);
-    expect(text('.breakdown-legend li')).toEqual([
-      'WP Win points',
-      'MP Margin points',
-      'GSP Grand slam points',
-      'BP Bonus points',
+    const keys = [...element.querySelectorAll<HTMLButtonElement>('.breakdown-legend button')];
+    expect(keys.map((key) => [key.textContent!.replace(/\s+/g, ' ').trim(), key.title])).toEqual([
+      ['WP Win points', 'Win points'],
+      ['MP Margin points', 'Margin points'],
+      ['GSP Grand slam points', 'Grand slam points'],
+      ['BP Bonus points', 'Bonus points'],
     ]);
     const top = element.querySelector('.points-row')!;
     expect(text('.points-row')[0]).toContain('PieterW');
-    expect(top.querySelectorAll('.cell')).toHaveLength(4);
     expect(top.querySelector('.visually-hidden')!.textContent!.replace(/\s+/g, ' ').trim()).toMatch(
       /^[\d.]+ win points, [\d.]+ margin points, [\d.]+ grand slam points, [\d.]+ bonus points$/,
     );
-    const widths = [...top.querySelectorAll<HTMLElement>('.breakdown-bar .segment')].map((s) =>
-      parseFloat(s.style.width),
-    );
-    expect(widths).toHaveLength(4);
-    expect(widths.reduce((a, b) => a + b, 0)).toBeCloseTo(100);
+    // The leader's bar fills the track; each part shows its value where it fits.
+    const segments = [...top.querySelectorAll<HTMLElement>('.breakdown-bar .segment')];
+    expect(segments.length).toBeGreaterThan(0);
+    expect(segments.reduce((sum, s) => sum + parseFloat(s.style.width), 0)).toBeCloseTo(100);
+    expect(segments[0].classList).toContain('wp');
+    expect(segments[0].title).toMatch(/^Win points: [\d.]+$/);
+    expect(segments[0].textContent!.trim()).toMatch(/^[\d.]+$/);
 
-    toggle.click();
+    // A key highlights its part in every bar until pressed again.
+    const table = element.querySelector('.points-table')!;
+    keys[1].click();
+    harness.detectChanges();
+    expect(keys[1].getAttribute('aria-pressed')).toBe('true');
+    expect(table.getAttribute('data-highlight')).toBe('mp');
+    keys[1].click();
+    harness.detectChanges();
+    expect(table.hasAttribute('data-highlight')).toBe(false);
+
+    totals.click();
     harness.detectChanges();
     expect(localStorage.getItem(BREAKDOWN_STORAGE_KEY)).toBe('0');
     expect(element.querySelector('.breakdown-bar')).toBeNull();
@@ -198,7 +202,7 @@ describe('StandingsPage', () => {
   it('starts with the breakdown open when remembered', async () => {
     localStorage.setItem(BREAKDOWN_STORAGE_KEY, '1');
     const { element, button } = await open('/standings');
-    expect(button('Show breakdown').getAttribute('aria-pressed')).toBe('true');
+    expect(button('Breakdown').getAttribute('aria-pressed')).toBe('true');
     expect(element.querySelectorAll('.breakdown-bar')).toHaveLength(6);
   });
 
@@ -215,7 +219,7 @@ describe('StandingsPage', () => {
       setItem.call(this, key, value);
     });
     const { harness, element, button } = await open('/standings');
-    const toggle = button('Show breakdown');
+    const toggle = button('Breakdown');
     expect(toggle.getAttribute('aria-pressed')).toBe('false');
     toggle.click();
     harness.detectChanges();
@@ -244,7 +248,7 @@ describe('StandingsPage', () => {
       'Picks appear once members record them and the matches kick off.',
     ]);
     expect(text('.board-status .tag')).toEqual(['awaiting picks']);
-    expect(button('Show breakdown')).toBeUndefined();
+    expect(button('Breakdown')).toBeUndefined();
     button('Season').click();
     await harness.fixture.whenStable();
     harness.detectChanges();

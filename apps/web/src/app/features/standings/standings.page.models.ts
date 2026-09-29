@@ -1,6 +1,16 @@
 /** The standings tables: the selected round, the season up to it, and house marks. */
 export type StandingsMeasure = 'round' | 'season' | 'marks';
 
+/** The four parts of a Superbru score: win, margin, grand slam and bonus points. */
+export type BreakdownPart = 'wp' | 'mp' | 'gsp' | 'bp';
+
+/** How the breakdown key names a part. */
+export interface BreakdownPartLabel {
+  readonly key: BreakdownPart;
+  readonly abbr: string;
+  readonly name: string;
+}
+
 /** One line of the round or season table as the page draws it. */
 export interface PointsRow {
   readonly memberId: string;
@@ -22,10 +32,5 @@ export interface PointsRow {
   /** The recorded total where it differs from the derived one, on the round table. */
   readonly override: number | null;
   /** Breakdown bar segment widths, in percent of the table's top total. */
-  readonly bar: {
-    readonly wp: number;
-    readonly mp: number;
-    readonly gsp: number;
-    readonly bp: number;
-  };
+  readonly bar: Readonly<Record<BreakdownPart, number>>;
 }
