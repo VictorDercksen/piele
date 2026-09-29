@@ -3,8 +3,9 @@ import { defineAgent } from 'eve';
 /** Keep the model id in step with lib/models.ts. */
 export default defineAgent({
   description:
-    'Research one URC team before a fixture: injuries, selection news, coach comments, travel ' +
-    "and rest notes, and the camp's mood, each with the source URL it came from.",
+    'Research one URC team before a fixture: injuries and other absentees, selection news, coach ' +
+    'comments, travel and rest notes, form and off-field news, each with the source URL it came ' +
+    "from, plus an evidence-based score of the camp's mood.",
   model: 'deepseek/deepseek-v4-pro',
   defaultTools: false,
   limits: {
