@@ -19,12 +19,16 @@ export interface WeatherSky {
  * hours of every venue.
  */
 export function weatherSky(weather: WeatherSection, zone = DEFAULT_ZONE): WeatherSky {
-  const scene = sceneFor(weather.weatherCode ?? null);
+  const scene = skyScene(weather.weatherCode ?? null);
   const time = (weather.isDay ?? daylightHour(weather.forecastHourUtc, zone)) ? 'day' : 'night';
   return { scene, time, icon: ICONS[scene][time] };
 }
 
-function sceneFor(code: number | null): SkyScene {
+/**
+ * The sky scene for an Open-Meteo WMO weather code. A null or unknown code in a forecast
+ * reads as cloudy; callers without any forecast should not pass one here.
+ */
+export function skyScene(code: number | null): SkyScene {
   if (code === null) return 'cloudy';
   if (code <= 1) return 'clear';
   if (code === 2) return 'partly';

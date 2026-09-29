@@ -257,6 +257,26 @@ export interface paths {
         readonly patch?: never;
         readonly trace?: never;
     };
+    readonly "/v1/competitions/{competitionId}/rounds/{round_number}/weather": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        /**
+         * Round Weather
+         * @description Every fixture's kickoff forecast, for the stadium backgrounds.
+         */
+        readonly get: operations["round_weather_v1_competitions__competitionId__rounds__round_number__weather_get"];
+        readonly put?: never;
+        readonly post?: never;
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
     readonly "/v1/cron/push": {
         readonly parameters: {
             readonly query?: never;
@@ -1067,7 +1087,8 @@ export interface paths {
         readonly get?: never;
         /**
          * Save Subscription
-         * @description Stores this browser's subscription for the account, or refreshes its keys.
+         * @description Stores this browser's subscription for the account, or refreshes its keys. An account
+         *     keeps its MAX_BROWSERS most recently stored browsers.
          */
         readonly put: operations["save_subscription_v1_me_push_subscriptions_put"];
         readonly post?: never;
@@ -1699,6 +1720,25 @@ export interface components {
              */
             readonly state: "live" | "half_time" | "full_time" | "postponed" | "cancelled";
         };
+        /**
+         * FixtureWeather
+         * @description A fixture's kickoff forecast. The forecast fields are null unless `status` is ok.
+         */
+        readonly FixtureWeather: {
+            /** Fixtureid */
+            readonly fixtureId: string;
+            /** Forecasthourutc */
+            readonly forecastHourUtc: string | null;
+            /** Isday */
+            readonly isDay: boolean | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            readonly status: "ok" | "not_published" | "too_early" | "past" | "unavailable";
+            /** Weathercode */
+            readonly weatherCode: number | null;
+        };
         /** HTTPValidationError */
         readonly HTTPValidationError: {
             /** Detail */
@@ -2283,6 +2323,18 @@ export interface components {
              * Format: date-time
              */
             readonly generatedAt: string;
+            /** Round */
+            readonly round: number;
+        };
+        /** RoundWeather */
+        readonly RoundWeather: {
+            /**
+             * Generatedat
+             * Format: date-time
+             */
+            readonly generatedAt: string;
+            /** Matches */
+            readonly matches: readonly components["schemas"]["FixtureWeather"][];
             /** Round */
             readonly round: number;
         };
@@ -3037,6 +3089,38 @@ export interface operations {
                 };
                 content: {
                     readonly "application/json": components["schemas"]["RoundUpdates"];
+                };
+            };
+            /** @description Validation Error */
+            readonly 422: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    readonly round_weather_v1_competitions__competitionId__rounds__round_number__weather_get: {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path: {
+                readonly competitionId: string;
+                readonly round_number: number;
+            };
+            readonly cookie?: never;
+        };
+        readonly requestBody?: never;
+        readonly responses: {
+            /** @description Successful Response */
+            readonly 200: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["RoundWeather"];
                 };
             };
             /** @description Validation Error */

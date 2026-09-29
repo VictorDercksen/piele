@@ -5,7 +5,7 @@ keys start with the competition id, so competitions never share a cached provide
 """
 
 import logging
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import datetime
 from typing import Any, Callable
 
@@ -78,6 +78,16 @@ class MatchCentreService:
                 for f in fixtures
             ],
         }
+
+    def round_weather(self, round_number: int, now: datetime | None = None) -> dict[str, Any]:
+        """The kickoff forecast of every fixture in a round, reduced to what the stadium
+        backgrounds need. One fixture's failure leaves the others' forecasts intact."""
+        moment = now or now_utc()
+        fixtures = self.competition.schedule().round(round_number)
+        with ThreadPoolExecutor(max_workers=max(1, min(len(fixtures), 8))) as pool:
+            futures = [pool.submit(self.weather, f, moment) for f in fixtures]
+            matches = [_fixture_weather(f, future) for f, future in zip(fixtures, futures)]
+        return {"round": round_number, "generatedAt": moment, "matches": matches}
 
     def _score(self, fixture: Fixture, now: datetime) -> dict[str, Any]:
         if not scores.started(fixture, now):
@@ -193,6 +203,22 @@ def _scheduled() -> dict[str, Any]:
         "home": {"score": None, "halfTime": None},
         "away": {"score": None, "halfTime": None},
         "events": [],
+    }
+
+
+def _fixture_weather(fixture: Fixture, future: Future[dict[str, Any]]) -> dict[str, Any]:
+    try:
+        section = future.result()
+    except Exception as exc:  # noqa: BLE001 - one fixture must not fail the round
+        logger.warning("Weather failed for %s: %s", fixture.id, type(exc).__name__)
+        section = {"status": "unavailable"}
+    forecast = section["status"] == "ok"
+    return {
+        "fixtureId": fixture.id,
+        "status": section["status"],
+        "weatherCode": section.get("weatherCode") if forecast else None,
+        "isDay": section.get("isDay") if forecast else None,
+        "forecastHourUtc": section.get("forecastHourUtc") if forecast else None,
     }
 
 

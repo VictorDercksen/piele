@@ -79,6 +79,11 @@ export type RoundMatchScore = components['schemas']['MatchScore'];
 
 export type RoundScores = components['schemas']['RoundScores'];
 
+/** Contract of `GET /v1/competitions/{competitionId}/rounds/{round}/weather`: each fixture's kickoff forecast. */
+export type FixtureWeather = components['schemas']['FixtureWeather'];
+
+export type RoundWeather = components['schemas']['RoundWeather'];
+
 export type MatchCentreClub = components['schemas']['ClubView'];
 
 /** Provider section extras are not described by OpenAPI and remain explicit view contracts. */

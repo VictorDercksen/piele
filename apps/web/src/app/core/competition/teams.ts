@@ -1,4 +1,8 @@
 import { ClubTeam } from './competition.models';
+import { STADIUM_CONDITIONS, StadiumBackgrounds } from './stadium-weather';
+
+/** Clubs whose home-ground artwork has no snow scene. */
+const SNOWLESS = new Set(['hollywoodbets-sharks', 'dhl-stormers']);
 
 /** The sixteen URC clubs of 2026/27. Artwork lives in public/assets/images by club id. */
 export const URC_TEAMS: readonly ClubTeam[] = [
@@ -40,5 +44,13 @@ function team(
     jersey: `assets/images/jerseys/${id}.${illustrated ? 'svg' : 'png'}`,
     avatar: `assets/images/teams/${id}.png`,
     stadiumBackground: `assets/images/match-nights/${id}.webp`,
+    stadiumBackgrounds: stadiumBackgrounds(id),
   };
+}
+
+function stadiumBackgrounds(id: string): StadiumBackgrounds {
+  const conditions = STADIUM_CONDITIONS.filter((c) => c !== 'snow-day' || !SNOWLESS.has(id));
+  return Object.fromEntries(
+    conditions.map((c) => [c, `assets/images/stadium-weather/${id}/${c}.webp`]),
+  );
 }
