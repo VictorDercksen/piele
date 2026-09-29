@@ -135,93 +135,149 @@
 }
 
 /*
- * The member's pick form: the margin scale. A strip in the scoring summary's shape, a crest tab
- * at each end and the track between them, with the marker's distance from the middle the margin
- * toward that side. The fill grows from the middle in the club's banner colour, the shape the
- * pool's split bar takes once the pick is in.
+ * The member's pick form, a match card: the label and the kickoff lock, the matchup (a crest
+ * button for each side that nudges the pick a point toward it), the margin scale, the quick
+ * margins either side of Draw, and the margin stepper beside Save. The fill grows from the middle
+ * in the club's banner colour, the shape the pool's split bar takes once the pick is in.
  */
 .pick-form {
   display: grid;
   gap: 14px;
   margin-bottom: 18px;
 }
-.scale-field {
-  display: grid;
-  gap: 8px;
-  min-width: 0;
+.form-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 12px;
 }
 .legend {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: var(--accent);
+  text-transform: uppercase;
+}
+.lock {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.lock ng-icon {
+  --ng-icon__size: 12px;
+  flex-shrink: 0;
+}
+
+/* The matchup: each side's crest and name, the chosen one underlined in its banner colour. */
+.matchup {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+.versus {
+  color: var(--muted);
   font-size: 13px;
-  font-weight: 600;
-}
-.scale {
-  display: flex;
-  align-items: stretch;
-  height: 72px;
-  background: var(--deep);
-  box-shadow: 0 3px 10px #0005;
-}
-.scale[aria-invalid='true'] {
-  box-shadow:
-    0 0 0 1px var(--problem, #e6b422),
-    0 3px 10px #0005;
+  font-style: italic;
 }
 .end {
-  position: relative;
-  flex-shrink: 0;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 4px;
-  width: 72px;
-  padding: 0 4px;
+  justify-content: flex-start;
+  gap: 10px;
+  min-width: 0;
+  min-height: 60px;
+  padding: 8px 10px;
   border: 0;
-  background: linear-gradient(180deg, #ffffff1f, #0000 60%), var(--club, #2d3f3c);
+  border-radius: 0;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--club, #2d3f3c) 45%, transparent),
+    transparent
+  );
   color: var(--chalk);
-  line-height: 1;
+  text-align: left;
   cursor: pointer;
   transition:
-    filter 0.2s,
+    opacity 0.2s,
     box-shadow 0.2s;
 }
+.end.away {
+  flex-direction: row-reverse;
+  text-align: right;
+  background: linear-gradient(
+    270deg,
+    color-mix(in srgb, var(--club, #2d3f3c) 45%, transparent),
+    transparent
+  );
+}
 .end img {
-  width: 26px;
-  height: 26px;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
   object-fit: contain;
 }
-.end b {
-  max-width: 100%;
+.end-name {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.end-name b {
   overflow: hidden;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 1.2px;
+  font-size: 15px;
+  font-weight: 900;
+  font-style: italic;
+  letter-spacing: 0.3px;
+  line-height: 1.1;
   text-overflow: ellipsis;
   text-transform: uppercase;
   white-space: nowrap;
 }
+.end-name small {
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: var(--muted);
+  text-transform: uppercase;
+}
 .end.dim {
-  filter: saturate(0.5) brightness(0.65);
+  opacity: 0.55;
 }
-.end:hover {
-  filter: saturate(0.8) brightness(0.9);
+.end.dim:hover {
+  opacity: 0.8;
 }
-.end.won,
-.end.won:hover {
-  filter: none;
-  box-shadow: inset 0 -3px 0 var(--club-accent, var(--accent));
+.end.won {
+  box-shadow: inset 0 -3px 0 var(--club-accent, var(--club-banner, var(--accent)));
 }
 .end:focus-visible {
   outline: 3px solid #e77935;
   outline-offset: -3px;
 }
+
+/* The scale: the track alone, full width, with its labels underneath. */
+.scale-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.scale {
+  position: relative;
+  height: 56px;
+  padding-inline: 22px;
+  border-radius: 3px;
+  background: var(--deep);
+  box-shadow: inset 0 0 0 1px #ffffff12;
+}
+.scale[aria-invalid='true'] {
+  box-shadow: inset 0 0 0 1px var(--problem, #e6b422);
+}
 .track {
   position: relative;
-  flex: 1;
-  min-width: 0;
-  margin-inline: 12px;
+  height: 100%;
 }
-.track:focus-within {
+.scale:focus-within {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
@@ -236,21 +292,32 @@
   position: absolute;
   top: 14px;
   bottom: 14px;
-  border-left: 1px solid #f2efdf66;
+  border-left: 1px solid #f2efdf55;
   pointer-events: none;
 }
 .tick.t50 {
+  top: 10px;
+  bottom: 10px;
   border-left-style: dashed;
+  border-left-color: #f2efdf99;
+}
+.tick-labels {
+  position: relative;
+  height: 12px;
+  margin-inline: 22px;
 }
 .tick-label {
   position: absolute;
-  bottom: 4px;
+  top: 0;
   transform: translateX(-50%);
-  font-size: 8px;
+  font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.6px;
+  line-height: 12px;
   color: var(--muted);
-  pointer-events: none;
+}
+.tick-label.t50 {
+  text-transform: uppercase;
 }
 .t0 {
   left: 0;
@@ -269,42 +336,47 @@
 }
 .fill {
   position: absolute;
-  top: 24px;
-  bottom: 24px;
-  background: linear-gradient(180deg, #ffffff26, #0000 70%), var(--club, #33413f);
+  top: 19px;
+  bottom: 19px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #ffffff38, #0000 70%), var(--club, #33413f);
   pointer-events: none;
 }
 .thumb {
   position: absolute;
   top: 50%;
-  min-width: 40px;
-  padding: 4px 8px;
+  min-width: 44px;
+  padding: 4px 10px 3px;
   transform: translate(-50%, -50%);
-  background: var(--paper);
-  border: 1px solid #f2efdf66;
-  color: var(--chalk);
-  font-size: 13px;
+  border-radius: 3px;
+  border-bottom: 3px solid var(--club, var(--chalk));
+  background: var(--chalk);
+  color: var(--deep);
+  font-size: 17px;
   font-weight: 900;
   font-style: italic;
   font-variant-numeric: tabular-nums;
+  line-height: 1.2;
   text-align: center;
-  box-shadow: 0 4px 12px #000a;
+  box-shadow: 0 5px 14px #000a;
   pointer-events: none;
   transition: left 0.05s;
 }
 .thumb.draw,
 .thumb.none {
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
   font-style: normal;
   letter-spacing: 1.2px;
+  line-height: 20px;
   text-transform: uppercase;
 }
 .thumb.draw {
-  color: var(--muted);
+  border-bottom-color: var(--muted);
 }
 .thumb.none {
-  border-style: dashed;
+  border: 1px dashed var(--accent);
+  background: var(--deep);
   color: var(--accent);
 }
 /* The native range lies over the track, unseen: its thumb is the hit area, the marker above draws it. */
@@ -318,91 +390,70 @@
   cursor: ew-resize;
 }
 
-/*
- * Under the scale: the Draw chip fixed under the middle tick (the ends are equal, so the strip's
- * centre is the track's), with the margin field beside it on the chosen club's side.
- */
-.scale-under {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  align-items: end;
-  gap: 10px 12px;
-}
-/* The quick margins run in toward the middle on each side, mirroring the track above. */
-.quick {
-  grid-row: 1;
+/* The quick margins run in toward Draw on each side, mirroring the track, in one centred row. */
+.quick-row {
   display: flex;
+  align-items: center;
+  justify-content: center;
   gap: 4px;
   min-width: 0;
 }
-.quick.home {
-  grid-column: 1;
-  justify-self: end;
+.quick {
+  display: flex;
+  gap: 4px;
 }
-.quick.away {
-  grid-column: 3;
-}
-.quick-pick {
-  min-width: 36px;
-  min-height: 36px;
-  padding: 0 6px;
-  border: 1px solid #f2efdf40;
+.quick-pick,
+.draw-pick {
+  min-height: 40px;
+  border: 1px solid #f2efdf42;
+  border-radius: 2px;
   background: none;
   color: var(--chalk);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   cursor: pointer;
 }
-.quick-pick:hover {
+.quick-pick {
+  min-width: 40px;
+  padding: 0 6px;
+  box-shadow: inset 0 -2px 0 var(--club, transparent);
+}
+.draw-pick {
+  padding: 0 14px;
+  border-color: #f2efdf66;
+  font-size: 11px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
+.quick-pick:hover,
+.draw-pick:hover {
   background: #ffffff10;
 }
 .quick-pick[aria-pressed='true'] {
-  background: var(--chalk);
-  border-color: var(--chalk);
-  color: var(--paper);
-}
-.quick-pick:focus-visible {
-  outline: 3px solid #e77935;
-  outline-offset: 2px;
-}
-/* The Draw chip and the margin field share the second row; the chip comes first in the flow. */
-.scale-under .margin-field {
-  grid-row: 2;
-  grid-column: 1;
-  justify-self: end;
-  width: 100%;
-  max-width: 104px;
-}
-.scale-under .margin-field.away {
-  grid-column: 3;
-  justify-self: start;
-}
-.draw-pick {
-  grid-row: 2;
-  grid-column: 2;
-  min-height: 44px;
-  padding: 0 16px;
-  border: 1px solid #f2efdf66;
-  background: none;
-  color: var(--chalk);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 1.2px;
-  text-transform: uppercase;
-  cursor: pointer;
-}
-.draw-pick:hover {
-  background: #ffffff10;
+  background: var(--club, var(--chalk));
+  border-color: var(--club, var(--chalk));
+  color: #fff;
 }
 .draw-pick[aria-pressed='true'] {
   background: var(--chalk);
   border-color: var(--chalk);
   color: var(--paper);
 }
+.quick-pick:focus-visible,
 .draw-pick:focus-visible {
   outline: 3px solid #e77935;
   outline-offset: 2px;
+}
+
+/* The margin stepper and the actions share the foot of the form. */
+.form-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px 16px;
+  margin-top: 6px;
 }
 .field {
   display: grid;
@@ -410,33 +461,61 @@
   min-width: 0;
 }
 .field > label {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
 }
 .field > label span {
   color: var(--muted);
   font-weight: 400;
 }
-.margin-field {
-  width: 104px;
+.stepper {
+  display: flex;
+  align-items: stretch;
+  height: 44px;
 }
-.margin-field input {
-  width: 100%;
-  min-height: 44px;
-  padding: 8px 12px;
-  text-align: center;
+.step {
+  width: 40px;
+  padding: 0;
   border: 1px solid var(--line);
-  border-radius: 3px;
+  background: #0f1b1e;
+  color: var(--chalk);
+  cursor: pointer;
+}
+.step:first-child {
+  border-radius: 3px 0 0 3px;
+}
+.step:last-child {
+  border-radius: 0 3px 3px 0;
+}
+.step:hover:not(:disabled) {
+  background: #ffffff10;
+}
+.step:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.step ng-icon {
+  --ng-icon__size: 16px;
+}
+.stepper input {
+  width: 52px;
+  min-height: 44px;
+  padding: 0 4px;
+  border: 1px solid var(--line);
+  border-inline: 0;
+  border-radius: 0;
   background: #0f1b1e;
   color: var(--ink);
-  font-size: 16px;
+  font-size: 18px;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
+  text-align: center;
 }
-.margin-field input:disabled {
+.stepper input:disabled {
   opacity: 0.45;
   cursor: not-allowed;
 }
-.margin-field input:focus-visible {
+.stepper input:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
@@ -452,23 +531,21 @@
 .hint {
   margin: 0;
   font-size: 12px;
-}
-.hint,
-.form-note {
   color: var(--muted);
 }
 .form-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin: 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
   font-size: 12px;
   line-height: 1.5;
 }
-.lock {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-.lock ng-icon {
-  --ng-icon__size: 12px;
+.form-note ng-icon {
+  --ng-icon__size: 14px;
   flex-shrink: 0;
 }
 
@@ -478,39 +555,36 @@
 }
 
 @container (max-width: 480px) {
-  .scale {
-    height: 64px;
-  }
   .end {
-    width: 54px;
+    gap: 6px;
+    min-height: 54px;
+    padding: 6px;
   }
   .end img {
-    width: 20px;
-    height: 20px;
+    width: 28px;
+    height: 28px;
   }
-  .end b {
-    font-size: 8px;
-    letter-spacing: 0.8px;
-  }
-  .track {
-    margin-inline: 8px;
+  .end-name b {
+    font-size: 12px;
+    letter-spacing: 0;
   }
   .tick-label.quarter {
     display: none;
   }
   /* Three chips a side must fit beside the Draw chip on a 320 px phone. */
+  .quick-row,
   .quick {
     gap: 3px;
   }
   .quick-pick {
-    min-width: 30px;
+    min-width: 34px;
     padding: 0 4px;
   }
   .quick-pick.far {
     display: none;
   }
   .draw-pick {
-    padding: 0 12px;
+    padding: 0 10px;
   }
   .sway-crest {
     width: 22px;
