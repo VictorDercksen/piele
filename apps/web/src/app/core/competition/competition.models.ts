@@ -1,4 +1,5 @@
 import { MatchState } from '../api/match-centre.models';
+import { StadiumBackgrounds } from './stadium-weather';
 
 export type RoundStatus = 'Completed' | 'Current' | 'Upcoming';
 
@@ -40,7 +41,8 @@ export interface ClubTeam {
   readonly jersey: string;
   /** Square club artwork used for member avatars. */
   readonly avatar: string;
-  readonly stadiumBackground: string;
+  /** Home-ground artwork by weather condition, in public/assets/images/stadium-weather. */
+  readonly stadiumBackgrounds: StadiumBackgrounds;
   readonly illustrated: boolean;
 }
 
@@ -58,14 +60,24 @@ export interface Country {
   readonly flag: string;
 }
 
+/** A place on the globe in decimal degrees. */
+export interface Coordinates {
+  readonly latitude: number;
+  readonly longitude: number;
+}
+
 /** A competition's venues, looked up by name regardless of case. */
 export interface StadiumCatalogue {
   /** The country of a known venue, or undefined for an unconfirmed or unknown one. */
   country(venue: string | null | undefined): Country | undefined;
   /** The icon of a known venue, or undefined for an unconfirmed or unknown one. */
   icon(venue: string | null | undefined): string | undefined;
-  /** Match-night artwork for the actual venue. Alternate grounds have none. */
-  background(venue: string | null | undefined): string | undefined;
+  /** The name of a club's home ground, or undefined for a club without one. */
+  home(teamId: string | null | undefined): string | undefined;
+  /** Weather artwork for the actual venue. Alternate grounds have none. */
+  backgrounds(venue: string | null | undefined): StadiumBackgrounds | undefined;
+  /** Where a known venue stands, or undefined for an unconfirmed or unknown one. */
+  position(venue: string | null | undefined): Coordinates | undefined;
 }
 
 /** Flags for the country names a competition's player feed reports. */

@@ -18,7 +18,18 @@ KICKOFF = datetime(2026, 9, 25, 18, 45, tzinfo=timezone.utc)
 class Upstream:
     """Fake providers behind an httpx MockTransport, counting calls per host."""
 
-    def __init__(self, *, graphql=None, weather_hours=None, fail=(), bios_fail=False, scores=None, espn=None):
+    def __init__(
+        self,
+        *,
+        graphql=None,
+        weather_hours=None,
+        fail=(),
+        bios_fail=False,
+        scores=None,
+        espn=None,
+        any_venue=False,
+        weather_down=(),
+    ):
         self.calls: dict[str, int] = {}
         self.graphql = graphql if graphql is not None else self.published()
         self.scores = scores if scores is not None else {"data": {"matchstats": []}}
@@ -26,6 +37,9 @@ class Upstream:
         self.espn = espn if espn is not None else {"events": []}
         self.espn_requests: list[str] = []
         self.weather_hours = weather_hours
+        # A round's forecasts cover every venue; `weather_down` venues answer 503.
+        self.any_venue = any_venue
+        self.weather_down = {str(URC.stadium(name).latitude) for name in weather_down}
         self.fail = set(fail)
         self.bios_fail = bios_fail
         self.bio_requests: list[dict] = []
@@ -126,7 +140,10 @@ class Upstream:
             return httpx.Response(200, json=self.espn)
         if host == "api.open-meteo.com":
             params = dict(request.url.params)
-            assert params["latitude"] == str(URC.stadium("Stadio Monigo").latitude)
+            if params["latitude"] in self.weather_down:
+                return httpx.Response(503, json={"error": "down"})
+            if not self.any_venue:
+                assert params["latitude"] == str(URC.stadium("Stadio Monigo").latitude)
             hours = self.weather_hours or ["2026-09-25T17:00", "2026-09-25T18:00", "2026-09-25T19:00"]
             n = len(hours)
             return httpx.Response(
@@ -274,6 +291,74 @@ def test_past_match_statuses(monkeypatch) -> None:
     body = client.get(f"/v1/competitions/urc-2026-27/matches/{FIXTURE}").json()
     assert body["weather"]["status"] == "past"
     assert body["teamsheets"]["status"] == "ok"
+
+
+def test_round_weather_reports_each_kickoff_forecast(monkeypatch) -> None:
+    upstream = Upstream(any_venue=True)
+    client = make_client(upstream, KICKOFF - timedelta(days=2), monkeypatch)
+    response = client.get("/v1/competitions/urc-2026-27/rounds/1/weather")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["round"] == 1
+    assert [m["fixtureId"] for m in body["matches"]] == [f.id for f in URC.schedule().round(1)]
+    assert body["matches"][0] == {
+        "fixtureId": FIXTURE,
+        "status": "ok",
+        "weatherCode": 61,
+        "isDay": False,
+        "forecastHourUtc": "2026-09-25T19:00:00Z",
+    }
+    assert {m["status"] for m in body["matches"]} == {"ok"}
+    assert "temperatureC" not in response.text
+
+    # The forecasts are the match centre's snapshots: a second read calls no provider.
+    client.get("/v1/competitions/urc-2026-27/rounds/1/weather")
+    assert upstream.calls == {"api.open-meteo.com": 8}
+
+
+def test_round_weather_without_a_forecast(monkeypatch) -> None:
+    upstream = Upstream()
+    client = make_client(upstream, KICKOFF - timedelta(days=30), monkeypatch)
+    early = client.get("/v1/competitions/urc-2026-27/rounds/1/weather").json()["matches"][0]
+    assert early == {"fixtureId": FIXTURE, "status": "too_early", "weatherCode": None, "isDay": None, "forecastHourUtc": None}
+
+    # Play-off fixtures have no venue or kickoff yet.
+    final = client.get("/v1/competitions/urc-2026-27/rounds/21/weather").json()["matches"]
+    assert final == [
+        {"fixtureId": "292734", "status": "unavailable", "weatherCode": None, "isDay": None, "forecastHourUtc": None}
+    ]
+    assert upstream.calls == {}
+
+
+def test_round_weather_unknown_round_is_404(monkeypatch) -> None:
+    client = make_client(Upstream(), KICKOFF, monkeypatch)
+    response = client.get("/v1/competitions/urc-2026-27/rounds/99/weather")
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Unknown round."
+
+
+def test_round_weather_survives_one_failing_fixture(monkeypatch) -> None:
+    upstream = Upstream(any_venue=True, weather_down={"Stadio Monigo"})
+    client = make_client(upstream, KICKOFF - timedelta(days=2), monkeypatch)
+    response = client.get("/v1/competitions/urc-2026-27/rounds/1/weather")
+    assert response.status_code == 200
+    matches = response.json()["matches"]
+    assert matches[0] == {"fixtureId": FIXTURE, "status": "unavailable", "weatherCode": None, "isDay": None, "forecastHourUtc": None}
+    assert {m["status"] for m in matches[1:]} == {"ok"}
+    assert "down" not in response.text
+
+    # An unexpected error in one fixture's section still leaves the others.
+    original = service_module.MatchCentreService.weather
+
+    def weather(self, fixture, now):
+        if fixture.id == "292585":
+            raise RuntimeError("boom")
+        return original(self, fixture, now)
+
+    monkeypatch.setattr(service_module.MatchCentreService, "weather", weather)
+    matches = client.get("/v1/competitions/urc-2026-27/rounds/1/weather").json()["matches"]
+    assert matches[1]["status"] == "unavailable" and matches[1]["weatherCode"] is None
+    assert matches[2]["status"] == "ok"
 
 
 def test_cached_falls_back_to_stale_snapshot_on_failure() -> None:

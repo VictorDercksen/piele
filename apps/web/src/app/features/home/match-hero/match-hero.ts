@@ -43,12 +43,15 @@ export class MatchHero {
   readonly explore = output<void>();
   /**
    * The fixture on screen. Holds the previous matchup until the next one's artwork
-   * has decoded, so the whole hero changes in one frame.
+   * has decoded, so the whole hero changes in one frame. The same matchup updates at once,
+   * even while a forecast's new background is still loading.
    */
   readonly shown = linkedSignal<Fixture, Fixture>({
     source: this.fixture,
     computation: (next, previous) =>
-      !previous || this.artwork.ready(next) ? next : previous.value,
+      !previous || previous.value.id === next.id || this.artwork.ready(next)
+        ? next
+        : previous.value,
   });
   /** Kickoff time, live score or result for the fixture on screen. */
   readonly bug = computed(() => scoreBug(this.shown(), this.zone()));

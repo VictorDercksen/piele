@@ -1,4 +1,9 @@
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { ApplicationRef, effect } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
+import { RoundWeather } from '../api/match-centre.models';
 import { Fixture } from './competition.models';
 import { MatchArtwork, matchArtwork } from './match-artwork';
 import { competition } from './registry';
@@ -18,23 +23,32 @@ const MUNSTER_GLASGOW: Fixture = {
 };
 
 describe('match artwork', () => {
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
+    });
+  });
   afterEach(() => {
     delete (HTMLImageElement.prototype as Partial<HTMLImageElement>).decode;
     vi.useRealTimers();
   });
 
   it('lists both clubs’ artwork and the venue flag, icon and background', () => {
-    expect(matchArtwork(URC, MUNSTER_GLASGOW)).toEqual([
+    expect(matchArtwork(URC, MUNSTER_GLASGOW, 'background.webp')).toEqual([
       'assets/images/club-banners/munster-rugby-pattern.jpeg',
       'assets/images/club-banners/munster-rugby-crest.svg',
       'assets/images/club-banners/glasgow-warriors-pattern.jpeg',
       'assets/images/club-banners/glasgow-warriors-crest.svg',
       'assets/images/flags/ie.svg',
       'assets/images/stadiums/thomond-park.webp',
-      'assets/images/match-nights/munster-rugby.webp',
+      'background.webp',
     ]);
     expect(
-      matchArtwork(URC, { ...MUNSTER_GLASGOW, awayAsset: 'unknown', venue: 'To be confirmed' }),
+      matchArtwork(
+        URC,
+        { ...MUNSTER_GLASGOW, awayAsset: 'unknown', venue: 'To be confirmed' },
+        undefined,
+      ),
     ).toHaveLength(2);
   });
 
@@ -78,10 +92,46 @@ describe('match artwork', () => {
     expect(decode).toHaveBeenCalledTimes(7);
     expect(artwork.ready(MUNSTER_GLASGOW)).toBe(true);
   });
+
+  it('loads the venue for the kickoff weather and follows a forecast that arrives later', async () => {
+    const decode = vi.fn(function (this: HTMLImageElement) {
+      return Promise.resolve();
+    });
+    stubDecode(decode);
+    const artwork = TestBed.inject(MatchArtwork);
+    const loaded = () => decode.mock.contexts.map((image) => image.getAttribute('src'));
+    TestBed.runInInjectionContext(() => effect(() => artwork.preload(MUNSTER_GLASGOW)));
+    TestBed.tick();
+    // No forecast yet: the clear scene, as the sun is up at Thomond Park at 17:30 local.
+    expect(loaded()).toContain('assets/images/stadium-weather/munster-rugby/sunny-day.webp');
+    await new Promise((resolve) => setTimeout(resolve));
+    expect(artwork.ready(MUNSTER_GLASGOW)).toBe(true);
+
+    const forecast: RoundWeather = {
+      round: 1,
+      generatedAt: '2026-09-25T10:00:00Z',
+      matches: [
+        {
+          fixtureId: MUNSTER_GLASGOW.id,
+          status: 'ok',
+          weatherCode: 61,
+          isDay: false,
+          forecastHourUtc: '2026-09-26T16:00:00Z',
+        },
+      ],
+    };
+    TestBed.inject(HttpTestingController)
+      .expectOne((request) => request.url.endsWith('/weather'))
+      .flush(forecast);
+    await TestBed.inject(ApplicationRef).whenStable();
+    expect(loaded()).toContain('assets/images/stadium-weather/munster-rugby/rainy-night.webp');
+    await new Promise((resolve) => setTimeout(resolve));
+    expect(artwork.ready(MUNSTER_GLASGOW)).toBe(true);
+  });
 });
 
 /** jsdom does not implement HTMLImageElement.decode. */
-function stubDecode(decode: () => Promise<void>): void {
+function stubDecode(decode: (this: HTMLImageElement) => Promise<void>): void {
   Object.defineProperty(HTMLImageElement.prototype, 'decode', {
     configurable: true,
     writable: true,

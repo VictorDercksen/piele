@@ -88,6 +88,22 @@ class RoundScores(BaseModel):
     matches: list[MatchScore]
 
 
+class FixtureWeather(BaseModel):
+    """A fixture's kickoff forecast. The forecast fields are null unless `status` is ok."""
+
+    fixtureId: str
+    status: SectionStatus
+    weatherCode: int | None
+    isDay: bool | None
+    forecastHourUtc: datetime | None
+
+
+class RoundWeather(BaseModel):
+    round: int
+    generatedAt: datetime
+    matches: list[FixtureWeather]
+
+
 class RoundEvent(BaseModel):
     """One competition milestone of a fixture. `occurredAt` stays put once reported."""
 
@@ -171,6 +187,14 @@ def round_scores(round_number: int, centre: MatchCentreService = Depends(competi
     if not centre.competition.schedule().round(round_number):
         raise HTTPException(status_code=404, detail="Unknown round.")
     return centre.round_scores(round_number)
+
+
+@router.get("/competitions/{competitionId}/rounds/{round_number}/weather", response_model=RoundWeather)
+def round_weather(round_number: int, centre: MatchCentreService = Depends(competition_centre)) -> Any:
+    """Every fixture's kickoff forecast, for the stadium backgrounds."""
+    if not centre.competition.schedule().round(round_number):
+        raise HTTPException(status_code=404, detail="Unknown round.")
+    return centre.round_weather(round_number)
 
 
 @router.get("/competitions/{competitionId}/rounds/{round_number}/updates", response_model=RoundUpdates)

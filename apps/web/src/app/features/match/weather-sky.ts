@@ -1,9 +1,6 @@
 import { WeatherSection } from '../../core/api/match-centre.models';
 import { DEFAULT_ZONE, hourIn } from '../../core/competition/league-time';
-
-export type SkyScene =
-  'clear' | 'partly' | 'cloudy' | 'fog' | 'drizzle' | 'rain' | 'snow' | 'storm';
-export type SkyTime = 'day' | 'night';
+import { SkyScene, SkyTime, skyScene } from '../../core/competition/sky-scene';
 
 /** The backdrop and icon for a kickoff forecast. */
 export interface WeatherSky {
@@ -19,21 +16,9 @@ export interface WeatherSky {
  * hours of every venue.
  */
 export function weatherSky(weather: WeatherSection, zone = DEFAULT_ZONE): WeatherSky {
-  const scene = sceneFor(weather.weatherCode ?? null);
+  const scene = skyScene(weather.weatherCode ?? null);
   const time = (weather.isDay ?? daylightHour(weather.forecastHourUtc, zone)) ? 'day' : 'night';
   return { scene, time, icon: ICONS[scene][time] };
-}
-
-function sceneFor(code: number | null): SkyScene {
-  if (code === null) return 'cloudy';
-  if (code <= 1) return 'clear';
-  if (code === 2) return 'partly';
-  if (code === 45 || code === 48) return 'fog';
-  if (code >= 51 && code <= 57) return 'drizzle';
-  if ((code >= 61 && code <= 67) || (code >= 80 && code <= 82)) return 'rain';
-  if ((code >= 71 && code <= 77) || code === 85 || code === 86) return 'snow';
-  if (code >= 95) return 'storm';
-  return 'cloudy';
 }
 
 function daylightHour(forecastHourUtc: string | undefined, zone: string): boolean {

@@ -3,7 +3,7 @@
   [style.--team-colour]="selectedTeam()?.colour || '#344d60'"
   [style.--team-accent]="selectedTeam()?.accent || '#ff957e'"
 >
-  <app-stadium-backdrop class="poster-photo" [src]="selectedTeam()?.stadiumBackground" />
+  <app-stadium-backdrop class="poster-photo" [src]="posterBackground()" />
   <form class="profile-layout" [formGroup]="form" (ngSubmit)="save()">
     <header class="profile-bar">
       <a
