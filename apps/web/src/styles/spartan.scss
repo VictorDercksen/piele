@@ -40,6 +40,51 @@
 .decision-pill[data-decision='pending'] {
   --decision: var(--accent);
 }
+// A Helm badge naming a section's state (full time, final, published), tinted by its tone.
+// A live pill leads with a pulsing dot; an optional icon leads the others.
+.status-pill {
+  --tone: var(--muted);
+  height: auto;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  line-height: 1.3;
+  text-transform: uppercase;
+  color: var(--tone);
+  border-color: color-mix(in srgb, var(--tone) 40%, transparent);
+  background: color-mix(in srgb, var(--tone) 14%, transparent);
+}
+.status-pill[data-tone='done'] {
+  --tone: #7fe0c2;
+}
+.status-pill[data-tone='pending'] {
+  --tone: var(--accent);
+}
+.status-pill[data-tone='live'],
+.status-pill[data-tone='warn'] {
+  --tone: #ffb3a3;
+}
+.status-pill[data-tone='live']::before {
+  content: '';
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ff6b52;
+  animation: status-pulse 1.6s ease-in-out infinite;
+}
+.status-pill > ng-icon {
+  flex-shrink: 0;
+  font-size: 12px;
+}
+@keyframes status-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
 .pavilion-label {
   cursor: pointer;
 }

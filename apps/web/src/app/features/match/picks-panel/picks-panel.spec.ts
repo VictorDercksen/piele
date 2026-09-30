@@ -203,7 +203,7 @@ describe('PicksPanel', () => {
   it('shows only the pick form before kickoff until the member has picked', async () => {
     const { root, text, settle } = setup(picksView());
     await settle();
-    expect(text('.tag')).toBe('open');
+    expect(text('.status-pill')).toBe('open');
     // The scale: a crest tab at each end, the marker unset in the middle.
     const marker = root.querySelector<HTMLElement>('#pick-scale [role=slider]')!;
     expect(marker.getAttribute('role')).toBe('slider');
@@ -448,7 +448,7 @@ describe('PicksPanel', () => {
   it('shows the pool, the sway bar and an Edit button once the member has picked', async () => {
     const { root, text, settle, margin, marker } = setup(OPEN);
     await settle();
-    expect(text('.tag')).toBe('open');
+    expect(text('.status-pill')).toBe('open');
     expect(root.querySelector('form')).toBeNull();
     expect(root.querySelector('.mine')?.classList).toContain('you');
     expect(text('.mine .chip')).toBe('Bulls by 20');
@@ -524,7 +524,7 @@ describe('PicksPanel', () => {
   it('scores a locked fixture with marks, points, place and the rules legend', async () => {
     const { root, text, settle } = setup(FINAL);
     await settle();
-    expect(text('.tag')).toBe('final');
+    expect(text('.status-pill')).toBe('final');
     expect(text('.mine')).toContain('Bulls by 20');
     expect(text('.mine-points')).toBe('1 pt');
     expect(text('.mine-place')).toBe('2nd of 4 in this match');
@@ -564,7 +564,7 @@ describe('PicksPanel', () => {
     });
     const { root, text, settle } = setup(locked, { steward: true });
     await settle();
-    expect(text('.tag')).toBe('locked');
+    expect(text('.status-pill')).toBe('locked');
     expect(root.querySelector('.mark')).toBeNull();
     expect(text('tbody tr .c-points')).toMatch(/^–\s?not scored yet$/);
     expect(root.querySelector('.mine-points')).toBeNull();
@@ -586,7 +586,7 @@ describe('PicksPanel', () => {
       }),
     );
     await settle();
-    expect(text('.tag')).toBe('awaiting picks');
+    expect(text('.status-pill')).toBe('awaiting picks');
     expect(text('.mine .chip')).toBe('No pick');
   });
 

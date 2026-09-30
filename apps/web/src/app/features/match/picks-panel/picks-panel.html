@@ -8,7 +8,14 @@
     [collapsible]="showPool()"
     [resetKey]="fixtureId()"
   >
-    <span class="tag" dropdownSide [class.provisional]="p.provisional">{{ tag() }}</span>
+    <span
+      hlmBadge
+      variant="outline"
+      class="status-pill"
+      dropdownSide
+      [attr.data-tone]="tag().tone"
+      >{{ tag().label }}</span
+    >
     <ng-container ngProjectAs="[dropdownLead]">
       @if (showForm()) {
         @if (sides(); as sides) {

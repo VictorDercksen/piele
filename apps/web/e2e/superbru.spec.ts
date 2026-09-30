@@ -27,7 +27,7 @@ test('before kickoff a member sees only the pick form; saving the pick reveals t
   await page.goto(`/piele/match/${STORMERS_SHARKS}?round=3`);
   const panel = picksPanel(page);
   await expect(panel.getByRole('heading', { name: 'Pool picks.' })).toBeVisible();
-  await expect(panel.locator('.section-title .tag')).toHaveText('open');
+  await expect(panel.locator('.section-title .status-pill')).toHaveText('open');
   await expect(panel).toContainText("Make your pick to see the pool's picks.");
   await expect(panel).toContainText('Picks lock at kickoff, 10 Oct 16:00 SAST.');
   // Nothing of the pool shows until the member has picked.
@@ -142,7 +142,7 @@ test('a kicked-off fixture shows every pick with its marks, points and the membe
 }) => {
   await page.goto(`/piele/match/${CONNACHT_STORMERS}?round=1`);
   const panel = picksPanel(page);
-  await expect(panel.locator('.section-title .tag')).toHaveText('final');
+  await expect(panel.locator('.section-title .status-pill')).toHaveText('final');
   await expect(panel.getByRole('slider', { name: 'Your pick' })).toHaveCount(0);
   await expect(panel.getByRole('button', { name: 'Edit your pick' })).toHaveCount(0);
 

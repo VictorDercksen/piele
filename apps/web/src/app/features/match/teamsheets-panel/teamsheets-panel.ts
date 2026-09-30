@@ -1,3 +1,4 @@
+import { HlmBadge } from '@spartan-ng/helm/badge';
 import { DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { TeamsheetsSection } from '../../../core/api/match-centre.models';
@@ -7,6 +8,7 @@ import { LeagueTime } from '../../../core/competition/league-time';
 import { LeagueTimePipe } from '../../../core/competition/league-time.pipe';
 import { Dropdown } from '../../../shared/dropdown/dropdown';
 import { PlayerList } from '../player-list/player-list';
+import { sectionPill } from '../section-status';
 import { sheetView } from '../teamsheet';
 
 /** Club teamsheets with ages and artwork, reset whenever the fixture changes. */
@@ -20,6 +22,7 @@ import { sheetView } from '../teamsheet';
     DecimalPipe,
     LeagueTimePipe,
     Dropdown,
+    HlmBadge,
     PlayerList,
   ],
 })
@@ -29,6 +32,7 @@ export class TeamsheetsPanel {
   readonly fixture = input.required<Fixture>();
   readonly section = input.required<TeamsheetsSection>();
   readonly kickoff = input<string | null>(null);
+  readonly status = computed(() => sectionPill(this.section().status, 'Published'));
   readonly sheets = computed(() => {
     const fixture = this.fixture();
     const section = this.section();

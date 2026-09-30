@@ -1,7 +1,5 @@
 :host {
   --deep: #0f1d20;
-  --live: #ff6b52;
-  --live-ink: #ffb3a3;
   /* Earned marks in the honours-board brass (shared/league-crest's default, the standings BP). */
   --mark: #d9b36c;
   display: block;
@@ -16,10 +14,6 @@
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
-}
-.tag.provisional {
-  background: #5a211a;
-  color: var(--live-ink);
 }
 .panel-empty {
   color: var(--muted);

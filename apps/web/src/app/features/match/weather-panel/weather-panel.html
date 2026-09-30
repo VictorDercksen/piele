@@ -15,7 +15,9 @@
   }
   <div class="section-title">
     <h2 id="weather-title">Kickoff forecast.</h2>
-    <span class="tag">{{ weather.status.replace('_', ' ') }}</span>
+    <span hlmBadge variant="outline" class="status-pill" [attr.data-tone]="status().tone">{{
+      status().label
+    }}</span>
   </div>
   @if (weather.status === 'ok') {
     <div class="forecast-body">
