@@ -52,10 +52,18 @@
   } @else {
     <p class="panel-empty">{{ message() }}</p>
   }
-  <p class="panel-source">
-    {{ section().source }}
-    @if (section().fetchedAt; as at) {
-      · checked {{ at | leagueTime: 'd MMM HH:mm z' : zone() }}
-    }
-  </p>
+  @if (section().fetchedAt; as at) {
+    <p class="panel-source">
+      <span
+        hlmBadge
+        variant="outline"
+        class="status-pill"
+        data-tone="muted"
+        [title]="section().source"
+      >
+        <ng-icon name="lucideRefreshCw" aria-hidden="true" />Checked
+        {{ at | leagueTime: 'd MMM HH:mm z' : zone() }}
+      </span>
+    </p>
+  }
 </app-dropdown>

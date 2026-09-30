@@ -1,3 +1,4 @@
+import { HlmBadge } from '@spartan-ng/helm/badge';
 import { HlmButton } from '@spartan-ng/helm/button';
 import {
   HlmCollapsible,
@@ -13,7 +14,12 @@ import {
   linkedSignal,
 } from '@angular/core';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideChevronDown, lucideExternalLink, lucideRotateCcw } from '@ng-icons/lucide';
+import {
+  lucideChevronDown,
+  lucideExternalLink,
+  lucidePenLine,
+  lucideRotateCcw,
+} from '@ng-icons/lucide';
 import { MatchCentreService } from '../../../core/api/match-centre.service';
 import { CompetitionService } from '../../../core/competition/competition.service';
 import { LeagueTime } from '../../../core/competition/league-time';
@@ -42,12 +48,15 @@ import { previewView } from './preview-view';
     Dropdown,
     LeagueTimePipe,
     NgIcon,
+    HlmBadge,
     HlmButton,
     HlmCollapsible,
     HlmCollapsibleContent,
     HlmCollapsibleTrigger,
   ],
-  viewProviders: [provideIcons({ lucideChevronDown, lucideExternalLink, lucideRotateCcw })],
+  viewProviders: [
+    provideIcons({ lucideChevronDown, lucideExternalLink, lucidePenLine, lucideRotateCcw }),
+  ],
 })
 export class MatchPreview {
   private readonly matchCentre = inject(MatchCentreService);
