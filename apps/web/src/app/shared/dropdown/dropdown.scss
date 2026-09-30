@@ -32,8 +32,9 @@
 }
 
 /*
- * Every rule below that reads a dropdown's state names its own parts with a child combinator:
- * a dropdown nested in an open one (the preview's sources) must not take the outer one's state.
+ * Every rule below that reads a dropdown's state names its own parts with a child combinator, so
+ * nothing inside an open body takes its state. Dropdowns are page sections and do not nest: a
+ * disclosure inside a body is a plain collapsible.
  *
  * The heading row. It carries a little padding of its own (cancelled by a negative margin) so
  * that, pinned, it reads as a bar; a panel's bar runs to the card's edges.
@@ -53,11 +54,6 @@
   z-index: 2;
   /* Its own layer, so iOS Safari keeps it pinned while the page scrolls or reflows under it. */
   transform: translateZ(0);
-}
-/* A dropdown inside another one's body stays in place: its heading would pin over the outer one. */
-.dropdown-inner .open > .dropdown-head {
-  position: relative;
-  transform: none;
 }
 .dropdown-head.stuck {
   background: var(--dropdown-stuck-bg, var(--surface-grain), var(--paper));

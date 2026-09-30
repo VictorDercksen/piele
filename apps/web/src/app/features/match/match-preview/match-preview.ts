@@ -1,7 +1,19 @@
 import { HlmButton } from '@spartan-ng/helm/button';
-import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
+import {
+  HlmCollapsible,
+  HlmCollapsibleContent,
+  HlmCollapsibleTrigger,
+} from '@spartan-ng/helm/collapsible';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+  input,
+  linkedSignal,
+} from '@angular/core';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideExternalLink, lucideRotateCcw } from '@ng-icons/lucide';
+import { lucideChevronDown, lucideExternalLink, lucideRotateCcw } from '@ng-icons/lucide';
 import { MatchCentreService } from '../../../core/api/match-centre.service';
 import { CompetitionService } from '../../../core/competition/competition.service';
 import { LeagueTime } from '../../../core/competition/league-time';
@@ -12,7 +24,9 @@ import { previewView } from './preview-view';
 /**
  * The Pavilion preview for one fixture: summary, key factors and mood per side, and the
  * sources they cite, on a floodlit poster washed in both clubs' colours, in a panel dropdown
- * that is closed by default and for every new fixture. Agent text is bound as plain text only.
+ * that is closed by default and for every new fixture. The sources are a plain disclosure, not a
+ * nested dropdown: a page section's sticky heading has no place inside another one's body.
+ * Agent text is bound as plain text only.
  */
 @Component({
   selector: 'app-match-preview',
@@ -29,8 +43,11 @@ import { previewView } from './preview-view';
     LeagueTimePipe,
     NgIcon,
     HlmButton,
+    HlmCollapsible,
+    HlmCollapsibleContent,
+    HlmCollapsibleTrigger,
   ],
-  viewProviders: [provideIcons({ lucideExternalLink, lucideRotateCcw })],
+  viewProviders: [provideIcons({ lucideChevronDown, lucideExternalLink, lucideRotateCcw })],
 })
 export class MatchPreview {
   private readonly matchCentre = inject(MatchCentreService);
@@ -43,6 +60,8 @@ export class MatchPreview {
   /** Club ids for colours. */
   readonly homeClub = input('');
   readonly awayClub = input('');
+  /** The sources list, closed by default and for every new fixture. */
+  readonly sourcesOpen = linkedSignal({ source: this.fixtureId, computation: () => false });
   /** The five-step mood scale. */
   readonly steps = [1, 2, 3, 4, 5] as const;
 

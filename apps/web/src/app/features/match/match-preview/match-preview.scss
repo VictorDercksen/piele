@@ -180,21 +180,97 @@
   white-space: nowrap;
 }
 
-/* Sources: a disclosure, closed by default. */
+/* Sources: a disclosure under the poster, closed by default and for every new fixture. */
 .sources-drawer {
   margin-top: 22px;
   border-top: 1px solid var(--line);
 }
+.sources-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
+  padding: 8px 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.sources-toggle:hover {
+  filter: none;
+}
+.sources-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.sources-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
 .sources-drawer .count {
-  min-width: 20px;
-  padding: 2px 6px;
+  min-width: 22px;
+  padding: 2px 7px;
+  border-radius: 999px;
   text-align: center;
+  font-size: 11px;
+  font-weight: 700;
   background: #ffffff14;
+  color: var(--muted);
   font-variant-numeric: tabular-nums;
+}
+.sources-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-left: auto;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: #ffffff0a;
+  transition:
+    background 0.2s,
+    border-color 0.2s;
+}
+.sources-toggle:hover .sources-chevron {
+  background: #ffffff1a;
+  border-color: var(--muted);
+}
+.sources-chevron ng-icon {
+  font-size: 16px;
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.sources-drawer[data-state='open'] .sources-chevron ng-icon {
+  transform: rotate(180deg);
+}
+/* The list folds between its own height and nothing; closed, it is hidden and inert. */
+.sources-body {
+  display: grid;
+  grid-template-rows: 0fr;
+  visibility: hidden;
+  transition:
+    grid-template-rows 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+    visibility 0s 0.3s;
+}
+.sources-body[data-state='open'] {
+  grid-template-rows: 1fr;
+  visibility: visible;
+  transition:
+    grid-template-rows 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+    visibility 0s;
+}
+.sources-body > .sources {
+  min-height: 0;
+  overflow: hidden;
 }
 .sources {
   list-style: none;
-  margin: 0 0 4px;
+  margin: 0;
   padding: 0;
 }
 .sources li {
@@ -232,6 +308,12 @@
   margin: 4px 0 0;
   padding-top: 10px;
   border-top: 1px dashed var(--line);
+}
+@media (prefers-reduced-motion: reduce) {
+  .sources-body,
+  .sources-chevron ng-icon {
+    transition: none;
+  }
 }
 @container (max-width: 600px) {
   .poster {

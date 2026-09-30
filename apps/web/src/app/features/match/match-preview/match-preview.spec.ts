@@ -83,9 +83,36 @@ describe('MatchPreview', () => {
     http.expectOne(URL).flush({ fixtureId: '292605', preview: PREVIEW });
     await settle(fixture);
     const drawer: HTMLElement = fixture.nativeElement.querySelector('.sources-drawer');
-    expect(drawer.querySelector('button')?.getAttribute('aria-expanded')).toBe('false');
-    expect(drawer.querySelector('h2')?.textContent).toContain('Sources');
+    const toggle = drawer.querySelector<HTMLButtonElement>('.sources-toggle')!;
+    const body = drawer.querySelector<HTMLElement>('.sources-body')!;
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(toggle.getAttribute('aria-controls')).toBe(body.id);
+    expect(body.hasAttribute('inert')).toBe(true);
+    expect(drawer.querySelector('.sources-label')?.textContent).toBe('Sources');
     expect(drawer.querySelector('.count')?.textContent).toBe('2');
+
+    // It opens and closes again from the same row.
+    toggle.click();
+    await settle(fixture);
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(body.getAttribute('data-state')).toBe('open');
+    expect(body.hasAttribute('inert')).toBe(false);
+    toggle.click();
+    await settle(fixture);
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(body.getAttribute('data-state')).toBe('closed');
+
+    // Another fixture starts with its sources closed.
+    toggle.click();
+    await settle(fixture);
+    fixture.componentRef.setInput('fixtureId', '292606');
+    fixture.detectChanges();
+    http
+      .expectOne(URL.replace('292605', '292606'))
+      .flush({ fixtureId: '292606', preview: PREVIEW });
+    await settle(fixture);
+    const next = fixture.nativeElement.querySelector('.sources-toggle') as HTMLButtonElement;
+    expect(next.getAttribute('aria-expanded')).toBe('false');
   });
 
   it('fills each mood scale to its step', async () => {
