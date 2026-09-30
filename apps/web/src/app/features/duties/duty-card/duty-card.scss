@@ -121,14 +121,30 @@
   font-size: 12px;
   color: var(--muted);
 }
+.decision {
+  --decision: var(--muted);
+  height: auto;
+  margin-left: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  vertical-align: 1px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  line-height: 1.3;
+  text-transform: uppercase;
+  color: var(--decision);
+  border-color: color-mix(in srgb, var(--decision) 45%, transparent);
+  background: color-mix(in srgb, var(--decision) 14%, transparent);
+}
 .decision[data-decision='accepted'] {
-  color: #7fe0c2;
+  --decision: #7fe0c2;
 }
 .decision[data-decision='rejected'] {
-  color: #ffb3a3;
+  --decision: #ffb3a3;
 }
 .decision[data-decision='pending'] {
-  color: var(--accent);
+  --decision: var(--accent);
 }
 .submission .watch {
   grid-column: 2;

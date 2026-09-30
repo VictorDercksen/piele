@@ -109,8 +109,8 @@
 <ng-template #submission let-evidence>
   <div class="submission">
     <p class="submission-line">
-      <strong>{{ evidence.submitterName }}</strong> · {{ when(evidence) }} ·
-      <span class="decision" [attr.data-decision]="evidence.decision">{{
+      <strong>{{ evidence.submitterName }}</strong> · {{ when(evidence) }}
+      <span hlmBadge variant="outline" class="decision" [attr.data-decision]="evidence.decision">{{
         decisionLabel(evidence)
       }}</span>
     </p>
