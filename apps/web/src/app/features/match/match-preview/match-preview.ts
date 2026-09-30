@@ -15,6 +15,7 @@ import {
 } from '@angular/core';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
+  lucideBot,
   lucideChevronDown,
   lucideExternalLink,
   lucidePenLine,
@@ -55,7 +56,13 @@ import { previewView } from './preview-view';
     HlmCollapsibleTrigger,
   ],
   viewProviders: [
-    provideIcons({ lucideChevronDown, lucideExternalLink, lucidePenLine, lucideRotateCcw }),
+    provideIcons({
+      lucideBot,
+      lucideChevronDown,
+      lucideExternalLink,
+      lucidePenLine,
+      lucideRotateCcw,
+    }),
   ],
 })
 export class MatchPreview {

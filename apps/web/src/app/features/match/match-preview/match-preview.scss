@@ -333,8 +333,17 @@
   margin: 0;
 }
 .agent-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 13px;
   font-weight: 700;
+}
+/* Marks the byline as an agent's, not a person's. */
+.agent-icon {
+  flex: none;
+  font-size: 15px;
+  color: #14c8be;
 }
 .agent-note {
   font-size: 11px;
