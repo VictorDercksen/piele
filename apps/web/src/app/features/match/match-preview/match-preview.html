@@ -81,10 +81,30 @@
         </ol>
       </div>
     </div>
-    <p class="preview-note">
-      As of {{ preview.generatedAt | leagueTime: 'd MMM HH:mm z' : zone() }}. Written by the
-      Pavilion agent from public sources and the published teamsheets. It can be wrong.
-    </p>
+    <footer class="byline">
+      <span class="agent-mark" aria-hidden="true">
+        <svg viewBox="0 0 40 40" fill="none">
+          <path d="M10 33V7" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" />
+          <path d="M12 8H32V24C25 27 20 21 12 24Z" fill="#14c8be" />
+          <path d="M12 8H32L17 24L12 24Z" fill="#164551" />
+          <path d="M23 8H28L13 24H12V21Z" fill="#79f2d2" />
+        </svg>
+      </span>
+      <div class="byline-text">
+        <p class="agent-name">
+          The Pavilion agent<ng-icon class="agent-icon" name="lucideBot" aria-hidden="true" />
+        </p>
+        <p class="agent-note">
+          Read from {{ preview.sources.length }} public
+          {{ preview.sources.length === 1 ? 'source' : 'sources' }} and the published teamsheets. It
+          can be wrong.
+        </p>
+      </div>
+      <span hlmBadge variant="outline" class="status-pill written" data-tone="muted">
+        <ng-icon name="lucidePenLine" aria-hidden="true" />Written
+        {{ preview.generatedAt | leagueTime: 'd MMM HH:mm z' : zone() }}
+      </span>
+    </footer>
   } @else {
     <p class="preview-empty">
       No preview yet. Previews are written once teamsheets are published, about 48 hours before

@@ -301,13 +301,57 @@
 .preview-empty .text-button {
   margin-left: 6px;
 }
-.preview-note {
-  font-size: 10px;
-  letter-spacing: 0.4px;
-  color: var(--muted);
-  margin: 4px 0 0;
-  padding-top: 10px;
+/* Byline: who wrote the preview, from what, and when. */
+.byline {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 12px;
+  margin-top: 4px;
+  padding-top: 14px;
   border-top: 1px dashed var(--line);
+}
+.agent-mark {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid #14c8be55;
+  border-radius: 50%;
+  background: #0b1518;
+  color: var(--chalk);
+}
+.agent-mark svg {
+  width: 24px;
+  height: 24px;
+}
+.byline-text {
+  min-width: 0;
+}
+.byline-text p {
+  margin: 0;
+}
+.agent-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+}
+/* Marks the byline as an agent's, not a person's. */
+.agent-icon {
+  flex: none;
+  font-size: 15px;
+  color: #14c8be;
+}
+.agent-note {
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+.written {
+  justify-self: end;
 }
 @media (prefers-reduced-motion: reduce) {
   .sources-body,
@@ -336,5 +380,13 @@
   }
   .sources small {
     grid-column: 2;
+  }
+  /* The date drops under the name and note, in line with them. */
+  .byline {
+    grid-template-columns: 38px minmax(0, 1fr);
+  }
+  .written {
+    grid-column: 2;
+    justify-self: start;
   }
 }

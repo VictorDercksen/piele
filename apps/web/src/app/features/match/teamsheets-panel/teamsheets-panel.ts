@@ -1,5 +1,7 @@
 import { HlmBadge } from '@spartan-ng/helm/badge';
 import { DecimalPipe } from '@angular/common';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import { lucideRefreshCw } from '@ng-icons/lucide';
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { TeamsheetsSection } from '../../../core/api/match-centre.models';
 import { Fixture } from '../../../core/competition/competition.models';
@@ -23,8 +25,10 @@ import { sheetView } from '../teamsheet';
     LeagueTimePipe,
     Dropdown,
     HlmBadge,
+    NgIcon,
     PlayerList,
   ],
+  viewProviders: [provideIcons({ lucideRefreshCw })],
 })
 export class TeamsheetsPanel {
   private readonly competition = inject(CompetitionService);

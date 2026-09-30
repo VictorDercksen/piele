@@ -145,8 +145,8 @@ test('hero opens the featured fixture with teamsheets and forecast', async ({ pa
 
   // The teamsheets wait behind their chevron, closed by default.
   const sheets = page.locator('app-dropdown.teamsheets');
-  await expect(sheets.locator('.status-pill')).toHaveText('Published');
-  await expect(sheets.locator('.status-pill')).toHaveAttribute('data-tone', 'done');
+  await expect(sheets.locator('.section-title .status-pill')).toHaveText('Published');
+  await expect(sheets.locator('.section-title .status-pill')).toHaveAttribute('data-tone', 'done');
   await expect(page.locator('.panel.weather .status-pill')).toHaveText('Available');
   await expect(sheets.getByRole('list').first()).toBeHidden();
   await openSection(page, 'Teamsheets.');
@@ -160,7 +160,7 @@ test('hero opens the featured fixture with teamsheets and forecast', async ({ pa
   await expect(sheets.locator('.average-age').first()).toContainText('26.7');
   await expect(sheets.locator('.sheet.has-banner')).toHaveCount(2);
   await expect(sheets).not.toContainText('sub 1');
-  await expect(sheets).toContainText('checked 23 Sep 13:30 SAST');
+  await expect(sheets).toContainText('Checked 23 Sep 13:30 SAST');
   // The whole heading row closes the open section, also once the pointer has been over the
   // chevron (a hovered button must not shrink the row's hit area to itself).
   const { head, chevron } = dropdown(page, 'Teamsheets.');
