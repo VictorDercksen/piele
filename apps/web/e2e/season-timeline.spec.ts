@@ -161,6 +161,18 @@ test('sample league duties, evidence, votes and round scoping', async ({ page })
   await expect(page.getByRole('heading', { name: 'Same club. Shared rules.' })).toBeVisible();
 });
 
+test('an empty personal register leads to the league duties', async ({ page }) => {
+  await page.goto('/piele/duties?round=5');
+  const empty = page.locator('.round-empty');
+  await expect(
+    empty.getByRole('heading', { name: 'No personal duties in Round 05.' }),
+  ).toBeVisible();
+  await empty.getByRole('button', { name: 'See league duties' }).click();
+  await expect(page).toHaveURL(/\/piele\/duties\?round=5&scope=league$/);
+  await expect(empty.getByRole('heading', { name: 'No league duties in Round 05.' })).toBeVisible();
+  await expect(empty.getByRole('button', { name: 'See league duties' })).toHaveCount(0);
+});
+
 test('a short page opened from deep in a long one starts at the top, the bottom bar in place', async ({
   page,
 }) => {

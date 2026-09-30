@@ -41,6 +41,7 @@ import { StandingControlService } from '../../../core/league/standings/standing-
 import { DerivedVsRecorded } from '../../../core/league/standings/standing.models';
 import { StandingService } from '../../../core/league/standings/standing.service';
 import { Dropdown } from '../../../shared/dropdown/dropdown';
+import { Icon } from '../../../shared/icon/icon';
 import { Loader } from '../../../shared/loader/loader';
 import { MemberAvatar } from '../../../shared/member-avatar/member-avatar';
 import { CreateDutyDialog } from '../../duties/create-duty-dialog/create-duty-dialog';
@@ -68,6 +69,7 @@ import { stripItem } from './picks-card.strip';
   imports: [
     ReactiveFormsModule,
     NgIcon,
+    Icon,
     Dropdown,
     Loader,
     MemberAvatar,

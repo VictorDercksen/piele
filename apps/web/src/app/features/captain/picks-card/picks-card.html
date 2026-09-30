@@ -25,7 +25,10 @@
       }
     </div>
   } @else {
-    <div class="round-empty"><h3>This round has no published fixtures.</h3></div>
+    <div class="round-empty">
+      <app-icon name="rounds" />
+      <h3>This round has no published fixtures.</h3>
+    </div>
   }
 
   @if (chosen(); as item) {

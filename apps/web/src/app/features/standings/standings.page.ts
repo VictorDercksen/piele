@@ -10,6 +10,7 @@ export { BREAKDOWN_STORAGE_KEY } from '../../core/storage/standings-preferences'
 import { LeagueContext } from '../../core/league/league-context';
 import { MarkService } from '../../core/league/marks/mark.service';
 import { StandingService } from '../../core/league/standings/standing.service';
+import { Icon } from '../../shared/icon/icon';
 import { MemberAvatar } from '../../shared/member-avatar/member-avatar';
 import { PointsTable } from '../../shared/points-table/points-table';
 import { PointsRow } from '../../shared/points-table/points-table.models';
@@ -29,6 +30,7 @@ import { measureFrom } from './standings.page.rows';
   changeDetection: ChangeDetectionStrategy.OnPush,
   /* prettier-ignore */
   imports: [
+    Icon,
     MemberAvatar,
     PointsTable,
     HlmButton,

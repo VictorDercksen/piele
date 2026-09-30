@@ -107,6 +107,7 @@
       </div>
     } @else {
       <div class="round-empty">
+        <app-icon name="standings" />
         <h2>No house marks yet.</h2>
         <p>Marks appear once a duty is on the register.</p>
       </div>
@@ -115,11 +116,13 @@
     <app-points-table [rows]="rows()" [scope]="measure() === 'season' ? 'season' : 'round'" />
   } @else if (measure() === 'round') {
     <div class="round-empty">
+      <app-icon name="standings" />
       <h2>No picks or results for {{ fixtures.round().title }} yet.</h2>
       <p>Picks appear once members record them and the matches kick off.</p>
     </div>
   } @else {
     <div class="round-empty">
+      <app-icon name="standings" />
       <h2>No rounds scored yet.</h2>
       <p>Season points build up from each round's picks and results.</p>
     </div>
