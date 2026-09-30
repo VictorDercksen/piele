@@ -1,3 +1,4 @@
+import { HlmBadge } from '@spartan-ng/helm/badge';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { ChangeDetectionStrategy, Component, computed, inject, input, output } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
@@ -55,6 +56,7 @@ export interface DutyStep {
     NgIcon,
     NgTemplateOutlet,
     RouterLink,
+    HlmBadge,
     HlmButton,
   ],
   viewProviders: [
