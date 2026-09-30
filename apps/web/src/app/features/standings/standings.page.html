@@ -33,22 +33,6 @@
     House marks
   </button>
 </div>
-<p class="page-description">
-  @switch (measure()) {
-    @case ('round') {
-      {{ fixtures.round().title }} only. Superbru points and symbolic house marks are separate
-      measures.
-    }
-    @case ('season') {
-      Whole season up to the selected round, computed from every round's picks; recorded totals
-      stand in where the captain has entered a correction.
-    }
-    @default {
-      Whole season. One house mark per full week a duty stays overdue; separate from Superbru
-      points.
-    }
-  }
-</p>
 <section
   class="honours-board standings-board"
   [attr.aria-label]="
