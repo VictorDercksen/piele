@@ -49,27 +49,38 @@
       </div>
     </div>
 
-    <app-dropdown
+    <div
+      hlmCollapsible
       class="sources-drawer"
-      heading="Sources"
-      [headingId]="'preview-sources-' + fixtureId()"
-      [resetKey]="fixtureId()"
+      [expanded]="sourcesOpen()"
+      (expandedChange)="sourcesOpen.set($event)"
     >
-      <span class="count" dropdownSide>{{ preview.sources.length }}</span>
-      <ol class="sources">
-        @for (source of preview.sources; track source.number) {
-          <li>
-            <span class="source-number">{{ source.number }}</span>
-            <a [href]="source.url" target="_blank" rel="noopener noreferrer nofollow"
-              >{{ source.title }}<ng-icon class="link-icon" name="lucideExternalLink"
-            /></a>
-            @if (source.origin) {
-              <small>{{ source.origin }}</small>
-            }
-          </li>
-        }
-      </ol>
-    </app-dropdown>
+      <button hlmCollapsibleTrigger type="button" class="sources-toggle">
+        <span class="sources-label">Sources</span>
+        <span class="count">{{ preview.sources.length }}</span>
+        <span class="sources-chevron" aria-hidden="true"><ng-icon name="lucideChevronDown" /></span>
+      </button>
+      <div
+        hlmCollapsibleContent
+        [preserveContent]="true"
+        class="sources-body"
+        [id]="'preview-sources-' + fixtureId()"
+      >
+        <ol class="sources">
+          @for (source of preview.sources; track source.number) {
+            <li>
+              <span class="source-number">{{ source.number }}</span>
+              <a [href]="source.url" target="_blank" rel="noopener noreferrer nofollow"
+                >{{ source.title }}<ng-icon class="link-icon" name="lucideExternalLink"
+              /></a>
+              @if (source.origin) {
+                <small>{{ source.origin }}</small>
+              }
+            </li>
+          }
+        </ol>
+      </div>
+    </div>
     <p class="preview-note">
       As of {{ preview.generatedAt | leagueTime: 'd MMM HH:mm z' : zone() }}. Written by the
       Pavilion agent from public sources and the published teamsheets. It can be wrong.
