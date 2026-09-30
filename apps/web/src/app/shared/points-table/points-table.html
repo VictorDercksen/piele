@@ -1,0 +1,117 @@
+<div class="board-tools">
+  <div
+    hlmToggleGroup
+    type="single"
+    [nullable]="false"
+    [value]="breakdown() ? 'breakdown' : 'totals'"
+    (valueChange)="setBreakdown($event)"
+    class="breakdown-view"
+    aria-label="Table view"
+  >
+    <button hlmBtn type="button" hlmToggleGroupItem value="totals">Totals</button
+    ><button hlmBtn type="button" hlmToggleGroupItem value="breakdown">Breakdown</button>
+  </div>
+  @if (breakdown()) {
+    <div
+      hlmToggleGroup
+      type="single"
+      [value]="highlight()"
+      (valueChange)="setHighlight($event)"
+      class="breakdown-legend"
+      aria-label="Breakdown key"
+    >
+      @for (part of parts; track part.key) {
+        <button
+          hlmBtn
+          type="button"
+          hlmToggleGroupItem
+          class="key-chip"
+          [attr.data-part]="part.key"
+          [value]="part.key"
+          [title]="part.name"
+        >
+          <span class="swatch" aria-hidden="true"></span>{{ part.abbr
+          }}<span class="visually-hidden"> {{ part.name }}</span>
+        </button>
+      }
+    </div>
+    <p class="legend-hint">Tap a key to highlight it.</p>
+  }
+</div>
+<div
+  class="full-table points-table"
+  [class.with-breakdown]="breakdown()"
+  [attr.data-highlight]="breakdown() ? highlight() : null"
+>
+  <div class="table-label">
+    <span class="member-head">RANK / MEMBER</span>
+    <span class="total-head"
+      ><span class="total-scope">{{ scope() === 'round' ? 'ROUND' : 'SEASON' }} </span>PTS</span
+    >
+  </div>
+  @for (line of shown(); track line.row.memberId) {
+    @let member = line.row;
+    <div
+      class="standing-row points-row"
+      [class.you]="member.you"
+      [class.lead]="member.rank === 1"
+      [class.pinned]="line.pinned"
+    >
+      <span class="rank">{{ member.rank | number: '2.0-0' }}</span>
+      <app-member-avatar
+        [name]="member.name"
+        [photo]="member.photo"
+        [teamId]="member.teamId"
+      /><span class="member-cell"
+        ><span class="member-line"
+          ><span class="member-name">{{ member.name }}</span>
+          @if (member.you) {
+            <small>YOU</small>
+          }
+          @if (member.crown) {
+            <img class="badge" [src]="badges.crown.src" [alt]="badges.crown.alt" />
+          }
+          @if (member.cap) {
+            <img class="badge" [src]="badges.cap.src" [alt]="badges.cap.alt" />
+          }
+          @if (member.spoon) {
+            <img class="badge" [src]="badges.spoon.src" [alt]="badges.spoon.alt" />
+          }
+          @if (member.override !== null) {
+            <small class="override-tag" title="Recorded total differs from the derived one"
+              >override</small
+            >
+          }
+        </span>
+        @if (member.rounds !== null && !breakdown()) {
+          <small class="rounds-count"
+            >{{ member.rounds }} {{ member.rounds === 1 ? 'round' : 'rounds' }}</small
+          >
+        }
+      </span>
+      <strong>{{ member.points | number: '1.1-2' }}</strong>
+      @if (breakdown()) {
+        <span class="breakdown-bar" aria-hidden="true">
+          @for (part of parts; track part.key) {
+            @if (member.bar[part.key] > 0) {
+              <span
+                class="segment"
+                [class]="part.key"
+                [style.width.%]="member.bar[part.key]"
+                [title]="part.name + ': ' + (member[part.key] | number: '1.0-2')"
+                >{{
+                  member.bar[part.key] >= labelMin ? (member[part.key] | number: '1.0-2') : ''
+                }}</span
+              >
+            }
+          }
+        </span>
+        <span class="visually-hidden"
+          >{{ member.wp | number: '1.0-2' }} win points, {{ member.mp | number: '1.0-2' }} margin
+          points, {{ member.gsp | number: '1.0-2' }} grand slam points,
+          {{ member.bp | number: '1.0-2' }} bonus points</span
+        >
+      }
+    </div>
+  }
+</div>

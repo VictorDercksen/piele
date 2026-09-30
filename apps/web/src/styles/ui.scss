@@ -667,14 +667,9 @@ button.remove-photo:enabled:hover {
 .honours-board .member-name {
   overflow-wrap: anywhere;
 }
-.honours-board .leaderboard li strong,
 .honours-board .standing-row strong {
   color: var(--ink);
   font-variant-numeric: tabular-nums;
-}
-.league .honours-board .house-marks {
-  padding: 16px 12px;
-  margin-bottom: 0;
 }
 .honours-board .round-empty {
   background: transparent;
