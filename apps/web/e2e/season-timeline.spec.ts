@@ -133,7 +133,7 @@ test('sample league duties, evidence, votes and round scoping', async ({ page })
   await expect(page.locator('.standing-row')).toHaveCount(0);
 
   await nav.getByRole('link', { name: 'More', exact: true }).click();
-  await page.getByRole('link', { name: "Round 03 captain's desk" }).click();
+  await page.getByRole('link', { name: /^Captain's desk/ }).click();
   // Every section of the desk is closed until its chevron opens it.
   await expect(page.getByRole('button', { name: 'Evidence to decide.' })).toHaveAttribute(
     'aria-expanded',
@@ -514,7 +514,7 @@ test('captain creates, records and decides duties; the feed follows', async ({ p
   // In-app navigation keeps the sample league's in-memory state; a reload would reset it.
   const nav = page.getByRole('navigation', { name: 'League navigation', exact: true });
   await nav.getByRole('link', { name: 'More', exact: true }).click();
-  await page.getByRole('link', { name: "Round 02 captain's desk" }).click();
+  await page.getByRole('link', { name: /^Captain's desk/ }).click();
   await openSection(page, 'Evidence to decide.');
   const review = page.locator('.review-row').filter({ hasText: 'Liam' });
   await expect(review).toContainText('Counts from submission');

@@ -1,10 +1,13 @@
 <section class="push-card" aria-labelledby="push-card-heading">
   <div class="push-heading">
-    <app-icon name="bell" />
-    <div>
-      <h2 id="push-card-heading">Notifications on this device</h2>
+    <span class="row-icon"><app-icon name="bell" /></span>
+    <div class="push-title">
+      <h3 id="push-card-heading">Notifications</h3>
       <p>{{ summary() }}</p>
     </div>
+    @if (state() === 'on') {
+      <span class="push-status">On</span>
+    }
   </div>
 
   @switch (state()) {
@@ -16,19 +19,21 @@
       </ol>
     }
     @case ('off') {
-      <button
-        hlmBtn
-        type="button"
-        class="primary-button"
-        [disabled]="busy()"
-        [attr.aria-busy]="busy()"
-        (click)="turnOn()"
-      >
-        @if (busy()) {
-          <app-loader [size]="16" aria-hidden="true" />
-        }
-        Turn on notifications
-      </button>
+      <div class="push-action">
+        <button
+          hlmBtn
+          type="button"
+          class="primary-button"
+          [disabled]="busy()"
+          [attr.aria-busy]="busy()"
+          (click)="turnOn()"
+        >
+          @if (busy()) {
+            <app-loader [size]="16" aria-hidden="true" />
+          }
+          Turn on notifications
+        </button>
+      </div>
     }
     @case ('on') {
       @if (canChooseKinds()) {
@@ -36,6 +41,10 @@
           @for (option of categories; track option.key) {
             <li>
               <label hlmLabel class="switch" [for]="'push-' + option.key">
+                <span class="switch-text"
+                  ><strong>{{ option.label }}</strong
+                  ><small [id]="'push-' + option.key + '-hint'">{{ option.hint }}</small></span
+                >
                 <hlm-switch
                   [inputId]="'push-' + option.key"
                   [checked]="isOn(option.key)"
@@ -43,10 +52,6 @@
                   [aria-describedby]="'push-' + option.key + '-hint'"
                   (checkedChange)="setKind(option.key, $event)"
                 />
-                <span class="switch-text"
-                  ><strong>{{ option.label }}</strong
-                  ><small [id]="'push-' + option.key + '-hint'">{{ option.hint }}</small></span
-                >
               </label>
             </li>
           }
@@ -55,7 +60,7 @@
       <button
         hlmBtn
         type="button"
-        class="text-button"
+        class="turn-off"
         [disabled]="busy()"
         [attr.aria-busy]="busy()"
         (click)="turnOff()"

@@ -1,40 +1,84 @@
-<p class="league-line">
-  <strong>{{ leagueName() }}</strong>
-  @if (league(); as league) {
-    <span>{{ league.seasonName }}</span>
-  }
-  @if (members.captainName(); as captain) {
-    <span>Captain {{ captain }}</span>
-  }
-</p>
-<div class="more-links">
+<section class="club-card" aria-label="League">
+  <div class="club-heading">
+    <app-league-crest
+      [name]="leagueName()"
+      [slug]="league()?.slug ?? ''"
+      [emblemUrl]="league()?.emblemUrl ?? null"
+      [emblemPreset]="league()?.emblemPreset ?? null"
+      [accentColour]="league()?.accentColour ?? null"
+    />
+    <div class="club-name">
+      <strong>{{ leagueName() }}</strong>
+      <small>Your league</small>
+    </div>
+  </div>
+  <dl class="club-facts">
+    @if (league(); as league) {
+      <div>
+        <dt>Season</dt>
+        <dd>{{ league.seasonName }}</dd>
+      </div>
+    }
+    @if (members.captainName(); as captain) {
+      <div>
+        <dt>Captain</dt>
+        <dd>{{ captain }}</dd>
+      </div>
+    }
+    <div>
+      <dt>Times in</dt>
+      <dd>{{ zoneName() }}</dd>
+    </div>
+  </dl>
+</section>
+
+<h2 class="group-label" id="more-round">{{ fixtures.round().title }}</h2>
+<nav class="link-group more-links" aria-labelledby="more-round">
   <a [routerLink]="'/standings' | leaguePath" queryParamsHandling="preserve">
-    <app-icon name="standings" /><span>{{ fixtures.round().title }} standings</span
-    ><ng-icon class="link-icon" name="lucideArrowRight" />
-  </a>
-  <a [routerLink]="'/constitution' | leaguePath" queryParamsHandling="preserve">
-    <app-icon name="book" /><span>Season constitution</span
-    ><ng-icon class="link-icon" name="lucideArrowRight" />
+    <span class="row-icon"><app-icon name="standings" /></span>
+    <span class="row-text"
+      ><strong>Standings</strong><small>The table for {{ fixtures.round().title }}</small></span
+    >
+    <ng-icon class="link-icon" name="lucideArrowRight" />
   </a>
   @if (members.administers()) {
     <a [routerLink]="'/captain' | leaguePath" queryParamsHandling="preserve">
-      <app-icon name="shield" /><span>{{ fixtures.round().title }} captain's desk</span
-      ><ng-icon class="link-icon" name="lucideArrowRight" />
+      <span class="row-icon"><app-icon name="shield" /></span>
+      <span class="row-text"
+        ><strong>Captain's desk</strong><small>For captains and admins</small></span
+      >
+      <ng-icon class="link-icon" name="lucideArrowRight" />
     </a>
   }
-</div>
+</nav>
+
+<h2 class="group-label" id="more-season">Season</h2>
+<nav class="link-group" aria-labelledby="more-season">
+  <a [routerLink]="'/constitution' | leaguePath" queryParamsHandling="preserve">
+    <span class="row-icon"><app-icon name="book" /></span>
+    <span class="row-text"
+      ><strong>Constitution</strong><small>Rules for the whole season</small></span
+    >
+    <ng-icon class="link-icon" name="lucideArrowRight" />
+  </a>
+  <a [href]="competition.source" target="_blank" rel="noopener noreferrer">
+    <span class="row-icon"><app-icon name="rounds" /></span>
+    <span class="row-text"
+      ><strong>Official {{ competition.shortName }} source</strong
+      ><small
+        >{{ competition.season }} · {{ competition.fixtureCount }} league fixtures +
+        {{ competition.playoffSlots }} playoff slots</small
+      ></span
+    >
+    <ng-icon class="link-icon" name="lucideExternalLink" />
+  </a>
+</nav>
+<p class="source-note">
+  Snapshot checked {{ competition.retrievedAt | date: 'd MMMM y' }}. Fixtures can change. Playoff
+  kickoffs remain TBC.
+</p>
+
+<h2 class="group-label" id="more-device">This device</h2>
 <app-push-card />
-<div class="schedule-source">
-  <span
-    >{{ competition.season }} · {{ competition.fixtureCount }} league fixtures +
-    {{ competition.playoffSlots }} playoff slots · Times in {{ zoneName() }}</span
-  ><a [href]="competition.source" target="_blank" rel="noopener noreferrer"
-    >Official {{ competition.shortName }} source<ng-icon
-      class="link-icon"
-      name="lucideExternalLink" /></a
-  ><small
-    >Snapshot checked {{ competition.retrievedAt | date: 'd MMMM y' }}. Fixtures can change. Playoff
-    kickoffs remain TBC.</small
-  >
-</div>
+
 <p class="wordmark"><strong>THE PAVILION</strong> / the rugby clubhouse</p>

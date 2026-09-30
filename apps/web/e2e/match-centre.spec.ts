@@ -257,7 +257,7 @@ test('breadcrumbs lead back to the page that was opened before', async ({ page }
   await expect(breadcrumb).toHaveCount(0);
   await page
     .locator('.more-links')
-    .getByRole('link', { name: /standings/ })
+    .getByRole('link', { name: /Standings/ })
     .click();
   await expect(page).toHaveURL(/\/piele\/standings\?round=1$/);
   await expect(crumbs).toHaveText(['MORE']);

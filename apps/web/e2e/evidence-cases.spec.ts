@@ -56,7 +56,7 @@ test('a dismissed veto reopens voting; the captain’s own veto waits for anothe
 
   // The captain names a stand-in, who may rule on the captain's own veto.
   await nav.getByRole('link', { name: 'More', exact: true }).click();
-  await page.getByRole('link', { name: "Round 02 captain's desk" }).click();
+  await page.getByRole('link', { name: /^Captain's desk/ }).click();
   await openSection(page, 'Evidence to decide.');
   const queue = page.locator('app-evidence-review app-case-card');
   await expect(queue).toHaveCount(0);

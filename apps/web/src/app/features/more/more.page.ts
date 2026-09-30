@@ -10,9 +10,13 @@ import { MemberService } from '../../core/league/members/member.service';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideArrowRight, lucideExternalLink } from '@ng-icons/lucide';
 import { Icon } from '../../shared/icon/icon';
+import { LeagueCrest } from '../../shared/league-crest/league-crest';
 import { PushCard } from './push-card/push-card';
 
-/** Secondary destinations, push notifications for this device and the schedule source. */
+/**
+ * The league's identity card, then grouped lists: the round's destinations, the season's
+ * constitution and schedule source, and push notifications for this device.
+ */
 @Component({
   selector: 'app-more-page',
   templateUrl: './more.page.html',
@@ -24,6 +28,7 @@ import { PushCard } from './push-card/push-card';
     RouterLink,
     LeaguePathPipe,
     Icon,
+    LeagueCrest,
     NgIcon,
     PushCard,
   ],

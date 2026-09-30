@@ -419,7 +419,7 @@ test('a new league takes its Superbru rules from the form', async ({ page }) => 
     .getByRole('navigation', { name: 'League navigation', exact: true })
     .getByRole('link', { name: 'More', exact: true })
     .click();
-  await page.getByRole('link', { name: /captain's desk/ }).click();
+  await page.getByRole('link', { name: /captain's desk/i }).click();
   await expect(page).toHaveURL(/\/bokkie-bru\/captain/);
   const card = page.locator('app-rules-card');
   await expect(card.getByRole('heading', { name: 'Superbru rules.' })).toBeVisible();
