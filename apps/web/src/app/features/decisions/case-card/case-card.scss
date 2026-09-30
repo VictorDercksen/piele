@@ -59,8 +59,9 @@ h4 {
   font-weight: 700;
   line-height: 1.3;
 }
-.closed-result {
-  color: #7fe0c2;
+.case-panel .decision-pill {
+  display: flex;
+  margin-top: 6px;
 }
 .panel-detail {
   margin-top: 2px;

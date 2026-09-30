@@ -16,6 +16,30 @@
   --ring: #ffa17c;
   --radius: 0.2rem;
 }
+// A Helm badge naming how evidence was decided, tinted by its decision.
+.decision-pill {
+  --decision: var(--muted);
+  height: auto;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  line-height: 1.3;
+  text-transform: uppercase;
+  color: var(--decision);
+  border-color: color-mix(in srgb, var(--decision) 45%, transparent);
+  background: color-mix(in srgb, var(--decision) 14%, transparent);
+}
+.decision-pill[data-decision='accepted'] {
+  --decision: #7fe0c2;
+}
+.decision-pill[data-decision='rejected'] {
+  --decision: #ffb3a3;
+}
+.decision-pill[data-decision='pending'] {
+  --decision: var(--accent);
+}
 .pavilion-label {
   cursor: pointer;
 }

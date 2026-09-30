@@ -124,13 +124,13 @@
       @default {
         <div>
           <span class="eyebrow">OUTCOME</span>
-          <h4 class="closed-result">{{ c.outcome }}</h4>
-          <p class="panel-detail">
-            @if (resolved(); as at) {
-              {{ at }} ·
-            }
-            {{ myResponse() }}
-          </p>
+          <span hlmBadge variant="outline" class="decision-pill" [attr.data-decision]="c.status">{{
+            c.statusLabel
+          }}</span>
+          @if (resolved(); as at) {
+            <p class="date-chip"><ng-icon [name]="resolvedIcon()" aria-hidden="true" />{{ at }}</p>
+          }
+          <p class="panel-detail">{{ myResponse() }}</p>
         </div>
         <div class="case-actions">
           <ng-container *ngTemplateOutlet="watchButton" />

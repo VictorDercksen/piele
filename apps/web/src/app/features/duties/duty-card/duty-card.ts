@@ -17,6 +17,7 @@ import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideArrowRight,
   lucideChevronDown,
+  lucideCircleCheck,
   lucideClock,
   lucideFlag,
   lucidePlay,
@@ -29,6 +30,8 @@ export interface DutyStep {
   readonly eyebrow: 'Now' | 'Outcome';
   readonly headline: string;
   readonly detail: string | null;
+  /** When a completed duty was completed, shown as a date chip. */
+  readonly completed: string | null;
   /** The case link, while members vote or a veto awaits a ruling. */
   readonly link: string | null;
 }
@@ -63,6 +66,7 @@ export interface DutyStep {
     provideIcons({
       lucideArrowRight,
       lucideChevronDown,
+      lucideCircleCheck,
       lucideClock,
       lucideFlag,
       lucidePlay,
@@ -134,12 +138,13 @@ export class DutyCard {
   readonly step = computed((): DutyStep => {
     const duty = this.duty();
     const now = (headline: string, detail: string | null = null, link: string | null = null) =>
-      ({ eyebrow: 'Now', headline, detail, link }) as const;
+      ({ eyebrow: 'Now', headline, detail, completed: null, link }) as const;
     if (duty.status === 'completed')
       return {
         eyebrow: 'Outcome',
         headline: 'Completed',
-        detail: `Accepted · ${this.short(duty.completedAt)}`,
+        detail: null,
+        completed: this.short(duty.completedAt),
         link: null,
       };
     if (duty.status === 'voided')
@@ -147,6 +152,7 @@ export class DutyCard {
         eyebrow: 'Outcome',
         headline: 'Voided',
         detail: duty.voidReason || 'No reason given',
+        completed: null,
         link: null,
       };
     const live = duty.liveCase;
