@@ -1,7 +1,17 @@
+import { HlmBadge } from '@spartan-ng/helm/badge';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { Component, computed, inject, input, signal } from '@angular/core';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideCheck, lucideChevronDown, lucideClock, lucidePlay, lucideX } from '@ng-icons/lucide';
+import {
+  lucideCheck,
+  lucideChevronDown,
+  lucideCircleCheck,
+  lucideCircleSlash,
+  lucideCircleX,
+  lucideClock,
+  lucidePlay,
+  lucideX,
+} from '@ng-icons/lucide';
 import { NgTemplateOutlet } from '@angular/common';
 import { LeagueTime } from '../../../core/competition/league-time';
 import { AlertService } from '../../../core/feedback/alert.service';
@@ -45,10 +55,20 @@ export type CasePanel = 'ballot' | 'accepted' | 'ruling' | 'vetoed' | 'watching'
     Loader,
     NgIcon,
     NgTemplateOutlet,
+    HlmBadge,
     HlmButton,
   ],
   viewProviders: [
-    provideIcons({ lucideCheck, lucideChevronDown, lucideClock, lucidePlay, lucideX }),
+    provideIcons({
+      lucideCheck,
+      lucideChevronDown,
+      lucideCircleCheck,
+      lucideCircleSlash,
+      lucideCircleX,
+      lucideClock,
+      lucidePlay,
+      lucideX,
+    }),
   ],
 })
 export class CaseCard {
@@ -101,6 +121,12 @@ export class CaseCard {
   readonly resolved = computed(() => {
     const at = this.evidenceCase().resolvedAt;
     return at ? this.time.pattern(at, 'dd MMM · HH:mm') : null;
+  });
+  /** The icon beside the date a closed case was decided. */
+  readonly resolvedIcon = computed(() => {
+    const status = this.evidenceCase().status;
+    if (status === 'accepted') return 'lucideCircleCheck';
+    return status === 'rejected' ? 'lucideCircleX' : 'lucideCircleSlash';
   });
   readonly myResponse = computed(() => myResponseText(this.evidenceCase()));
   /** A majority is more than half of the members voting. */

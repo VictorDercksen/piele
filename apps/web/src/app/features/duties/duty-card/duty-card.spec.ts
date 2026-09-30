@@ -128,6 +128,8 @@ describe('DutyCard', () => {
     expect(root.textContent).toContain('View the veto');
     show({ ...open, status: 'accepted', resolution: 'auto' }, false);
     expect(root.querySelector('.duty-step')?.textContent).toContain('Completed');
+    expect(root.querySelector('.duty-step .date-chip')?.textContent?.trim()).toBe('20 Sep · 09:00');
+    expect(root.querySelector('.duty-step')?.textContent).not.toContain('Accepted');
     expect(root.textContent).toContain('Accepted automatically: no veto within 24 hours');
     expect(root.querySelector('a[href="/piele/decisions"]')).toBeNull();
   });

@@ -86,8 +86,8 @@ test('an upheld veto rejects the evidence and leaves the duty open', async ({ pa
   const uphold = page.getByRole('dialog').filter({ hasText: 'Uphold this veto?' });
   await uphold.getByLabel('Reason').fill('The recording shows the wrong round.');
   await uphold.getByRole('button', { name: 'Uphold veto' }).click();
-  await expect(card).toContainText('REJECTED');
-  await expect(card).toContainText('Rejected: the veto was upheld');
+  await expect(card.locator('.decision-pill')).toHaveText('REJECTED');
+  await expect(card).not.toContainText('Rejected: the veto was upheld');
 
   const nav = page.getByRole('navigation', { name: 'League navigation', exact: true });
   await nav.getByRole('link', { name: 'Duties', exact: true }).click();

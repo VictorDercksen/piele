@@ -208,6 +208,7 @@ describe('CaseCard', () => {
     flagged.fixture.componentRef.setInput('evidenceCase', {
       ...OPEN,
       status: 'accepted',
+      statusLabel: 'ACCEPTED',
       resolution: 'majority',
       resolvedAt: '2026-10-04T12:00:00Z',
       canRespond: false,
@@ -216,7 +217,8 @@ describe('CaseCard', () => {
       outcome: 'Accepted by a majority of members',
     });
     flagged.fixture.detectChanges();
-    expect(flagged.root.textContent).toContain('Accepted by a majority of members');
+    expect(flagged.root.querySelector('.decision-pill')?.textContent?.trim()).toBe('ACCEPTED');
+    expect(flagged.root.textContent).not.toContain('Accepted by a majority of members');
     expect(flagged.root.textContent).toContain('You accepted');
     expect(flagged.root.classList).toContain('closed-case');
   });

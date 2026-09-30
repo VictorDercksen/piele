@@ -46,6 +46,9 @@
     <div>
       <span class="eyebrow">{{ step().eyebrow }}</span>
       <p class="step-headline">{{ step().headline }}</p>
+      @if (step().completed; as at) {
+        <p class="date-chip"><ng-icon name="lucideCircleCheck" aria-hidden="true" />{{ at }}</p>
+      }
       @if (step().detail; as detail) {
         <p class="step-detail">{{ detail }}</p>
       }
@@ -110,9 +113,13 @@
   <div class="submission">
     <p class="submission-line">
       <strong>{{ evidence.submitterName }}</strong> · {{ when(evidence) }}
-      <span hlmBadge variant="outline" class="decision" [attr.data-decision]="evidence.decision">{{
-        decisionLabel(evidence)
-      }}</span>
+      <span
+        hlmBadge
+        variant="outline"
+        class="decision-pill"
+        [attr.data-decision]="evidence.decision"
+        >{{ decisionLabel(evidence) }}</span
+      >
     </p>
     @if (evidence.note) {
       <p class="submission-note">“{{ evidence.note }}”</p>
