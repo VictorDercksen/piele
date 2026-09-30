@@ -3,66 +3,35 @@
   --group-radius: 16px;
   --row-tint: color-mix(in srgb, var(--orange) 16%, transparent);
 }
-// The league's identity: crest, name, then season, captain and time zone in three columns.
-.club-card {
-  display: grid;
-  gap: 16px;
-  padding: 18px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--group-radius);
-}
-.club-heading {
+// The season and captain, each a pill with its icon.
+.league-pills {
   display: flex;
-  align-items: center;
-  gap: 14px;
-}
-.club-heading app-league-crest {
-  --avatar-size: 56px;
-}
-.club-name {
-  display: grid;
-  min-width: 0;
-}
-.club-name strong {
-  overflow-wrap: anywhere;
-  font-size: 22px;
-  line-height: 1.15;
-  color: var(--ink);
-}
-.club-name small {
-  font-size: 13px;
-  color: var(--muted);
-}
-.club-facts {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  flex-wrap: wrap;
   gap: 8px;
   margin: 0;
-  padding-top: 14px;
-  border-top: 1px solid var(--line);
+  padding: 0;
+  list-style: none;
 }
-.club-facts div {
-  display: grid;
-  align-content: start;
-  gap: 2px;
-  min-width: 0;
-}
-.club-facts dt {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-.club-facts dd {
-  margin: 0;
-  overflow-wrap: anywhere;
-  font-size: 14px;
+.league-pills li {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 32px;
+  padding: 4px 12px;
+  box-sizing: border-box;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 13px;
   font-weight: 600;
 }
+.league-pills ng-icon {
+  flex-shrink: 0;
+  font-size: 15px;
+  color: var(--accent);
+}
 .group-label {
-  margin: 26px 4px 8px;
+  margin: 24px 4px 8px;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 2px;

@@ -52,8 +52,8 @@ test('the Pofadder Bowl shows its own name, captain, standings and feed', async 
   await expect(page.locator('.standing-row').first()).toContainText('Kallie');
 
   await nav.getByRole('link', { name: 'More', exact: true }).click();
-  await expect(page.locator('.club-card')).toContainText('Pofadder Bowl');
-  await expect(page.locator('.club-card')).toContainText('Doempie');
+  await expect(page).toHaveURL(/\/pofadder-bowl\/more\?round=2$/);
+  await expect(page.locator('.league-pills')).toContainText('Captain Doempie');
   // The sample member only plays here, but the sample account is the admin, so the captain's
   // desk opens (the API accepts the admin on every steward route).
   await expect(page.getByRole('link', { name: /captain's desk/i })).toBeVisible();
@@ -63,7 +63,7 @@ test('the Pofadder Bowl shows its own name, captain, standings and feed', async 
 
   // Piele keeps its own records and captain.
   await page.goto('/piele/more');
-  await expect(page.locator('.club-card')).toContainText('Victor Dercksen');
+  await expect(page.locator('.league-pills')).toContainText('Captain Victor Dercksen');
   await expect(page.getByRole('link', { name: /captain's desk/i })).toBeVisible();
 });
 

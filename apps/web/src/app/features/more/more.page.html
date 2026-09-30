@@ -1,36 +1,11 @@
-<section class="club-card" aria-label="League">
-  <div class="club-heading">
-    <app-league-crest
-      [name]="leagueName()"
-      [slug]="league()?.slug ?? ''"
-      [emblemUrl]="league()?.emblemUrl ?? null"
-      [emblemPreset]="league()?.emblemPreset ?? null"
-      [accentColour]="league()?.accentColour ?? null"
-    />
-    <div class="club-name">
-      <strong>{{ leagueName() }}</strong>
-      <small>Your league</small>
-    </div>
-  </div>
-  <dl class="club-facts">
-    @if (league(); as league) {
-      <div>
-        <dt>Season</dt>
-        <dd>{{ league.seasonName }}</dd>
-      </div>
-    }
-    @if (members.captainName(); as captain) {
-      <div>
-        <dt>Captain</dt>
-        <dd>{{ captain }}</dd>
-      </div>
-    }
-    <div>
-      <dt>Times in</dt>
-      <dd>{{ zoneName() }}</dd>
-    </div>
-  </dl>
-</section>
+<ul class="league-pills" aria-label="League">
+  @if (league(); as league) {
+    <li><ng-icon name="lucideCalendarDays" aria-hidden="true" />{{ league.seasonName }}</li>
+  }
+  @if (members.captainName(); as captain) {
+    <li><ng-icon name="lucideCrown" aria-hidden="true" />Captain {{ captain }}</li>
+  }
+</ul>
 
 <h2 class="group-label" id="more-round">{{ fixtures.round().title }}</h2>
 <nav class="link-group more-links" aria-labelledby="more-round">
