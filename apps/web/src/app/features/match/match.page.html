@@ -27,12 +27,20 @@
   } @else if (data(); as centre) {
     @if (scoring(); as scoring) {
       <app-scoring-panel [view]="scoring">
-        <p class="panel-source">
-          {{ centre.score?.source }}
-          @if (centre.score?.fetchedAt; as at) {
-            · updated {{ at | leagueTime: 'HH:mm:ss z' : zone() }}
-          }
-        </p>
+        @if (centre.score?.fetchedAt; as at) {
+          <p class="score-updated">
+            <span
+              hlmBadge
+              variant="outline"
+              class="status-pill"
+              [attr.data-tone]="scoring.stale ? 'warn' : 'muted'"
+              [title]="centre.score?.source ?? ''"
+            >
+              <ng-icon name="lucideRefreshCw" aria-hidden="true" />Updated
+              {{ at | leagueTime: 'HH:mm:ss z' : zone() }}
+            </span>
+          </p>
+        }
       </app-scoring-panel>
     }
   }

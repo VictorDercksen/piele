@@ -20,7 +20,10 @@ app-match-hero {
   gap: 20px;
   margin-bottom: 20px;
 }
-.panel-source,
 app-scoring-panel {
   margin-bottom: 20px;
+}
+/* When the live score was last read, under the pitch. */
+.score-updated {
+  margin: 14px 0 0;
 }

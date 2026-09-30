@@ -26,12 +26,15 @@
   border-top-color: var(--dropdown-rule-hover, var(--accent));
   box-shadow: 0 10px 28px #0006;
 }
-.tap-to-open.open .dropdown-head,
-.tap-to-open.open .dropdown-lead {
+.tap-to-open.open > .dropdown-head,
+.tap-to-open.open > .dropdown-lead {
   cursor: pointer;
 }
 
 /*
+ * Every rule below that reads a dropdown's state names its own parts with a child combinator:
+ * a dropdown nested in an open one (the preview's sources) must not take the outer one's state.
+ *
  * The heading row. It carries a little padding of its own (cancelled by a negative margin) so
  * that, pinned, it reads as a bar; a panel's bar runs to the card's edges.
  */
@@ -40,7 +43,7 @@
   margin: -10px 0 0;
   padding: 10px 0 0;
 }
-.panel .dropdown-head {
+.panel > .dropdown-head {
   margin-inline: calc(-1 * var(--dropdown-pad-x));
   padding-inline: var(--dropdown-pad-x);
 }
@@ -51,11 +54,16 @@
   /* Its own layer, so iOS Safari keeps it pinned while the page scrolls or reflows under it. */
   transform: translateZ(0);
 }
+/* A dropdown inside another one's body stays in place: its heading would pin over the outer one. */
+.dropdown-inner .open > .dropdown-head {
+  position: relative;
+  transform: none;
+}
 .dropdown-head.stuck {
   background: var(--dropdown-stuck-bg, var(--surface-grain), var(--paper));
   box-shadow: 0 12px 20px -10px #000a;
 }
-.panel .dropdown-head.stuck {
+.panel > .dropdown-head.stuck {
   background: var(--dropdown-stuck-bg, var(--surface-grain), var(--surface));
 }
 .dropdown-head .section-title {
@@ -85,11 +93,17 @@
   color: var(--ink);
   cursor: pointer;
   transition:
-    transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
     background 0.2s,
     border-color 0.2s;
 }
-/* The whole heading row opens and closes the dropdown. */
+/*
+ * The whole heading row opens and closes the dropdown. The button itself never takes a transform
+ * or a filter (the global hover dims buttons with one): either would make it the containing block
+ * of this layer and shrink the hit area to the button, which on a phone stays hovered after a tap.
+ */
+.chevron:hover {
+  filter: none;
+}
 .chevron::after {
   content: '';
   position: absolute;
@@ -97,6 +111,7 @@
 }
 .chevron ng-icon {
   font-size: 18px;
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .dropdown-head:hover .chevron {
   background: #ffffff1a;
@@ -106,7 +121,7 @@
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
-.open .chevron {
+.open > .dropdown-head .chevron ng-icon {
   transform: rotate(180deg);
 }
 
@@ -131,28 +146,28 @@
 .dropdown-inner {
   padding-top: 16px;
 }
-.open .dropdown-body,
-.animating .dropdown-body {
+.open > .dropdown-body,
+.animating > .dropdown-body {
   visibility: visible;
 }
-.open .dropdown-body {
+.open > .dropdown-body {
   height: auto;
 }
 /* Settled open, focus rings and wide content are not clipped. */
-.open:not(.animating) .dropdown-body {
+.open:not(.animating) > .dropdown-body {
   overflow: visible;
 }
-.peeks .dropdown-body {
+.peeks > .dropdown-body {
   position: relative;
   height: var(--peek);
   margin-top: 14px;
   visibility: visible;
 }
-.peeks .dropdown-inner {
+.peeks > .dropdown-body > .dropdown-inner {
   padding-top: 0;
 }
 /* A peeking body fades out at the bottom so there is visibly more below. */
-.peeks .dropdown-body::after {
+.peeks > .dropdown-body::after {
   content: '';
   position: absolute;
   inset: auto 0 0;
@@ -161,10 +176,10 @@
   pointer-events: none;
   transition: opacity 0.35s;
 }
-.peeks.open .dropdown-body::after {
+.peeks.open > .dropdown-body::after {
   opacity: 0;
 }
-.peeks.open .dropdown-body {
+.peeks.open > .dropdown-body {
   height: auto;
 }
 
@@ -177,7 +192,8 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .chevron {
+  .chevron,
+  .chevron ng-icon {
     transition: none;
   }
 }

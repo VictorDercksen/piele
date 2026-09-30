@@ -4,6 +4,7 @@ import { HlmButton } from '@spartan-ng/helm/button';
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   ElementRef,
   computed,
   inject,
@@ -109,9 +110,23 @@ export class Dropdown {
 
   constructor() {
     if (typeof window === 'undefined') return;
+    // At most one measurement per frame: each one reads layout, and a scroll fires many events
+    // per frame for every dropdown on the page.
+    let pending = false;
+    let destroyed = false;
+    inject(DestroyRef).onDestroy(() => (destroyed = true));
     merge(fromEvent(window, 'scroll', { passive: true }), fromEvent(window, 'resize'))
       .pipe(takeUntilDestroyed())
-      .subscribe({ next: () => this.measureStuck() });
+      .subscribe({
+        next: () => {
+          if (pending || !this.open()) return;
+          pending = true;
+          nextFrame(() => {
+            pending = false;
+            if (!destroyed) this.measureStuck();
+          });
+        },
+      });
   }
 
   /**

@@ -1,3 +1,4 @@
+import { HlmBadge } from '@spartan-ng/helm/badge';
 import { HlmSlider } from '@spartan-ng/helm/slider';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmInput } from '@spartan-ng/helm/input';
@@ -47,6 +48,7 @@ import { PickService } from '../../../core/league/picks/pick.service';
 import { RulesService } from '../../../core/league/rules/rules.service';
 import { roundType } from '../../../core/league/superbru';
 import { Dropdown } from '../../../shared/dropdown/dropdown';
+import { StatusPill } from '../section-status';
 import { PickChip } from './pick-chip';
 import { PickChipView } from './pick-chip.models';
 import { chipOf } from './pick-chip.view';
@@ -97,6 +99,7 @@ import {
     LeagueTimePipe,
     NgIcon,
     PickChip,
+    HlmBadge,
     HlmButton,
     HlmInput,
     HlmLabel,
@@ -189,13 +192,15 @@ export class PicksPanel {
     const picks = this.picks();
     return !!picks && !picks.hidden;
   });
-  readonly tag = computed(() => {
+  readonly tag = computed<StatusPill>(() => {
     const picks = this.picks();
-    if (!picks || !picks.locked) return 'open';
-    if (picks.void) return 'void';
-    if (picks.final) return 'final';
-    if (picks.provisional) return 'provisional';
-    return picks.recorded || this.members.adminView() ? 'locked' : 'awaiting picks';
+    if (!picks || !picks.locked) return { label: 'open', tone: 'pending' };
+    if (picks.void) return { label: 'void', tone: 'muted' };
+    if (picks.final) return { label: 'final', tone: 'done' };
+    if (picks.provisional) return { label: 'provisional', tone: 'live' };
+    return picks.recorded || this.members.adminView()
+      ? { label: 'locked', tone: 'muted' }
+      : { label: 'awaiting picks', tone: 'pending' };
   });
   /** Scores are in (live or full time): marks and points show. */
   readonly scored = computed(() => {

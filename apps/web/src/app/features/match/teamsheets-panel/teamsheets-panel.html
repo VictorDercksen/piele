@@ -5,7 +5,14 @@
   headingId="teamsheets-title"
   [resetKey]="fixture().id"
 >
-  <span class="tag" dropdownSide>{{ section().status.replace('_', ' ') }}</span>
+  <span
+    hlmBadge
+    variant="outline"
+    class="status-pill"
+    dropdownSide
+    [attr.data-tone]="status().tone"
+    >{{ status().label }}</span
+  >
   @if (sheets(); as sheets) {
     <div class="sheets">
       @for (side of sheets; track side.label) {

@@ -1,3 +1,4 @@
+import { HlmBadge } from '@spartan-ng/helm/badge';
 import { ChangeDetectionStrategy, Component, computed, input, viewChild } from '@angular/core';
 import { Dropdown } from '../../../shared/dropdown/dropdown';
 import { ScoringView } from '../scoring';
@@ -17,7 +18,11 @@ import { ScoringView } from '../scoring';
     '[class.open]': 'open()',
     '[class.live]': 'view().live',
   },
-  imports: [Dropdown],
+  /* prettier-ignore */
+  imports: [
+    Dropdown,
+    HlmBadge,
+  ],
 })
 export class ScoringPanel {
   readonly view = input.required<ScoringView>();

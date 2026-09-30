@@ -1,3 +1,4 @@
+import { HlmBadge } from '@spartan-ng/helm/badge';
 import { DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { NgIcon, provideIcons } from '@ng-icons/core';
@@ -16,6 +17,7 @@ import {
 import { WeatherSection } from '../../../core/api/match-centre.models';
 import { LeagueTime } from '../../../core/competition/league-time';
 import { LeagueTimePipe } from '../../../core/competition/league-time.pipe';
+import { sectionPill } from '../section-status';
 import { weatherSky } from '../weather-sky';
 
 /** The kickoff forecast, its source and sky artwork. Fetching belongs to the host page. */
@@ -27,6 +29,7 @@ import { weatherSky } from '../weather-sky';
   // prettier-ignore
   imports: [
     DecimalPipe,
+    HlmBadge,
     LeagueTimePipe,
     NgIcon,
   ],
@@ -48,6 +51,7 @@ import { weatherSky } from '../weather-sky';
 export class WeatherPanel {
   readonly forecast = input.required<WeatherSection>();
   readonly zone = inject(LeagueTime).zone;
+  readonly status = computed(() => sectionPill(this.forecast().status, 'Available'));
   readonly sky = computed(() =>
     this.forecast().status === 'ok' ? weatherSky(this.forecast(), this.zone()) : null,
   );

@@ -42,7 +42,9 @@
   [peek]="30"
   [tapToOpen]="true"
 >
-  <span class="tag" dropdownSide [class.live]="v.live && !v.stale">{{ v.tag }}</span>
+  <span hlmBadge variant="outline" class="status-pill" dropdownSide [attr.data-tone]="v.tone">{{
+    v.tag
+  }}</span>
   <ng-container ngProjectAs="[dropdownLead]">
     <div
       class="summary"

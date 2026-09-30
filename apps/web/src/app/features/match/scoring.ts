@@ -1,5 +1,6 @@
 import { ScoreEvent, ScoreEventKind, ScoreSection } from '../../core/api/match-centre.models';
 import { Competition, Fixture } from '../../core/competition/competition.models';
+import { StatusTone } from './section-status';
 
 /** A live score older than this is labelled as delayed. */
 export const STALE_MS = 2 * 60_000;
@@ -29,6 +30,8 @@ const LINES: readonly { kind: PitchLine['kind']; at: number; paint: string | nul
 
 export interface ScoringView {
   readonly tag: string;
+  /** The tag's pill colour. */
+  readonly tone: StatusTone;
   readonly live: boolean;
   readonly stale: boolean;
   readonly home: SideView;
@@ -130,13 +133,13 @@ const POINTS: Record<ScoreEventKind, number> = {
   red_card: 0,
 };
 
-const TAGS: Record<string, string> = {
-  scheduled: 'awaiting kickoff',
-  live: 'live',
-  half_time: 'half time',
-  full_time: 'full time',
-  postponed: 'postponed',
-  cancelled: 'cancelled',
+const TAGS: Record<string, { readonly tag: string; readonly tone: StatusTone }> = {
+  scheduled: { tag: 'awaiting kickoff', tone: 'muted' },
+  live: { tag: 'live', tone: 'live' },
+  half_time: { tag: 'half time', tone: 'pending' },
+  full_time: { tag: 'full time', tone: 'done' },
+  postponed: { tag: 'postponed', tone: 'warn' },
+  cancelled: { tag: 'cancelled', tone: 'warn' },
 };
 
 const FALLBACK_COLOUR = '#3b5a63';
@@ -163,6 +166,7 @@ export function scoringView(
   if (section.status !== 'ok') {
     return {
       tag: 'unavailable',
+      tone: 'warn',
       live: false,
       stale: false,
       home,
@@ -205,8 +209,11 @@ export function scoringView(
           : 'No points scored yet.';
   const rows = layout(competition, fixture, events, clock);
   const score = state === 'scheduled' ? null : scoreOf(section);
+  const status = stale
+    ? ({ tag: 'delayed', tone: 'warn' } as const)
+    : (TAGS[state] ?? { tag: state.replace('_', ' '), tone: 'muted' as const });
   return {
-    tag: stale ? 'delayed' : (TAGS[state] ?? state.replace('_', ' ')),
+    ...status,
     live,
     stale,
     home,

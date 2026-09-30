@@ -1,3 +1,4 @@
+import { HlmBadge } from '@spartan-ng/helm/badge';
 import { HlmButton } from '@spartan-ng/helm/button';
 import {
   ChangeDetectionStrategy,
@@ -22,7 +23,7 @@ import { SelectedRoundService } from '../../core/competition/selected-round.serv
 import { LeagueContext } from '../../core/league/league-context';
 import { ProfileService } from '../../core/profile/profile.service';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideRotateCcw } from '@ng-icons/lucide';
+import { lucideRefreshCw, lucideRotateCcw } from '@ng-icons/lucide';
 import { Icon } from '../../shared/icon/icon';
 import { BallLoader } from '../../shared/ball-loader/ball-loader';
 import { MatchHero } from '../home/match-hero/match-hero';
@@ -51,9 +52,10 @@ import { scoringView } from './scoring';
     ScoringPanel,
     WeatherPanel,
     TeamsheetsPanel,
+    HlmBadge,
     HlmButton,
   ],
-  viewProviders: [provideIcons({ lucideRotateCcw })],
+  viewProviders: [provideIcons({ lucideRefreshCw, lucideRotateCcw })],
 })
 export class MatchPage {
   private readonly route = inject(ActivatedRoute);

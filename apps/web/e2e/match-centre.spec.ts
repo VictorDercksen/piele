@@ -145,7 +145,9 @@ test('hero opens the featured fixture with teamsheets and forecast', async ({ pa
 
   // The teamsheets wait behind their chevron, closed by default.
   const sheets = page.locator('app-dropdown.teamsheets');
-  await expect(sheets.locator('.tag')).toBeVisible();
+  await expect(sheets.locator('.status-pill')).toHaveText('Published');
+  await expect(sheets.locator('.status-pill')).toHaveAttribute('data-tone', 'done');
+  await expect(page.locator('.panel.weather .status-pill')).toHaveText('Available');
   await expect(sheets.getByRole('list').first()).toBeHidden();
   await openSection(page, 'Teamsheets.');
   await expect(sheets.locator('.players li')).toHaveCount(46);
@@ -159,6 +161,14 @@ test('hero opens the featured fixture with teamsheets and forecast', async ({ pa
   await expect(sheets.locator('.sheet.has-banner')).toHaveCount(2);
   await expect(sheets).not.toContainText('sub 1');
   await expect(sheets).toContainText('checked 23 Sep 13:30 SAST');
+  // The whole heading row closes the open section, also once the pointer has been over the
+  // chevron (a hovered button must not shrink the row's hit area to itself).
+  const { head, chevron } = dropdown(page, 'Teamsheets.');
+  await chevron.hover();
+  await head.click({ position: { x: 30, y: 24 } });
+  await expect(chevron).toHaveAttribute('aria-expanded', 'false');
+  await expect(sheets.locator('section.dropdown')).not.toHaveClass(/animating/);
+  await openSection(page, 'Teamsheets.');
 
   const weather = page.locator('.panel.weather');
   await expect(weather).toContainText('13°');
@@ -232,7 +242,7 @@ test('sections explain missing data and the page survives an API outage', async 
   await expect(page.locator('app-dropdown.teamsheets')).toContainText(
     'usually published about 48 hours',
   );
-  await expect(page.locator('app-dropdown.teamsheets .tag')).toHaveText('not published');
+  await expect(page.locator('app-dropdown.teamsheets .status-pill')).toHaveText('Not published');
   await expect(page.locator('.panel.weather')).toContainText('forecast could not be loaded');
 
   await page.unroute('**/v1/competitions/*/matches/*');

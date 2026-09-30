@@ -5,6 +5,8 @@ import { BehaviorSubject } from 'rxjs';
 import { vi } from 'vitest';
 import { Dropdown } from './dropdown';
 
+const nextFrame = () => new Promise((resolve) => setTimeout(resolve, 20));
+
 @Component({
   template: `<app-dropdown
     heading="Superbru picks."
@@ -149,6 +151,8 @@ describe('Dropdown', () => {
     vi.spyOn(lead, 'getBoundingClientRect').mockReturnValue({ top: 40 } as DOMRect);
     Object.defineProperty(window, 'scrollY', { value: 500, configurable: true, writable: true });
     window.dispatchEvent(new Event('scroll'));
+    // Scrolls are measured once per frame.
+    await nextFrame();
     await settle();
     expect(head.classList).toContain('stuck');
     // A browser that reports the end of a scroll.
@@ -181,6 +185,7 @@ describe('Dropdown', () => {
     await settle();
     head.style.top = '0px';
     window.dispatchEvent(new Event('scroll'));
+    await nextFrame();
     await settle();
     expect(head.classList).not.toContain('stuck');
     chevron()!.click();

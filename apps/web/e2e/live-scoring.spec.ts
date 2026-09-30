@@ -158,7 +158,7 @@ test('a live match updates the ribbon, hero and scoring timeline', async ({ page
   const summary = panel.locator('.summary');
   const chevron = panel.getByRole('button', { name: 'Show the scoring pitch', exact: true });
   await expect(chevron).toHaveAttribute('aria-expanded', 'false');
-  await expect(panel.locator('.tag')).toHaveText('live');
+  await expect(panel.locator('.section-title .status-pill')).toHaveText('live');
   await expect(summary).toHaveAttribute('aria-expanded', 'false');
   await expect(panel.locator('.side.away b')).toHaveText('7');
   await expect(panel.locator('.track .dot')).toHaveCount(4);
@@ -207,7 +207,7 @@ test('a live match updates the ribbon, hero and scoring timeline', async ({ page
   await expect(hero.locator('.match-time > span').first()).toHaveText('RESULT');
   await expect(ribbon).toContainText('FULL TIME');
   await expect(ribbon).not.toHaveClass(/live/);
-  await expect(panel.locator('.tag')).toHaveText('full time');
+  await expect(panel.locator('.section-title .status-pill')).toHaveText('full time');
   await expect(panel.locator('.ingoal.bottom')).toHaveText('Full time · 10–12');
   await expect(page.locator('.panel.weather')).toHaveCount(0);
   const result = hero.locator('.match-time strong');
@@ -222,7 +222,8 @@ test('a live match updates the ribbon, hero and scoring timeline', async ({ page
       true,
     );
   }
-  await panel.locator('h2').click();
+  // A tap on the open heading, left of the chevron, closes it (the chevron's layer spans the row).
+  await panel.locator('.dropdown-head').click({ position: { x: 30, y: 24 } });
   await expect(summary).toHaveAttribute('aria-expanded', 'false');
 });
 
@@ -237,7 +238,7 @@ test('the scoring panel appears ten minutes before kickoff', async ({ page }) =>
   await expect(panel).toHaveCount(0);
 
   await page.clock.runFor(3 * 60_000);
-  await expect(panel.locator('.tag')).toHaveText('awaiting kickoff');
+  await expect(panel.locator('.section-title .status-pill')).toHaveText('awaiting kickoff');
   await expect(panel.locator('.track-empty')).toHaveText('Scores appear here from kickoff.');
   await expect(panel.locator('.side b')).toHaveText(['–', '–']);
 });
