@@ -1,5 +1,9 @@
+/* Fills the section, so beside the standings the list runs to the board's height. */
 :host {
-  display: block;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
 }
 /* The heading keeps a readable width; when the scope pill does not fit beside it, the pill wraps below. */
 .section-title {
@@ -15,9 +19,15 @@
   font-weight: 700;
   letter-spacing: 1px;
 }
-/* A set height, about four items, so the section keeps its size across round and season. */
+/*
+ * A set size, so the section keeps its height across round and season. On wider screens the list
+ * grows into the height its grid row already has (the standings board beside it), never less than
+ * about four items; the zero height keeps its items from stretching that row.
+ */
 .feed-list {
-  height: 400px;
+  flex: 1 0 0;
+  height: 0;
+  min-height: 400px;
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
@@ -33,7 +43,9 @@
 }
 @container (max-width: 600px) {
   .feed-list {
+    flex: none;
     height: 360px;
+    min-height: 0;
   }
 }
 .feed-item {

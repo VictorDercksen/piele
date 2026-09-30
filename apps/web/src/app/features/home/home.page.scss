@@ -117,6 +117,8 @@
 }
 
 .club-feed {
+  display: flex;
+  flex-direction: column;
   padding: 22px;
   background: var(--surface-grain), #102022ee;
   border: 1px solid #bbc7b52e;
