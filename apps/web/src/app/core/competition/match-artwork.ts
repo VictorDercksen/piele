@@ -1,4 +1,4 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { DestroyRef, Injectable, inject, signal } from '@angular/core';
 import { Competition, Fixture } from './competition.models';
 import { CompetitionService } from './competition.service';
 import { StadiumSceneService } from './stadium-scene.service';
@@ -40,6 +40,16 @@ export class MatchArtwork {
   /** Decoded images, held so the browser keeps them in its memory cache. */
   private readonly images = new Map<string, HTMLImageElement>();
   private readonly settled = signal<ReadonlySet<string>>(new Set());
+  /** Cancels for warm-ups still waiting on an idle browser. */
+  private readonly pending = new Set<() => void>();
+
+  constructor() {
+    // A warm-up that comes due after the app (or a test bed) is torn down loads nothing.
+    inject(DestroyRef).onDestroy(() => {
+      for (const cancel of this.pending) cancel();
+      this.pending.clear();
+    });
+  }
 
   /**
    * Starts loading and decoding the fixture's artwork. Repeat calls are free. Called from
@@ -55,8 +65,11 @@ export class MatchArtwork {
    */
   warm(fixtures: readonly Fixture[]): void {
     const urls = fixtures.flatMap((fixture) => this.urls(fixture));
-    const idle = window.requestIdleCallback ?? ((run: () => void) => setTimeout(run, 200));
-    idle(() => this.load(urls));
+    const cancel = whenIdle(() => {
+      this.pending.delete(cancel);
+      this.load(urls);
+    });
+    this.pending.add(cancel);
   }
 
   /** Whether the fixture's artwork has decoded, failed or taken too long to wait for. */
@@ -85,6 +98,16 @@ export class MatchArtwork {
       );
     }
   }
+}
+
+/** Runs `run` once the browser is idle (after 200 ms where it cannot tell) and returns a cancel. */
+function whenIdle(run: () => void): () => void {
+  if (window.requestIdleCallback) {
+    const id = window.requestIdleCallback(run);
+    return () => window.cancelIdleCallback(id);
+  }
+  const id = setTimeout(run, 200);
+  return () => clearTimeout(id);
 }
 
 function wait(ms: number): Promise<void> {
