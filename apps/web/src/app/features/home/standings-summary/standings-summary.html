@@ -4,34 +4,32 @@
   <h2>The pecking order.</h2>
   @if (fixtures.roundProvisional()) {
     <p class="board-status"><span class="tag">provisional</span></p>
+  } @else if (scope() === 'season') {
+    <p class="board-status">
+      <span class="tag">Round {{ fixtures.round().code }} · no results yet</span>
+    </p>
   }
 </div>
-@if (standings.standings().length) {
-  <div class="table-label">
-    <span>ROUND {{ fixtures.round().code }} POINTS</span><span>PTS</span>
-  </div>
-  <ol class="leaderboard">
-    @for (member of topFour(); track member.memberId) {
-      <li [class.you]="member.you">
-        <span class="rank">{{ member.rank | number: '2.0-0' }}</span
-        ><app-member-avatar
-          class="member-avatar"
-          [name]="member.name"
-          [photo]="member.photo"
-          [teamId]="member.teamId"
-        /><span class="member-name">{{ member.name }}</span>
-        @if (member.cap) {
-          <img class="badge" [src]="badges.cap.src" [alt]="badges.cap.alt" />
-        }
-        @if (member.spoon) {
-          <img class="badge" [src]="badges.spoon.src" [alt]="badges.spoon.alt" />
-        }
-        <strong>{{ member.points | number: '1.1-2' }}</strong>
-      </li>
-    }
-  </ol>
-  <a class="table-link" [routerLink]="'/standings' | leaguePath" queryParamsHandling="preserve">
-    Full round standings <ng-icon class="link-icon" name="lucideArrowRight" />
+@if (rows().length) {
+  <app-points-table [rows]="rows()" [scope]="scope()" [limit]="limit" />
+  <a
+    class="table-footer"
+    [routerLink]="'/standings' | leaguePath"
+    [queryParams]="{ table: scope() }"
+    queryParamsHandling="merge"
+  >
+    <span class="footer-note">
+      @if (scope() === 'season' ? seasonPlace() : null; as place) {
+        You are <b>{{ place.rank }}</b> of {{ place.of }} · {{ place.points | number: '1.1-2' }} pts
+      } @else if (rows().length > limit) {
+        Top {{ limit }} of {{ rows().length }}
+      } @else {
+        {{ rows().length }} {{ rows().length === 1 ? 'member' : 'members' }}
+      }
+    </span>
+    <span class="footer-link"
+      >Full {{ scope() }} standings <ng-icon class="link-icon" name="lucideArrowRight"
+    /></span>
   </a>
 } @else {
   <div class="round-empty">
@@ -40,23 +38,39 @@
     <p>Round points appear once the captain records the Superbru pool results.</p>
   </div>
 }
-<a
-  class="season-line"
-  [routerLink]="'/standings' | leaguePath"
-  [queryParams]="{ table: 'season' }"
-  queryParamsHandling="merge"
-  ><span>
-    @if (seasonPlace(); as place) {
-      Season · You are {{ place.rank }} of {{ place.of }} · {{ place.points | number: '1.0-2' }} pts
-    } @else {
-      Season table
-    }</span
-  ><ng-icon class="link-icon" name="lucideArrowRight"
-/></a>
+@if (scope() === 'round') {
+  <a
+    class="season-pill"
+    [routerLink]="'/standings' | leaguePath"
+    [queryParams]="{ table: 'season' }"
+    queryParamsHandling="merge"
+    ><span class="pill-chip">Season</span
+    ><span class="pill-text">
+      @if (seasonPlace(); as place) {
+        You are {{ place.rank }}
+        <span class="pill-detail"
+          >of {{ place.of }} · {{ place.points | number: '1.1-2' }} pts</span
+        >
+      } @else {
+        Season table
+      }</span
+    ><ng-icon class="link-icon" name="lucideArrowRight"
+  /></a>
+}
 <div class="house-marks">
-  <div>
-    <span>YOUR SEASON HOUSE MARKS</span>
-    <p>Separate from Superbru points.</p>
+  <span class="marks-label">Your house marks · season</span>
+  <p>
+    @if (!marks.ownMarks()) {
+      Clean sheet so far.
+    }
+    Separate from Superbru points.
+  </p>
+  <div class="tally">
+    <span class="sticks" aria-hidden="true">
+      @for (lit of tally(); track $index) {
+        <i [class.lit]="lit"></i>
+      }
+    </span>
+    <strong>{{ marks.ownMarks() }}</strong>
   </div>
-  <strong>{{ marks.ownMarks() }}</strong>
 </div>
