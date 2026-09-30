@@ -289,29 +289,74 @@
     font-size: 29px;
   }
 }
+// Empty states: a rounded card with the icon in a tinted tile beside the title and note. An
+// action (`.text-button`) becomes a full-width row under a rule.
 .round-empty {
-  padding: 25px 20px;
-  background: var(--surface-grain), var(--surface);
-  border-top: 2px solid var(--line);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  column-gap: 14px;
+  align-items: start;
+  padding: 18px 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  overflow: hidden;
 }
-.round-empty app-icon {
+.round-empty:has(> app-icon) {
+  grid-template-columns: 40px minmax(0, 1fr);
+}
+.round-empty:not(:has(> p)) {
+  align-items: center;
+}
+.round-empty > app-icon {
+  grid-row: span 2;
+  box-sizing: border-box;
+  width: 40px;
+  height: 40px;
+  padding: 10px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--orange) 16%, transparent);
   color: var(--accent);
-  margin-bottom: 12px;
+}
+.round-empty > :is(h2, h3, p) {
+  grid-column: -2;
 }
 .round-empty h2,
 .round-empty h3 {
-  font-weight: 600;
-  line-height: 1.25;
-  font-size: 23px;
-  margin: 0 0 12px;
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.3;
 }
 .round-empty p {
+  margin: 4px 0 0;
   color: var(--muted);
   font-size: 14px;
-  line-height: 1.6;
+  line-height: 1.45;
 }
-.round-empty .text-button {
-  margin-top: 12px;
+// Inside a folding section, keep the card clear of the next section's heading.
+.dropdown-inner .round-empty:last-child {
+  margin-bottom: 20px;
+}
+.league .round-empty button.text-button {
+  grid-column: 1 / -1;
+  justify-content: space-between;
+  min-height: 50px;
+  margin: 18px -16px -18px;
+  padding: 0 16px;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--accent);
+  font-size: 15px;
+  font-weight: 600;
+}
+.league .round-empty button.text-button::after {
+  content: none;
+}
+.league .round-empty button.text-button:hover {
+  background: #ffffff0a;
 }
 .section-title h2 {
   font-size: 23px;
@@ -325,13 +370,6 @@
   }
 }
 @container (max-width:600px) {
-  .round-empty {
-    padding: 22px 18px;
-  }
-  .round-empty h2,
-  .round-empty h3 {
-    font-size: 23px;
-  }
   .section-title h2 {
     font-size: 24px;
   }
@@ -673,7 +711,8 @@ button.remove-photo:enabled:hover {
 }
 .honours-board .round-empty {
   background: transparent;
-  border-color: var(--line);
+  border: 0;
+  border-radius: 0;
   padding: 20px 0;
 }
 @container (max-width: 600px) {

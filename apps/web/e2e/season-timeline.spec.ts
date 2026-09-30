@@ -133,7 +133,7 @@ test('sample league duties, evidence, votes and round scoping', async ({ page })
   await expect(page.locator('.standing-row')).toHaveCount(0);
 
   await nav.getByRole('link', { name: 'More', exact: true }).click();
-  await page.getByRole('link', { name: "Round 03 captain's desk" }).click();
+  await page.getByRole('link', { name: /^Captain's desk/ }).click();
   // Every section of the desk is closed until its chevron opens it.
   await expect(page.getByRole('button', { name: 'Evidence to decide.' })).toHaveAttribute(
     'aria-expanded',
@@ -159,6 +159,18 @@ test('sample league duties, evidence, votes and round scoping', async ({ page })
   ).toHaveCount(0);
   await page.goto('/piele/constitution');
   await expect(page.getByRole('heading', { name: 'Same club. Shared rules.' })).toBeVisible();
+});
+
+test('an empty personal register leads to the league duties', async ({ page }) => {
+  await page.goto('/piele/duties?round=5');
+  const empty = page.locator('.round-empty');
+  await expect(
+    empty.getByRole('heading', { name: 'No personal duties in Round 05.' }),
+  ).toBeVisible();
+  await empty.getByRole('button', { name: 'See league duties' }).click();
+  await expect(page).toHaveURL(/\/piele\/duties\?round=5&scope=league$/);
+  await expect(empty.getByRole('heading', { name: 'No league duties in Round 05.' })).toBeVisible();
+  await expect(empty.getByRole('button', { name: 'See league duties' })).toHaveCount(0);
 });
 
 test('a short page opened from deep in a long one starts at the top, the bottom bar in place', async ({
@@ -514,7 +526,7 @@ test('captain creates, records and decides duties; the feed follows', async ({ p
   // In-app navigation keeps the sample league's in-memory state; a reload would reset it.
   const nav = page.getByRole('navigation', { name: 'League navigation', exact: true });
   await nav.getByRole('link', { name: 'More', exact: true }).click();
-  await page.getByRole('link', { name: "Round 02 captain's desk" }).click();
+  await page.getByRole('link', { name: /^Captain's desk/ }).click();
   await openSection(page, 'Evidence to decide.');
   const review = page.locator('.review-row').filter({ hasText: 'Liam' });
   await expect(review).toContainText('Counts from submission');

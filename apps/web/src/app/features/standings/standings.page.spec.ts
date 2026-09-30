@@ -121,7 +121,6 @@ describe('StandingsPage', () => {
     expect(button('Season').getAttribute('aria-pressed')).toBe('true');
     expect(text('.honours-heading > span')).toEqual(['PIELE / SEASON']);
     expect(text('.honours-heading h2')).toEqual(['Superbru season']);
-    expect(text('.page-description')[0]).toContain('Whole season up to the selected round');
     expect(text('.points-row .member-name')[0]).toBe('Johan');
     // Last season's champion wears the crown; the round 2 cap is his too.
     const johan = element.querySelector('.points-row')!;

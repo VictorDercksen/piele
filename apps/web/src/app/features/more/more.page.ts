@@ -3,16 +3,23 @@ import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { CompetitionService } from '../../core/competition/competition.service';
 import { FixtureService } from '../../core/competition/fixture.service';
-import { LeagueTime } from '../../core/competition/league-time';
 import { LeagueContext } from '../../core/league/league-context';
 import { LeaguePathPipe } from '../../core/league/league-path.pipe';
 import { MemberService } from '../../core/league/members/member.service';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideArrowRight, lucideExternalLink } from '@ng-icons/lucide';
+import {
+  lucideArrowRight,
+  lucideCalendarDays,
+  lucideCrown,
+  lucideExternalLink,
+} from '@ng-icons/lucide';
 import { Icon } from '../../shared/icon/icon';
 import { PushCard } from './push-card/push-card';
 
-/** Secondary destinations, push notifications for this device and the schedule source. */
+/**
+ * The league's season and captain as pills, then grouped lists: the round's destinations, the
+ * season's constitution and schedule source, and push notifications for this device.
+ */
 @Component({
   selector: 'app-more-page',
   templateUrl: './more.page.html',
@@ -27,14 +34,13 @@ import { PushCard } from './push-card/push-card';
     NgIcon,
     PushCard,
   ],
-  viewProviders: [provideIcons({ lucideArrowRight, lucideExternalLink })],
+  viewProviders: [
+    provideIcons({ lucideArrowRight, lucideCalendarDays, lucideCrown, lucideExternalLink }),
+  ],
 })
 export class MorePage {
-  private readonly context = inject(LeagueContext);
+  readonly league = inject(LeagueContext).current;
   readonly fixtures = inject(FixtureService);
   readonly members = inject(MemberService);
   readonly competition = inject(CompetitionService);
-  readonly league = this.context.current;
-  readonly leagueName = this.context.name;
-  readonly zoneName = inject(LeagueTime).abbreviation;
 }

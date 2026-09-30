@@ -52,19 +52,19 @@ test('the Pofadder Bowl shows its own name, captain, standings and feed', async 
   await expect(page.locator('.standing-row').first()).toContainText('Kallie');
 
   await nav.getByRole('link', { name: 'More', exact: true }).click();
-  await expect(page.locator('.league-line')).toContainText('Pofadder Bowl');
-  await expect(page.locator('.league-line')).toContainText('Captain Doempie');
+  await expect(page).toHaveURL(/\/pofadder-bowl\/more\?round=2$/);
+  await expect(page.locator('.league-pills')).toContainText('Captain Doempie');
   // The sample member only plays here, but the sample account is the admin, so the captain's
   // desk opens (the API accepts the admin on every steward route).
-  await expect(page.getByRole('link', { name: /captain's desk/ })).toBeVisible();
+  await expect(page.getByRole('link', { name: /captain's desk/i })).toBeVisible();
   await page.goto('/pofadder-bowl/captain');
   await expect(page).toHaveURL(/\/pofadder-bowl\/captain$/);
   await expect(page.locator('.admin-ribbon')).toHaveCount(0);
 
   // Piele keeps its own records and captain.
   await page.goto('/piele/more');
-  await expect(page.locator('.league-line')).toContainText('Captain Victor Dercksen');
-  await expect(page.getByRole('link', { name: /captain's desk/ })).toBeVisible();
+  await expect(page.locator('.league-pills')).toContainText('Captain Victor Dercksen');
+  await expect(page.getByRole('link', { name: /captain's desk/i })).toBeVisible();
 });
 
 test('each league has its own favourite team; the name carries over', async ({ page }) => {

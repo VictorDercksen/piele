@@ -3,6 +3,8 @@ import { HlmToggleGroupImports } from '@spartan-ng/helm/toggle-group';
 import { ChangeDetectionStrategy, Component, computed, inject, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import { lucideArrowRight } from '@ng-icons/lucide';
 import { map } from 'rxjs';
 import { FixtureService } from '../../core/competition/fixture.service';
 import { LeagueTime } from '../../core/competition/league-time';
@@ -28,12 +30,14 @@ import { ReasonDialog } from './reason-dialog/reason-dialog';
   imports: [
     HlmToggleGroupImports,
     Icon,
+    NgIcon,
     DutyCard,
     EvidenceDialog,
     CreateDutyDialog,
     ReasonDialog,
     HlmButton,
   ],
+  viewProviders: [provideIcons({ lucideArrowRight })],
 })
 export class DutiesPage {
   private readonly router = inject(Router);

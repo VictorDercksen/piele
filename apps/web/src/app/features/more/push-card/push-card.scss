@@ -1,73 +1,136 @@
 :host {
   display: block;
-  margin-top: 22px;
 }
+// A rounded group like the More page's link lists: a heading row, then one row per kind.
 .push-card {
   display: grid;
-  gap: 14px;
-  padding: 20px;
-  border: 1px solid var(--line);
+  overflow: hidden;
   background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+}
+.push-card > * + *,
+.switches li + li {
+  border-top: 1px solid var(--line);
 }
 .push-heading {
   display: flex;
-  align-items: flex-start;
-  gap: 15px;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
 }
-.push-heading app-icon {
+.row-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
   flex-shrink: 0;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--orange) 16%, transparent);
+  color: var(--accent);
 }
-.push-heading h2 {
-  margin: 0 0 4px;
-  font-size: 15px;
-  font-weight: 700;
+.push-title {
+  flex: 1;
+  min-width: 0;
 }
-.push-heading p {
+.push-title h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+.push-title p {
   margin: 0;
   font-size: 13px;
+  line-height: 1.35;
   color: var(--muted);
+}
+.push-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #9fe0c4;
+}
+.push-status::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
 }
 .install-steps {
   display: grid;
   gap: 6px;
   margin: 0;
-  padding-left: 20px;
+  padding: 14px 16px 14px 36px;
   font-size: 13px;
+}
+.push-action {
+  padding: 14px 16px;
 }
 .primary-button ng-icon,
 .primary-button app-loader {
   flex-shrink: 0;
 }
 .switches {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
-  gap: 4px 20px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
+.switches li + li {
+  margin-left: 16px;
+}
 .switch {
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
+  align-items: center;
+  gap: 14px;
   min-height: 44px;
-  padding: 8px 0;
+  padding: 12px 16px;
   cursor: pointer;
+}
+.switches li + li .switch {
+  padding-left: 0;
 }
 .switch-text {
   display: grid;
+  flex: 1;
   gap: 2px;
   min-width: 0;
 }
 .switch-text strong {
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 15px;
+  font-weight: 600;
 }
 .switch-text small {
   color: var(--muted);
-  font-size: 12px;
-  line-height: 1.45;
+  font-size: 13px;
+  line-height: 1.35;
 }
-.text-button {
-  justify-self: start;
+.turn-off {
+  justify-content: flex-start;
+  width: 100%;
+  min-height: 50px;
+  border-radius: 0;
+  padding: 0 16px;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.turn-off:hover:not(:disabled) {
+  background: #ffffff0a;
+}
+.turn-off:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.turn-off:disabled {
+  opacity: 0.6;
+  cursor: default;
 }

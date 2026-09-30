@@ -50,6 +50,7 @@
   </div>
 } @else {
   <div class="round-empty">
+    <app-icon name="duties" />
     <h2>
       No {{ scope() === 'mine' ? 'personal' : 'league' }} duties in Round
       {{ fixtures.round().code }}.
@@ -63,6 +64,11 @@
             : 'There are no matching duties in this round’s register.'
       }}
     </p>
+    @if (scope() === 'mine' && !records.loading()) {
+      <button hlmBtn type="button" class="text-button" (click)="selectScope('league')">
+        See league duties<ng-icon class="link-icon" name="lucideArrowRight" />
+      </button>
+    }
   </div>
 }
 <app-evidence-dialog />

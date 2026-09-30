@@ -146,16 +146,19 @@ export async function chooseOption(
   control: Locator,
   option: string | { label: string },
 ): Promise<void> {
-  if ((await control.getAttribute('aria-expanded')) !== 'true') await control.click();
   const page = control.page();
-  await page
-    .locator('.pavilion-select-search input')
-    .fill(typeof option === 'string' ? option : option.label);
   const item =
     typeof option === 'string'
       ? page.locator('.pavilion-select-option').and(page.locator(`[data-value="${option}"]`))
       : page.getByRole('option', { name: option.label, exact: true });
-  await item.click();
+  // On a slow runner the popup can close between opening and typing; reopen it and try again.
+  await expect(async () => {
+    if ((await control.getAttribute('aria-expanded')) !== 'true') await control.click();
+    await page
+      .locator('.pavilion-select-search input')
+      .fill(typeof option === 'string' ? option : option.label, { timeout: 3000 });
+    await item.click({ timeout: 3000 });
+  }).toPass({ timeout: 20000 });
   await expect(control).toHaveAttribute('aria-expanded', 'false');
   if (typeof option === 'string') await expect(control).toHaveAttribute('data-value', option);
   else await expect(control).toContainText(option.label);

@@ -93,6 +93,16 @@ describe('match artwork', () => {
     expect(artwork.ready(MUNSTER_GLASGOW)).toBe(true);
   });
 
+  it('drops a warm-up still waiting when the app is torn down', async () => {
+    vi.useFakeTimers();
+    const decode = vi.fn(() => Promise.resolve());
+    stubDecode(decode);
+    TestBed.inject(MatchArtwork).warm([MUNSTER_GLASGOW]);
+    TestBed.resetTestingModule();
+    await vi.advanceTimersByTimeAsync(200);
+    expect(decode).not.toHaveBeenCalled();
+  });
+
   it('loads the venue for the kickoff weather and follows a forecast that arrives later', async () => {
     const decode = vi.fn(function (this: HTMLImageElement) {
       return Promise.resolve();
