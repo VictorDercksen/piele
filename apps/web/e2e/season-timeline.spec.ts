@@ -531,8 +531,16 @@ test('captain creates, records and decides duties; the feed follows', async ({ p
     'Round 02 Pick confirmation completed',
   );
   await expect(feed.locator('.feed-item')).toHaveCount(11);
+  // The list keeps a set height and scrolls, so switching scope does not resize the section.
+  const list = feed.getByRole('region', { name: 'Round 02 feed' });
+  const roundBox = (await feed.boundingBox())!;
+  expect(await list.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true);
+  await list.evaluate((el) => (el.scrollTop = el.scrollHeight));
   await feed.getByRole('button', { name: 'Season' }).click();
   await expect(feed.locator('.feed-item')).toHaveCount(14);
+  const seasonList = feed.getByRole('region', { name: 'Season feed' });
+  expect(await seasonList.evaluate((el) => el.scrollTop)).toBe(0);
+  expect((await feed.boundingBox())!.height).toBe(roundBox.height);
   await expect(feed.locator('.feed-item').last()).toContainText('URC 2026/27 is open');
   await nav.getByRole('link', { name: 'Standings', exact: true }).click();
   await page.getByRole('button', { name: 'House marks' }).click();
