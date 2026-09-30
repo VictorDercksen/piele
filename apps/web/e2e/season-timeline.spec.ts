@@ -127,7 +127,7 @@ test('sample league duties, evidence, votes and round scoping', async ({ page })
   );
   await page
     .getByRole('navigation', { name: 'Season timeline' })
-    .getByRole('button', { name: 'Round 03, Upcoming', exact: true })
+    .getByRole('button', { name: 'Round 03, Upcoming, 1 decision open', exact: true })
     .click();
   await expect(page).toHaveURL(/\/piele\/standings\?round=3/);
   await expect(page.locator('.standing-row')).toHaveCount(0);
