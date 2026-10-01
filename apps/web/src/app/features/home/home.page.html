@@ -4,6 +4,7 @@
       [fixture]="fixture"
       [favourite]="favouriteTeam()?.id ?? ''"
       [roundCode]="fixtures.round().code"
+      [ruler]="ruler()"
       (explore)="go('/match/' + fixture.id)"
     />
   } @else {

@@ -136,6 +136,56 @@ test('before kickoff a member sees only the pick form; saving the pick reveals t
   expect(errors).toEqual([]);
 });
 
+test('the home page lays the round’s picks along its kickoffs', async ({ page }, testInfo) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  // Round 3 is still to pick: every dot is an open ring, the pin stands before Friday.
+  await page.goto('/piele?round=3');
+  const hero = page.locator('app-match-hero');
+  const ruler = hero.locator('.kickoff-ruler');
+  await expect(ruler.locator('.ruler-label')).toHaveText('YOUR PICKS · 0 OF 8 IN · 8 TO MAKE');
+  await expect(ruler.locator('.ruler-slot')).toHaveCount(5);
+  await expect(ruler.locator('.ruler-slot .ruler-time')).toHaveText([
+    'FRI20:45',
+    'SAT13:30',
+    'SAT16:00',
+    'SAT18:30',
+    'SAT20:45',
+  ]);
+  await expect(ruler.locator('.ruler > :first-child')).toHaveClass(/ruler-now/);
+  await expect(ruler.locator('.ruler-now .ruler-time')).toHaveText('NOWTUE 12:00');
+  await expect(ruler.locator('.dot.open')).toHaveCount(8);
+  const stormers = ruler.getByRole('link', {
+    name: 'Stormers v Sharks: no pick yet, locks SAT 16:00',
+    exact: true,
+  });
+  await expect(stormers).toHaveClass(/open/);
+
+  // A dot opens its match; a pick there shows on the ruler as the club's crest.
+  await stormers.click();
+  await expect(page).toHaveURL(new RegExp(`/piele/match/${STORMERS_SHARKS}\\?round=3$`));
+  const panel = picksPanel(page);
+  await panel.getByRole('button', { name: 'One point toward Stormers' }).click();
+  await panel.getByRole('button', { name: 'Save pick' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Pick saved' })).toBeVisible();
+  await page.locator('.desktop-nav').getByRole('link', { name: 'Home', exact: true }).click();
+  await expect(page).toHaveURL(/\/piele\?round=3$/);
+  await expect(ruler.locator('.ruler-label')).toHaveText('YOUR PICKS · 1 OF 8 IN · 7 TO MAKE');
+  await page.screenshot({ path: testInfo.outputPath('kickoff-ruler.png') });
+  const picked = ruler.getByRole('link', { name: 'Stormers v Sharks: Stormers by 1', exact: true });
+  await expect(picked).not.toHaveClass(/open/);
+  await expect(picked.locator('img')).toHaveAttribute('src', /dhl-stormers/);
+  await expect(ruler.locator('.dot.open')).toHaveCount(7);
+
+  // Round 2 kicked off with every pick in: eight crests and the pin past the last kickoff.
+  await page.locator('.desktop-nav').getByRole('link', { name: 'Home', exact: true }).click();
+  await page.goto('/piele?round=2');
+  await expect(ruler.locator('.ruler-label')).toHaveText('YOUR PICKS · 8 OF 8 IN');
+  await expect(ruler.locator('.dot img')).toHaveCount(8);
+  await expect(ruler.locator('.ruler > :last-child')).toHaveClass(/ruler-now/);
+  expect(errors).toEqual([]);
+});
+
 test('a kicked-off fixture shows every pick with its marks, points and the member’s place', async ({
   page,
 }) => {

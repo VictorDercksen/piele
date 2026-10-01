@@ -154,6 +154,7 @@ test('Floodlights layouts and club assets work from desktop to 320px', async ({
       true,
     );
     await expect(page.locator('.match-venue')).toBeVisible();
+    await expect(page.locator('.kickoff-ruler .ruler-label')).toBeVisible();
     await expect(page.locator('.club-crest')).toHaveCount(2);
     await expect
       .poll(() =>
