@@ -440,14 +440,18 @@
   outline-offset: 2px;
 }
 
-/* The margin stepper and the actions share the foot of the form. */
+/*
+ * The foot of the form is one row: the margin stepper, then Save and Cancel beside it at the
+ * stepper's height. Save takes the room that is left so the row reads as a single control.
+ */
 .form-foot {
   display: flex;
-  flex-wrap: wrap;
   align-items: flex-end;
-  justify-content: space-between;
-  gap: 12px 16px;
+  gap: 12px;
   margin-top: 6px;
+}
+.margin-field {
+  flex-shrink: 0;
 }
 .field {
   display: grid;
@@ -518,9 +522,22 @@
 }
 .form-actions {
   display: flex;
-  flex-wrap: wrap;
+  flex: 1;
   align-items: center;
-  gap: 8px 16px;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+}
+.form-actions .primary-button {
+  flex: 1;
+  min-width: 0;
+  max-width: 240px;
+  padding-inline: 16px;
+  white-space: nowrap;
+}
+.form-actions .cancel {
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 .hint {
   margin: 0;
@@ -586,5 +603,21 @@
   }
   .sway {
     gap: 6px;
+  }
+  /* Stepper, Save and Cancel must share one row on a 320 px phone: Cancel keeps its icon. */
+  .form-foot {
+    gap: 8px;
+  }
+  .form-actions .cancel {
+    padding-inline: 12px;
+  }
+  .form-actions .cancel-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 }

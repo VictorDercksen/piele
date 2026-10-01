@@ -92,8 +92,8 @@ test('before kickoff a member sees only the pick form; saving the pick reveals t
   await panel.getByLabel('Margin (points)').fill('7');
   await panel.getByRole('button', { name: 'Save pick' }).click();
 
-  // The pick is in: a green card names it, then the member's strip; the pool's split and the
-  // pool table wait behind the chevron.
+  // The pick is in: a green card names it, then the member's strip; the pool table waits
+  // behind the chevron.
   await expect(
     page.getByRole('status').filter({ hasText: 'Pick saved: Stormers by 7.' }),
   ).toBeVisible();
@@ -103,8 +103,6 @@ test('before kickoff a member sees only the pick form; saving the pick reveals t
   await expect(mine).toContainText('Your pick');
   await expect(mine.locator('app-pick-chip')).toContainText('Stormers');
   await expect(mine.locator('app-pick-chip')).toContainText('7');
-  const split = panel.getByRole('img', { name: "The pool's split: Stormers 100%, Sharks 0%." });
-  await expect(split).toBeHidden();
   // The pool table waits behind the chevron, closed by default.
   const pool = panel.getByRole('table', { name: 'Picks for Stormers v Sharks' });
   await expect(pool).toBeHidden();
@@ -116,9 +114,10 @@ test('before kickoff a member sees only the pick form; saving the pick reveals t
     'true',
   );
   await expect(pool).toBeVisible();
-  await expect(split).toBeVisible();
   await expect(pool.locator('tbody tr')).toHaveCount(1);
   await expect(pool.locator('tbody tr.you')).toContainText('Victor Dercksen');
+  // Only the member's own pick is visible, so there is no split to show yet.
+  await expect(panel.getByRole('img', { name: /The pool's split/ })).toHaveCount(0);
   // No marks or points before kickoff.
   await expect(pool.getByRole('columnheader', { name: 'Pts' })).toHaveCount(0);
 

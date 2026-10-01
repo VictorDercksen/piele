@@ -231,11 +231,14 @@ export class PicksPanel {
     };
   });
 
-  /** How the pool leans, once anyone has a side or a draw in. */
+  /**
+   * How the pool leans, once another member's side or draw is visible. While only the member's
+   * own pick shows, the split would merely echo it, so the bar waits.
+   */
   readonly sway = computed(() => {
     const picks = this.picks();
     const sides = this.sides();
-    if (!picks || !sides || !picks.rows.some((r) => r.side !== 'missed')) return null;
+    if (!picks || !sides || !picks.rows.some((r) => !r.you && r.side !== 'missed')) return null;
     const { home, draw, away } = picks.sway;
     const parts = [`${sides.home.name} ${home}%`];
     if (draw) parts.push(`draw ${draw}%`);

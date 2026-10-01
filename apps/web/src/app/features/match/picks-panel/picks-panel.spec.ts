@@ -477,6 +477,34 @@ describe('PicksPanel', () => {
     expect(root.querySelectorAll('tbody tr')).toHaveLength(2);
   });
 
+  it("withholds the split while only the member's own pick is visible", async () => {
+    const { root, settle } = setup(
+      picksView({
+        hidden: false,
+        recorded: true,
+        myPick: MINE,
+        rows: [row(MINE)],
+        sway: { home: 0, draw: 0, away: 100 },
+      }),
+    );
+    await settle();
+    // The pool's table shows the member's own row, but no percentages: there is no pool yet.
+    expect(root.querySelectorAll('tbody tr')).toHaveLength(1);
+    expect(root.querySelector('tbody tr')?.classList).toContain('you');
+    expect(root.querySelector('.sway')).toBeNull();
+
+    // Editing keeps Save and Cancel in the margin's row, and Cancel keeps its name.
+    root.querySelector<HTMLButtonElement>('.mine .edit')!.click();
+    await settle();
+    const foot = root.querySelector('.form-foot')!;
+    expect(foot.querySelector('.margin-field #pick-margin')).not.toBeNull();
+    expect(foot.querySelector('.form-actions .primary-button')?.textContent?.trim()).toBe(
+      'Save pick',
+    );
+    expect(foot.querySelector('.form-actions .cancel')?.textContent?.trim()).toBe('Cancel');
+    expect(root.querySelector('.sway')).toBeNull();
+  });
+
   it('keeps the pool table closed by default and opens it from the chevron', async () => {
     const { root, settle } = setup(OPEN);
     await settle();

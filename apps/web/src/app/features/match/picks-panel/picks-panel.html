@@ -213,8 +213,9 @@
                   {{ saving() ? 'Saving' : 'Save pick' }}
                 </button>
                 @if (editing()) {
-                  <button hlmBtn type="button" class="text-button" (click)="cancel()">
-                    Cancel<ng-icon class="link-icon" name="lucideX" />
+                  <button hlmBtn type="button" class="text-button cancel" (click)="cancel()">
+                    <span class="cancel-label">Cancel</span
+                    ><ng-icon class="link-icon" name="lucideX" aria-hidden="true" />
                   </button>
                 }
               </div>
