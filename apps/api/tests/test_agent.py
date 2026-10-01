@@ -514,3 +514,31 @@ def test_runtime_role_cannot_rewrite_previews_or_dispatches() -> None:
     for statement in statements:
         with engine.connect() as connection, pytest.raises(Exception, match="permission denied"):
             connection.execute(text(statement))
+
+
+@needs_database
+def test_research_is_stored_with_the_preview_but_not_shown_to_members(monkeypatch, client: TestClient) -> None:  # noqa: F811
+    def result(team: str) -> dict:
+        return {
+            "team": team,
+            "items": [{"kind": "injury", "text": f"{team} lose their 10.", "url": f"https://example.org/{team}", "title": "Injury news"}],
+            "mood": {"score": -1, "note": "Unsettled.", "urls": [f"https://example.org/{team}"]},
+        }
+
+    research = {"home": result("Scarlets"), "away": result("Benetton")}
+    agent = agent_client(monkeypatch, DAY_BEFORE, database_url=DATABASE_URL)
+    state = agent.get(f"/v1/agent/fixtures/{FIXTURE}/state", headers=AGENT).json()
+    too_many = {**research, "home": {**result("Scarlets"), "items": result("Scarlets")["items"] * 13}}
+    for bad in (too_many, {**research, "away": {**result("Benetton"), "mood": {"score": 0, "note": "x", "urls": ["ftp://x"]}}}):
+        assert agent.post("/v1/agent/previews", json=submission(state, research=bad), headers=AGENT).status_code == 422
+    body = submission(state, research=research)
+    assert agent.post("/v1/agent/previews", json=body, headers=AGENT).status_code == 201
+
+    with get_engine(Settings(_env_file=None, environment="test", database_url=DATABASE_URL)).connect() as connection:
+        row = previews.latest(connection, URC.id, FIXTURE)
+    assert row.run_id == body["runId"]
+    stored = row.research
+    assert stored["home"]["items"][0] == {**research["home"]["items"][0], "publisher": None, "publishedAt": None}
+    assert stored["away"]["mood"] == research["away"]["mood"] and stored["away"]["team"] == "Benetton"
+    preview = client.get(f"/v1/competitions/urc-2026-27/matches/{FIXTURE}/preview", headers=captain_headers(client)).json()["preview"]
+    assert "research" not in preview

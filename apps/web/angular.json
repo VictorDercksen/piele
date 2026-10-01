@@ -29,7 +29,8 @@
                 "input": "public"
               }
             ],
-            "styles": ["src/styles.scss", "src/styles/ui.scss"]
+            "styles": ["src/styles.scss", "src/styles/ui.scss"],
+            "allowedCommonJsDependencies": ["@vercel/oidc"]
           },
           "configurations": {
             "production": {

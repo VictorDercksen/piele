@@ -657,6 +657,36 @@ export interface paths {
         readonly patch?: never;
         readonly trace?: never;
     };
+    readonly "/v1/leagues/{leagueId}/matches/{fixture_id}/chat": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        /**
+         * Get Chat Thread
+         * @description The member's own thread about the fixture, whether it is open, and the questions left.
+         */
+        readonly get: operations["get_chat_thread_v1_leagues__leagueId__matches__fixture_id__chat_get"];
+        readonly put?: never;
+        /**
+         * Ask Chat
+         * @description Asks a question and streams the answer. The member is resolved inside the handler's
+         *     first short transaction (not by actor_dependency, whose transaction would stay open
+         *     through the agent's stream).
+         */
+        readonly post: operations["ask_chat_v1_leagues__leagueId__matches__fixture_id__chat_post"];
+        /**
+         * Clear Chat Thread
+         * @description Clears the member's own thread. Questions already asked still count against the limits.
+         */
+        readonly delete: operations["clear_chat_thread_v1_leagues__leagueId__matches__fixture_id__chat_delete"];
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
     readonly "/v1/leagues/{leagueId}/matches/{fixture_id}/picks": {
         readonly parameters: {
             readonly query?: never;
@@ -1258,6 +1288,58 @@ export interface components {
              * @default
              */
             readonly reason: string;
+        };
+        /** ChatMessage */
+        readonly ChatMessage: {
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            readonly createdAt: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            readonly id: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            readonly role: "user" | "assistant";
+            /** Sources */
+            readonly sources: readonly components["schemas"]["ChatSource"][];
+            /**
+             * Status
+             * @enum {string}
+             */
+            readonly status: "complete" | "failed" | "aborted";
+            /** Text */
+            readonly text: string;
+        };
+        /** ChatQuestion */
+        readonly ChatQuestion: {
+            /** Text */
+            readonly text: string;
+        };
+        /** ChatSource */
+        readonly ChatSource: {
+            /** Title */
+            readonly title: string;
+            /** Url */
+            readonly url: string;
+        };
+        /** ChatThread */
+        readonly ChatThread: {
+            /** Fixtureid */
+            readonly fixtureId: string;
+            /** Messages */
+            readonly messages: readonly components["schemas"]["ChatMessage"][];
+            /** Open */
+            readonly open: boolean;
+            /** Remaininginthread */
+            readonly remainingInThread: number;
+            /** Remainingtoday */
+            readonly remainingToday: number;
         };
         /** Claim */
         readonly Claim: {
@@ -2167,6 +2249,7 @@ export interface components {
             readonly inputsHash: string;
             readonly keyFactors: components["schemas"]["KeyFactors"];
             readonly models: components["schemas"]["Models"];
+            readonly research?: components["schemas"]["Research"] | null;
             /** Runid */
             readonly runId?: string | null;
             readonly sentiment: components["schemas"]["Sentiment"];
@@ -2258,6 +2341,49 @@ export interface components {
         readonly Reason: {
             /** Reason */
             readonly reason: string;
+        };
+        /** Research */
+        readonly Research: {
+            readonly away: components["schemas"]["ResearchResult"];
+            readonly home: components["schemas"]["ResearchResult"];
+        };
+        /** ResearchItem */
+        readonly ResearchItem: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            readonly kind: "injury" | "selection" | "coach" | "travel" | "rest" | "other";
+            /** Publishedat */
+            readonly publishedAt?: string | null;
+            /** Publisher */
+            readonly publisher?: string | null;
+            /** Text */
+            readonly text: string;
+            /** Title */
+            readonly title: string;
+            /** Url */
+            readonly url: string;
+        };
+        /** ResearchMood */
+        readonly ResearchMood: {
+            /** Note */
+            readonly note: string;
+            /** Score */
+            readonly score: number;
+            /** Urls */
+            readonly urls: readonly string[];
+        };
+        /**
+         * ResearchResult
+         * @description One team researcher's result, passed through by the writer unchanged.
+         */
+        readonly ResearchResult: {
+            /** Items */
+            readonly items: readonly components["schemas"]["ResearchItem"][];
+            readonly mood: components["schemas"]["ResearchMood"];
+            /** Team */
+            readonly team: string;
         };
         /**
          * RoundEvent
@@ -3838,6 +3964,104 @@ export interface operations {
                 content: {
                     readonly "application/json": readonly components["schemas"]["MemberMarks"][];
                 };
+            };
+            /** @description Validation Error */
+            readonly 422: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    readonly get_chat_thread_v1_leagues__leagueId__matches__fixture_id__chat_get: {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path: {
+                readonly fixture_id: string;
+                readonly leagueId: string;
+            };
+            readonly cookie?: never;
+        };
+        readonly requestBody?: never;
+        readonly responses: {
+            /** @description Successful Response */
+            readonly 200: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["ChatThread"];
+                };
+            };
+            /** @description Validation Error */
+            readonly 422: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    readonly ask_chat_v1_leagues__leagueId__matches__fixture_id__chat_post: {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path: {
+                readonly fixture_id: string;
+                readonly leagueId: string;
+            };
+            readonly cookie?: never;
+        };
+        readonly requestBody: {
+            readonly content: {
+                readonly "application/json": components["schemas"]["ChatQuestion"];
+            };
+        };
+        readonly responses: {
+            /** @description The agent's AI SDK UI message stream (server-sent events), relayed unchanged. */
+            readonly 200: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "text/event-stream": string;
+                };
+            };
+            /** @description Validation Error */
+            readonly 422: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    readonly clear_chat_thread_v1_leagues__leagueId__matches__fixture_id__chat_delete: {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path: {
+                readonly fixture_id: string;
+                readonly leagueId: string;
+            };
+            readonly cookie?: never;
+        };
+        readonly requestBody?: never;
+        readonly responses: {
+            /** @description Successful Response */
+            readonly 204: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             readonly 422: {

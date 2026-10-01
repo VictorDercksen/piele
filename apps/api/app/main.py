@@ -16,7 +16,8 @@ from app.matchcentre.cache import MemorySnapshotCache, PostgresSnapshotCache, Sn
 from app.matchcentre.service import MatchCentreService, default_http_factory
 from app.push.job import Sender
 from app.push.webpush import WebPushSender
-from app.routers import account, admin, agent, health, league, matches, push
+from app.chat.relay import REMAINING_THREAD_HEADER, REMAINING_TODAY_HEADER
+from app.routers import account, admin, agent, chat, health, league, matches, push
 
 REQUEST_ID_HEADER = "X-Request-ID"
 _SAFE_REQUEST_ID = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
@@ -30,6 +31,7 @@ def create_app(
     token_verifier: TokenVerifier | None = None,
     storage: Storage | None = None,
     push_sender: Sender | None = None,
+    agent_transport: httpx.AsyncBaseTransport | None = None,
 ) -> FastAPI:
     settings = settings or get_settings()
     # Interactive docs and the schema stay off in production; generate client types locally.
@@ -46,11 +48,14 @@ def create_app(
     app.state.token_verifier = token_verifier or _token_verifier(settings)
     app.state.storage = storage or _storage(settings)
     app.state.push_sender = push_sender or _push_sender(settings)
+    # The match chat's connection to the agent project; tests pass an httpx.MockTransport.
+    app.state.agent_transport = agent_transport
 
     app.include_router(health.router, prefix="/v1")
     app.include_router(matches.router, prefix="/v1")
     app.include_router(account.router, prefix="/v1")
     app.include_router(league.router, prefix="/v1")
+    app.include_router(chat.router, prefix="/v1")
     app.include_router(admin.router, prefix="/v1")
     app.include_router(agent.router, prefix="/v1")
     app.include_router(push.router, prefix="/v1")
@@ -62,7 +67,8 @@ def create_app(
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["Authorization", "Content-Type", REQUEST_ID_HEADER, "Idempotency-Key"],
-        expose_headers=[REQUEST_ID_HEADER],
+        # The web app reads the chat's remaining turns from the streamed answer's headers.
+        expose_headers=[REQUEST_ID_HEADER, REMAINING_THREAD_HEADER, REMAINING_TODAY_HEADER],
     )
 
     @app.middleware("http")

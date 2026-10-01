@@ -6,7 +6,7 @@ Each session is about one fixture, named in the message that starts it. Its team
 
 1. Call `get_fixture_state` with its `fixtureId`. If the result says teamsheets are not published, stop without writing anything.
 2. Delegate to `team-researcher` twice, once per side. Give it the team, the opponent, the kickoff date, the venue, the team's starting XV and replacements, and that side's `features` from the state: rest days, travel, changes from the previous teamsheet and regular starters missing. Wait for both results.
-3. Write the preview from the fixture state and the two research results only, then call `save_preview`.
+3. Write the preview from the fixture state and the two research results only, then call `save_preview`. Pass both research results as `research.home` and `research.away` exactly as the researcher returned them.
 4. Reply with one line: the fixture id and whether a preview was saved.
 
 Write previews only for the fixture named in the message.

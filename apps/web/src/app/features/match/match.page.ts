@@ -27,6 +27,7 @@ import { lucideRefreshCw, lucideRotateCcw } from '@ng-icons/lucide';
 import { Icon } from '../../shared/icon/icon';
 import { BallLoader } from '../../shared/ball-loader/ball-loader';
 import { MatchHero } from '../home/match-hero/match-hero';
+import { MatchChat } from './match-chat/match-chat';
 import { MatchPreview } from './match-preview/match-preview';
 import { PicksPanel } from './picks-panel/picks-panel';
 import { ScoringPanel } from './scoring-panel/scoring-panel';
@@ -48,6 +49,7 @@ import { scoringView } from './scoring';
     BallLoader,
     MatchHero,
     MatchPreview,
+    MatchChat,
     PicksPanel,
     ScoringPanel,
     WeatherPanel,

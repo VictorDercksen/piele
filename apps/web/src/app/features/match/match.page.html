@@ -59,6 +59,10 @@
           [homeClub]="fixture.homeAsset"
           [awayClub]="fixture.awayAsset"
         />
+        <!-- The chat brings the AI SDK; it loads after the page has settled. -->
+        @defer (on idle) {
+          <app-match-chat class="preview" [fixtureId]="fixture.id" />
+        }
       }
       <app-teamsheets-panel
         [fixture]="fixture"

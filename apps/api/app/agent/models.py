@@ -6,7 +6,7 @@ free of control characters and tied to cited HTTP(S) sources.
 
 import re
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Literal
 from urllib.parse import urlsplit
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, model_validator
@@ -15,6 +15,8 @@ from app.competitions import DEFAULT_COMPETITION_ID
 
 MAX_SOURCES = 20
 MAX_FACTORS = 6
+# The team researcher's output schema (apps/agent/agent/subagents/team-researcher/agent.ts).
+MAX_RESEARCH_ITEMS = 12
 _CONTROL = re.compile(r"[\x00-\x09\x0b-\x1f\x7f]")
 
 
@@ -35,6 +37,7 @@ def _web_url(value: str) -> str:
     return value
 
 
+WebUrl = Annotated[str, Field(max_length=2000), AfterValidator(_web_url)]
 Hash = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
 SourceRefs = Annotated[list[Annotated[int, Field(ge=0)]], Field(min_length=1, max_length=5)]
 Summary = Annotated[str, Field(min_length=1, max_length=1500), AfterValidator(_plain)]
@@ -50,7 +53,7 @@ class Strict(BaseModel):
 
 
 class Source(Strict):
-    url: Annotated[str, Field(max_length=2000), AfterValidator(_web_url)]
+    url: WebUrl
     title: Title
     publisher: Name | None = None
     publishedAt: datetime | None = None
@@ -88,6 +91,35 @@ class Usage(Strict):
     webSearches: int = Field(default=0, ge=0)
 
 
+class ResearchItem(Strict):
+    kind: Literal["injury", "selection", "coach", "travel", "rest", "other"]
+    text: Line
+    url: WebUrl
+    title: Title
+    publisher: Name | None = None
+    # Free text in the researcher's schema; kept as given.
+    publishedAt: Annotated[str, Field(min_length=1, max_length=40), AfterValidator(_plain)] | None = None
+
+
+class ResearchMood(Strict):
+    score: int = Field(ge=-2, le=2)
+    note: Line
+    urls: Annotated[list[WebUrl], Field(max_length=MAX_SOURCES)]
+
+
+class ResearchResult(Strict):
+    """One team researcher's result, passed through by the writer unchanged."""
+
+    team: Name
+    items: Annotated[list[ResearchItem], Field(max_length=MAX_RESEARCH_ITEMS)]
+    mood: ResearchMood
+
+
+class Research(Strict):
+    home: ResearchResult
+    away: ResearchResult
+
+
 class PreviewSubmission(Strict):
     competitionId: CompetitionId = DEFAULT_COMPETITION_ID
     fixtureId: str = Field(min_length=1, max_length=40)
@@ -100,6 +132,8 @@ class PreviewSubmission(Strict):
     models: Models
     usage: Usage | None = None
     runId: Annotated[str, Field(min_length=1, max_length=200, pattern=r"^[A-Za-z0-9_.:-]+$")] | None = None
+    # Stored with the preview for the match chat; not part of the members' preview.
+    research: Research | None = None
 
     @model_validator(mode="after")
     def _sources_exist(self) -> "PreviewSubmission":

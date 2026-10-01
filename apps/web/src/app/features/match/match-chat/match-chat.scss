@@ -1,0 +1,158 @@
+:host {
+  display: block;
+  container-type: inline-size;
+}
+/* `chat_off`: the API has the chat switched off. */
+:host(.off) {
+  display: none;
+}
+.chat-empty {
+  color: var(--muted);
+  margin: 6px 0 0;
+}
+.chat-empty .text-button {
+  margin-left: 6px;
+}
+
+/* The thread: the member's questions on the right, the Pavilion's answers on the left. */
+.thread {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.bubble {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  max-width: min(88%, 640px);
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.bubble.mine {
+  align-self: flex-end;
+  border-color: #14c8be55;
+  border-bottom-right-radius: 4px;
+  background: #14c8be1f;
+}
+.bubble.pavilion {
+  align-self: flex-start;
+  border-bottom-left-radius: 4px;
+  background: #0b151866;
+}
+.bubble[data-status='failed'],
+.bubble[data-status='aborted'] {
+  border-style: dashed;
+}
+.bubble[data-status='failed'] .text,
+.bubble[data-status='aborted'] .text {
+  color: var(--muted);
+}
+.thread + .streaming {
+  margin-top: 12px;
+}
+.speaker {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.mine .speaker {
+  justify-content: flex-end;
+}
+/* Marks the answer as the agent's, as on the preview's byline. */
+.speaker ng-icon {
+  flex: none;
+  font-size: 14px;
+  color: #14c8be;
+}
+.text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+/* A block caret after the text while the answer streams. */
+.cursor {
+  display: inline-block;
+  width: 0.5em;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: -0.15em;
+  background: currentColor;
+  animation: blink 1s steps(1) infinite;
+}
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+.sources {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 6px 0 0;
+  border-top: 1px solid var(--line);
+}
+.sources .text-button {
+  min-height: 32px;
+  padding: 4px 0;
+  font-size: 12px;
+  text-align: start;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.chat-note {
+  margin: 14px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+.ask {
+  margin-top: 16px;
+}
+.field-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.ask textarea {
+  display: block;
+  width: 100%;
+  min-height: 0;
+  resize: vertical;
+  font-family: inherit;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  margin-top: 10px;
+}
+.remaining {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cursor {
+    animation: none;
+  }
+}
+@container (max-width: 600px) {
+  .bubble {
+    max-width: 94%;
+  }
+}
