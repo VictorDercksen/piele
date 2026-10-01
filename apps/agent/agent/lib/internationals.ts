@@ -64,22 +64,52 @@ export const INTERNATIONALS_OUTPUT_SCHEMA = {
   },
 } as const;
 
+/** A real calendar date in YYYY-MM-DD form, as the API's date check accepts. */
+function isDate(value: string): boolean {
+  if (!DATE.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
+
+/** Control characters other than a line break, which the API refuses in text. */
+const CONTROL = /[\x00-\x09\x0b-\x1f\x7f]/;
+
+function text(max: number) {
+  return z
+    .string()
+    .trim()
+    .min(1)
+    .max(max)
+    .refine((value) => !CONTROL.test(value));
+}
+
+function webUrl(value: string): boolean {
+  if (value.length > 2000 || /\s/.test(value)) return false;
+  try {
+    const url = new URL(value);
+    return (url.protocol === 'http:' || url.protocol === 'https:') && url.host !== '';
+  } catch {
+    return false;
+  }
+}
+
 const international = z.object({
-  name: z.string().trim().min(1).max(100),
+  name: text(100),
   union: z.enum(UNIONS),
   caps: z.number().int().min(1).max(250).optional(),
-  capsAsOf: z.string().regex(DATE).optional(),
-  lastTestOn: z.string().regex(DATE).optional(),
-  url: z.string().regex(/^https?:\/\//i),
-  title: z.string().max(200),
-  publisher: z.string().max(100).optional(),
+  capsAsOf: z.string().refine(isDate).optional(),
+  lastTestOn: z.string().refine(isDate).optional(),
+  url: z.string().refine(webUrl),
+  title: text(200),
+  publisher: text(100).optional(),
 });
 
 export type International = z.infer<typeof international>;
 
 /**
  * The research `internationals` list as save_preview passes it on. Valid items go through
- * unchanged; an item the API would refuse (an unknown union, caps out of range) is dropped
+ * unchanged; an item the API would refuse (an unknown union, caps out of range, an impossible date, a
+ * blank title) is dropped
  * rather than costing the whole preview, and the list is cut to the API's limit.
  */
 export const internationals = z

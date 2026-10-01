@@ -5,18 +5,22 @@ free of control characters and tied to cited HTTP(S) sources.
 """
 
 import re
-from datetime import datetime
-from typing import Annotated, Literal
+from datetime import date, datetime
+from typing import Annotated, Any, Literal
 from urllib.parse import urlsplit
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, model_validator
+from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, model_validator
 
+from app.chat.glossary import UNIONS
 from app.competitions import DEFAULT_COMPETITION_ID
 
 MAX_SOURCES = 20
 MAX_FACTORS = 6
 # The team researcher's output schema (apps/agent/agent/subagents/team-researcher/agent.ts).
 MAX_RESEARCH_ITEMS = 12
+# Internationals per side (apps/agent/agent/lib/internationals.ts MAX_INTERNATIONALS).
+MAX_INTERNATIONALS = 30
+_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _CONTROL = re.compile(r"[\x00-\x09\x0b-\x1f\x7f]")
 
 
@@ -46,6 +50,25 @@ Title = Annotated[str, Field(min_length=1, max_length=200), AfterValidator(_plai
 Name = Annotated[str, Field(min_length=1, max_length=100), AfterValidator(_plain)]
 # Optional on every agent request that names a fixture, so the deployed agent keeps working.
 CompetitionId = Annotated[str, Field(min_length=1, max_length=40)]
+
+
+def _iso_date(value: Any) -> Any:
+    """Only a YYYY-MM-DD string is a date here (not a timestamp, a number or a longer ISO string)."""
+    if isinstance(value, str) and not _DATE.match(value):
+        raise ValueError("must be a date written YYYY-MM-DD")
+    if not isinstance(value, (str, date)) or isinstance(value, datetime):
+        raise ValueError("must be a date written YYYY-MM-DD")
+    return value
+
+
+def _union(value: str) -> str:
+    if value not in UNIONS:
+        raise ValueError("must be one of the test unions: " + ", ".join(UNIONS))
+    return value
+
+
+IsoDate = Annotated[date, BeforeValidator(_iso_date)]
+UnionName = Annotated[str, AfterValidator(_union)]
 
 
 class Strict(BaseModel):
@@ -107,12 +130,27 @@ class ResearchMood(Strict):
     urls: Annotated[list[WebUrl], Field(max_length=MAX_SOURCES)]
 
 
+class International(Strict):
+    """A selected player who has played Test rugby, with the page that says so."""
+
+    name: Name
+    union: UnionName
+    caps: int | None = Field(default=None, ge=1, le=250)
+    capsAsOf: IsoDate | None = None
+    lastTestOn: IsoDate | None = None
+    url: WebUrl
+    title: Title
+    publisher: Name | None = None
+
+
 class ResearchResult(Strict):
     """One team researcher's result, passed through by the writer unchanged."""
 
     team: Name
     items: Annotated[list[ResearchItem], Field(max_length=MAX_RESEARCH_ITEMS)]
     mood: ResearchMood
+    # Optional, so research without it (an agent from before internationals) still validates.
+    internationals: Annotated[list[International], Field(max_length=MAX_INTERNATIONALS)] = Field(default_factory=list)
 
 
 class Research(Strict):

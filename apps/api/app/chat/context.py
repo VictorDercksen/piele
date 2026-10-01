@@ -16,6 +16,7 @@ from typing import Any, Mapping, Sequence
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
 
+from app.agent.internationals import player_key
 from app.chat.glossary import UNIONS
 
 MAX_CHARS = 32_000
@@ -43,7 +44,9 @@ EVENT_WORDS = {
 
 
 # Whole sections left out, first to last, when the document is still too long.
-DROP_ORDER = ("research", "form", "preview", "teamsheets")
+DROP_ORDER = ("research", "internationals", "form", "preview", "teamsheets")
+# Players on record listed per side while the teamsheets are not published.
+MAX_UNPUBLISHED_ROWS = 40
 
 
 @dataclass(frozen=True)
@@ -53,8 +56,8 @@ class Trim:
     research_items: int | None = None
     timeline_events: int | None = None
     bench_names: bool = True
-    # Last resort, beyond the contract's three steps: whole sections (research, form, the
-    # preview, the teamsheets, in that order), then the pool's names.
+    # Last resort, beyond the contract's three steps: whole sections (research, internationals,
+    # form, the preview, the teamsheets, in that order), then the pool's names.
     drop_sections: frozenset[str] = frozenset()
     pool_names: int | None = None
 
@@ -95,7 +98,8 @@ def render(facts: Mapping[str, Any], trim: Trim) -> str:
     now = facts["now"]
     fixture = facts["fixture"]
     sources = Sources()
-    # Numbering: the preview's sources, then the research items' URLs, then the state sources.
+    # Numbering: the preview's sources, then the research items' URLs, then the state sources,
+    # then the source of each international record that is listed.
     preview = facts.get("preview") if "preview" not in trim.drop_sections else None
     preview_numbers = [sources.add(s.get("url"), s.get("title"), s.get("publisher")) for s in (preview or {}).get("sources") or []]
     research = facts.get("research") if "research" not in trim.drop_sections else None
@@ -117,6 +121,10 @@ def render(facts: Mapping[str, Any], trim: Trim) -> str:
         sheets = _teamsheets(state, facts.get("teamsheetStatus"), trim, centre_number)
         if sheets:
             sections.append(("teamsheets", sheets))
+    if "internationals" not in trim.drop_sections:
+        records = _internationals(facts.get("internationals"), state, facts.get("teamsheetStatus"), fixture, sources)
+        if records:
+            sections.append(("internationals", records))
     if form:
         sections.append(("form", _form(form, fixture, tz, centre_number)))
     if forecast:
@@ -273,6 +281,77 @@ def _player(player: Mapping[str, Any]) -> str:
 
 def _names(names: Any) -> str:
     return ", ".join(clean(n) for n in names or []) or "none"
+
+
+def _internationals(
+    known: Any, state: Mapping[str, Any] | None, status: Any, fixture: Mapping[str, Any], sources: "Sources"
+) -> str:
+    """Players with a record of Test rugby, each line citing the page the record came from.
+
+    With the teamsheets published, only the selected players with a record, marked starting or
+    bench. Without them, the clubs' players on record, who may not be selected. Nothing when
+    neither club has a record, or when the teamsheets are published but their state could not
+    be read (the records cannot be matched to the selection then).
+    """
+    if not isinstance(known, Mapping):
+        return ""
+    stored = {side: [r for r in known.get(side) or [] if isinstance(r, Mapping)] for side in ("home", "away")}
+    if not any(stored.values()):
+        return ""
+    published = state is not None and state.get("teamsheetStatus") == "ok"
+    if not published and status == "ok":
+        return ""
+    lines = [
+        "Players who have played Test rugby, from the researchers' sources, cited on each line. "
+        "Players not listed have no international record here, which does not mean they are uncapped."
+    ]
+    if not published:
+        lines.append("No teamsheet is available yet, so these are the clubs' players on record, who may not be selected.")
+    for side in ("home", "away"):
+        lines += ["", f"{clean(fixture.get(side))} ({side}):"]
+        rows = _selected(stored[side], (state or {}).get(side) or {}) if published else _on_record(stored[side])
+        lines += [_record_line(role, row, sources) for role, row in rows] or ["- none of the selected players has a record"]
+        if not published and len(stored[side]) > MAX_UNPUBLISHED_ROWS:
+            lines.append(f"- and {len(stored[side]) - MAX_UNPUBLISHED_ROWS} more on record")
+    return "\n".join(lines)
+
+
+def _selected(rows: list[Mapping[str, Any]], side_state: Mapping[str, Any]) -> list[tuple[str, Mapping[str, Any]]]:
+    """The records of the teamsheet's players, in shirt order, as (label, record). A label is
+    the shirt, the teamsheet's spelling of the name and starting or bench."""
+    sheet = side_state.get("teamsheet") or {}
+    by_key = {player_key(str(r.get("name") or "")): r for r in rows}
+    found: list[tuple[str, Mapping[str, Any]]] = []
+    for group, role in (("starters", "starting"), ("replacements", "bench")):
+        for player in sheet.get(group) or []:
+            record = by_key.get(player_key(str(player.get("name") or ""))) if isinstance(player, Mapping) else None
+            if record is not None:
+                found.append((f"{player.get('number')} {clean(player.get('name'))} ({role})", record))
+    return found
+
+
+def _on_record(rows: list[Mapping[str, Any]]) -> list[tuple[str, Mapping[str, Any]]]:
+    """The most recently capped players first, then by name, for the unpublished case."""
+    by_name = sorted(rows, key=lambda r: clean(r.get("name")))
+    ordered = sorted(by_name, key=lambda r: _iso(r.get("lastTestOn")), reverse=True)  # stable: no date last
+    return [(clean(r.get("name")), r) for r in ordered[:MAX_UNPUBLISHED_ROWS]]
+
+
+def _iso(value: Any) -> str:
+    return value.date().isoformat() if isinstance(value, datetime) else clean(value.isoformat() if hasattr(value, "isoformat") else value)
+
+
+def _record_line(label: str, record: Mapping[str, Any], sources: "Sources") -> str:
+    union = clean(record.get("union"))
+    nicknames = UNIONS.get(union) or ()
+    parts = [f"{union} ({nicknames[0]})" if nicknames else union]
+    caps, as_of = record.get("caps"), _iso(record.get("capsAsOf"))
+    if caps is not None:
+        parts.append(f"{caps} caps" + (f" as of {as_of}" if as_of else ""))
+    if record.get("lastTestOn"):
+        parts.append(f"last Test {_iso(record.get('lastTestOn'))}")
+    number = sources.add(record.get("url"), record.get("title"), record.get("publisher"))
+    return f"- {label}: {', '.join(parts)}{cite([number])}"
 
 
 def _form(form: Mapping[str, Any], fixture: Mapping[str, Any], tz: str, number: int | None) -> str:

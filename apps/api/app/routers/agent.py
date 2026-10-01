@@ -10,6 +10,7 @@ Every request that names a fixture takes an optional `competitionId` (body field
 parameter) defaulting to the URC 2026/27, and every dispatch and fixture state echoes it.
 """
 
+import logging
 from datetime import datetime
 from typing import Any
 
@@ -17,7 +18,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel
 from sqlalchemy import Engine
 
-from app.agent import previews
+from app.agent import internationals, previews
 from app.agent.auth import agent_dependency
 from app.agent.models import DispatchRequest, PreviewSubmission
 from app.agent.state import build_state
@@ -27,6 +28,8 @@ from app.dependencies import match_centre_for
 from app.matchcentre.cache import now_utc
 from app.matchcentre.schedule import Fixture
 from app.matchcentre.service import MatchCentreService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/agent", tags=["agent"], dependencies=[Depends(agent_dependency)])
 
@@ -124,15 +127,86 @@ def dispatch(request: Request, body: DispatchRequest | None = None) -> Any:
 
 
 @router.get("/fixtures/{fixture_id}/state")
-def fixture_state(fixture_id: str, centre: MatchCentreService = Depends(competition_query)) -> dict[str, Any]:
+def fixture_state(
+    fixture_id: str, request: Request, centre: MatchCentreService = Depends(competition_query)
+) -> dict[str, Any]:
     now = now_utc()
-    return build_state(open_fixture(centre, fixture_id, now), centre, now)
+    state = build_state(open_fixture(centre, fixture_id, now), centre, now)
+    # The stored internationals of each side's selected players, after the provider reads in a
+    # short transaction of their own. Outside the state hash: they are notes from earlier runs,
+    # not inputs of this preview.
+    known = known_internationals(request, state)
+    for side in ("home", "away"):
+        state[side]["internationals"] = known[side]
+    return state
+
+
+def known_internationals(request: Request, state: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
+    """Per side, the stored records of players in the side's teamsheet. Empty without a
+    teamsheet, a database or a readable table: the agent then researches them afresh."""
+    club_ids = {side: (state[side].get("club") or {}).get("id") for side in ("home", "away")}
+    empty: dict[str, list[dict[str, Any]]] = {"home": [], "away": []}
+    if not any(state[side].get("teamsheet") for side in empty):
+        return empty
+    engine = get_engine(request.app.state.settings)
+    if engine is None:
+        return empty
+    try:
+        with engine.begin() as conn:
+            stored = internationals.for_clubs(conn, club_ids.values())
+    except Exception as exc:  # noqa: BLE001 - the state is still worth returning
+        logger.warning("agent state fixture=%s internationals not read: %s", state["fixtureId"], type(exc).__name__)
+        return empty
+    return {
+        side: internationals.state_view(internationals.matched(stored.get(club_ids[side]) or [], state[side].get("teamsheet")))
+        for side in empty
+    }
+
+
+def matched_internationals(
+    centre: MatchCentreService, fixture: Fixture, body: PreviewSubmission, now: datetime
+) -> dict[str, list[dict[str, Any]]]:
+    """Each side's submitted internationals whose player is in that side's current teamsheet.
+
+    The teamsheet read is a provider call (through the snapshot cache), so it happens before
+    the transaction. Without a teamsheet, or when it cannot be read, nothing is stored: the
+    preview itself never fails on it.
+    """
+    submitted = {
+        side: [i.model_dump() for i in getattr(body.research, side).internationals] if body.research else []
+        for side in ("home", "away")
+    }
+    if not any(submitted.values()):
+        return {"home": [], "away": []}
+    try:
+        sheets = centre.teamsheets(fixture, now)
+        if sheets.get("status") != "ok":
+            return {"home": [], "away": []}
+        return {side: [dict(r) for r in internationals.matched(submitted[side], sheets.get(side))] for side in submitted}
+    except Exception as exc:  # noqa: BLE001 - the preview is saved without them
+        logger.warning("preview fixture=%s internationals not matched: %s", fixture.id, type(exc).__name__)
+        return {"home": [], "away": []}
+
+
+def store_internationals(conn: Any, fixture: Fixture, rows: dict[str, list[dict[str, Any]]], now: datetime) -> None:
+    """Upsert the matched rows under each side's club, in a savepoint so that a failure here
+    leaves the preview insert alone."""
+    for side, club_id in (("home", fixture.home_id), ("away", fixture.away_id)):
+        if not rows[side] or club_id is None:
+            continue
+        try:
+            with conn.begin_nested():
+                internationals.upsert(conn, club_id, rows[side], now)
+        except Exception as exc:  # noqa: BLE001 - the preview is saved without them
+            logger.warning("preview fixture=%s internationals not stored: %s", fixture.id, type(exc).__name__)
 
 
 @router.post("/previews", response_model=StoredPreview, status_code=201)
 def save_preview(body: PreviewSubmission, request: Request, response: Response) -> Any:
     centre = match_centre_for(request, body.competitionId)
-    open_fixture(centre, body.fixtureId, now_utc())
+    now = now_utc()
+    fixture = open_fixture(centre, body.fixtureId, now)
+    to_store = matched_internationals(centre, fixture, body, now)
     values = {
         "competition_id": centre.competition.id,
         "fixture_id": body.fixtureId,
@@ -150,6 +224,10 @@ def save_preview(body: PreviewSubmission, request: Request, response: Response) 
     try:
         with engine_of(request).begin() as conn:
             row, created = previews.save(conn, values)
+            # In the preview's transaction, after its insert: a retried run id returns the
+            # stored preview with created False and is not written twice.
+            if created:
+                store_internationals(conn, fixture, to_store, now)
     except previews.PreviewConflict as exc:
         raise HTTPException(status_code=409, detail={"code": "preview_conflict", "message": str(exc)}) from exc
     if not created:

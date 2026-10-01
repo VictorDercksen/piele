@@ -69,7 +69,12 @@ test('save_preview drops items the API would refuse and caps the list', () => {
     { ...item, union: 'Atlantis' },
     { ...item, caps: 0 },
     { ...item, lastTestOn: '12 September' },
+    { ...item, lastTestOn: '2026-02-31' },
+    { ...item, capsAsOf: '2026-13-01' },
+    { ...item, title: '   ' },
+    { ...item, name: 'Tab\tName' },
     { ...item, url: 'ftp://example.org' },
+    { ...item, url: 'https://exa mple.org' },
     'nope',
   ];
   assert.deepEqual(internationals.parse([bad[0], item, ...bad.slice(1)]), [item]);

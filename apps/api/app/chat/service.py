@@ -24,11 +24,11 @@ from uuid import UUID
 import anyio
 import httpx
 from fastapi import HTTPException
-from sqlalchemy.engine import Engine
+from sqlalchemy.engine import Connection, Engine
 from starlette.concurrency import run_in_threadpool
 from starlette.responses import Response
 
-from app.agent import previews
+from app.agent import internationals, previews
 from app.agent.form import build_form
 from app.agent.state import build_state
 from app.chat import context, glossary, limits, relay, store
@@ -131,7 +131,7 @@ def begin(
         )
         preview = previews.latest(connection, actor.competition.id, fixture.id)
         picks = league.fixture_picks(actor, fixture.id)
-        facts = _facts(actor, fixture, preview, picks)
+        facts = _facts(actor, fixture, preview, picks, _known_internationals(connection, fixture))
     after = limits.Used(counts.thread + 1, counts.today + 1, counts.everywhere + 1)
     return Turn(
         request_id=request_id,
@@ -148,7 +148,21 @@ def begin(
     )
 
 
-def _facts(actor: Actor, fixture: Fixture, preview: Any, picks: dict[str, Any]) -> dict[str, Any]:
+def _known_internationals(connection: Connection, fixture: Fixture) -> dict[str, list[dict[str, Any]]]:
+    """Both clubs' stored international records, as plain values. A read that fails (the table
+    is not there yet) is rolled back to its savepoint and leaves the records out: the question
+    is still answered, and its transaction survives."""
+    try:
+        with connection.begin_nested():
+            return internationals.for_clubs(connection, [fixture.home_id, fixture.away_id])
+    except Exception as exc:  # noqa: BLE001 - the chat still answers from what it has
+        logger.warning("chat fixture=%s internationals not read: %s", fixture.id, type(exc).__name__)
+        return {}
+
+
+def _facts(
+    actor: Actor, fixture: Fixture, preview: Any, picks: dict[str, Any], known: dict[str, list[dict[str, Any]]] | None = None
+) -> dict[str, Any]:
     competition = actor.competition
     home, away = competition.club(fixture.home_id), competition.club(fixture.away_id)
     stadium = competition.stadium(fixture.venue)
@@ -183,6 +197,12 @@ def _facts(actor: Actor, fixture: Fixture, preview: Any, picks: dict[str, Any]) 
             else None
         ),
         "research": preview.research if preview is not None else None,
+        # Every record of each club's players, with its source; context.py keeps those of the
+        # selected players once the teamsheets are published.
+        "internationals": {
+            "home": (known or {}).get(fixture.home_id or "", []),
+            "away": (known or {}).get(fixture.away_id or "", []),
+        },
         "names": {
             "clubs": [
                 {"name": club.name, "otherNames": glossary.club_aliases(competition, club)}
