@@ -173,7 +173,7 @@ class Sources:
         host = urlsplit(url).hostname or ""
         label = clean(title) or host
         # The agent reads the line from the right: url, then publisher, then the title.
-        self._lines.append(f"[{number}] {label} | {clean(publisher or host).replace('|', '/')} | {url.replace('|', '%7C')}")
+        self._lines.append(f"[{number}] {label} | {clean(publisher or host).replace('|', '/')} | {_escaped_url(url)}")
         return number
 
     def number(self, url: Any) -> int | None:
@@ -181,6 +181,12 @@ class Sources:
 
     def lines(self) -> list[str]:
         return list(self._lines)
+
+
+def _escaped_url(url: str) -> str:
+    """The URL for a source line: `|` separates the fields and `<`/`>` could close the
+    `<sources>` block, so all three are percent-encoded."""
+    return url.replace("|", "%7C").replace("<", "%3C").replace(">", "%3E")
 
 
 def cite(numbers: Sequence[int | None]) -> str:
@@ -358,6 +364,8 @@ def _form(form: Mapping[str, Any], fixture: Mapping[str, Any], tz: str, number: 
     lines = [f"Results of both clubs before this match, from the URC match centre.{cite([number])}"]
     if form.get("currentSeason") == "unavailable":
         lines.append("This season's results could not be read just now; the results below are from earlier seasons only.")
+    elif (as_of := _dt(form.get("currentSeasonAsOf"))) is not None:
+        lines.append(f"Current-season results as of {when(as_of, tz)}.")
     for side in ("home", "away"):
         data = form.get(side) or {}
         lines += ["", f"{clean(fixture.get(side))} ({side}), most recent results first:"]

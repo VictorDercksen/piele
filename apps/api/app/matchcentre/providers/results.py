@@ -9,12 +9,17 @@ This module keeps only played matches with both teams known, in feed ids. The ma
 service maps them to catalogue club ids and the history import script (scripts/
 import_urc_history.py) reuses the query and parser for past seasons.
 
+A feed that returns no played match although the schedule has a fixture that kicked off more
+than four hours ago is treated as a failure (`require_played`), not cached as an empty season.
+After a failed refresh the service keeps serving the last good snapshot with its original
+`fetchedAt`, for at most 24 hours (`STALE_LIMIT`), and retries after TTL_FAILED.
+
 The snapshot is refreshed every 30 minutes while a match kicked off in the last four hours,
 and otherwise when the next kickoff arrives, between 10 minutes and 6 hours from now.
 """
 
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, Iterable
 
 import httpx
 
@@ -44,6 +49,8 @@ TTL_MAX = timedelta(hours=6)
 TTL_MIN = timedelta(minutes=10)
 TTL_FAILED = timedelta(minutes=10)
 RECENT_WINDOW = timedelta(hours=4)
+# The last good results are served, marked stale, for this long after the refreshes began failing.
+STALE_LIMIT = timedelta(hours=24)
 
 
 def fetch_rows(client: httpx.Client, url: str, season_id: str | int) -> list[dict[str, Any]]:
@@ -70,6 +77,13 @@ def fetch_season_results(
     moment = now or datetime.now(timezone.utc)
     results = parse_results(rows)
     return Fetched("ok", {"seasonId": str(season_id), "results": results}, snapshot_ttl(rows, moment))
+
+
+def require_played(played: list[dict[str, Any]], kickoffs: Iterable[datetime | None], now: datetime) -> None:
+    """Refuse an empty season while a scheduled fixture kicked off more than four hours ago:
+    the feed is then wrong or half-empty, and caching it would hide results for hours."""
+    if not played and any(kickoff is not None and kickoff <= now - RECENT_WINDOW for kickoff in kickoffs):
+        raise ProviderError("the feed has no results although matches have been played")
 
 
 def parse_results(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:

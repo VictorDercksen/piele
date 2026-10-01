@@ -6,7 +6,9 @@ fixture, the current season's results section from `MatchCentreService.season_re
 the bundled `History`. Only matches that kicked off before the fixture count, so the same
 call stays correct for a fixture in the past. If the current season's snapshot is
 unavailable the form still uses history and says so with `"currentSeason": "unavailable"`
-(the season records are then None).
+(the season records are then None). A section served stale (`stale: true`, from a failed
+refresh) is used as it is and adds `"currentSeasonAsOf": <its fetchedAt>`. Results of the
+fixture itself are never counted (a rescheduled fixture may already be in the feed).
 
 Shape:
 
@@ -55,7 +57,7 @@ def build_form(
     assert fixture.kickoff_utc and fixture.home_id and fixture.away_id
     kickoff = fixture.kickoff_utc
     season_ok = current is not None and current.get("status") == "ok"
-    matches = _current_matches(competition, current if season_ok else None) + _past_matches(history)
+    matches = _current_matches(competition, current if season_ok else None, fixture.id) + _past_matches(history)
     matches = sorted((m for m in matches if m.kickoff < kickoff), key=lambda m: m.kickoff, reverse=True)
     if not matches and not season_ok:
         return {"status": "unavailable", "reason": "No results are available."}
@@ -72,10 +74,12 @@ def build_form(
     }
     if not season_ok:
         form["currentSeason"] = "unavailable"
+    elif current.get("stale") and current.get("fetchedAt"):
+        form["currentSeasonAsOf"] = current["fetchedAt"]
     return form
 
 
-def _current_matches(competition: Competition, section: Mapping[str, Any] | None) -> list[Played]:
+def _current_matches(competition: Competition, section: Mapping[str, Any] | None, fixture_id: str) -> list[Played]:
     label = competition.schedule().season
     rows = (section or {}).get("results") or []
     played = [
@@ -90,7 +94,7 @@ def _current_matches(competition: Competition, section: Mapping[str, Any] | None
             current=True,
         )
         for row in rows
-        if (kickoff := _instant(row.get("kickoffUtc"))) is not None
+        if str(row.get("fixtureId")) != fixture_id and (kickoff := _instant(row.get("kickoffUtc"))) is not None
     ]
     return played
 

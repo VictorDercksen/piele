@@ -449,6 +449,94 @@ def test_upsert_never_overwrites_an_operator_row(engine) -> None:
     assert rows["Researched"]["origin"] == "researcher"
 
 
+def put(connection, club_id: str, day: timedelta, **overrides: Any) -> int:
+    """Upsert one record for 'Piet Veldman' as the run `day` after DAY_BEFORE."""
+    row = International.model_validate(record(**overrides)).model_dump()
+    return internationals.upsert(connection, club_id, [row], DAY_BEFORE + day)
+
+
+@needs_database
+def test_upsert_never_moves_last_test_or_caps_backwards(engine) -> None:
+    club_id = club()
+    with engine.begin() as connection:
+        put(connection, club_id, timedelta(0), caps=90, capsAsOf="2026-09-27", lastTestOn="2026-09-27")
+        # An older page: an earlier Test, fewer caps as of an earlier date. Neither moves; the
+        # union and the source are the newer run's.
+        put(connection, club_id, timedelta(days=1), caps=80, capsAsOf="2026-06-01", lastTestOn="2026-06-01", union="Fiji", url="https://example.org/old", title="Old page")
+        row = rows_of(connection, club_id)["Piet Veldman"]
+    assert (row["caps"], row["capsAsOf"], row["lastTestOn"]) == (90, date(2026, 9, 27), date(2026, 9, 27))
+    assert (row["union"], row["url"], row["title"], row["checkedAt"]) == ("Fiji", "https://example.org/old", "Old page", DAY_BEFORE + timedelta(days=1))
+    with engine.begin() as connection:
+        # A new caps figure without a date cannot replace a dated one; a later Test still counts.
+        put(connection, club_id, timedelta(days=2), caps=95, capsAsOf=None, lastTestOn="2026-10-04")
+        row = rows_of(connection, club_id)["Piet Veldman"]
+        assert (row["caps"], row["capsAsOf"], row["lastTestOn"]) == (90, date(2026, 9, 27), date(2026, 10, 4))
+        # The same date replaces (not older); a later one replaces too.
+        put(connection, club_id, timedelta(days=3), caps=91, capsAsOf="2026-09-27", lastTestOn=None)
+        row = rows_of(connection, club_id)["Piet Veldman"]
+        assert (row["caps"], row["capsAsOf"], row["lastTestOn"]) == (91, date(2026, 9, 27), date(2026, 10, 4))
+        put(connection, club_id, timedelta(days=4), caps=92, capsAsOf="2026-10-05", lastTestOn="2026-10-04")
+        row = rows_of(connection, club_id)["Piet Veldman"]
+        assert (row["caps"], row["capsAsOf"], row["lastTestOn"]) == (92, date(2026, 10, 5), date(2026, 10, 4))
+        # A record without caps keeps both caps and their date.
+        put(connection, club_id, timedelta(days=5), caps=None, capsAsOf="2026-12-01", lastTestOn=None)
+        row = rows_of(connection, club_id)["Piet Veldman"]
+        assert (row["caps"], row["capsAsOf"]) == (92, date(2026, 10, 5))
+
+
+@needs_database
+def test_upsert_fills_what_the_stored_record_lacks(engine) -> None:
+    club_id = club()
+    with engine.begin() as connection:
+        put(connection, club_id, timedelta(0), caps=None, capsAsOf=None, lastTestOn=None)
+        # Nothing stored for caps or the Test date: whatever arrives is taken, whatever its date.
+        put(connection, club_id, timedelta(days=1), caps=40, capsAsOf="2026-01-01", lastTestOn="2026-01-01")
+        row = rows_of(connection, club_id)["Piet Veldman"]
+        assert (row["caps"], row["capsAsOf"], row["lastTestOn"]) == (40, date(2026, 1, 1), date(2026, 1, 1))
+    other = club()
+    with engine.begin() as connection:
+        # Stored caps without a date: a dated figure replaces it.
+        put(connection, other, timedelta(0), caps=30, capsAsOf=None, lastTestOn=None)
+        put(connection, other, timedelta(days=1), caps=31, capsAsOf="2026-01-01", lastTestOn=None)
+        row = rows_of(connection, other)["Piet Veldman"]
+        assert (row["caps"], row["capsAsOf"], row["lastTestOn"]) == (31, date(2026, 1, 1), None)
+
+
+@needs_database
+def test_the_runtime_role_cannot_update_an_operator_row(engine) -> None:
+    club_id = club()
+    as_operator(club_id, "Hand Entered", caps=50)
+    as_operator(club_id, "Also Entered", caps=60)
+    with engine.begin() as connection:
+        # The row is invisible to the role's updates: nothing is affected, and nothing raises.
+        for statement in (
+            "update piele.player_internationals set origin = 'researcher' where club_id = :c",
+            "update piele.player_internationals set caps = 1, union_name = 'Fiji' where club_id = :c and player_key = 'hand entered'",
+        ):
+            assert connection.execute(text(statement), {"c": club_id}).rowcount == 0
+        rows = rows_of(connection, club_id)
+    assert {n: (r["origin"], r["union"], r["caps"]) for n, r in rows.items()} == {
+        "Hand Entered": ("operator", "Wales", 50),
+        "Also Entered": ("operator", "Wales", 60),
+    }
+
+
+@needs_database
+def test_the_upsert_skips_operator_rows_without_an_error_and_counts_only_what_it_wrote(engine) -> None:
+    club_id = club()
+    as_operator(club_id, "Hand Entered", caps=50, last_test_on="2026-06-01")
+    with engine.begin() as connection:
+        only_operator = internationals.upsert(connection, club_id, [record("hand entered", caps=1)], DAY_BEFORE)
+        assert only_operator == 0
+        assert put(connection, club_id, timedelta(0), caps=5) == 1  # inserted
+        assert put(connection, club_id, timedelta(days=1), caps=6) == 1  # updated
+        mixed = [record("Hand Entered", caps=2), record("Piet Veldman", caps=7), record("Brand New")]
+        assert internationals.upsert(connection, club_id, mixed, DAY_BEFORE + timedelta(days=2)) == 2
+        rows = rows_of(connection, club_id)
+    assert (rows["Hand Entered"]["origin"], rows["Hand Entered"]["caps"], rows["Hand Entered"]["lastTestOn"]) == ("operator", 50, date(2026, 6, 1))
+    assert rows["Piet Veldman"]["caps"] == 7 and rows["Brand New"]["origin"] == "researcher"
+
+
 @needs_database
 def test_records_are_read_per_club_in_name_order(engine) -> None:
     one, other, empty = club(), club(), club()
@@ -459,6 +547,16 @@ def test_records_are_read_per_club_in_name_order(engine) -> None:
         assert internationals.for_clubs(connection, []) == {} and internationals.for_clubs(connection, [None]) == {}
     assert {c: [r["name"] for r in rows] for c, rows in found.items()} == {one: ["Abe", "Zed"], other: ["Mid"], empty: []}
     assert set(found[one][0]) == {"name", "union", "caps", "capsAsOf", "lastTestOn", "checkedAt", "origin", "url", "title", "publisher"}
+
+
+def test_the_state_view_carries_the_source_so_the_writer_can_cite_it() -> None:
+    row = {
+        "name": "Piet Veldman", "union": "South Africa", "caps": 90, "capsAsOf": date(2026, 9, 27), "lastTestOn": date(2026, 9, 27),
+        "checkedAt": DAY_BEFORE, "origin": "researcher", "url": SOURCE, "title": "Springboks squad", "publisher": "SA Rugby", "extra": 1,
+    }
+    [view] = internationals.state_view([row])
+    assert set(view) == {"name", "union", "caps", "capsAsOf", "lastTestOn", "checkedAt", "origin", "url", "title", "publisher"}
+    assert (view["url"], view["title"], view["publisher"]) == (SOURCE, "Springboks squad", "SA Rugby")
 
 
 # The routes ---------------------------------------------------------------------------------
@@ -607,10 +705,10 @@ def test_state_returns_the_stored_records_of_the_selected_players_outside_the_ha
     after = client.get(f"/v1/agent/fixtures/{FIXTURE}/state", headers=AGENT).json()
     assert after["stateHash"] == before["stateHash"] and after["teamsheetHash"] == before["teamsheetHash"]
     assert after["home"]["internationals"] == [
-        {"name": names["home"][5], "union": "South Africa", "caps": 90, "capsAsOf": "2026-09-27", "lastTestOn": "2026-09-27", "checkedAt": DAY_BEFORE.isoformat().replace("+00:00", "Z"), "origin": "researcher"}
+        {"name": names["home"][5], "union": "South Africa", "caps": 90, "capsAsOf": "2026-09-27", "lastTestOn": "2026-09-27", "checkedAt": DAY_BEFORE.isoformat().replace("+00:00", "Z"), "origin": "researcher", "url": SOURCE, "title": "Springboks squad", "publisher": "SA Rugby"}
     ]
     assert after["away"]["internationals"] == [
-        {"name": names["away"][17], "union": "Italy", "caps": None, "capsAsOf": None, "lastTestOn": None, "checkedAt": DAY_BEFORE.isoformat().replace("+00:00", "Z"), "origin": "researcher"}
+        {"name": names["away"][17], "union": "Italy", "caps": None, "capsAsOf": None, "lastTestOn": None, "checkedAt": DAY_BEFORE.isoformat().replace("+00:00", "Z"), "origin": "researcher", "url": SOURCE, "title": "Springboks squad", "publisher": "SA Rugby"}
     ]
     # Records of a club do not show on the other side.
     assert all(i["name"] in names["home"] for i in after["home"]["internationals"])

@@ -64,9 +64,9 @@ export const INTERNATIONALS_OUTPUT_SCHEMA = {
   },
 } as const;
 
-/** A real calendar date in YYYY-MM-DD form, as the API's date check accepts. */
+/** A real calendar date in YYYY-MM-DD form from year 1, as the API's date check accepts. */
 function isDate(value: string): boolean {
-  if (!DATE.test(value)) return false;
+  if (!DATE.test(value) || Number(value.slice(0, 4)) < 1) return false;
   const parsed = new Date(`${value}T00:00:00Z`);
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
 }
@@ -83,8 +83,14 @@ function text(max: number) {
     .refine((value) => !CONTROL.test(value));
 }
 
+/**
+ * An http(s) URL with a host, as the API's check accepts it (Python's `urlsplit(...).netloc` must
+ * be non-empty): `scheme://` followed by an authority that ends at the next `/`, `?` or `#`.
+ */
 function webUrl(value: string): boolean {
   if (value.length > 2000 || /\s/.test(value)) return false;
+  const match = /^(https?):\/\/([^/?#]*)/i.exec(value);
+  if (!match || match[2] === '') return false;
   try {
     const url = new URL(value);
     return (url.protocol === 'http:' || url.protocol === 'https:') && url.host !== '';
@@ -131,6 +137,10 @@ export interface KnownInternational {
   readonly lastTestOn: string | null;
   readonly checkedAt: string;
   readonly origin: 'researcher' | 'operator';
+  /** The page the record came from, so the writer can cite it in the preview's `sources`. */
+  readonly url?: string;
+  readonly title?: string;
+  readonly publisher?: string | null;
 }
 
 /** The same normalisation as the API's `player_key`: accents stripped, lower case, one space. */

@@ -30,7 +30,7 @@ const state: RequestState = {
     features: { restDays: 7 },
     internationals: [
       // Fresh record, accent differs from the teamsheet.
-      { name: 'Ruan Nortje', union: 'South Africa', caps: 20, capsAsOf: '2026-09-12', lastTestOn: '2026-09-12', checkedAt: '2026-09-20T09:00:00Z', origin: 'researcher' },
+      { name: 'Ruan Nortje', union: 'South Africa', caps: 20, capsAsOf: '2026-09-12', lastTestOn: '2026-09-12', checkedAt: '2026-09-20T09:00:00Z', origin: 'researcher', url: 'https://example.org/boks', title: 'Springbok squad', publisher: 'SA Rugby' },
       // Checked more than 30 days ago.
       { name: 'Salmaan Moerat', union: 'South Africa', caps: 30, capsAsOf: '2026-07-01', lastTestOn: '2026-07-01', checkedAt: '2026-08-15T09:00:00Z', origin: 'researcher' },
       // Not in the selection, so not passed on.
@@ -65,6 +65,11 @@ test('the request passes the known internationals of selected players, marking o
     ],
   );
   assert.equal(request.knownInternationals[0].lastTestOn, '2026-09-12');
+  // The source of a record is passed on so the writer can cite it.
+  assert.deepEqual(
+    [request.knownInternationals[0].url, request.knownInternationals[0].title, request.knownInternationals[0].publisher],
+    ['https://example.org/boks', 'Springbok squad', 'SA Rugby'],
+  );
   assert.deepEqual(request.selectedWithoutInternationalRecord, ['Evan Roos']);
 });
 

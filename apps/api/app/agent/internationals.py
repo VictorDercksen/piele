@@ -16,7 +16,23 @@ import unicodedata
 from datetime import datetime
 from typing import Any, Iterable, Mapping, Sequence
 
-from sqlalchemy import Column, Date, DateTime, Integer, MetaData, String, Table, Text, case, func, select
+from sqlalchemy import (
+    Column,
+    Date,
+    DateTime,
+    Integer,
+    MetaData,
+    String,
+    Table,
+    Text,
+    and_,
+    case,
+    func,
+    literal,
+    or_,
+    select,
+    update,
+)
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.engine import Connection
 
@@ -79,10 +95,15 @@ def upsert(connection: Connection, club_id: str, rows: Sequence[Mapping[str, Any
     """Store the researcher's records for a club's players; returns the rows written.
 
     Rows are `International` dumps (name, union, caps, capsAsOf, lastTestOn, url, title,
-    publisher). A new record replaces the stored one (checked_at is `now`) except that a row
-    with origin 'operator' is left untouched, and a record without caps keeps the stored caps
-    and their date rather than blanking them. A name whose key is empty is skipped, and a name
-    given twice is stored once (the first).
+    publisher). A name whose key is empty is skipped, and a name given twice is stored once
+    (the first). Two statements, because `piele_api` can only see researcher rows: an INSERT
+    ... ON CONFLICT DO NOTHING, then an UPDATE of the researcher rows that were not inserted
+    (an operator row matches neither, so it is left untouched and costs no error).
+
+    The update never regresses a record: `last_test_on` is the later of the two dates, and
+    `caps` with `caps_as_of` are replaced only when the new record has caps and its date is
+    not older than the stored one (a new record without a date keeps a dated stored one).
+    The union and the source are the newer run's.
     """
     values: dict[str, dict[str, Any]] = {}
     for row in rows:
@@ -104,26 +125,42 @@ def upsert(connection: Connection, club_id: str, rows: Sequence[Mapping[str, Any
             }
     if not values:
         return 0
-    statement = insert(player_internationals).values(list(values.values()))
-    stored, new = player_internationals.c, statement.excluded
-    keep_caps = new.caps.is_(None)
-    statement = statement.on_conflict_do_update(
-        index_elements=[stored.club_id, stored.player_key],
-        set_={
-            "name": new.name,
-            "union_name": new.union_name,
-            "caps": func.coalesce(new.caps, stored.caps),
-            "caps_as_of": case((keep_caps, stored.caps_as_of), else_=new.caps_as_of),
-            "last_test_on": func.coalesce(new.last_test_on, stored.last_test_on),
-            "source_url": new.source_url,
-            "source_title": new.source_title,
-            "source_publisher": new.source_publisher,
-            "origin": RESEARCHER,
-            "checked_at": new.checked_at,
-        },
-        where=stored.origin != OPERATOR,
-    ).returning(stored.player_key)
-    return len(connection.execute(statement).all())
+    stored = player_internationals.c
+    inserted = {
+        key
+        for (key,) in connection.execute(
+            insert(player_internationals)
+            .values(list(values.values()))
+            .on_conflict_do_nothing(index_elements=[stored.club_id, stored.player_key])
+            .returning(stored.player_key)
+        )
+    }
+    written = len(inserted)
+    for key, value in values.items():
+        if key in inserted:
+            continue
+        caps, as_of = literal(value["caps"], Integer), literal(value["caps_as_of"], Date)
+        replace_caps = and_(
+            caps.is_not(None),
+            or_(stored.caps.is_(None), stored.caps_as_of.is_(None), and_(as_of.is_not(None), as_of >= stored.caps_as_of)),
+        )
+        result = connection.execute(
+            update(player_internationals)
+            .where(stored.club_id == club_id, stored.player_key == key, stored.origin == RESEARCHER)
+            .values(
+                name=value["name"],
+                union_name=value["union_name"],
+                caps=case((replace_caps, caps), else_=stored.caps),
+                caps_as_of=case((replace_caps, as_of), else_=stored.caps_as_of),
+                last_test_on=func.greatest(literal(value["last_test_on"], Date), stored.last_test_on),
+                source_url=value["source_url"],
+                source_title=value["source_title"],
+                source_publisher=value["source_publisher"],
+                checked_at=value["checked_at"],
+            )
+        )
+        written += result.rowcount
+    return written
 
 
 def for_clubs(connection: Connection, club_ids: Iterable[str | None]) -> dict[str, list[dict[str, Any]]]:
@@ -155,7 +192,7 @@ def for_clubs(connection: Connection, club_ids: Iterable[str | None]) -> dict[st
 
 
 def state_view(rows: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:
-    """A record as the agent's fixture state carries it (no source: the agent cites what it
-    finds itself)."""
-    keys = ("name", "union", "caps", "capsAsOf", "lastTestOn", "checkedAt", "origin")
+    """A record as the agent's fixture state carries it, with its source so the writer can
+    cite it (url, title, publisher)."""
+    keys = ("name", "union", "caps", "capsAsOf", "lastTestOn", "checkedAt", "origin", "url", "title", "publisher")
     return [{key: row[key] for key in keys} for row in rows]

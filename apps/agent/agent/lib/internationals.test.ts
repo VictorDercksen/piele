@@ -75,10 +75,27 @@ test('save_preview drops items the API would refuse and caps the list', () => {
     { ...item, name: 'Tab\tName' },
     { ...item, url: 'ftp://example.org' },
     { ...item, url: 'https://exa mple.org' },
+    { ...item, url: 'http:///x' },
+    { ...item, url: 'https:///' },
+    { ...item, url: 'https://?q=1' },
+    { ...item, url: 'https://#top' },
+    { ...item, url: 'https://' },
+    { ...item, lastTestOn: '0000-01-01' },
+    { ...item, capsAsOf: '0000-12-31' },
     'nope',
   ];
   assert.deepEqual(internationals.parse([bad[0], item, ...bad.slice(1)]), [item]);
   assert.equal(internationals.parse(Array.from({ length: 40 }, () => item))?.length, MAX_INTERNATIONALS);
+});
+
+test('save_preview keeps URLs with a host and dates from year 1', () => {
+  const kept = [
+    { ...item, url: 'HTTPS://Example.org' },
+    { ...item, url: 'http://example.org:8080/a?b=1#c' },
+    { ...item, url: 'https://user@example.org/' },
+    { ...item, lastTestOn: '0001-01-01', capsAsOf: '0001-01-01' },
+  ];
+  assert.deepEqual(internationals.parse(kept), kept);
 });
 
 test('player keys ignore accents, case and spacing like the API', () => {

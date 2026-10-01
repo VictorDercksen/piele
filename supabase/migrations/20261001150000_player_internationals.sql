@@ -27,12 +27,14 @@ create table piele.player_internationals (
 
 -- The API reads, inserts and updates researcher rows. It never deletes (rows go stale and
 -- are overwritten, or the operator removes them), and it cannot write an operator row: an
--- insert or an update must leave origin 'researcher'. The update's USING stays open so an
--- upsert that meets an operator row is skipped by its own WHERE rather than failing.
+-- insert must be a researcher row, and an update can only see researcher rows (USING) and
+-- must leave them so (WITH CHECK). The API's upsert is therefore an INSERT ... ON CONFLICT
+-- DO NOTHING followed by an UPDATE of the researcher rows it did not insert; an ON CONFLICT
+-- DO UPDATE would raise on an operator row, because that row fails the update's USING.
 alter table piele.player_internationals enable row level security;
 create policy player_internationals_read on piele.player_internationals for select to piele_api using (true);
 create policy player_internationals_insert on piele.player_internationals for insert to piele_api
   with check (origin = 'researcher');
 create policy player_internationals_update on piele.player_internationals for update to piele_api
-  using (true) with check (origin = 'researcher');
+  using (origin = 'researcher') with check (origin = 'researcher');
 revoke delete on piele.player_internationals from piele_api;
