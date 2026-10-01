@@ -35,9 +35,10 @@ export interface KickoffRulerView {
   readonly open: number;
   /** Fixtures that kicked off without a pick. */
   readonly missed: number;
-  /** The league clock now, `THU` and `19:00`. */
-  readonly now: { readonly day: string; readonly time: string };
-  /** Where the "now" pin stands: the number of slots whose kickoff has passed. */
-  readonly pin: number;
+  /**
+   * Where the "now" pin stands: the number of slots whose kickoff has passed, or null once
+   * every kickoff has passed and the pin has nothing left to point at.
+   */
+  readonly pin: number | null;
   readonly slots: readonly RulerSlot[];
 }

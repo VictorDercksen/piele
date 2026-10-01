@@ -153,7 +153,7 @@ test('the home page lays the round’s picks along its kickoffs', async ({ page 
     'SAT20:45',
   ]);
   await expect(ruler.locator('.ruler > :first-child')).toHaveClass(/ruler-now/);
-  await expect(ruler.locator('.ruler-now .ruler-time')).toHaveText('NOWTUE 12:00');
+  await expect(ruler.locator('.ruler-now .ruler-time')).toHaveText('NOW');
   await expect(ruler.locator('.dot.open')).toHaveCount(8);
   const stormers = ruler.getByRole('link', {
     name: 'Stormers v Sharks: no pick yet, locks SAT 16:00',
@@ -181,12 +181,12 @@ test('the home page lays the round’s picks along its kickoffs', async ({ page 
   await expect(picked.locator('img')).toHaveAttribute('src', /dhl-stormers/);
   await expect(ruler.locator('.dot.open')).toHaveCount(7);
 
-  // Round 2 kicked off with every pick in: eight crests and the pin past the last kickoff.
+  // Round 2 is over with every pick in: eight crests and no pin, the weekend having passed.
   await page.locator('.desktop-nav').getByRole('link', { name: 'Home', exact: true }).click();
   await page.goto('/piele?round=2');
   await expect(ruler.locator('.ruler-label')).toHaveText('YOUR PICKS · 8 OF 8 IN');
   await expect(ruler.locator('.dot img')).toHaveCount(8);
-  await expect(ruler.locator('.ruler > :last-child')).toHaveClass(/ruler-now/);
+  await expect(ruler.locator('.ruler-now')).toHaveCount(0);
   expect(errors).toEqual([]);
 });
 

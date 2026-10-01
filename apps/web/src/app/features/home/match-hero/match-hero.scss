@@ -410,7 +410,8 @@
   align-items: flex-start;
   overflow-x: auto;
   overscroll-behavior-x: contain;
-  padding-bottom: 4px;
+  /* Room above the dots for the featured ring, which the scroll box would otherwise clip. */
+  padding: 5px 0 4px;
   scrollbar-width: thin;
   scrollbar-color: #e0e4d540 transparent;
 }
@@ -418,7 +419,7 @@
 .ruler::before {
   content: '';
   position: absolute;
-  top: 13px;
+  top: 18px;
   left: 0;
   right: 0;
   height: 1px;
@@ -436,7 +437,7 @@
 }
 
 .ruler-slot {
-  padding: 0 9px;
+  padding: 0 7px;
 }
 
 .ruler-slot + .ruler-slot {
@@ -444,7 +445,7 @@
 }
 
 .ruler-now {
-  padding: 0 10px;
+  padding: 0 8px;
 }
 
 .ruler-now:first-child {
@@ -496,7 +497,7 @@
 
 .ruler-dots {
   display: flex;
-  gap: 6px;
+  gap: 5px;
 }
 
 .dot {
@@ -572,5 +573,29 @@
 @container (max-width: 480px) {
   .pick-band {
     padding: 14px 16px 16px;
+  }
+  /* Smaller dots and tighter slots, so a round's kickoffs fit a phone without scrolling. */
+  .ruler::before {
+    top: 17px;
+  }
+  .ruler-slot {
+    padding: 0 6px;
+  }
+  .ruler-now {
+    padding: 0 6px;
+  }
+  .ruler-now .pin {
+    height: 24px;
+  }
+  .ruler-dots {
+    gap: 4px;
+  }
+  .dot {
+    width: 24px;
+    height: 24px;
+  }
+  .dot img {
+    width: 15px;
+    height: 15px;
   }
 }

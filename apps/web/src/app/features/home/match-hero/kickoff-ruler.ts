@@ -72,8 +72,10 @@ function dot(
 /**
  * The member's picks for a round along its kickoffs, for the match hero's footer. Fixtures
  * sharing a kickoff share a slot, in kickoff order; fixtures without a kickoff share a trailing
- * `TBC` slot. A pick is open until its kickoff passes `now` and missed after that. Null for a
- * round without fixtures.
+ * `TBC` slot. A pick is open until its kickoff passes `now` and missed after that. The "now"
+ * pin stands before the first slot still to kick off, and is gone once every kickoff has passed.
+ * Null for a round without fixtures, and for a finished round with no pick of the member's: the
+ * league recorded none, and there is nothing to show or to do.
  */
 export function kickoffRuler(
   fixtures: readonly Fixture[],
@@ -115,13 +117,15 @@ export function kickoffRuler(
   };
   const slots = kickoffs.map(slot);
   if (groups.has(null)) slots.push(slot(null));
+  const passed = kickoffs.filter((kickoff) => kickoff <= now).length;
+  const finished = passed === kickoffs.length && !groups.has(null);
+  if (finished && made === 0) return null;
   return {
     made,
     total: fixtures.length,
     open,
     missed,
-    now: dayAndTime(now, zone),
-    pin: kickoffs.filter((kickoff) => kickoff <= now).length,
+    pin: finished ? null : passed,
     slots,
   };
 }

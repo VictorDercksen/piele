@@ -127,16 +127,11 @@
               >
             </div>
           }
-          @if (ruler.pin === ruler.slots.length) {
-            <ng-container *ngTemplateOutlet="nowPin" />
-          }
         </div>
         <ng-template #nowPin>
           <div class="ruler-now">
             <span class="pin" aria-hidden="true"></span>
-            <span class="ruler-time"
-              >NOW<b>{{ ruler.now.day }} {{ ruler.now.time }}</b></span
-            >
+            <span class="ruler-time">NOW</span>
           </div>
         </ng-template>
       </div>
