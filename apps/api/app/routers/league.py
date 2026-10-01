@@ -76,8 +76,8 @@ class Rules(BaseModel):
 
     # A missed pick may be recorded as a Superbru default: win points only, no grand slam.
     defaultPicks: bool
-    # Informational (Superbru's own setting); the app hides the pool's picks from a member
-    # without a pick until kickoff whatever this says.
+    # Informational (Superbru's own setting); the app always hides the pool's picks from
+    # everyone until kickoff, whatever this says.
     picksHiddenBeforeKickoff: bool
     bonusPoint: bool
     # False: every tied qualifier gets the full bonus point.
@@ -731,7 +731,8 @@ class FixturePicks(BaseModel):
     locked: bool
     result: FixtureResult | None
     myPick: Pick | None
-    # Empty for a member without a pick until kickoff; everyone's picks otherwise.
+    # Empty for everyone, the captain and the admin included, until kickoff (myPick still
+    # carries the caller's own); everyone's picks from kickoff.
     picks: list[Pick]
 
 
@@ -773,7 +774,7 @@ class FixturePicksUpdate(BaseModel):
 @router.put("/matches/{fixture_id}/picks", response_model=FixturePicks)
 def record_picks(fixture_id: FixtureId, body: FixturePicksUpdate, actor: Actor = Depends(steward_dependency)) -> Any:
     """Captain or admin records or corrects members' picks at any time; members left out keep
-    theirs."""
+    theirs. The response hides the pool until kickoff, as `GET .../picks` does."""
     service.record_picks(
         actor,
         fixture_id,

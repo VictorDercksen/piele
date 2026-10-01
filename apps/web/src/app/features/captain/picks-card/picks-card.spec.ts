@@ -361,15 +361,15 @@ describe('PicksCard', () => {
     expect(removed).toEqual([`${FID}/a`]);
   });
 
-  it('shows the grid read-only before kickoff', async () => {
-    const { root, radio, margin, missed } = setup({ locked: false });
+  it('shows no member’s pick before kickoff, only a line that picks show at kickoff', async () => {
+    const { root } = setup({ locked: false });
     await settle();
-    expect(root.querySelector('.grid-note')?.textContent).toContain(
-      'Members make their own picks until kickoff. You can correct picks from kickoff.',
+    expect(root.querySelector('.grid-note')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+      'Members make their own picks until kickoff. Their picks show here at kickoff, when you can record or correct them.',
     );
-    expect(radio('a', 'home').disabled).toBe(true);
-    expect(margin('a').disabled).toBe(true);
-    expect(missed('c').disabled).toBe(true);
+    expect(root.querySelector('.grid-rows')).toBeNull();
+    expect(root.querySelector('.grid-head')).toBeNull();
+    expect(root.querySelector('.side-picker')).toBeNull();
     expect(
       Array.from(root.querySelectorAll('button')).some((b) =>
         b.textContent?.includes('Save picks'),

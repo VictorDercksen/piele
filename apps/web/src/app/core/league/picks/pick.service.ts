@@ -41,7 +41,8 @@ export class PickService {
   /**
    * One fixture's picks for the match page. `locked` once kickoff has passed; `provisional`
    * while live, `final` at full time; `recorded` once the member's own pick is in; `hidden`
-   * when the member must pick before seeing the pool's picks. `rows` are the visible picks
+   * before kickoff, when the pool's picks are hidden from everyone (the captain and the admin
+   * too) and only the member's own shows. `rows` are the visible picks
    * from the biggest home margin to the biggest away margin, each with the member, the picked
    * club's colours and short name and its points; `sway` is how the pool leans and `myPlace`
    * the member's rank among the fixture's picks by points once it is scored. A fixture of the
@@ -61,8 +62,8 @@ export class PickService {
     const locked =
       (stored?.locked ?? false) || (!!kickoff && Date.parse(kickoff) <= this.live.clock());
     const myPick = stored?.myPick ?? null;
-    const hidden = !locked && !myPick && !!this.data.currentMemberId();
-    const picks = hidden ? [] : visiblePicks(stored);
+    const hidden = !locked;
+    const picks = hidden ? (myPick ? [myPick] : []) : visiblePicks(stored);
     const competition = this.competition.current();
     const scores = new Map(
       scoreFixture(picks, result, this.rules.rules(), roundType(located.round.id, competition)).map(
@@ -114,7 +115,7 @@ export class PickService {
   }
 }
 
-/** The picks a record shows: all of them, or only the member's own while the rest are hidden. */
+/** The picks a record shows: all of them, or before kickoff only the member's own. */
 export function visiblePicks(record: FixturePicks | undefined): readonly MemberPick[] {
   if (!record) return [];
   return record.picks.length ? record.picks : record.myPick ? [record.myPick] : [];

@@ -29,7 +29,7 @@ export interface FixturePicksView {
   readonly void: boolean;
   /** The member's own pick is in. */
   readonly recorded: boolean;
-  /** The member must pick before the pool's picks show. */
+  /** Before kickoff: the pool's picks are hidden from everyone; only the member's own shows. */
   readonly hidden: boolean;
   readonly result: FixtureResult | null;
   readonly myPick: MemberPick | null;

@@ -256,9 +256,6 @@
 .side:has(hlm-radio[data-disabled]) input {
   cursor: default;
 }
-.read-only .side:not(:has(hlm-radio[data-checked])) {
-  opacity: 0.55;
-}
 .margin {
   display: grid;
   gap: 4px;

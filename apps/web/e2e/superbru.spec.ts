@@ -19,7 +19,7 @@ function picksPanel(page: Page) {
   return page.locator('app-picks-panel');
 }
 
-test('before kickoff a member sees only the pick form; saving the pick fills the member’s strip', async ({
+test('before kickoff a member sees only their own pick; saving it fills the member’s strip', async ({
   page,
 }) => {
   const errors: string[] = [];
@@ -28,9 +28,9 @@ test('before kickoff a member sees only the pick form; saving the pick fills the
   const panel = picksPanel(page);
   await expect(panel.getByRole('heading', { name: 'Pool picks.' })).toBeVisible();
   await expect(panel.locator('.section-title .status-pill')).toHaveText('open');
-  await expect(panel).toContainText("Make your pick to see the pool's picks.");
+  await expect(panel.locator('.pool-note')).toHaveText("The pool's picks show here at kickoff.");
   await expect(panel).toContainText('Picks lock at kickoff, 10 Oct 16:00 SAST.');
-  // Nothing of the pool shows until the member has picked.
+  // Nothing of the pool shows before kickoff.
   await expect(panel.getByRole('table')).toHaveCount(0);
   await expect(panel.getByRole('img', { name: /The pool's split/ })).toHaveCount(0);
 
@@ -92,8 +92,8 @@ test('before kickoff a member sees only the pick form; saving the pick fills the
   await panel.getByLabel('Margin (points)').fill('7');
   await panel.getByRole('button', { name: 'Save pick' }).click();
 
-  // The pick is in: a green card names it, then the member's strip. Nobody else has picked, so
-  // a line says so instead of a pool that would only repeat the strip.
+  // The pick is in: a green card names it, then the member's strip. The pool stays hidden until
+  // kickoff, whoever has picked; one line says so.
   await expect(
     page.getByRole('status').filter({ hasText: 'Pick saved: Stormers by 7.' }),
   ).toBeVisible();
@@ -103,7 +103,7 @@ test('before kickoff a member sees only the pick form; saving the pick fills the
   await expect(mine).toContainText('Your pick');
   await expect(mine.locator('app-pick-chip')).toContainText('Stormers');
   await expect(mine.locator('app-pick-chip')).toContainText('7');
-  await expect(panel).toContainText("You're the first in. The pool's picks show here");
+  await expect(panel.locator('.pool-note')).toHaveText("The pool's picks show here at kickoff.");
   await expect(panel.getByRole('table')).toHaveCount(0);
   await expect(panel.getByRole('img', { name: /The pool's split/ })).toHaveCount(0);
   await expect(panel.getByRole('button', { name: "Show the pool's picks" })).toHaveCount(0);
@@ -339,6 +339,20 @@ test('the desk opens closed, except the section a link names', async ({ page }) 
     );
   }
   await expect(page.getByRole('button', { name: 'Copy link' })).toHaveCount(0);
+});
+
+test('before kickoff the captain’s desk shows no member’s pick', async ({ page }) => {
+  await page.goto('/piele/captain?round=3');
+  const card = page.locator('app-picks-card');
+  await openSection(page, 'Superbru picks.');
+  const strip = card.getByRole('group', { name: 'Round 03 fixtures' });
+  await strip.getByRole('button', { name: /Stormers/ }).click();
+  await expect(card.locator('.grid-note')).toHaveText(
+    'Members make their own picks until kickoff. Their picks show here at kickoff, when you can record or correct them.',
+  );
+  await expect(card.getByRole('list', { name: /^Picks for / })).toHaveCount(0);
+  await expect(card.getByRole('radiogroup')).toHaveCount(0);
+  await expect(card.getByRole('button', { name: 'Save picks' })).toHaveCount(0);
 });
 
 test('the captain records a pick, overrides a round total and clears it', async ({ page }) => {

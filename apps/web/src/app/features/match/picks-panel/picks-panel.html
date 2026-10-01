@@ -223,12 +223,6 @@
             @if (marginDisabled()) {
               <p id="pick-margin-hint" class="hint">A draw has no margin.</p>
             }
-            @if (!p.recorded) {
-              <p class="form-note">
-                <ng-icon name="lucideEyeOff" aria-hidden="true" />Make your pick to see the pool's
-                picks.
-              </p>
-            }
           </form>
         }
       } @else if (mine(); as mine) {
@@ -256,12 +250,11 @@
             </button>
           }
         </div>
-        @if (poolOfOne()) {
-          <p class="pool-note">
-            <ng-icon name="lucideUsers" aria-hidden="true" />You're the first in. The pool's picks
-            show here as the others make theirs, and at kickoff.
-          </p>
-        }
+      }
+      @if (p.hidden) {
+        <p class="pool-note">
+          <ng-icon name="lucideUsers" aria-hidden="true" />The pool's picks show here at kickoff.
+        </p>
       }
     </ng-container>
 

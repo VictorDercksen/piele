@@ -19,6 +19,7 @@ const NOW = '2026-09-27T08:00:00Z';
 
 /** The sample build on a frozen date, with the selected round fixed and optional live scores. */
 async function setup(round: number, live: Record<string, Partial<Fixture>> = {}) {
+  const clock = signal(Date.parse(NOW));
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(Date.parse(NOW));
   localStorage.clear();
@@ -41,7 +42,7 @@ async function setup(round: number, live: Record<string, Partial<Fixture>> = {})
       {
         provide: LiveScoresService,
         useValue: {
-          clock: signal(Date.parse(NOW)).asReadonly(),
+          clock: clock.asReadonly(),
           merge: (fixture: Fixture) => ({ ...fixture, ...live[fixture.id] }),
         },
       },
@@ -55,7 +56,18 @@ async function setup(round: number, live: Record<string, Partial<Fixture>> = {})
     teamId: 'dhl-stormers',
     photo: null,
   });
-  return { picks: TestBed.inject(PickService), control: TestBed.inject(PickControlService) };
+  /** Moves the frozen date and the league clock on. */
+  const advance = (moment: string) => {
+    vi.setSystemTime(Date.parse(moment));
+    clock.set(Date.parse(moment));
+    TestBed.inject(LeagueData).reload();
+  };
+  return {
+    picks: TestBed.inject(PickService),
+    control: TestBed.inject(PickControlService),
+    data: TestBed.inject(LeagueData),
+    advance,
+  };
 }
 
 describe('PickService', () => {
@@ -101,8 +113,8 @@ describe('PickService', () => {
     expect(service.byFixture().get('292584')?.myPick).toEqual(picks.myPick);
   });
 
-  it('hides the pool’s picks until the member picks, before kickoff', async () => {
-    const { picks: service, control } = await setup(3);
+  it('hides the pool’s picks from everyone until kickoff', async () => {
+    const { picks: service, control, data, advance } = await setup(3);
     await control.recordPicks('292600', [{ memberId: 'member-jp', side: 'home', margin: 8 }]);
     expect(service.picksFor('292600')).toEqual(
       expect.objectContaining({
@@ -114,10 +126,19 @@ describe('PickService', () => {
       }),
     );
     expect(service.myPickFor('292600')).toBeNull();
+    // The member's pick being in shows only their own: the sample data, like the API, sends
+    // no pool before kickoff.
     await control.savePick('292600', { side: 'away', margin: 5 });
+    const mine = service.picksFor('292600')!;
+    expect(mine).toEqual(expect.objectContaining({ hidden: true, recorded: true, myPlace: null }));
+    expect(mine.rows.map((r) => [r.name, r.clubShortName])).toEqual([['Test Member', 'Connacht']]);
+    expect(data.picks().find((f) => f.fixtureId === '292600')?.picks).toEqual([]);
+
+    // From kickoff the pool shows.
+    advance('2026-10-09T18:45:00Z');
     const picks = service.picksFor('292600')!;
     expect(picks).toEqual(
-      expect.objectContaining({ hidden: false, recorded: true, myPlace: null }),
+      expect.objectContaining({ locked: true, hidden: false, recorded: true, myPlace: null }),
     );
     expect(picks.rows.map((r) => [r.name, r.clubShortName, r.scored])).toEqual([
       ['Johan', 'Glasgow', false],

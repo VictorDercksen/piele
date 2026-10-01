@@ -131,13 +131,18 @@ def sources_block(document: str) -> list[str]:
     return [line for line in block.splitlines() if line]
 
 
-def test_the_context_hides_the_pool_until_the_member_has_picked() -> None:
+def test_the_context_hides_the_pool_until_kickoff() -> None:
     hidden = context.build(facts())
     assert context.POOL_HIDDEN in hidden
+    assert context.POOL_HIDDEN == "The other members' picks are hidden until kickoff."
     assert "Their pick: no pick yet." in hidden
 
+    # Before kickoff the member's own pick is named, the pool is not.
     mine = pick("Mo", "away", 3)
-    member = {"name": "Mo", "favouriteTeam": None, "pick": mine, "pool": [pick("Captain", "home", 7), mine], "locked": False}
+    picked = context.build(facts(member={"name": "Mo", "favouriteTeam": None, "pick": mine, "pool": None, "locked": False}))
+    assert context.POOL_HIDDEN in picked and "Their pick: Benetton by 3." in picked and "- Captain:" not in picked
+
+    member = {"name": "Mo", "favouriteTeam": None, "pick": mine, "pool": [pick("Captain", "home", 7), mine], "locked": True}
     shown = context.build(facts(member=member))
     assert context.POOL_HIDDEN not in shown
     assert "Their pick: Benetton by 3." in shown
@@ -606,7 +611,7 @@ def test_questions_are_validated(chat: TestClient) -> None:
 
 
 @needs_database
-def test_the_pool_reaches_the_model_only_once_the_member_has_picked(chat: TestClient, agent: Agent) -> None:
+def test_the_pool_never_reaches_the_model_before_kickoff(chat: TestClient, agent: Agent) -> None:
     captain, mo = captain_headers(chat), mo_headers(chat)
     pick = chat.put(lp(chat, f"/matches/{FIXTURE}/picks/me"), json={"side": "home", "margin": 7}, headers=captain)
     assert pick.status_code == 200, pick.text
@@ -615,10 +620,11 @@ def test_the_pool_reaches_the_model_only_once_the_member_has_picked(chat: TestCl
 
     assert chat.put(lp(chat, f"/matches/{FIXTURE}/picks/me"), json={"side": "away", "margin": 3}, headers=mo).status_code == 200
     assert ask(chat, mo, "What did the others pick?").status_code == 200
+    # Mo's own pick is in, but the pool stays hidden until kickoff (when the chat closes).
     document = agent.body()["context"]
-    assert context.POOL_HIDDEN not in document
-    home, away = URC.club("scarlets").name, URC.club("benetton-rugby").name
-    assert f"Their pick: {away} by 3." in document and f"- Captain: {home} by 7" in document
+    assert context.POOL_HIDDEN in document and "- Captain:" not in document
+    away = URC.club("benetton-rugby").name
+    assert f"Their pick: {away} by 3." in document
 
 
 @needs_database

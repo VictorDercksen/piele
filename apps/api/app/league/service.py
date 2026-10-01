@@ -2391,9 +2391,10 @@ def update_rules(actor: Actor, change: Mapping[str, Any]) -> dict[str, Any]:
 # A pick is signed from the home side: 'home' or 'away' with a margin of 1 to 150, 'draw'
 # (margin 0) or 'missed' (no margin). Members record their own pick until the fixture's
 # kickoff in the competition schedule; the captain or admin records or corrects any pick at
-# any time and marks Superbru default picks. A member sees the rest of the pool's picks for a
-# fixture once their own pick is in or the fixture has kicked off; the admin without a
-# membership always sees them.
+# any time and marks Superbru default picks. Before a fixture's kickoff nobody sees anyone
+# else's pick, the captain and the admin (with or without a membership) included: a member
+# sees only their own. From kickoff everyone in the league, the admin included, sees the
+# pool's picks.
 
 PICK_SIDES = ("home", "away", "draw", "missed")
 MAX_MARGIN = 150
@@ -2562,7 +2563,8 @@ def _fixture_views(actor: Actor, fixtures: Sequence[Fixture], now: datetime) -> 
         rows = sorted(by_fixture.get(fixture.id, []), key=lambda row: (row.member_name.lower(), str(row.member_id)))
         mine = next((row for row in rows if row.member_id == actor.membership_id), None) if actor.membership_id else None
         is_locked = locked(fixture, now)
-        visible = is_locked or mine is not None or actor.membership_id is None
+        # The pool stays hidden from everyone until kickoff, whatever the season's
+        # `picksHiddenBeforeKickoff` says.
         views.append(
             {
                 "fixtureId": fixture.id,
@@ -2571,7 +2573,7 @@ def _fixture_views(actor: Actor, fixtures: Sequence[Fixture], now: datetime) -> 
                 "locked": is_locked,
                 "result": results.get(fixture.id),
                 "myPick": _pick_view(mine) if mine is not None else None,
-                "picks": [_pick_view(row) for row in rows] if visible else [],
+                "picks": [_pick_view(row) for row in rows] if is_locked else [],
             }
         )
     return views
@@ -2580,8 +2582,8 @@ def _fixture_views(actor: Actor, fixtures: Sequence[Fixture], now: datetime) -> 
 def picks(actor: Actor, round_number: int | None = None) -> list[dict[str, Any]]:
     """Every fixture of the season's competition from the rules' starting round on whose
     kickoff is known (one round with `round_number`), in kickoff order, with its stored
-    result and picks. The pool's picks are hidden (an empty list) from a member without a
-    pick until kickoff."""
+    result and picks. The pool's picks are hidden (an empty list) from everyone, the captain
+    and the admin included, until kickoff; `myPick` still carries the caller's own."""
     starting_round = rules(actor)["startingRound"]
     fixtures = sorted(
         (

@@ -1,4 +1,12 @@
-import { Injectable, Signal, WritableSignal, computed, inject, signal } from '@angular/core';
+import {
+  Injectable,
+  Signal,
+  WritableSignal,
+  computed,
+  effect,
+  inject,
+  signal,
+} from '@angular/core';
 import { CompetitionService } from '../../competition/competition.service';
 import { isAccentColour, isEmblemPreset } from '../emblems';
 import { ApiError } from '../../api/api-error';
@@ -108,6 +116,23 @@ export class SampleLeagueData extends LeagueData {
   readonly notes = this.from((league) => league.notes);
   readonly feed = this.from((league) => league.feed);
   readonly notificationsRead = this.from((league) => league.read);
+
+  constructor() {
+    super();
+    // As from the API, the pool's picks show from kickoff: the showing league is read again
+    // at the next open fixture's kickoff, so a page left open across it shows them.
+    effect((onCleanup) => {
+      const kickoffs = this.picks()
+        .filter((f) => !f.locked && !!f.kickoffUtc)
+        .map((f) => Date.parse(f.kickoffUtc!))
+        .filter((at) => Number.isFinite(at));
+      if (!kickoffs.length) return;
+      const wait = Math.max(0, Math.min(...kickoffs) - Date.now()) + 1;
+      // A kickoff past setTimeout's longest delay is waited for in steps.
+      const timer = setTimeout(() => this.reload(), Math.min(wait, 2_147_483_647));
+      onCleanup(() => clearTimeout(timer));
+    });
+  }
 
   /** Switches to a sample league's records. Unknown slugs keep the current league. */
   selectLeague(league: LeagueSummary): void {
@@ -548,8 +573,9 @@ export class SampleLeague {
 
   /**
    * Every fixture from the starting round on with a known kickoff, as `GET /picks` answers:
-   * the sample results, and the active members' picks, hidden before kickoff from a member
-   * who has not picked yet. A fixture with a sample result counts as kicked off.
+   * the sample results, and the active members' picks, hidden from everyone before kickoff
+   * (`myPick` still carries the member's own). A fixture with a sample result counts as
+   * kicked off.
    */
   readonly picks = computed<readonly FixturePicks[]>(() => {
     const now = this.clock();
@@ -579,7 +605,7 @@ export class SampleLeague {
           locked,
           result: sampleResults[f.id] ?? null,
           myPick,
-          picks: locked || myPick || !me ? picks : [],
+          picks: locked ? picks : [],
         };
       });
   });

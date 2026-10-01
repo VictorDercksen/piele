@@ -27,7 +27,6 @@ import { RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideArrowRight,
-  lucideEyeOff,
   lucideLock,
   lucideUsers,
   lucideMinus,
@@ -72,17 +71,18 @@ import {
 } from './picks-panel.view';
 
 /**
- * The match centre's "Pool picks." panel. Before kickoff a member without a pick sees only
- * their own pick form: the matchup, a crest button for each side, over the margin scale, a range
+ * The match centre's "Pool picks." panel. Before kickoff a member without a pick sees their own
+ * pick form: the matchup, a crest button for each side, over the margin scale, a range
  * where the marker's distance from the middle is the margin toward that side and the middle is a
  * draw (`slide`, `nudge` from either crest, `pickDraw`, the `quick` margins, the typed margin and
  * its stepper, all writing the same two form controls). Once their
- * pick is in they see their own pick, and can edit theirs until kickoff. After kickoff their
- * line carries their points and place. The pool's split and the pool table itself (every pick
- * with its outcome, margin and bonus marks and points, as PickService scores them) are the body
- * of the panel's dropdown (`#picks-pool`), closed by default and for every new fixture; the form
- * or the pick above it is the dropdown's lead. The admin viewing a league it is not in sees the
- * pool without a form.
+ * pick is in they see their own pick, and can edit theirs until kickoff. Nobody sees the pool's
+ * picks before kickoff (the captain and the admin included): a line says they show at kickoff.
+ * After kickoff the member's line carries their points and place, and the pool's split and the
+ * pool table itself (every pick with its outcome, margin and bonus marks and points, as
+ * PickService scores them) are the body of the panel's dropdown (`#picks-pool`), closed by
+ * default and for every new fixture; the form or the pick above it is the dropdown's lead. The
+ * admin viewing a league it is not in has no form.
  */
 @Component({
   selector: 'app-picks-panel',
@@ -109,7 +109,6 @@ import {
   viewProviders: [
     provideIcons({
       lucideArrowRight,
-      lucideEyeOff,
       lucideLock,
       lucideUsers,
       lucideMinus,
@@ -189,21 +188,10 @@ export class PicksPanel {
       !!picks && !picks.locked && !this.members.adminView() && (!picks.recorded || this.editing())
     );
   });
-  /**
-   * Before kickoff the member's pick is the only one in: the pool would merely repeat the
-   * member's own strip, so a line says nobody else has picked yet instead.
-   */
-  readonly poolOfOne = computed(() => {
-    const picks = this.picks();
-    return !!picks && !picks.locked && picks.rows.length > 0 && picks.rows.every((r) => r.you);
-  });
-  /**
-   * The pool's picks show once the member's pick is in and someone else's is too, after
-   * kickoff, or for the admin.
-   */
+  /** The pool's picks show from kickoff, to everyone. */
   readonly showPool = computed(() => {
     const picks = this.picks();
-    return !!picks && !picks.hidden && !this.poolOfOne();
+    return !!picks && !picks.hidden;
   });
   readonly tag = computed<StatusPill>(() => {
     const picks = this.picks();

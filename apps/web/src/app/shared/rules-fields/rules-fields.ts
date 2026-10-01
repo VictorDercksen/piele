@@ -53,7 +53,7 @@ export class RulesFields {
     {
       key: 'picksHiddenBeforeKickoff',
       label: 'Picks hidden before kick-off',
-      hint: 'As Superbru shows the pool. Members here see picks once their own is in.',
+      hint: "As Superbru shows the pool. Here the pool's picks always show at kickoff.",
     },
     { key: 'bonusPoint', label: 'Bonus point', hint: 'For the closest correct pick.' },
     {

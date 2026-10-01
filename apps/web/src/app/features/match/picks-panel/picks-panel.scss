@@ -127,7 +127,7 @@
   margin-left: auto;
   min-height: 36px;
 }
-/* Nobody else has picked yet: a line in place of a pool that would only repeat the strip. */
+/* Before kickoff: a line in place of the pool, under the member's strip or form. */
 .pool-note {
   display: flex;
   align-items: center;
@@ -136,6 +136,10 @@
   color: var(--muted);
   font-size: 12px;
   line-height: 1.5;
+}
+/* The admin view has no strip or form above the line. */
+.pool-note:first-child {
+  margin-top: 0;
 }
 .pool-note ng-icon {
   --ng-icon__size: 14px;
@@ -558,22 +562,6 @@
   font-size: 12px;
   color: var(--muted);
 }
-.form-note {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  padding-top: 12px;
-  border-top: 1px solid var(--line);
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.5;
-}
-.form-note ng-icon {
-  --ng-icon__size: 14px;
-  flex-shrink: 0;
-}
-
 .record {
   margin-top: 8px;
   color: var(--accent);

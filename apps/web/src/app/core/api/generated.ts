@@ -698,7 +698,7 @@ export interface paths {
         /**
          * Record Picks
          * @description Captain or admin records or corrects members' picks at any time; members left out keep
-         *     theirs.
+         *     theirs. The response hides the pool until kickoff, as `GET .../picks` does.
          */
         readonly put: operations["record_picks_v1_leagues__leagueId__matches__fixture_id__picks_put"];
         readonly post?: never;

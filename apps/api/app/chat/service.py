@@ -167,9 +167,9 @@ def _facts(
     home, away = competition.club(fixture.home_id), competition.club(fixture.away_id)
     stadium = competition.stadium(fixture.venue)
     favourite = competition.club(actor.favourite_team_id)
-    # fixture_picks leaves `picks` empty while the pool is hidden from the member; once the
-    # match is locked an empty list means nobody picked.
-    pool = picks["picks"] if picks["picks"] or picks["locked"] else None
+    # The pool is hidden from everyone until kickoff (fixture_picks leaves `picks` empty);
+    # once the match is locked an empty list means nobody picked.
+    pool = picks["picks"] if picks["locked"] else None
     return {
         "timezone": actor.league_timezone,
         "competition": competition.name,

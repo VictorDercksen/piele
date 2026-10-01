@@ -1997,6 +1997,7 @@ DEFAULT_RULES = {
 }
 # Round 1 has kicked off by then; round 2 starts on 2 October.
 PICKS_NOW = datetime(2026, 10, 1, 12, 0, tzinfo=timezone.utc)
+KICKED_OFF = datetime(2026, 10, 2, 18, 45, tzinfo=timezone.utc)  # OPEN and ALSO_OPEN kick off
 PLAYED = "292584"  # Benetton v Dragons, round 1
 OPEN = "292592"  # Cardiff v Zebre, round 2
 ALSO_OPEN = "292593"  # Edinburgh v Stormers, round 2
@@ -2035,11 +2036,21 @@ def fixture_view(client: TestClient, fixture_id: str, headers: dict, league_id: 
     return next(view for view in listed.json() if view["fixtureId"] == fixture_id)
 
 
+def view_at_kickoff(client: TestClient, clock, fixture_id: str, headers: dict, league_id: str | None = None) -> dict:
+    """The fixture as the caller sees it at OPEN's kickoff, when the pool shows to everyone;
+    the clock goes back to PICKS_NOW after."""
+    clock(KICKED_OFF)
+    try:
+        return fixture_view(client, fixture_id, headers, league_id)
+    finally:
+        clock(PICKS_NOW)
+
+
 def pool(view: dict) -> list[tuple]:
     return [(p["memberName"], p["side"], p["margin"], p["isDefault"]) for p in view["picks"]]
 
 
-def test_members_pick_before_kickoff_and_see_the_pool_once_locked_in(client: TestClient, clock) -> None:
+def test_members_pick_before_kickoff_and_see_the_pool_from_kickoff(client: TestClient, clock) -> None:
     captain, mo = captain_headers(client), mo_headers(client)
     round_two = client.get(lp(client, "/picks"), params={"round": 2}, headers=mo)
     assert round_two.status_code == 200, round_two.text
@@ -2060,18 +2071,22 @@ def test_members_pick_before_kickoff_and_see_the_pool_once_locked_in(client: Tes
     assert len(everything) == 144 and everything[0]["fixtureId"] == PLAYED and everything[-1]["roundNumber"] == 18
     assert all(view["locked"] for view in everything if view["roundNumber"] == 1)
 
-    # The captain locks in first and sees the pool (just their own pick so far).
+    # The captain locks in first and sees only their own pick: the pool is hidden from every
+    # member until kickoff, the captain included.
     saved = own_pick(client, OPEN, "home", 7, captain)
     assert saved.status_code == 200, saved.text
     assert saved.json()["myPick"]["side"] == "home" and saved.json()["myPick"]["margin"] == 7
-    assert pool(saved.json()) == [("Captain", "home", 7, False)]
+    assert saved.json()["picks"] == []
     # Mo has no pick yet: only the pick form.
     before = fixture_view(client, OPEN, mo)
     assert before["picks"] == [] and before["myPick"] is None
-    # Once Mo's pick is in, the pool shows.
+    # Mo's pick being in does not open the pool before kickoff either.
     saved = own_pick(client, OPEN, "away", 3, mo)
     assert saved.status_code == 200, saved.text
-    assert pool(saved.json()) == [("Captain", "home", 7, False), ("Mo", "away", 3, False)]
+    assert saved.json()["picks"] == []
+    assert fixture_view(client, OPEN, captain)["picks"] == []
+    # Nor does the admin see it before kickoff.
+    assert fixture_view(client, OPEN, admin_headers(client))["picks"] == []
     mine = saved.json()["myPick"]
     assert (mine["memberName"], mine["side"], mine["margin"], mine["isDefault"], mine["dutyId"]) == ("Mo", "away", 3, False, None)
     # A draw is stored with margin 0, and the member may change their mind until kickoff.
@@ -2082,10 +2097,15 @@ def test_members_pick_before_kickoff_and_see_the_pool_once_locked_in(client: Tes
     # After kickoff the pick is locked.
     locked = own_pick(client, PLAYED, "home", 5, mo)
     assert locked.status_code == 422 and locked.json()["detail"]["code"] == "picks_locked"
-    clock(datetime(2026, 10, 2, 18, 45, tzinfo=timezone.utc))
+    clock(KICKED_OFF)
     at_kickoff = own_pick(client, OPEN, "home", 1, mo)
     assert at_kickoff.status_code == 422 and at_kickoff.json()["detail"]["code"] == "picks_locked"
-    assert fixture_view(client, OPEN, mo)["locked"] is True
+    # From kickoff everyone sees the pool, the admin included.
+    opened = fixture_view(client, OPEN, mo)
+    assert opened["locked"] is True and opened["myPick"]["side"] == "draw"
+    assert pool(opened) == [("Captain", "home", 7, False), ("Mo", "draw", 0, False)]
+    assert pool(fixture_view(client, OPEN, captain)) == pool(opened)
+    assert pool(fixture_view(client, OPEN, admin_headers(client))) == pool(opened)
 
     # One audit event per saved change, none for a repeat.
     events = audit_rows(client, "picks.recorded")
@@ -2138,9 +2158,10 @@ def test_the_steward_records_any_pick_at_any_time(client: TestClient, clock) -> 
     # Members left out keep their picks; a correction replaces the pick and its default mark.
     corrected = steward_picks(client, PLAYED, [{"memberId": ids["Mo"], "side": "away", "margin": 4}])
     assert pool(corrected.json()) == [("Mo", "away", 4, False), ("Ola", "missed", None, False)]
-    # Before kickoff too.
-    assert steward_picks(client, OPEN, [{"memberId": ids["Ola"], "side": "draw", "margin": 0}]).status_code == 200
-    assert fixture_view(client, OPEN, mo)["picks"] == []  # Mo has no pick of it yet
+    # Before kickoff too, though the response hides the pool until kickoff, from the captain too.
+    early = steward_picks(client, OPEN, [{"memberId": ids["Ola"], "side": "draw", "margin": 0}])
+    assert early.status_code == 200 and early.json()["picks"] == [] and early.json()["myPick"] is None
+    assert fixture_view(client, OPEN, mo)["picks"] == []
     # A pick the steward records is the member's own pick.
     assert fixture_view(client, PLAYED, mo)["myPick"]["side"] == "away"
 
@@ -2177,14 +2198,16 @@ def test_pick_visibility_for_the_admin_and_withdrawn_members(client: TestClient,
     ids = member_ids(client)
     assert own_pick(client, OPEN, "home", 12, mo).status_code == 200
     assert steward_picks(client, OPEN, [{"memberId": ids["Ola"], "side": "away", "margin": 2}]).status_code == 200
-    # The captain has no pick of this open fixture, so the pool stays hidden from them.
+    # Before kickoff the pool is hidden from everyone: a member with a pick (Mo), the captain
+    # without one, and the admin without a membership, who has no pick of their own.
     assert fixture_view(client, OPEN, captain_headers(client))["picks"] == []
-
-    # The admin without a membership sees every pick, and has none of their own.
+    hidden = fixture_view(client, OPEN, mo)
+    assert hidden["picks"] == [] and hidden["myPick"]["margin"] == 12
     admin = admin_headers(client)
     view = fixture_view(client, OPEN, admin)
-    assert view["locked"] is False and view["myPick"] is None
-    assert pool(view) == [("Mo", "home", 12, False), ("Ola", "away", 2, False)]
+    assert view["locked"] is False and view["myPick"] is None and view["picks"] == []
+    # From kickoff the admin sees every pick.
+    assert pool(view_at_kickoff(client, clock, OPEN, admin)) == [("Mo", "home", 12, False), ("Ola", "away", 2, False)]
     refused = own_pick(client, OPEN, "home", 3, admin)
     assert refused.status_code == 409 and refused.json()["detail"]["code"] == "admin_not_a_member"
     refused = steward_picks(client, OPEN, [{"memberId": ids["Mo"], "side": "home", "margin": 3}], headers=admin)
@@ -2193,12 +2216,12 @@ def test_pick_visibility_for_the_admin_and_withdrawn_members(client: TestClient,
     # A withdrawn member's picks leave the pool and come back on reinstatement, where a new
     # pick replaces the old one rather than adding a second.
     assert withdraw(client, ids["Mo"]).status_code == 204
-    assert pool(fixture_view(client, OPEN, admin)) == [("Ola", "away", 2, False)]
+    assert pool(view_at_kickoff(client, clock, OPEN, admin)) == [("Ola", "away", 2, False)]
     assert steward_picks(client, OPEN, [{"memberId": ids["Mo"], "side": "home", "margin": 1}]).json()["detail"]["code"] == "unknown_member"
     assert client.post(lp(client, f"/members/{ids['Mo']}/reinstate"), headers=captain_headers(client)).status_code == 204
     assert fixture_view(client, OPEN, mo)["myPick"]["margin"] == 12
     assert own_pick(client, OPEN, "away", 6, mo).status_code == 200
-    assert pool(fixture_view(client, OPEN, admin)) == [("Mo", "away", 6, False), ("Ola", "away", 2, False)]
+    assert pool(view_at_kickoff(client, clock, OPEN, admin)) == [("Mo", "away", 6, False), ("Ola", "away", 2, False)]
     with migration_engine().begin() as connection:
         count = connection.execute(
             text(
@@ -2458,16 +2481,23 @@ def test_one_accounts_picks_on_a_competition_are_shared_by_its_leagues(client: T
     assert joined.status_code == 200, joined.text
     ids = member_ids(client)
 
-    # The captain's pick here is their pick in Zulu, under their Zulu name, and in Zulu's pool.
+    # The captain's pick here is their pick in Zulu, under their Zulu name, and in Zulu's pool
+    # from kickoff (before it everyone sees only their own pick).
+    admin = admin_headers(client)
+
+    def pool_at_kickoff(fixture_id: str, headers: dict, league_id: str | None = None) -> list[tuple]:
+        return pool(view_at_kickoff(client, clock, fixture_id, headers, league_id))
+
     assert own_pick(client, OPEN, "home", 4, captain).status_code == 200
     there = fixture_view(client, OPEN, captain, zulu)
     assert (there["myPick"]["memberId"], there["myPick"]["side"], there["myPick"]["margin"]) == (zulu_ids["Captain"], "home", 4)
-    assert pool(there) == [("Captain", "home", 4, False)]
+    assert there["picks"] == []
+    assert pool_at_kickoff(OPEN, captain, zulu) == [("Captain", "home", 4, False)]
     # And the other way round.
     assert own_pick(client, ALSO_OPEN, "away", 2, captain, league_id=zulu).status_code == 200
     here = fixture_view(client, ALSO_OPEN, captain)
     assert (here["myPick"]["memberId"], here["myPick"]["side"], here["myPick"]["margin"]) == (ids["Captain"], "away", 2)
-    assert pool(here) == [("Captain", "away", 2, False)]
+    assert here["picks"] == [] and pool_at_kickoff(ALSO_OPEN, captain) == [("Captain", "away", 2, False)]
 
     # The captain corrects Mo's pick in Zulu, and it is corrected here.
     assert own_pick(client, OPEN, "away", 3, mo).status_code == 200
@@ -2476,9 +2506,9 @@ def test_one_accounts_picks_on_a_competition_are_shared_by_its_leagues(client: T
     assert fixture_view(client, OPEN, mo)["myPick"]["margin"] == 9
     # Zulu's Ola is a name nobody has claimed: her pick stays in Zulu, even for the admin here.
     assert steward_picks(client, OPEN, [{"memberId": zulu_ids["Ola"], "side": "draw", "margin": 0}], league_id=zulu).status_code == 200
-    admin = admin_headers(client)
-    assert pool(fixture_view(client, OPEN, admin)) == [("Captain", "home", 4, False), ("Mo", "away", 9, False)]
-    assert pool(fixture_view(client, OPEN, mo, zulu)) == [("Captain", "home", 4, False), ("Mo", "away", 9, False), ("Ola", "draw", 0, False)]
+    assert fixture_view(client, OPEN, admin)["picks"] == []
+    assert pool_at_kickoff(OPEN, admin) == [("Captain", "home", 4, False), ("Mo", "away", 9, False)]
+    assert pool_at_kickoff(OPEN, mo, zulu) == [("Captain", "home", 4, False), ("Mo", "away", 9, False), ("Ola", "draw", 0, False)]
     # Each league audits only the changes made in it.
     assert [(e.after["fixtureId"], e.after["picks"]) for e in audit_rows(client, "picks.recorded")] == [
         (OPEN, {"Captain": "home 4"}),
@@ -2493,7 +2523,7 @@ def test_one_accounts_picks_on_a_competition_are_shared_by_its_leagues(client: T
     # Deleting Mo's pick here deletes it in Zulu.
     assert client.delete(lp(client, f"/matches/{OPEN}/picks/{ids['Mo']}"), headers=captain).status_code == 204
     assert fixture_view(client, OPEN, mo, zulu)["myPick"] is None
-    assert pool(fixture_view(client, OPEN, captain, zulu)) == [("Captain", "home", 4, False), ("Ola", "draw", 0, False)]
+    assert pool_at_kickoff(OPEN, captain, zulu) == [("Captain", "home", 4, False), ("Ola", "draw", 0, False)]
 
     # A Zulu duty covering Mo's pick is reported in Zulu only.
     assert own_pick(client, ALSO_OPEN, "home", 5, mo).status_code == 200
@@ -2566,7 +2596,8 @@ def test_a_released_name_keeps_its_picks_and_the_account_keeps_its_own(client: T
     assert client.post(lp(client, f"/members/{ids['Ola']}/release"), headers=captain).status_code == 204
     admin = admin_headers(client)
     for fixture_id, expected in ((OPEN, ("Ola", "home", 3, False)), (ALSO_OPEN, ("Ola", "away", 7, False))):
-        view = fixture_view(client, fixture_id, admin)
+        assert fixture_view(client, fixture_id, admin)["picks"] == []  # hidden until kickoff
+        view = view_at_kickoff(client, clock, fixture_id, admin)
         assert pool(view) == [expected], fixture_id
         assert view["picks"][0]["memberId"] == ids["Ola"]
     there = fixture_view(client, OPEN, wrong, zulu)["myPick"]
@@ -2574,7 +2605,7 @@ def test_a_released_name_keeps_its_picks_and_the_account_keeps_its_own(client: T
 
     # A change in Zulu no longer reaches the released name.
     assert own_pick(client, OPEN, "away", 1, wrong, league_id=zulu).status_code == 200
-    assert pool(fixture_view(client, OPEN, admin)) == [("Ola", "home", 3, False)]
+    assert pool(view_at_kickoff(client, clock, OPEN, admin)) == [("Ola", "home", 3, False)]
     # The right account claims Ola and takes the name's picks.
     right = signed_in(client, "RIGHT", f"right-{uuid4().hex[:8]}@example.com")
     assert client.post(f"/v1/join/{join_code(client)}", json={"membershipId": ids["Ola"]}, headers=right).status_code == 200

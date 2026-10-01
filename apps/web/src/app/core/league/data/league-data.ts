@@ -50,8 +50,8 @@ export abstract class LeagueData {
   /** Recorded round totals: overrides of the totals derived from the picks. */
   abstract readonly standings: Signal<readonly RoundStanding[]>;
   /**
-   * Every scored fixture's picks from the starting round on, with the stored result. Another
-   * member's picks are hidden before kickoff until the member has picked.
+   * Every scored fixture's picks from the starting round on, with the stored result. Other
+   * members' picks are hidden from everyone before kickoff.
    */
   abstract readonly picks: Signal<readonly FixturePicks[]>;
   /** The season's Superbru rules. */
