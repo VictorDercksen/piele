@@ -23,10 +23,10 @@
           <form class="pick-form" [formGroup]="form" (ngSubmit)="save()" novalidate>
             <div class="form-head">
               <span class="legend" id="pick-scale-legend">Your pick</span>
-              <span class="lock"
+              <span hlmBadge variant="outline" class="status-pill lock" data-tone="muted"
                 ><ng-icon name="lucideLock" aria-hidden="true" />Picks lock at kickoff{{
                   p.fixture.kickoffUtc ? ', ' : ''
-                }}{{ p.fixture.kickoffUtc | leagueTime: 'd MMM HH:mm z' : zone() }}.</span
+                }}{{ p.fixture.kickoffUtc | leagueTime: 'd MMM HH:mm z' : zone() }}</span
               >
             </div>
             <div class="matchup">
@@ -253,7 +253,10 @@
       }
       @if (p.hidden) {
         <p class="pool-note">
-          <ng-icon name="lucideUsers" aria-hidden="true" />The pool's picks show here at kickoff.
+          <span hlmBadge variant="outline" class="status-pill" data-tone="muted"
+            ><ng-icon name="lucideUsers" aria-hidden="true" />The pool's picks show here at
+            kickoff</span
+          >
         </p>
       }
     </ng-container>

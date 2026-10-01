@@ -262,10 +262,10 @@ describe('PicksPanel', () => {
       ['21', 'Bulls by 21'],
     ]);
     expect(root.querySelector('#pick-margin')?.getAttribute('inputmode')).toBe('numeric');
-    expect(text('.lock')).toMatch(/^Picks lock at kickoff, \d+ \w{3} \d{2}:\d{2} \S+\.$/);
+    expect(text('.lock')).toMatch(/^Picks lock at kickoff, \d+ \w{3} \d{2}:\d{2} \S+$/);
     // One line for the pool, which promises it at kickoff only.
     expect(root.querySelector('.form-note')).toBeNull();
-    expect(text('.pool-note')).toBe("The pool's picks show here at kickoff.");
+    expect(text('.pool-note')).toBe("The pool's picks show here at kickoff");
     expect(root.querySelectorAll('.pool-note')).toHaveLength(1);
     expect(root.querySelector('table')).toBeNull();
     expect(root.querySelector('.sway')).toBeNull();
@@ -327,7 +327,7 @@ describe('PicksPanel', () => {
     expect(root.querySelector('form')).toBeNull();
     expect(text('.mine .chip')).toBe('Bulls by 20');
     expect(root.querySelector('table')).toBeNull();
-    expect(text('.pool-note')).toBe("The pool's picks show here at kickoff.");
+    expect(text('.pool-note')).toBe("The pool's picks show here at kickoff");
   });
 
   it('reads the marker as a margin toward a side, with the middle a draw', async () => {
@@ -468,7 +468,7 @@ describe('PicksPanel', () => {
     expect(text('.mine .chip')).toBe('Bulls by 20');
     expect(root.querySelector('.mine .edit')).not.toBeNull();
     // No pool before kickoff: no table, split, chevron or scoring legend, one line instead.
-    expect(text('.pool-note')).toBe("The pool's picks show here at kickoff.");
+    expect(text('.pool-note')).toBe("The pool's picks show here at kickoff");
     expect(root.querySelector('table')).toBeNull();
     expect(root.querySelector('.sway')).toBeNull();
     expect(root.querySelector('.section-title .chevron')).toBeNull();
@@ -638,7 +638,7 @@ describe('PicksPanel', () => {
     expect(root.querySelector('.mine')).toBeNull();
     expect(root.querySelector('table')).toBeNull();
     expect(root.querySelector('.chevron')).toBeNull();
-    expect(text('.pool-note')).toBe("The pool's picks show here at kickoff.");
+    expect(text('.pool-note')).toBe("The pool's picks show here at kickoff");
 
     current.set(
       picksView({

@@ -40,6 +40,16 @@
   color: var(--muted);
   margin: 12px 0 0;
 }
+/* The venue, forecast hour, provider and update time, a pill each. */
+.panel-source {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.panel-source .status-pill {
+  white-space: normal;
+  text-align: start;
+}
 .panel-note {
   padding-top: 10px;
   border-top: 1px dashed var(--line);
