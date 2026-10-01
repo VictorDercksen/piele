@@ -41,7 +41,6 @@ describe('kickoffRuler', () => {
     expect(ruler.made).toBe(5);
     expect(ruler.open).toBe(3);
     expect(ruler.missed).toBe(0);
-    expect(ruler.now).toEqual({ day: 'THU', time: '19:00' });
     expect(ruler.pin).toBe(0);
     expect(ruler.slots.map((slot) => `${slot.day} ${slot.time}`)).toEqual([
       'FRI 20:45',
@@ -85,7 +84,6 @@ describe('kickoffRuler', () => {
       SATURDAY,
     )!;
     expect(ruler.pin).toBe(1);
-    expect(ruler.now).toEqual({ day: 'SAT', time: '10:00' });
     expect(ruler.made).toBe(1);
     expect(ruler.missed).toBe(2);
     expect(ruler.open).toBe(5);
@@ -113,6 +111,33 @@ describe('kickoffRuler', () => {
       label: 'Leinster v Cardiff: no pick yet',
     });
     expect(ruler.pin).toBe(1);
+  });
+
+  it('drops the pin once every kickoff has passed', () => {
+    const ruler = kickoffRuler(
+      ROUND_3,
+      picks({ [GLASGOW_CONNACHT]: pick('home', 7) }),
+      URC,
+      Date.parse('2026-10-11T08:00:00Z'),
+    )!;
+    expect(ruler.pin).toBeNull();
+    expect(ruler.made).toBe(1);
+    expect(ruler.missed).toBe(7);
+    expect(ruler.open).toBe(0);
+  });
+
+  it('is null for a finished round without a pick of the member’s', () => {
+    expect(kickoffRuler(ROUND_3, picks({}), URC, Date.parse('2026-10-11T08:00:00Z'))).toBeNull();
+    // A fixture still to be scheduled keeps the round open.
+    const unknown = { ...ROUND_3[7], id: 'tbc-1', kickoffUtc: null };
+    const ruler = kickoffRuler(
+      [...ROUND_3, unknown],
+      picks({}),
+      URC,
+      Date.parse('2026-10-11T08:00:00Z'),
+    )!;
+    expect(ruler.pin).toBe(5);
+    expect(ruler.slots[5].day).toBe('TBC');
   });
 
   it('is null for a round without fixtures', () => {
