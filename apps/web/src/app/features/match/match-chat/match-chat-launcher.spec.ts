@@ -98,6 +98,14 @@ describe('MatchChatLauncher', () => {
     expect(host.classList.contains('shown')).toBe(true);
   });
 
+  it('stays hidden once the match has kicked off and the API reports the chat closed', async () => {
+    const { fixture, host, http } = setup();
+    http.expectOne(URL).flush({ ...THREAD, open: false });
+    await settle(fixture);
+    expect(host.classList.contains('shown')).toBe(false);
+    http.verify();
+  });
+
   it('reads the thread of each fixture the page moves to, once', async () => {
     const { fixture, host, http } = setup();
     http.expectOne(URL).flush(THREAD);

@@ -46,6 +46,7 @@ needs_database = pytest.mark.skipif(not DATABASE_URL, reason="PIELE_TEST_DATABAS
 AGENT_TOKEN = "chat-agent-token-" + "y" * 32
 AGENT_URL = "https://agent.test"
 OTHER = "292606"  # Ulster v Munster, same kickoff as FIXTURE
+LATER = "292607"  # Leinster v Cardiff, kicks off 18:45 the same day
 NOW = KICKOFF - timedelta(days=1)
 QUESTION = "Who is missing for Scarlets this week?"
 ANSWER = "Benetton start New Ten at fly-half [1]."
@@ -353,13 +354,13 @@ def test_history_keeps_only_answered_questions_so_roles_alternate() -> None:
     assert store.in_flight(dangling, at + timedelta(seconds=89)) and not store.in_flight(dangling, at + timedelta(seconds=91))
 
 
-def test_the_window_runs_from_three_days_before_kickoff_to_two_days_after() -> None:
+def test_the_window_runs_from_three_days_before_kickoff_until_kickoff() -> None:
     fixture = URC.schedule().fixture(FIXTURE)
     assert not limits.is_open(fixture, None, KICKOFF - timedelta(days=3, seconds=1))
     assert limits.is_open(fixture, None, KICKOFF - timedelta(days=3))
-    assert limits.is_open(fixture, None, KICKOFF + timedelta(days=2))
-    assert not limits.is_open(fixture, None, KICKOFF + timedelta(days=2, seconds=1))
-    assert not limits.is_open(fixture, KICKOFF - timedelta(days=1), KICKOFF)
+    assert limits.is_open(fixture, None, KICKOFF - timedelta(seconds=1))
+    assert not limits.is_open(fixture, None, KICKOFF)
+    assert not limits.is_open(fixture, KICKOFF - timedelta(days=1), KICKOFF - timedelta(hours=1))
 
 
 # Settings -------------------------------------------------------------------------------
@@ -615,7 +616,7 @@ def test_the_pool_reaches_the_model_only_once_the_member_has_picked(chat: TestCl
 @needs_database
 def test_the_chat_is_closed_outside_the_window(chat: TestClient, clock) -> None:
     mo = mo_headers(chat)
-    for moment in (KICKOFF - timedelta(days=3, minutes=1), KICKOFF + timedelta(days=2, minutes=1)):
+    for moment in (KICKOFF - timedelta(days=3, minutes=1), KICKOFF, KICKOFF + timedelta(hours=2)):
         clock(moment)
         assert thread(chat, mo)["open"] is False
         response = ask(chat, mo)
@@ -640,10 +641,11 @@ def test_thread_and_daily_limits(storage: FakeStorage, agent: Agent, clock) -> N
     assert other.status_code == 200 and other.headers["x-chat-remaining-today"] == "0"
     refused = ask(client, mo, fixture_id=OTHER)
     assert refused.status_code == 429 and code(refused) == "chat_daily_limit"
-    # A day later the daily limit is fresh again (the thread limit is not).
+    # A day later the daily limit is fresh again (the thread limit is not). By then FIXTURE and
+    # OTHER have kicked off and closed, so the fresh question goes to the evening match.
     clock(NOW + timedelta(hours=24, seconds=1))
-    assert thread(client, mo, OTHER)["remainingToday"] == 3
-    assert ask(client, mo, fixture_id=OTHER).status_code == 200
+    assert thread(client, mo, LATER)["remainingToday"] == 3
+    assert ask(client, mo, fixture_id=LATER).status_code == 200
     assert agent.requests and len(agent.requests) == 4
 
 

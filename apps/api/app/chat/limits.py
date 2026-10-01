@@ -17,15 +17,14 @@ from app.league.service import problem
 from app.matchcentre.schedule import Fixture
 
 OPENS_BEFORE_KICKOFF = timedelta(days=3)
-CLOSES_AFTER_KICKOFF = timedelta(days=2)
 DAY = timedelta(hours=24)
 
 
 def is_open(fixture: Fixture, season_closed_at: datetime | None, now: datetime) -> bool:
-    """From three days before kickoff to two days after it, while the season is open."""
+    """From three days before kickoff until kickoff, when picks lock, while the season is open."""
     if fixture.kickoff_utc is None or (season_closed_at is not None and season_closed_at <= now):
         return False
-    return fixture.kickoff_utc - OPENS_BEFORE_KICKOFF <= now <= fixture.kickoff_utc + CLOSES_AFTER_KICKOFF
+    return fixture.kickoff_utc - OPENS_BEFORE_KICKOFF <= now < fixture.kickoff_utc
 
 
 def lock_key(membership_id: UUID, fixture_id: str) -> str:

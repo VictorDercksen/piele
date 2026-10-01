@@ -50,7 +50,7 @@ class ChatMessage(BaseModel):
 
 class ChatThread(BaseModel):
     fixtureId: str
-    # From three days before kickoff to two days after it, while the season is open.
+    # From three days before kickoff until kickoff, when picks lock, while the season is open.
     open: bool
     remainingInThread: int
     remainingToday: int

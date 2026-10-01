@@ -3,7 +3,7 @@ export const QUESTIONS_PER_THREAD = 6;
 
 export const INTRO_TEXT =
   'Ask about the teamsheets, the forecast, the preview or your pick. Answers cite their sources.';
-export const CLOSED_TEXT = 'The chat opens three days before kickoff and closes two days after.';
+export const CLOSED_TEXT = 'The chat opens three days before kickoff and closes at kickoff.';
 export const UNAVAILABLE_TEXT = 'The Pavilion could not answer just now.';
 
 const REFUSALS: Readonly<Record<string, string>> = {

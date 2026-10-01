@@ -15,7 +15,7 @@ export class ChatService {
   readonly fixtureId = this.store.fixtureId.asReadonly();
   readonly loaded = computed(() => this.store.thread() !== null);
   readonly messages = computed<readonly ChatMessage[]>(() => this.store.thread()?.messages ?? []);
-  /** From three days before kickoff to two days after it, while the season is open. */
+  /** From three days before kickoff until kickoff, when picks lock, while the season is open. */
   readonly open = computed(() => this.store.thread()?.open ?? false);
   readonly remainingInThread = computed(() => this.store.thread()?.remainingInThread ?? 0);
   readonly remainingToday = computed(() => this.store.thread()?.remainingToday ?? 0);

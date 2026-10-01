@@ -108,7 +108,7 @@ def begin(
         fixture = chat_fixture(actor, fixture_id)
         moment = now()
         if not limits.is_open(fixture, actor.season_closed_at, moment):
-            raise league.problem(409, "chat_closed", "The chat opens three days before kickoff and closes two days after it.")
+            raise league.problem(409, "chat_closed", "The chat opens three days before kickoff and closes at kickoff.")
         messages = store.thread(connection, actor.league_id, membership_id, fixture.id)
         # Busy: another first transaction for this thread is running right now (the advisory
         # lock, released at commit), or an earlier question is still streaming (its answer is
