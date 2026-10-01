@@ -256,6 +256,12 @@
             </button>
           }
         </div>
+        @if (poolOfOne()) {
+          <p class="pool-note">
+            <ng-icon name="lucideUsers" aria-hidden="true" />You're the first in. The pool's picks
+            show here as the others make theirs, and at kickoff.
+          </p>
+        }
       }
     </ng-container>
 
