@@ -37,7 +37,7 @@
       >
     </div>
   </div>
-  <div class="match-footer" [class.ruled]="!!ruler()">
+  <div class="match-footer">
     <div class="match-venue">
       @if (stadiumIcon(); as icon) {
         <img class="stadium-icon" [src]="icon" alt="" (error)="iconFailed.set(icon)" />
@@ -71,7 +71,14 @@
         <strong>{{ shown().venue }}</strong>
       </div>
     </div>
-    @if (ruler(); as ruler) {
+    @if (linked()) {
+      <button hlmBtn type="button" class="match-link" (click)="explore.emit()">
+        Enter the match centre <app-icon name="arrow" />
+      </button>
+    }
+  </div>
+  @if (ruler(); as ruler) {
+    <div class="pick-band">
       <div class="kickoff-ruler">
         <span class="ruler-label"
           >YOUR PICKS · <b>{{ ruler.made }} OF {{ ruler.total }}</b> IN
@@ -131,11 +138,6 @@
           </div>
         </ng-template>
       </div>
-    }
-    @if (linked()) {
-      <button hlmBtn type="button" class="match-link" (click)="explore.emit()">
-        Enter the match centre <app-icon name="arrow" />
-      </button>
-    }
-  </div>
+    </div>
+  }
 </section>

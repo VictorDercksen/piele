@@ -366,17 +366,19 @@
 /*
  * The round's picks along the weekend's kickoffs: the member's pick wears its club's crest, an
  * open pick is a coral ring, a missed one a muted ring. Kickoffs run left to right past a coral
- * "now" pin. The row scrolls sideways where the footer is too narrow for every kickoff.
+ * "now" pin. The band sits under the match footer on its own darker ground, so it reads as the
+ * round's and not the featured match's. The row scrolls sideways where the band is too narrow
+ * for every kickoff.
  */
-.match-footer.ruled {
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 16px 28px;
+.pick-band {
+  padding: 16px 26px 18px;
+  border-top: 1px solid #e0e4d540;
+  background: #050d10d9;
+  box-shadow: inset 0 6px 12px -8px #000;
 }
 
 .kickoff-ruler {
   display: flex;
-  flex: 1 1 340px;
   flex-direction: column;
   gap: 8px;
   min-width: 0;
@@ -552,16 +554,8 @@
   outline-offset: 2px;
 }
 
-@container (max-width: 750px) {
-  .match-footer.ruled {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  /* Stacked, the ruler's flex basis would set its height, not its width. */
-  .match-footer.ruled .kickoff-ruler {
-    flex: none;
-  }
-  .match-footer.ruled .match-link {
-    align-self: stretch;
+@container (max-width: 480px) {
+  .pick-band {
+    padding: 14px 16px 16px;
   }
 }
