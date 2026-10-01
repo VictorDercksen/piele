@@ -9,8 +9,3 @@ export function questionControl(): FormControl<string> {
     validators: [Validators.maxLength(QUESTION_MAX_LENGTH)],
   });
 }
-
-/** Enter sends; Shift+Enter is a new line, and Enter while an IME is composing is the IME's. */
-export function sendsOnEnter(event: KeyboardEvent): boolean {
-  return event.key === 'Enter' && !event.shiftKey && !event.isComposing;
-}

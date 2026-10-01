@@ -3,6 +3,7 @@ import {
   chatNotice,
   chatOff,
   membershipText,
+  readyQuestions,
   remainingText,
 } from './match-chat.messages';
 
@@ -50,5 +51,14 @@ describe('match chat messages', () => {
   it('counts the questions left', () => {
     expect(remainingText(4, 18)).toBe('4 of 6 questions left for this match · 18 left today');
     expect(remainingText(-1, 0)).toBe('0 of 6 questions left for this match · 0 left today');
+  });
+
+  it('offers the ready questions for both sides', () => {
+    expect(readyQuestions('Scarlets', 'Benetton')).toEqual([
+      'Who is missing for Scarlets?',
+      'Who is missing for Benetton?',
+      'What is the forecast at kickoff?',
+      'Summarise the preview',
+    ]);
   });
 });

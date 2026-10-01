@@ -1,0 +1,154 @@
+<hlm-dialog
+  [positionStrategy]="position"
+  aria-labelledby="match-chat-title"
+  autoFocus="dialog"
+  [restoreFocus]="returnFocus() ?? true"
+>
+  <hlm-dialog-content *hlmDialogPortal class="match-chat-sheet" [showCloseButton]="false">
+    <span class="handle" aria-hidden="true"></span>
+    <div class="sheet-head">
+      <span class="mark" aria-hidden="true"><ng-icon name="lucideBot" /></span>
+      <div class="titles">
+        <h2 id="match-chat-title">The Pavilion</h2>
+        <p class="fixture-line">{{ home() }} v {{ away() }}</p>
+      </div>
+      <button hlmBtn type="button" class="close" aria-label="Close the chat" (click)="close()">
+        <ng-icon name="lucideX" aria-hidden="true" />
+      </button>
+    </div>
+    <p class="intro">{{ introText }}</p>
+
+    @if (loadFailed() && !membership()) {
+      <p class="state" role="alert">
+        The chat could not be loaded.
+        <button hlmBtn type="button" class="text-button" (click)="reload()">
+          Try again<ng-icon class="link-icon" name="lucideRotateCcw" />
+        </button>
+      </p>
+    } @else if (membership(); as text) {
+      <p class="state">{{ text }}</p>
+    } @else if (!loaded()) {
+      <p class="state">Loading the chat.</p>
+    } @else {
+      @if (closed()) {
+        <p class="state">{{ closedText }}</p>
+      } @else if (showChips()) {
+        <ul class="chips" aria-label="Ready questions">
+          @for (ready of readyQuestions(); track ready) {
+            <li>
+              <button hlmBtn type="button" class="chip" (click)="ask(ready)">{{ ready }}</button>
+            </li>
+          }
+        </ul>
+      }
+      <div class="thread" #threadScroll>
+        @if (messages().length) {
+          <ol class="messages" role="log" aria-label="Your questions and the Pavilion's answers">
+            @for (message of messages(); track message.id) {
+              <li
+                class="bubble"
+                [class.mine]="message.role === 'user'"
+                [class.pavilion]="message.role === 'assistant'"
+                [attr.data-status]="message.status"
+              >
+                <span class="speaker">
+                  @if (message.role === 'assistant') {
+                    <ng-icon name="lucideBot" aria-hidden="true" />The Pavilion
+                  } @else {
+                    You
+                  }
+                </span>
+                <p class="text">{{ message.text }}</p>
+                @if (message.sources.length) {
+                  <ul class="sources" aria-label="Sources">
+                    @for (source of message.sources; track source.url) {
+                      <li>
+                        <a [href]="source.url" target="_blank" rel="noopener noreferrer"
+                          >{{ source.title }}<ng-icon class="link-icon" name="lucideExternalLink"
+                        /></a>
+                      </li>
+                    }
+                  </ul>
+                }
+              </li>
+            }
+          </ol>
+        }
+        @if (busy()) {
+          <div class="bubble pavilion streaming" aria-busy="true">
+            <span class="speaker"><ng-icon name="lucideBot" aria-hidden="true" />The Pavilion</span>
+            <p class="text">{{ streamingText() }}<span class="cursor" aria-hidden="true"></span></p>
+            @if (streamingSources().length) {
+              <ul class="sources" aria-label="Sources">
+                @for (source of streamingSources(); track source.url) {
+                  <li>
+                    <a [href]="source.url" target="_blank" rel="noopener noreferrer"
+                      >{{ source.title }}<ng-icon class="link-icon" name="lucideExternalLink"
+                    /></a>
+                  </li>
+                }
+              </ul>
+            }
+          </div>
+        }
+      </div>
+
+      @if (!closed()) {
+        @if (notice(); as text) {
+          <p class="notice" role="status">{{ text }}</p>
+        }
+        <form class="ask" (submit)="onSubmit($event)">
+          <label hlmLabel class="sr-only" for="match-chat-question">Your question</label>
+          <div class="field">
+            <input
+              hlmInput
+              #questionInput
+              id="match-chat-question"
+              type="text"
+              placeholder="Ask about this match"
+              autocomplete="off"
+              enterkeyhint="send"
+              [attr.maxlength]="maxLength"
+              [formControl]="question"
+            />
+            @if (busy()) {
+              <button
+                hlmBtn
+                type="button"
+                class="send"
+                aria-label="Stop the answer"
+                (click)="stop()"
+              >
+                <ng-icon name="lucideSquare" aria-hidden="true" />
+              </button>
+            } @else {
+              <button
+                hlmBtn
+                type="submit"
+                class="send"
+                aria-label="Send question"
+                [disabled]="!sendable()"
+              >
+                <ng-icon name="lucideSend" aria-hidden="true" />
+              </button>
+            }
+          </div>
+        </form>
+        <div class="foot">
+          <p class="remaining">{{ remaining() }}</p>
+          @if (messages().length) {
+            <button
+              hlmBtn
+              type="button"
+              class="text-button clear"
+              [disabled]="busy()"
+              (click)="clear()"
+            >
+              Clear
+            </button>
+          }
+        </div>
+      }
+    }
+  </hlm-dialog-content>
+</hlm-dialog>

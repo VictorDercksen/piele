@@ -168,8 +168,13 @@ brn-switch {
 .pavilion-dialog-backdrop.cdk-overlay-backdrop-showing {
   --spartan-overlay-backdrop-opacity: 1;
 }
-.pavilion-dialog-backdrop[data-state='closed']:has(~ * .round-sheet) {
+.pavilion-dialog-backdrop[data-state='closed']:has(~ * :is(.round-sheet, .match-chat-sheet)) {
   --spartan-overlay-backdrop-opacity: 0;
+}
+// The match chat's sheet dims the page without blurring it.
+.pavilion-dialog-backdrop:has(~ * .match-chat-sheet) {
+  background: #0b1518aa;
+  backdrop-filter: none;
 }
 @media (prefers-reduced-motion: reduce) {
   .pavilion-dialog-backdrop {
