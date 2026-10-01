@@ -72,6 +72,35 @@
 .launcher:hover .disc {
   background: #2bd6cc;
 }
+/* The member's club: a club-colour disc inside a knitted scarf ring of colour, chalk and accent. */
+.launcher.club {
+  isolation: isolate;
+}
+.launcher.club .disc {
+  position: relative;
+  background: var(--club);
+  box-shadow: 0 10px 26px #0009;
+  color: var(--chalk);
+}
+.launcher.club .disc::before {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  z-index: -1;
+  border-radius: 50%;
+  background: repeating-conic-gradient(
+    var(--club) 0 18deg,
+    var(--chalk) 18deg 23deg,
+    var(--club-accent) 23deg 40deg,
+    var(--chalk) 40deg 45deg
+  );
+}
+.launcher.club:hover .disc {
+  background: color-mix(in srgb, var(--club) 85%, var(--chalk));
+}
+.launcher.club:focus-visible .disc {
+  outline-offset: 8px;
+}
 @media (max-width: 399.98px) {
   .label {
     display: none;

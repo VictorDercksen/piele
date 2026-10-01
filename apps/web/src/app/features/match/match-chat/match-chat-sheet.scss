@@ -12,13 +12,36 @@
   height: calc(100vh - 120px);
   height: calc(100dvh - 120px);
   padding: 0 16px max(12px, env(safe-area-inset-bottom));
-  border-top: 3px solid #14c8be;
+  border-top: 3px solid var(--chat-accent);
   border-radius: 22px 22px 0 0;
   background: var(--surface-grain), #122227;
   box-shadow: 0 -12px 40px #000a;
   color: var(--chalk);
   overflow: hidden;
   animation: sheet-rise 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+  /* The member's club accent where the sheet has one (`--club*` are bound with the club). */
+  --chat-accent: var(--club-accent, #14c8be);
+  --send-fill: var(--chat-accent);
+  --send-ink: var(--night);
+}
+.match-chat-sheet[data-club] {
+  border-top: 0;
+  --send-fill: var(--club);
+  --send-ink: var(--chalk);
+}
+/* A knitted supporter's scarf along the top edge: club colour, chalk and accent. */
+.scarf {
+  flex: none;
+  height: 12px;
+  margin: 0 -16px;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--club) 0 34px,
+    var(--chalk) 34px 38px,
+    var(--club-accent) 38px 50px,
+    var(--chalk) 50px 54px
+  );
+  box-shadow: inset 0 -2px 0 #0003;
 }
 .match-chat-sheet[data-state='closed'] {
   animation: sheet-sink 0.2s cubic-bezier(0.4, 0, 1, 1) forwards;
@@ -61,6 +84,9 @@
   .handle {
     display: none;
   }
+  .scarf {
+    margin: -12px -16px 4px;
+  }
 }
 @keyframes panel-rise {
   from {
@@ -89,7 +115,7 @@
   width: 38px;
   height: 38px;
   border-radius: 50%;
-  background: #14c8be;
+  background: var(--chat-accent);
   color: var(--night);
   --ng-icon__size: 22px;
 }
@@ -165,9 +191,9 @@
   align-items: center;
   min-height: 36px;
   padding: 6px 14px;
-  border: 1px solid #14c8be66;
+  border: 1px solid color-mix(in srgb, var(--chat-accent) 40%, transparent);
   border-radius: 999px;
-  background: #14c8be14;
+  background: color-mix(in srgb, var(--chat-accent) 8%, transparent);
   color: var(--chalk);
   font-size: 13px;
   line-height: 1.2;
@@ -179,7 +205,7 @@
   inset: -4px 0;
 }
 .chip:hover {
-  background: #14c8be29;
+  background: color-mix(in srgb, var(--chat-accent) 16%, transparent);
 }
 
 /* The thread fills the room between the chips and the question field and scrolls. */
@@ -211,19 +237,85 @@
 }
 .bubble.mine {
   align-self: flex-end;
-  border-color: #14c8be55;
+  border-color: color-mix(in srgb, var(--chat-accent) 33%, transparent);
   border-bottom-right-radius: 4px;
-  background: #14c8be1f;
+  background: color-mix(in srgb, var(--chat-accent) 12%, transparent);
 }
 .bubble.pavilion {
   align-self: flex-start;
   border-bottom-left-radius: 4px;
   background: var(--night);
 }
+/* Your questions on the club's banner pattern, under a dark club-colour tint that keeps the text clear. */
+.bubble.kit {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-color: color-mix(in srgb, var(--club-accent) 45%, transparent);
+  background: var(--club-banner, var(--club));
+}
+.bubble.kit::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--club) 42%, #0b1518e6),
+    color-mix(in srgb, var(--club) 26%, #0b1518d9)
+  );
+}
+.kit-pattern {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.kit .speaker {
+  color: #f2efdfcc;
+}
+.kit .text {
+  text-shadow: 0 1px 2px #0008;
+}
 .streaming {
   width: fit-content;
 }
-.messages + .streaming {
+.messages + /* Your questions on the club's banner pattern, under a dark club-colour tint that keeps the text clear. */
+.bubble.kit {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-color: color-mix(in srgb, var(--club-accent) 45%, transparent);
+  background: var(--club-banner, var(--club));
+}
+.bubble.kit::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--club) 42%, #0b1518e6),
+    color-mix(in srgb, var(--club) 26%, #0b1518d9)
+  );
+}
+.kit-pattern {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.kit .speaker {
+  color: #f2efdfcc;
+}
+.kit .text {
+  text-shadow: 0 1px 2px #0008;
+}
+.streaming {
   margin-top: 12px;
 }
 .bubble[data-status='failed'],
@@ -251,7 +343,7 @@
 .speaker ng-icon {
   flex: none;
   font-size: 14px;
-  color: #14c8be;
+  color: var(--chat-accent);
 }
 .text {
   margin: 0;
@@ -294,7 +386,7 @@
   min-height: 44px;
   font-size: 12px;
   font-weight: 600;
-  color: #14c8be;
+  color: var(--chat-accent);
   text-decoration: none;
   overflow-wrap: anywhere;
 }
@@ -322,8 +414,8 @@
   background: var(--night);
 }
 .field:focus-within {
-  border-color: #14c8be;
-  outline: 2px solid #14c8be80;
+  border-color: var(--chat-accent);
+  outline: 2px solid color-mix(in srgb, var(--chat-accent) 50%, transparent);
   outline-offset: 2px;
 }
 .field input[hlmInput] {
@@ -353,8 +445,8 @@
   padding: 3px;
   border: 0;
   border-radius: 50%;
-  background: #14c8be content-box;
-  color: var(--night);
+  background: var(--send-fill) content-box;
+  color: var(--send-ink);
   --ng-icon__size: 18px;
 }
 .send:disabled {
@@ -379,7 +471,7 @@
   min-height: 44px;
   padding: 6px 4px;
   font-size: 11px;
-  color: #14c8be;
+  color: var(--chat-accent);
 }
 .foot .clear:disabled {
   opacity: 0.45;

@@ -38,6 +38,7 @@ import {
   readyQuestions,
   remainingText,
 } from './match-chat.messages';
+import { ChatClub } from './match-chat.models';
 
 /** The key of the card for a thread that could not be cleared. */
 export const CLEAR_FAILURE = 'match-chat-clear';
@@ -47,6 +48,7 @@ export const CLEAR_FAILURE = 'match-chat-clear';
  * modal sheet opened from the match page's launcher. A bottom sheet up to 1050 px, a side panel
  * on the right above that, both rendered in the dialog overlay. Answers keep their `[n]` markers
  * and list the sources they cite as external links. Agent text is bound as plain text only.
+ * With a club, a scarf stripe runs along the top and the member's questions sit on its banner.
  */
 @Component({
   selector: 'app-match-chat-sheet',
@@ -79,6 +81,8 @@ export class MatchChatSheet {
   readonly fixtureId = input.required<string>();
   readonly home = input.required<string>();
   readonly away = input.required<string>();
+  /** The member's favourite club; null keeps the Pavilion's teal. */
+  readonly club = input<ChatClub | null>(null);
   /** Gets focus back when the sheet closes: the launcher, which Safari does not focus on click. */
   readonly returnFocus = input<HTMLElement | null>(null);
 
