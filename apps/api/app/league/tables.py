@@ -252,27 +252,45 @@ round_standings = Table(
     _ts("updated_at", nullable=False),
 )
 
-# Superbru picks (20260927110000_picks_and_rules.sql): one per member and fixture, found by
-# member because a reinstated member's earlier picks sit on the withdrawn season membership.
-# Signed from the home side: 'home'/'away' with a margin of 1 to 150, 'draw' with 0, 'missed'
-# with none. `is_default` marks a Superbru default pick (home or away only).
+# Superbru picks (20261002090000_universal_picks.sql): one per owner, competition and fixture.
+# The owner is the account once the name is claimed (`user_id`, read by every league of
+# theirs on the competition), else the unclaimed league membership (`membership_id` and
+# `league_id`, league-local until the name is claimed). Signed from the home side:
+# 'home'/'away' with a margin of 1 to 150, 'draw' with 0, 'missed' with none. `is_default`
+# marks a Superbru default pick (home or away only).
 picks = Table(
     "picks",
+    metadata,
+    Column("id", UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")),
+    Column("competition_id", String(40), nullable=False),
+    Column("fixture_id", String(40), nullable=False),
+    Column("user_id", UUID(as_uuid=True)),
+    Column("membership_id", UUID(as_uuid=True)),
+    Column("league_id", UUID(as_uuid=True)),
+    Column("side", String(10), nullable=False),
+    Column("margin", SmallInteger),
+    Column("is_default", Boolean, nullable=False),
+    # The member, captain or admin who recorded it. Null only on migrated rows whose
+    # recorder had no account.
+    Column("recorded_by_user_id", UUID(as_uuid=True)),
+    Column("version", Integer, nullable=False),
+    _ts("created_at", nullable=False),
+    _ts("updated_at", nullable=False),
+)
+
+# The pick confirmation duty that covers a member's pick of a fixture (20261002090000).
+# League-local, so it lives beside the shared pick: one link per season membership and
+# fixture, many links to one duty.
+pick_duty_links = Table(
+    "pick_duty_links",
     metadata,
     Column("id", UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")),
     Column("league_id", UUID(as_uuid=True), nullable=False),
     Column("season_id", UUID(as_uuid=True), nullable=False),
     Column("season_membership_id", UUID(as_uuid=True), nullable=False),
     Column("fixture_id", String(40), nullable=False),
-    Column("side", String(10), nullable=False),
-    Column("margin", SmallInteger),
-    Column("is_default", Boolean, nullable=False),
-    # The pick confirmation duty that covers this pick, if any.
-    Column("duty_id", UUID(as_uuid=True)),
-    Column("recorded_by_membership_id", UUID(as_uuid=True), nullable=False),
-    Column("version", Integer, nullable=False),
+    Column("duty_id", UUID(as_uuid=True), nullable=False),
     _ts("created_at", nullable=False),
-    _ts("updated_at", nullable=False),
 )
 
 feed_entries = Table(

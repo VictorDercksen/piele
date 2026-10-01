@@ -20,7 +20,7 @@ from app.agent.internationals import player_key
 from app.chat.glossary import UNIONS
 
 MAX_CHARS = 32_000
-POOL_HIDDEN = "The other members' picks are hidden until you have made your own pick or the match has kicked off."
+POOL_HIDDEN = "The other members' picks are hidden until kickoff."
 # The state sources, as (url, title, publisher).
 MATCH_CENTRE = ("https://www.unitedrugby.com/match-centre", "URC match centre", "United Rugby Championship")
 OPEN_METEO = ("https://open-meteo.com/", "Open-Meteo forecast", "Open-Meteo")

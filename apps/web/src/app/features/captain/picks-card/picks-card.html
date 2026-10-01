@@ -5,7 +5,11 @@
   </p>
 
   @if (strip().length) {
-    <div class="fixture-strip" role="group" [attr.aria-label]="fixtureService.round().title + ' fixtures'">
+    <div
+      class="fixture-strip"
+      role="group"
+      [attr.aria-label]="fixtureService.round().title + ' fixtures'"
+    >
       @for (item of strip(); track item.fixture.id) {
         <button
           hlmBtn
@@ -32,12 +36,7 @@
   }
 
   @if (chosen(); as item) {
-    <div
-      class="pick-grid"
-      [class.read-only]="readOnly()"
-      [class.with-default]="defaultPicks()"
-      [class.with-score]="scored()"
-    >
+    <div class="pick-grid" [class.with-default]="defaultPicks()" [class.with-score]="scored()">
       <h3 class="grid-heading">
         {{ item.fixture.home }} v {{ item.fixture.away }}
         @if (scored() && picks()?.result) {
@@ -48,128 +47,128 @@
       </h3>
       @if (readOnly()) {
         <p class="grid-note">
-          Members make their own picks until kickoff. You can correct picks from kickoff.
+          Members make their own picks until kickoff. Their picks show here at kickoff, when you can
+          record or correct them.
         </p>
-      }
-      <div class="grid-head" aria-hidden="true">
-        <span class="member">Member</span><span class="pick-head">Pick</span
-        ><span class="margin">Margin</span>
-        @if (defaultPicks()) {
-          <span class="default">Default</span>
-        }
-        <span class="missed">Missed</span>
-        @if (scored()) {
-          <span class="score">W · M · B · Pts</span>
-        }
-      </div>
-      <ul
-        class="grid-rows"
-        [attr.aria-label]="'Picks for ' + item.homeName + ' v ' + item.awayName"
-      >
-        @for (row of grid(); track row.memberId) {
-          @let c = row.group.controls;
-          @let rowId = 'pick-' + item.fixture.id + '-' + row.memberId;
-          @let rowScore = score(row.memberId);
-          @let name = look(row.memberId)?.name ?? row.name;
-          <li class="grid-row" [class.you]="look(row.memberId)?.you">
-            <span class="member">
-              <app-member-avatar
-                [name]="name"
-                [photo]="look(row.memberId)?.photo ?? null"
-                [teamId]="look(row.memberId)?.teamId ?? row.teamId"
-              />
-              <strong>{{ name }}</strong>
-            </span>
-            <div
-              hlmRadioGroup
-              [formControl]="c.side"
-              [name]="rowId"
-              class="side-picker"
-              [attr.aria-label]="name + '\'s pick'"
-            >
-              <label
-                hlmLabel
-                class="side"
-                [title]="item.homeName"
-                [style.--club]="item.home?.colour ?? null"
-              >
-                <hlm-radio value="home" />
-                <img [src]="jersey(item.fixture.homeAsset)" alt="" /><span
-                  class="visually-hidden"
-                  >{{ item.homeName }}</span
-                >
-              </label>
-              <label hlmLabel class="side draw">
-                <hlm-radio value="draw" />
-                <span>Draw</span>
-              </label>
-              <label
-                hlmLabel
-                class="side"
-                [title]="item.awayName"
-                [style.--club]="item.away?.colour ?? null"
-              >
-                <hlm-radio value="away" />
-                <img [src]="jersey(item.fixture.awayAsset)" alt="" /><span
-                  class="visually-hidden"
-                  >{{ item.awayName }}</span
-                >
-              </label>
-            </div>
-            <span class="margin">
-              <label hlmLabel class="cell-label" [for]="rowId + '-margin'"
-                >Margin<span class="visually-hidden"> for {{ name }}</span></label
-              >
-              <input
-                hlmInput
-                [id]="rowId + '-margin'"
-                type="text"
-                inputmode="numeric"
-                maxlength="3"
-                autocomplete="off"
-                [formControl]="c.margin"
-                [aria-invalid]="invalidRows().has(row.memberId)"
-              />
-            </span>
-            @if (defaultPicks()) {
-              <label hlmLabel class="check default">
-                <hlm-checkbox [formControl]="c.isDefault" />
-                <span class="cell-label"
-                  >Default<span class="visually-hidden"> pick for {{ name }}</span></span
-                >
-              </label>
-            }
-            <label hlmLabel class="check missed">
-              <hlm-checkbox [formControl]="c.missed" />
-              <span class="cell-label"
-                >Missed<span class="visually-hidden"> by {{ name }}</span></span
-              >
-            </label>
-            @if (scored()) {
-              <span class="score">
-                @if (rowScore?.scored) {
-                  <span class="parts"
-                    ><span class="visually-hidden">Win points </span>{{ rowScore!.wp
-                    }}<span aria-hidden="true"> · </span
-                    ><span class="visually-hidden">, margin point </span>{{ rowScore!.mp
-                    }}<span aria-hidden="true"> · </span
-                    ><span class="visually-hidden">, bonus point </span>{{ rowScore!.bp }}</span
-                  >
-                  <strong
-                    ><span class="visually-hidden">, total </span>{{ rowScore!.points
-                    }}<span class="visually-hidden"> points</span></strong
-                  >
-                } @else {
-                  <span class="parts">No pick</span>
-                }
+      } @else {
+        <div class="grid-head" aria-hidden="true">
+          <span class="member">Member</span><span class="pick-head">Pick</span
+          ><span class="margin">Margin</span>
+          @if (defaultPicks()) {
+            <span class="default">Default</span>
+          }
+          <span class="missed">Missed</span>
+          @if (scored()) {
+            <span class="score">W · M · B · Pts</span>
+          }
+        </div>
+        <ul
+          class="grid-rows"
+          [attr.aria-label]="'Picks for ' + item.homeName + ' v ' + item.awayName"
+        >
+          @for (row of grid(); track row.memberId) {
+            @let c = row.group.controls;
+            @let rowId = 'pick-' + item.fixture.id + '-' + row.memberId;
+            @let rowScore = score(row.memberId);
+            @let name = look(row.memberId)?.name ?? row.name;
+            <li class="grid-row" [class.you]="look(row.memberId)?.you">
+              <span class="member">
+                <app-member-avatar
+                  [name]="name"
+                  [photo]="look(row.memberId)?.photo ?? null"
+                  [teamId]="look(row.memberId)?.teamId ?? row.teamId"
+                />
+                <strong>{{ name }}</strong>
               </span>
-            }
-          </li>
-        } @empty {
-          <li class="grid-empty">Nobody is on the team sheet this season.</li>
-        }
-      </ul>
-      @if (!readOnly()) {
+              <div
+                hlmRadioGroup
+                [formControl]="c.side"
+                [name]="rowId"
+                class="side-picker"
+                [attr.aria-label]="name + '\'s pick'"
+              >
+                <label
+                  hlmLabel
+                  class="side"
+                  [title]="item.homeName"
+                  [style.--club]="item.home?.colour ?? null"
+                >
+                  <hlm-radio value="home" />
+                  <img [src]="jersey(item.fixture.homeAsset)" alt="" /><span
+                    class="visually-hidden"
+                    >{{ item.homeName }}</span
+                  >
+                </label>
+                <label hlmLabel class="side draw">
+                  <hlm-radio value="draw" />
+                  <span>Draw</span>
+                </label>
+                <label
+                  hlmLabel
+                  class="side"
+                  [title]="item.awayName"
+                  [style.--club]="item.away?.colour ?? null"
+                >
+                  <hlm-radio value="away" />
+                  <img [src]="jersey(item.fixture.awayAsset)" alt="" /><span
+                    class="visually-hidden"
+                    >{{ item.awayName }}</span
+                  >
+                </label>
+              </div>
+              <span class="margin">
+                <label hlmLabel class="cell-label" [for]="rowId + '-margin'"
+                  >Margin<span class="visually-hidden"> for {{ name }}</span></label
+                >
+                <input
+                  hlmInput
+                  [id]="rowId + '-margin'"
+                  type="text"
+                  inputmode="numeric"
+                  maxlength="3"
+                  autocomplete="off"
+                  [formControl]="c.margin"
+                  [aria-invalid]="invalidRows().has(row.memberId)"
+                />
+              </span>
+              @if (defaultPicks()) {
+                <label hlmLabel class="check default">
+                  <hlm-checkbox [formControl]="c.isDefault" />
+                  <span class="cell-label"
+                    >Default<span class="visually-hidden"> pick for {{ name }}</span></span
+                  >
+                </label>
+              }
+              <label hlmLabel class="check missed">
+                <hlm-checkbox [formControl]="c.missed" />
+                <span class="cell-label"
+                  >Missed<span class="visually-hidden"> by {{ name }}</span></span
+                >
+              </label>
+              @if (scored()) {
+                <span class="score">
+                  @if (rowScore?.scored) {
+                    <span class="parts"
+                      ><span class="visually-hidden">Win points </span>{{ rowScore!.wp
+                      }}<span aria-hidden="true"> · </span
+                      ><span class="visually-hidden">, margin point </span>{{ rowScore!.mp
+                      }}<span aria-hidden="true"> · </span
+                      ><span class="visually-hidden">, bonus point </span>{{ rowScore!.bp }}</span
+                    >
+                    <strong
+                      ><span class="visually-hidden">, total </span>{{ rowScore!.points
+                      }}<span class="visually-hidden"> points</span></strong
+                    >
+                  } @else {
+                    <span class="parts">No pick</span>
+                  }
+                </span>
+              }
+            </li>
+          } @empty {
+            <li class="grid-empty">Nobody is on the team sheet this season.</li>
+          }
+        </ul>
         <div class="grid-actions">
           <button
             hlmBtn

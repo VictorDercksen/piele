@@ -248,8 +248,8 @@ export interface FixtureResult {
 }
 
 /**
- * One fixture's picks (`GET /picks`). `picks` is empty while hidden: before kickoff to a
- * member who has not picked yet; `myPick` is always the member's own.
+ * One fixture's picks (`GET /picks`). `picks` is empty while hidden: before kickoff, to
+ * everyone (the captain and the admin too); `myPick` is always the member's own.
  */
 export interface FixturePicks {
   readonly fixtureId: string;

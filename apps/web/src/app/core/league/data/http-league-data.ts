@@ -59,6 +59,10 @@ type StandInChange = Schemas['StandInChange'];
 export const SETTLE_DELAY_MS = 2_000;
 /** A case still open after its window (a clock off from the API's) is read again this often. */
 export const SETTLE_RETRY_MS = 60_000;
+/** The picks are read again this soon after a loaded fixture's kickoff, when the pool shows. */
+export const KICKOFF_DELAY_MS = 2_000;
+/** The longest delay `setTimeout` keeps; a later kickoff is waited for in steps. */
+const MAX_TIMER_MS = 2_147_483_647;
 
 export type MembershipState = 'unknown' | 'loading' | 'member' | 'not_member' | 'error';
 
@@ -137,18 +141,27 @@ export class HttpLeagueData extends LeagueData {
   private pending: Promise<MembershipState> | null = null;
   /** Reads the records again once the earliest open case's voting window has closed. */
   private settleTimer: ReturnType<typeof setTimeout> | undefined;
+  /** Reads the picks again once the next loaded fixture kicks off (the pool shows then). */
+  private kickoffTimer: ReturnType<typeof setTimeout> | undefined;
+  /** Fixtures whose kickoff has already caused a picks reload in this league. */
+  private readonly kickoffsRead = new Set<string>();
+  /** The kickoff reload in flight, so a second one waits for it rather than doubling it. */
+  private kickoffLoad: Promise<void> | null = null;
 
   constructor() {
     super();
     // The API settles closed voting windows when read; coming back to the tab reads again
     // when a window closed meanwhile (timers are throttled or paused in hidden tabs).
+    // Likewise for a kickoff that passed while the tab was hidden: the pool shows from it.
     const onVisible = () => {
-      if (document.visibilityState === 'visible' && this.caseDue())
-        void this.refresh().catch(() => undefined);
+      if (document.visibilityState !== 'visible') return;
+      if (this.caseDue()) void this.refresh().catch(() => undefined);
+      else if (this.kickoffsDue().length) this.reloadAtKickoff(this.league());
     };
     document.addEventListener('visibilitychange', onVisible);
     inject(DestroyRef).onDestroy(() => {
       clearTimeout(this.settleTimer);
+      clearTimeout(this.kickoffTimer);
       document.removeEventListener('visibilitychange', onVisible);
     });
   }
@@ -205,6 +218,9 @@ export class HttpLeagueData extends LeagueData {
     this.caseRecords.set([]);
     this.standIn.set(NO_STAND_IN);
     clearTimeout(this.settleTimer);
+    clearTimeout(this.kickoffTimer);
+    this.kickoffsRead.clear();
+    this.kickoffLoad = null;
     this.feedRecords.set([]);
     this.read.set({ readAt: null, readKeys: [] });
     this.errorState.set(null);
@@ -490,7 +506,72 @@ export class HttpLeagueData extends LeagueData {
   private async loadPicks(leagueId = this.league()): Promise<void> {
     const picks = await this.request<ApiFixturePicks[]>('GET', '/picks', undefined, leagueId);
     if (this.league() !== leagueId) return;
+    this.setPicks(picks);
+  }
+
+  /** Adopts a full picks read and waits for the next kickoff among them. */
+  private setPicks(picks: readonly ApiFixturePicks[]): void {
     this.pickRecords.set(picks.map(toFixturePicks));
+    this.scheduleKickoffReload();
+  }
+
+  /**
+   * Loaded fixtures the API still sent as open whose kickoff passed (by KICKOFF_DELAY_MS) and
+   * that have not caused a reload yet: their pool's picks show now.
+   */
+  private kickoffsDue(now = Date.now()): string[] {
+    return this.pickRecords()
+      .filter(
+        (f) =>
+          !f.locked &&
+          !!f.kickoffUtc &&
+          Date.parse(f.kickoffUtc) + KICKOFF_DELAY_MS <= now &&
+          !this.kickoffsRead.has(f.fixtureId),
+      )
+      .map((f) => f.fixtureId);
+  }
+
+  /** Reads the picks again just after the next open fixture's kickoff. */
+  private scheduleKickoffReload(): void {
+    clearTimeout(this.kickoffTimer);
+    const leagueId = this.league();
+    const kickoffs = this.pickRecords()
+      .filter((f) => !f.locked && !!f.kickoffUtc && !this.kickoffsRead.has(f.fixtureId))
+      .map((f) => Date.parse(f.kickoffUtc!))
+      .filter((at) => Number.isFinite(at));
+    if (!leagueId || !kickoffs.length) return;
+    const wait = Math.max(0, Math.min(...kickoffs) + KICKOFF_DELAY_MS - Date.now());
+    this.kickoffTimer = setTimeout(
+      () => this.reloadAtKickoff(leagueId),
+      Math.min(wait, MAX_TIMER_MS),
+    );
+  }
+
+  /**
+   * One picks read for every fixture that has kicked off since the last one, while the tab is
+   * visible (coming back to the tab does it otherwise). A failed read is tried again after
+   * SETTLE_RETRY_MS; a read already in flight is not doubled.
+   */
+  private reloadAtKickoff(leagueId: string | null): void {
+    if (!leagueId || this.league() !== leagueId || this.kickoffLoad) return;
+    if (document.visibilityState === 'hidden') return;
+    const due = this.kickoffsDue();
+    if (!due.length) {
+      this.scheduleKickoffReload();
+      return;
+    }
+    for (const id of due) this.kickoffsRead.add(id);
+    const load = this.loadPicks(leagueId)
+      .catch(() => {
+        if (this.league() !== leagueId) return;
+        for (const id of due) this.kickoffsRead.delete(id);
+        clearTimeout(this.kickoffTimer);
+        this.kickoffTimer = setTimeout(() => this.reloadAtKickoff(leagueId), SETTLE_RETRY_MS);
+      })
+      .finally(() => {
+        if (this.kickoffLoad === load) this.kickoffLoad = null;
+      });
+    this.kickoffLoad = load;
   }
 
   /** Replaces one fixture's picks with what a write returned. */
@@ -637,7 +718,7 @@ export class HttpLeagueData extends LeagueData {
     this.standIn.set(standIn);
     this.scheduleSettlement(leagueId);
     this.standingRecords.set(standings.map(toStanding));
-    this.pickRecords.set(picks.map(toFixturePicks));
+    this.setPicks(picks);
     this.dutyRecords.set(
       duties.map(({ roundNumber, pickFixtureIds, ...duty }) => ({
         ...duty,

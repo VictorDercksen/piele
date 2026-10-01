@@ -42,6 +42,7 @@ from tests.test_league import (  # noqa: F401 (fixtures)
     lp,
     mo_headers,
     open_duty,
+    second_league,
     signed_in,
     storage,
     upload_and_submit,
@@ -362,14 +363,15 @@ def fixture(fixture_id: str, kickoff: datetime) -> Fixture:
     return Fixture(fixture_id, 2, "leinster", "munster", kickoff, "Aviva Stadium")
 
 
-def league_of(client: TestClient, competition) -> job.League:
+def league_of(client: TestClient, competition, league_id: str | None = None) -> job.League:
+    league_id = league_id or client.league_id
     with job.begin(get_engine(league_settings())) as connection:
         row = connection.execute(
-            text("select id, slug, name, timezone from piele.leagues where id = :l"), {"l": client.league_id}
+            text("select id, slug, name, timezone from piele.leagues where id = :l"), {"l": league_id}
         ).one()
-        connection.execute(text("select set_config('piele.league_id', :l, true)"), {"l": client.league_id})
+        connection.execute(text("select set_config('piele.league_id', :l, true)"), {"l": league_id})
         season_id = connection.execute(
-            text("select id from piele.seasons where league_id = :l and status = 'active'"), {"l": client.league_id}
+            text("select id from piele.seasons where league_id = :l and status = 'active'"), {"l": league_id}
         ).scalar_one()
     return job.League(row.id, row.slug, row.name, row.timezone, season_id, competition)
 
@@ -414,6 +416,17 @@ def test_old_events_and_kicked_off_fixtures_are_not_announced(push_client: TestC
         assert job.new_events(connection, competition, now) == {}
 
 
+def account_pick(connection, competition, fixture_id: str, user_id: UUID) -> None:
+    """The account's pick of the fixture, as the job sees it: it names no league."""
+    connection.execute(
+        text(
+            "insert into piele.picks (competition_id, fixture_id, user_id, side, margin, recorded_by_user_id)"
+            " values (:c, :f, :u, 'home', 5, :u)"
+        ),
+        {"c": competition.id, "f": fixture_id, "u": str(user_id)},
+    )
+
+
 @needs_db
 def test_members_without_a_pick_are_reminded_a_day_and_an_hour_before(push_client: TestClient) -> None:
     mo = mo_headers(push_client)
@@ -433,15 +446,7 @@ def test_members_without_a_pick_are_reminded_a_day_and_an_hour_before(push_clien
     assert day["title"] == "2 picks are due" and day["url"] == f"/{league.slug}/match/{soon.id}" and day["tag"] == f"picks:{league.id}"
     # Mo picks the later match; an hour before the first, only it is left.
     with job.begin(engine) as connection:
-        connection.execute(text("select set_config('piele.league_id', :l, true)"), {"l": str(league.id)})
-        connection.execute(
-            text(
-                "insert into piele.picks (league_id, season_id, season_membership_id, fixture_id, side, margin, recorded_by_membership_id)"
-                " select :l, :s, sm.id, :f, 'home', 5, :m from piele.season_memberships sm where sm.membership_id = :m and sm.status = 'active'"
-            ),
-            {"l": str(league.id), "s": str(league.season_id), "f": later.id, "m": str(mo_id)},
-        )
-        connection.execute(text("select set_config('piele.league_id', '', true)"))
+        account_pick(connection, competition, later.id, mo_member[0].user_id)
         hour = now + timedelta(hours=19, minutes=30)
         assert job.remind(connection, league, mo_member, {mo_member[0].user_id}, hour) == 1
     last = queued(mo, push_client)[-1]
@@ -457,6 +462,33 @@ def test_members_without_a_pick_are_reminded_a_day_and_an_hour_before(push_clien
     with job.begin(engine) as connection:
         muted = [m for m in job.league_members(connection, league) if m.id == mo_id]
         assert job.remind(connection, league, muted, set(), now + timedelta(hours=21, minutes=30)) == 0
+
+
+@needs_db
+def test_a_pick_made_in_another_league_on_the_competition_stops_the_reminders(push_client: TestClient) -> None:
+    """Mo is a member here and captain of Zulu, both on the competition. Mo's pick, made in
+    Zulu, is Mo's pick here too: neither league reminds Mo, while the captain here, who has
+    not picked, is reminded."""
+    captain, mo = captain_headers(push_client), mo_headers(push_client)
+    zulu = second_league(push_client, push_client.mo_email)
+    assert push_client.get("/v1/me", headers=mo).status_code == 200  # claims the Zulu captain name
+    now = datetime.now(timezone.utc)
+    soon = fixture(f"r{uuid4().hex[:8]}", now + timedelta(hours=20))
+    competition = StubCompetition([soon])
+    here, there = league_of(push_client, competition), league_of(push_client, competition, zulu)
+    mo_user = UUID(push_client.get("/v1/me", headers=mo).json()["userId"])
+    engine = get_engine(league_settings())
+    with job.begin(engine) as connection:
+        connection.execute(text("select set_config('piele.league_id', :l, true)"), {"l": zulu})
+        account_pick(connection, competition, soon.id, mo_user)
+        connection.execute(text("select set_config('piele.league_id', '', true)"))
+        members = {league.id: job.league_members(connection, league) for league in (here, there)}
+        assert mo_user in {m.user_id for m in members[here.id]} and [m.user_id for m in members[there.id]] == [mo_user]
+        assert job.remind(connection, there, members[there.id], {mo_user}, now) == 0
+        assert job.remind(connection, here, members[here.id], {mo_user}, now) == 1
+    assert [m for m in queued(mo, push_client) if m["kind"] == "pick_reminder"] == []
+    [reminder] = [m for m in queued(captain, push_client) if m["kind"] == "pick_reminder"]
+    assert reminder["url"] == f"/{here.slug}/match/{soon.id}"
 
 
 @needs_db

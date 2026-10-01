@@ -73,8 +73,17 @@ function picksView(change: Partial<FixturePicksView> = {}): FixturePicksView {
   };
 }
 
-/** Before kickoff with the member's pick in. */
+/** Before kickoff with the member's pick in: the pool is hidden, only their own pick shows. */
 const OPEN = picksView({
+  recorded: true,
+  myPick: MINE,
+  rows: [row(MINE)],
+  sway: { home: 0, draw: 0, away: 100 },
+});
+
+/** Kicked off, no score yet: the pool shows. */
+const LOCKED = picksView({
+  locked: true,
   hidden: false,
   recorded: true,
   myPick: MINE,
@@ -254,7 +263,10 @@ describe('PicksPanel', () => {
     ]);
     expect(root.querySelector('#pick-margin')?.getAttribute('inputmode')).toBe('numeric');
     expect(text('.lock')).toMatch(/^Picks lock at kickoff, \d+ \w{3} \d{2}:\d{2} \S+\.$/);
-    expect(text('.form-note')).toBe("Make your pick to see the pool's picks.");
+    // One line for the pool, which promises it at kickoff only.
+    expect(root.querySelector('.form-note')).toBeNull();
+    expect(text('.pool-note')).toBe("The pool's picks show here at kickoff.");
+    expect(root.querySelectorAll('.pool-note')).toHaveLength(1);
     expect(root.querySelector('table')).toBeNull();
     expect(root.querySelector('.sway')).toBeNull();
     expect(root.querySelector('.mine')).toBeNull();
@@ -310,10 +322,12 @@ describe('PicksPanel', () => {
     expect(alerts.alerts().map((a) => [a.severity, a.message])).toEqual([
       ['success', 'Pick saved: Bulls by 20.'],
     ]);
-    // The data layer adopted the pick: the panel shows the member's strip and the pool.
+    // The data layer adopted the pick: the panel shows the member's strip, and still no pool
+    // before kickoff.
     expect(root.querySelector('form')).toBeNull();
     expect(text('.mine .chip')).toBe('Bulls by 20');
-    expect(root.querySelectorAll('tbody tr')).toHaveLength(2);
+    expect(root.querySelector('table')).toBeNull();
+    expect(text('.pool-note')).toBe("The pool's picks show here at kickoff.");
   });
 
   it('reads the marker as a margin toward a side, with the middle a draw', async () => {
@@ -445,55 +459,16 @@ describe('PicksPanel', () => {
     expect(alerts.alerts().map((a) => a.severity)).toEqual(['success']);
   });
 
-  it('shows the pool, the sway bar and an Edit button once the member has picked', async () => {
+  it("shows only the member's own pick, an Edit button and a line before kickoff", async () => {
     const { root, text, settle, margin, marker } = setup(OPEN);
     await settle();
     expect(text('.status-pill')).toBe('open');
     expect(root.querySelector('form')).toBeNull();
     expect(root.querySelector('.mine')?.classList).toContain('you');
     expect(text('.mine .chip')).toBe('Bulls by 20');
-    // The split heads the pool's drawer, so it shows only with the table.
-    expect(root.querySelector('.dropdown-lead .sway')).toBeNull();
-    expect(root.querySelector('#picks-pool .sway')?.getAttribute('aria-label')).toBe(
-      "The pool's split: Zebre 50%, Bulls 50%.",
-    );
-    expect(root.querySelectorAll('.sway-part b')).toHaveLength(2);
-    // No marks or points before kickoff.
-    expect(root.querySelectorAll('thead th')).toHaveLength(2);
-    expect(root.querySelector('.mark')).toBeNull();
-    const you = root.querySelector('tbody tr.you')!;
-    expect(you.querySelector('.name')?.textContent).toBe('Victor');
-    expect(you.querySelector('.you-tag')?.textContent).toBe('YOU');
-
-    root.querySelector<HTMLButtonElement>('.mine .edit')!.click();
-    await settle();
-    expect(marker().getAttribute('aria-valuenow')).toBe('20');
-    expect(marker().getAttribute('aria-valuetext')).toBe('Bulls by 20');
-    expect(root.querySelector('.end.away')?.classList).toContain('won');
-    expect(margin().value).toBe('20');
-    expect(text('.lock')).toMatch(/^Picks lock at kickoff/);
-    expect(root.querySelector('.form-note')).toBeNull();
-    // The pool stays below the form while editing.
-    expect(root.querySelectorAll('tbody tr')).toHaveLength(2);
-  });
-
-  it("says nobody else has picked while only the member's own pick is visible", async () => {
-    const { root, text, settle } = setup(
-      picksView({
-        hidden: false,
-        recorded: true,
-        myPick: MINE,
-        rows: [row(MINE)],
-        sway: { home: 0, draw: 0, away: 100 },
-      }),
-    );
-    await settle();
-    // The member's strip stands alone: no table or split that would only repeat it, no chevron.
-    expect(text('.mine .chip')).toBe('Bulls by 20');
     expect(root.querySelector('.mine .edit')).not.toBeNull();
-    expect(text('.pool-note')).toBe(
-      "You're the first in. The pool's picks show here as the others make theirs, and at kickoff.",
-    );
+    // No pool before kickoff: no table, split, chevron or scoring legend, one line instead.
+    expect(text('.pool-note')).toBe("The pool's picks show here at kickoff.");
     expect(root.querySelector('table')).toBeNull();
     expect(root.querySelector('.sway')).toBeNull();
     expect(root.querySelector('.section-title .chevron')).toBeNull();
@@ -502,6 +477,11 @@ describe('PicksPanel', () => {
     // Editing keeps Save and Cancel in the margin's row, and Cancel keeps its name.
     root.querySelector<HTMLButtonElement>('.mine .edit')!.click();
     await settle();
+    expect(marker().getAttribute('aria-valuenow')).toBe('20');
+    expect(marker().getAttribute('aria-valuetext')).toBe('Bulls by 20');
+    expect(root.querySelector('.end.away')?.classList).toContain('won');
+    expect(margin().value).toBe('20');
+    expect(text('.lock')).toMatch(/^Picks lock at kickoff/);
     const foot = root.querySelector('.form-foot')!;
     expect(foot.querySelector('.margin-field #pick-margin')).not.toBeNull();
     expect(foot.querySelector('.form-actions .primary-button')?.textContent?.trim()).toBe(
@@ -509,11 +489,34 @@ describe('PicksPanel', () => {
     );
     expect(foot.querySelector('.form-actions .cancel')?.textContent?.trim()).toBe('Cancel');
     expect(root.querySelector('.sway')).toBeNull();
+    expect(root.querySelector('table')).toBeNull();
+    expect(root.querySelectorAll('.pool-note')).toHaveLength(1);
+  });
+
+  it('shows the pool and the sway bar from kickoff', async () => {
+    const { root, text, settle } = setup(LOCKED);
+    await settle();
+    expect(text('.status-pill')).toBe('locked');
+    expect(root.querySelector('form')).toBeNull();
+    expect(text('.mine .chip')).toBe('Bulls by 20');
+    expect(root.querySelector('.mine .edit')).toBeNull();
     expect(root.querySelector('.pool-note')).toBeNull();
+    // The split heads the pool's drawer, so it shows only with the table.
+    expect(root.querySelector('.dropdown-lead .sway')).toBeNull();
+    expect(root.querySelector('#picks-pool .sway')?.getAttribute('aria-label')).toBe(
+      "The pool's split: Zebre 50%, Bulls 50%.",
+    );
+    expect(root.querySelectorAll('.sway-part b')).toHaveLength(2);
+    // No marks or points before results.
+    expect(root.querySelector('.mark')).toBeNull();
+    expect(root.querySelectorAll('tbody tr')).toHaveLength(2);
+    const you = root.querySelector('tbody tr.you')!;
+    expect(you.querySelector('.name')?.textContent).toBe('Victor');
+    expect(you.querySelector('.you-tag')?.textContent).toBe('YOU');
   });
 
   it('keeps the pool table closed by default and opens it from the chevron', async () => {
-    const { root, settle } = setup(OPEN);
+    const { root, settle } = setup(LOCKED);
     await settle();
     const section = root.querySelector('section.panel')!;
     const chevron = root.querySelector<HTMLButtonElement>('.section-title .chevron')!;
@@ -547,6 +550,9 @@ describe('PicksPanel', () => {
     await settle();
     expect(root.querySelector('.chevron')).toBeNull();
     current.set(OPEN);
+    await settle();
+    expect(root.querySelector('.chevron')).toBeNull();
+    current.set(LOCKED);
     await settle();
     root.querySelector<HTMLButtonElement>('.chevron')!.click();
     await settle();
@@ -625,12 +631,30 @@ describe('PicksPanel', () => {
     expect(text('.mine .chip')).toBe('No pick');
   });
 
-  it('gives the admin viewing a league it is not in the pool without a form', async () => {
-    const adminOpen = picksView({ ...OPEN, recorded: false, myPick: null, hidden: false });
-    const { root, settle } = setup(adminOpen, { admin: true });
+  it('gives the admin viewing a league it is not in no form, and the pool only from kickoff', async () => {
+    const { root, text, current, settle } = setup(picksView(), { admin: true });
     await settle();
     expect(root.querySelector('form')).toBeNull();
     expect(root.querySelector('.mine')).toBeNull();
+    expect(root.querySelector('table')).toBeNull();
+    expect(root.querySelector('.chevron')).toBeNull();
+    expect(text('.pool-note')).toBe("The pool's picks show here at kickoff.");
+
+    current.set(
+      picksView({
+        ...LOCKED,
+        recorded: false,
+        myPick: null,
+        rows: [
+          row(pick('member-dan', 'DanB97', 'home', 15)),
+          row(pick('member-wihan', 'Wihan4', 'away', 25)),
+        ],
+      }),
+    );
+    await settle();
+    expect(root.querySelector('form')).toBeNull();
+    expect(root.querySelector('.mine')).toBeNull();
+    expect(root.querySelector('.pool-note')).toBeNull();
     expect(root.querySelectorAll('tbody tr')).toHaveLength(2);
   });
 

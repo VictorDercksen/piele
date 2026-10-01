@@ -54,8 +54,8 @@ import { stripItem } from './picks-card.strip';
 
 /**
  * The captain's desk's Superbru picks for the selected round: a strip of the round's fixtures
- * with each one's pick state, and for the chosen fixture a grid of every member's pick that
- * the steward can record or correct from kickoff (sides, margins, Superbru defaults and missed
+ * with each one's pick state, and for the chosen fixture from kickoff a grid of every member's
+ * pick that the steward can record or correct (sides, margins, Superbru defaults and missed
  * picks, sending only the rows that changed). Under it, the round's derived totals beside
  * the recorded ones with an inline override, and the round's spoon holders with a shortcut to
  * propose their duty.
@@ -141,7 +141,10 @@ export class PicksCard {
     const chosen = this.chosen();
     return chosen ? this.pickService.picksFor(chosen.fixture.id) : null;
   });
-  /** Before kickoff members make their own picks: the grid only shows them. */
+  /**
+   * Before kickoff members make their own picks and nobody, the captain included, sees the
+   * pool's: the grid waits for kickoff.
+   */
   readonly readOnly = computed(() => !this.picks()?.locked);
   /** A score to count: each row shows its points. */
   readonly scored = computed(() => {

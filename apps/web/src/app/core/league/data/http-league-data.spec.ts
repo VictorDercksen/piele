@@ -3,7 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { environment } from '../../../../environments/environment';
 import { AuthService } from '../../auth/auth.service';
-import { HttpLeagueData, SETTLE_DELAY_MS } from './http-league-data';
+import { HttpLeagueData, KICKOFF_DELAY_MS, SETTLE_DELAY_MS } from './http-league-data';
 import { NO_STAND_IN } from './league-data';
 import { DEFAULT_RULES } from '../superbru';
 
@@ -812,6 +812,73 @@ describe('HttpLeagueData', () => {
       http.expectNone(`${API}/evidence/cases`);
     } finally {
       visibility.mockRestore();
+    }
+    league.clear();
+    http.verify();
+  });
+
+  it('reads the picks again once per kickoff, and on coming back to the tab after one', async () => {
+    const { league, http } = setup();
+    await loadSteward(http, league);
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    const visibility = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
+    const flush = async () => {
+      for (let i = 0; i < 10; i++) await Promise.resolve();
+    };
+    try {
+      const now = Date.now();
+      const friday = new Date(now + 60_000).toISOString();
+      const saturday = new Date(now + 24 * 60 * 60_000).toISOString();
+      const open = (fixtureId: string, kickoffUtc: string) =>
+        apiFixture(fixtureId, { kickoffUtc, locked: false, result: null, picks: [] });
+      // Two fixtures kick off together on Friday, one on Saturday.
+      league.reload();
+      http.expectOne(`${API}/members?include=withdrawn`).flush([]);
+      for (const path of ['/standings', '/duties', '/marks', '/evidence/cases', '/feed?limit=200'])
+        http.expectOne(`${API}${path}`).flush([]);
+      http.expectOne(`${API}/stand-in-reviewer`).flush(NO_STAND_IN);
+      http
+        .expectOne(`${API}/picks`)
+        .flush([open('f-1', friday), open('f-2', friday), open('f-3', saturday)]);
+      await flush();
+      expect(league.picks().map((f) => f.picks.length)).toEqual([0, 0, 0]);
+
+      vi.advanceTimersByTime(60_000 + KICKOFF_DELAY_MS - 1);
+      http.expectNone(`${API}/picks`);
+      // Kickoff: one read for both fixtures, and the pool shows.
+      vi.advanceTimersByTime(1);
+      http
+        .expectOne(`${API}/picks`)
+        .flush([
+          apiFixture('f-1', { kickoffUtc: friday, result: null }),
+          apiFixture('f-2', { kickoffUtc: friday, result: null }),
+          open('f-3', saturday),
+        ]);
+      await flush();
+      expect(league.picks().map((f) => [f.locked, f.picks.length])).toEqual([
+        [true, 2],
+        [true, 2],
+        [false, 0],
+      ]);
+      vi.advanceTimersByTime(60 * 60_000);
+      http.expectNone(`${API}/picks`);
+
+      // Saturday's kickoff passes while the tab is hidden: the read waits for the tab.
+      visibility.mockReturnValue('hidden');
+      vi.advanceTimersByTime(24 * 60 * 60_000);
+      http.expectNone(`${API}/picks`);
+      visibility.mockReturnValue('visible');
+      document.dispatchEvent(new Event('visibilitychange'));
+      document.dispatchEvent(new Event('visibilitychange'));
+      // An API whose clock lags still sends Saturday's as open: no second read for it.
+      http.expectOne(`${API}/picks`).flush([open('f-3', saturday)]);
+      await flush();
+      vi.advanceTimersByTime(24 * 60 * 60_000);
+      document.dispatchEvent(new Event('visibilitychange'));
+      http.expectNone(`${API}/picks`);
+    } finally {
+      visibility.mockRestore();
+      vi.useRealTimers();
     }
     league.clear();
     http.verify();

@@ -286,6 +286,11 @@ describe('sample league data', () => {
 
     const fixture = (data: SampleLeagueData, id: string) =>
       data.picks().find((f) => f.fixtureId === id)!;
+    /** Moves the date to round 3's Friday kickoff (292600) and reloads, as the app does. */
+    const kickOff = (data: SampleLeagueData) => {
+      vi.setSystemTime(Date.parse('2026-10-09T18:45:00Z'));
+      data.reload();
+    };
 
     it('lists every scheduled fixture with the sample results and the league’s picks', () => {
       const data = sample();
@@ -324,18 +329,19 @@ describe('sample league data', () => {
       expect(data.standings()).toEqual([]);
     });
 
-    it('hides the pool’s picks before kickoff until the member has picked', async () => {
+    it('hides the pool’s picks from everyone before kickoff, as the API does', async () => {
       const data = sample();
       await data.recordPicks('292600', [{ memberId: 'member-jp', side: 'home', margin: 8 }]);
       expect(fixture(data, '292600').picks).toEqual([]);
+      // The member's own pick being in does not open the pool before kickoff.
       await data.savePick('292600', { side: 'away', margin: 3 });
       const after = fixture(data, '292600');
       expect(after.myPick).toEqual(
         expect.objectContaining({ side: 'away', margin: 3, isDefault: false }),
       );
-      expect(after.picks.map((p) => p.memberName).sort()).toEqual(['Johan', 'You']);
+      expect(after.picks).toEqual([]);
       await data.savePick('292600', { side: 'draw', margin: 0 });
-      expect(fixture(data, '292600').picks.length).toBe(2);
+      expect(fixture(data, '292600').picks).toEqual([]);
 
       await expect(data.savePick('292584', { side: 'home', margin: 3 })).rejects.toMatchObject({
         code: 'picks_locked',
@@ -346,6 +352,35 @@ describe('sample league data', () => {
       await expect(data.savePick('nope', { side: 'home', margin: 3 })).rejects.toMatchObject({
         code: 'unknown_fixture',
       });
+
+      // From kickoff everyone sees the pool.
+      kickOff(data);
+      const locked = fixture(data, '292600');
+      expect(locked.locked).toBe(true);
+      expect(locked.picks.map((p) => [p.memberName, p.side]).sort()).toEqual([
+        ['Johan', 'home'],
+        ['You', 'draw'],
+      ]);
+    });
+
+    it('reads the league again at the next kickoff, so the pool shows to a page left open', async () => {
+      vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] });
+      vi.setSystemTime(Date.parse('2026-10-09T18:00:00Z'));
+      const data = sample();
+      await data.recordPicks('292600', [{ memberId: 'member-jp', side: 'home', margin: 8 }]);
+      TestBed.tick();
+      expect(fixture(data, '292600')).toEqual(
+        expect.objectContaining({ locked: false, picks: [] }),
+      );
+      // Kickoff is 18:45; the read follows it by a millisecond.
+      vi.advanceTimersByTime(45 * 60_000);
+      TestBed.tick();
+      expect(fixture(data, '292600').picks).toEqual([]);
+      vi.advanceTimersByTime(1);
+      TestBed.tick();
+      const kicked = fixture(data, '292600');
+      expect(kicked.locked).toBe(true);
+      expect(kicked.picks.map((p) => p.memberName)).toEqual(['Johan']);
     });
 
     it('lets the steward record, correct and remove any pick, and refuses bad ones', async () => {
@@ -403,6 +438,7 @@ describe('sample league data', () => {
       const duty = data.duties().find((d) => d.memberId === 'member-jp' && d.roundId === 3)!;
       expect(duty.pickFixtureIds).toEqual(['292600']);
       await data.savePick('292600', { side: 'home', margin: 2 });
+      kickOff(data);
       expect(fixture(data, '292600').picks.find((p) => p.memberId === 'member-jp')).toEqual(
         expect.objectContaining({ side: 'missed', margin: null, dutyId: duty.id }),
       );
@@ -456,7 +492,7 @@ describe('sample league data', () => {
       expect(data.standings().map((s) => s.memberId)).toEqual(['member-pw']);
     });
 
-    it('shows the admin every pick in a league it is not in, but takes no pick from it', async () => {
+    it('hides the pool from the admin too until kickoff, and takes no pick from it', async () => {
       const data = sample();
       data.selectLeague(SAMPLE_ACCOUNT.leagues[0]);
       await data.recordPicks('292600', [{ memberId: 'member-jp', side: 'home', margin: 8 }]);
@@ -466,6 +502,8 @@ describe('sample league data', () => {
         code: 'admin_not_a_member',
       });
       await data.recordPicks('292600', [{ memberId: 'member-hm', side: 'away', margin: 2 }]);
+      expect(fixture(data, '292600').picks).toEqual([]);
+      kickOff(data);
       expect(fixture(data, '292600').picks.map((p) => p.memberName)).toEqual(['Hennie']);
     });
   });
