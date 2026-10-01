@@ -2,6 +2,7 @@ import { defineTool } from 'eve/tools';
 import { z } from 'zod';
 import { isAllowedUrl } from '../lib/allowlist';
 import { fixtureInputs } from '../lib/fixture-inputs';
+import { internationals } from '../lib/internationals';
 import { RESEARCHER_MODEL, WRITER_MODEL } from '../lib/models';
 import { pavilionApi } from '../lib/pavilion-api';
 
@@ -27,6 +28,8 @@ const research = z.object({
       }),
     )
     .max(12),
+  // Passed on unchanged; the API upserts those that match a player in the side's teamsheet.
+  internationals,
   mood: z.object({
     score: z.number().int().min(-2).max(2),
     note: z.string().max(300),

@@ -1,4 +1,4 @@
-"""Assembles the match centre (teamsheets, kickoff forecast, live score) from cached snapshots.
+"""Assembles the match centre (teamsheets, kickoff forecast, live score, season results) from cached snapshots.
 
 One service per competition (app.state.match_centres, keyed by competition id). Snapshot
 keys start with the competition id, so competitions never share a cached provider answer.
@@ -6,15 +6,15 @@ keys start with the competition id, so competitions never share a cached provide
 
 import logging
 from concurrent.futures import Future, ThreadPoolExecutor
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Callable
 
 import httpx
 
-from app.competitions.base import Club, Competition, Stadium
+from app.competitions.base import Club, Competition, ResultsProvider, Stadium
 from app.config import Settings
-from app.matchcentre.cache import Fetched, Snapshot, SnapshotCache, cached, now_utc
-from app.matchcentre.providers import scores, teamsheets, weather
+from app.matchcentre.cache import Fetched, Snapshot, SnapshotCache, cached, failure_reason, now_utc
+from app.matchcentre.providers import results, scores, teamsheets, weather
 from app.matchcentre.schedule import Fixture
 
 logger = logging.getLogger(__name__)
@@ -22,6 +22,8 @@ logger = logging.getLogger(__name__)
 HttpFactory = Callable[[], httpx.Client]
 
 WEATHER_SOURCE = "Open-Meteo"
+# Also used by scripts/import_urc_history.py, so the feed sees one client.
+USER_AGENT = "Pavilion/0.1 match centre"
 
 
 def round_scores_key(competition_id: str, round_number: int) -> str:
@@ -148,6 +150,74 @@ class MatchCentreService:
         except ValueError:
             return None
 
+    def season_results(self, now: datetime | None = None) -> dict[str, Any]:
+        """Every played match of the competition's current feed season, as a section whose
+        `results` carry catalogue club ids (rows with a team outside the catalogue are dropped).
+        One snapshot per competition; without a results feed the section is `unavailable`.
+
+        After a failed refresh the last good results are still served, but with the `fetchedAt`
+        of the fetch that produced them and `stale: true`; the refresh is retried after the
+        failure TTL, and results older than 24 hours are `unavailable` instead."""
+        moment = now or now_utc()
+        provider, season_id = self.competition.season_results, self.competition.feed_season_id
+        if provider is None or season_id is None:
+            return _section("unavailable", "", reason="no results feed")
+        key = self.key("results", "season")
+        snapshot = cached(self._cache, key, lambda: self._fetch_results(key, provider, season_id, moment), now=moment)
+        section = _from_snapshot(snapshot, provider.source)
+        if section["status"] == "ok":
+            section["results"] = self._catalogue_results(section.pop("results", []))
+            section.pop("seasonId", None)
+            kept = _kept_fetched_at(snapshot)
+            section.pop("fetchedAt", None)
+            section["fetchedAt"] = kept or snapshot.fetched_at
+            if kept is not None:
+                section["stale"] = True
+        return section
+
+    def _fetch_results(self, key: str, provider: ResultsProvider, season_id: str, now: datetime) -> Fetched:
+        """The provider's results. A failure (or an empty feed in the middle of a season) keeps
+        the last good snapshot for the failure TTL, with its original `fetchedAt` in the payload
+        so it is not passed off as fresh; an outage is retried every ten minutes, not on every
+        request. Once the kept results are older than `results.STALE_LIMIT` they are dropped."""
+        try:
+            fetched = self._with_client(lambda c: provider.fetch_results(c, self._settings, season_id, now))
+            if fetched.status == "ok":
+                kickoffs = (f.kickoff_utc for f in self.competition.schedule().fixtures)
+                results.require_played(fetched.payload.get("results") or [], kickoffs, now)
+            return fetched
+        except Exception as exc:  # noqa: BLE001 - provider failures become a status
+            logger.warning("Results failed for %s: %s", key, type(exc).__name__)
+            try:
+                previous = self._cache.get(key)
+            except Exception:  # noqa: BLE001 - no stale data without a readable cache
+                previous = None
+            if previous is not None and previous.status == "ok":
+                original = _kept_fetched_at(previous) or previous.fetched_at
+                if now - original <= results.STALE_LIMIT:
+                    return Fetched("ok", {**previous.payload, "fetchedAt": original.isoformat()}, results.TTL_FAILED)
+            return Fetched("unavailable", {"reason": failure_reason(exc)}, results.TTL_FAILED)
+
+    def _catalogue_results(self, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        mapped = []
+        for row in rows:
+            home = self.competition.club_by_source_id(row.get("homeSourceId"))
+            away = self.competition.club_by_source_id(row.get("awaySourceId"))
+            if home is None or away is None:
+                continue
+            mapped.append(
+                {
+                    "fixtureId": row["fixtureId"],
+                    "homeId": home.id,
+                    "awayId": away.id,
+                    "homeScore": row["homeScore"],
+                    "awayScore": row["awayScore"],
+                    "kickoffUtc": row["kickoffUtc"],
+                    "venue": row.get("venue"),
+                }
+            )
+        return mapped
+
     def teamsheets(self, fixture: Fixture, now: datetime) -> dict[str, Any]:
         """The teamsheets section, fetched through the snapshot cache."""
         provider = self.competition.teamsheets
@@ -230,6 +300,16 @@ def _section(status: str, source: str, fetched_at: datetime | None = None, **pay
     return {"status": status, "source": source, "fetchedAt": fetched_at, **payload}
 
 
+def _kept_fetched_at(snapshot: Snapshot) -> datetime | None:
+    """When the results of a snapshot kept through a failed refresh were really fetched."""
+    value = snapshot.payload.get("fetchedAt")
+    try:
+        moment = datetime.fromisoformat(value) if isinstance(value, str) else None
+    except ValueError:
+        return None
+    return moment if moment is None or moment.tzinfo else moment.replace(tzinfo=timezone.utc)
+
+
 def _from_snapshot(snapshot: Snapshot, source: str) -> dict[str, Any]:
     """The snapshot as a section. A payload may name its own source (the ESPN fallback)."""
     payload = dict(snapshot.payload)
@@ -239,7 +319,7 @@ def _from_snapshot(snapshot: Snapshot, source: str) -> dict[str, Any]:
 
 def default_http_factory(settings: Settings) -> HttpFactory:
     timeout = httpx.Timeout(settings.external_timeout_seconds)
-    return lambda: httpx.Client(timeout=timeout, headers={"User-Agent": "Pavilion/0.1 match centre"})
+    return lambda: httpx.Client(timeout=timeout, headers={"User-Agent": USER_AGENT})
 
 
-__all__ = ["MatchCentreService", "default_http_factory", "round_scores_key"]
+__all__ = ["MatchCentreService", "USER_AGENT", "default_http_factory", "round_scores_key"]

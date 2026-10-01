@@ -5,7 +5,7 @@ from pathlib import Path
 
 from app.competitions.base import Competition
 from app.competitions.urc_2026_27.catalogue import CLUBS, STADIUMS
-from app.competitions.urc_2026_27.providers import EspnScores, UrcScores, UrcTeamsheets
+from app.competitions.urc_2026_27.providers import EspnScores, UrcResults, UrcScores, UrcTeamsheets
 
 COMPETITION = Competition(
     id="urc-2026-27",
@@ -21,4 +21,8 @@ COMPETITION = Competition(
     scores=UrcScores(),
     teamsheets=UrcTeamsheets(),
     fallback_scores=EspnScores(),
+    # The feed's id for 2026/27; past seasons are 202101 to 202501 (history.json).
+    feed_season_id="202601",
+    season_results=UrcResults(),
+    history_file=Path(__file__).resolve().parent / "history.json",
 )

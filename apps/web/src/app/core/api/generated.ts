@@ -1826,6 +1826,28 @@ export interface components {
             /** Detail */
             readonly detail?: readonly components["schemas"]["ValidationError"][];
         };
+        /**
+         * International
+         * @description A selected player who has played Test rugby, with the page that says so.
+         */
+        readonly International: {
+            /** Caps */
+            readonly caps?: number | null;
+            /** Capsasof */
+            readonly capsAsOf?: string | null;
+            /** Lastteston */
+            readonly lastTestOn?: string | null;
+            /** Name */
+            readonly name: string;
+            /** Publisher */
+            readonly publisher?: string | null;
+            /** Title */
+            readonly title: string;
+            /** Union */
+            readonly union: string;
+            /** Url */
+            readonly url: string;
+        };
         /** JoinCode */
         readonly JoinCode: {
             /** Joincode */
@@ -2379,6 +2401,8 @@ export interface components {
          * @description One team researcher's result, passed through by the writer unchanged.
          */
         readonly ResearchResult: {
+            /** Internationals */
+            readonly internationals?: readonly components["schemas"]["International"][];
             /** Items */
             readonly items: readonly components["schemas"]["ResearchItem"][];
             readonly mood: components["schemas"]["ResearchMood"];

@@ -3,8 +3,9 @@
 Everything here is deterministic. For each side: the published teamsheet, changes from
 the side's previous teamsheet, regular starters who are missing, player ages, the bench
 split, rest days and travel. Plus the kickoff forecast. Teamsheets of earlier fixtures
-come through the same snapshot cache as the match centre. Form from recorded results
-needs piele.fixture_results (plan Phase A) and is reported as unavailable until then.
+come through the same snapshot cache as the match centre. Form (recent results, the
+season's record and head-to-head, app/agent/form.py) comes from the URC season results
+snapshot and the competition's bundled history; it is part of the state hash.
 """
 
 import hashlib
@@ -13,6 +14,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime
 from typing import Any, Literal
 
+from app.agent.form import build_form
 from app.competitions.base import Competition
 from app.matchcentre.schedule import Fixture, Schedule
 from app.matchcentre.service import MatchCentreService
@@ -40,12 +42,14 @@ def build_state(fixture: Fixture, centre: MatchCentreService, now: datetime) -> 
         for side, team in (("home", fixture.home_id), ("away", fixture.away_id))
     }
     earlier = {f.id: f for fixtures in recent.values() for f in fixtures}
-    with ThreadPoolExecutor(max_workers=4) as pool:
+    with ThreadPoolExecutor(max_workers=5) as pool:
         current = pool.submit(centre.teamsheets, fixture, now)
         forecast = pool.submit(centre.weather, fixture, now)
+        season = pool.submit(centre.season_results, now)
         past = {fid: pool.submit(centre.teamsheets, f, now) for fid, f in earlier.items()}
         sheets = current.result()
         weather = forecast.result()
+        results = season.result()
         past_sections = {fid: future.result() for fid, future in past.items()}
 
     venue = competition.stadium(fixture.venue)
@@ -69,7 +73,7 @@ def build_state(fixture: Fixture, centre: MatchCentreService, now: datetime) -> 
         "home": sides["home"],
         "away": sides["away"],
         "weather": weather,
-        "form": {"status": "unavailable", "reason": "Match results are not recorded yet."},
+        "form": build_form(competition, fixture, results, competition.history()),
         "teamsheetHash": teamsheet_hash(sheets),
     }
     # The competition id is outside the hash, so a state's hash reads the same as before
