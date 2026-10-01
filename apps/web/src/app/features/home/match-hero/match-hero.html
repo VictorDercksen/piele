@@ -37,7 +37,7 @@
       >
     </div>
   </div>
-  <div class="match-footer">
+  <div class="match-footer" [class.ruled]="!!ruler()">
     <div class="match-venue">
       @if (stadiumIcon(); as icon) {
         <img class="stadium-icon" [src]="icon" alt="" (error)="iconFailed.set(icon)" />
@@ -71,6 +71,67 @@
         <strong>{{ shown().venue }}</strong>
       </div>
     </div>
+    @if (ruler(); as ruler) {
+      <div class="kickoff-ruler">
+        <span class="ruler-label"
+          >YOUR PICKS · <b>{{ ruler.made }} OF {{ ruler.total }}</b> IN
+          @if (ruler.open) {
+            · <em>{{ ruler.open }} TO MAKE</em>
+          }
+          @if (ruler.missed) {
+            · <span class="missed">{{ ruler.missed }} MISSED</span>
+          }
+        </span>
+        <div
+          class="ruler"
+          role="group"
+          [attr.aria-label]="'Round ' + roundCode() + ' kickoffs and your picks'"
+        >
+          @for (slot of ruler.slots; track slot.key) {
+            @if ($index === ruler.pin) {
+              <ng-container *ngTemplateOutlet="nowPin" />
+            }
+            <div class="ruler-slot" [class.open]="slot.open">
+              <span class="ruler-dots">
+                @for (dot of slot.dots; track dot.fixtureId) {
+                  <a
+                    class="dot"
+                    [class.open]="dot.state === 'open'"
+                    [class.missed]="dot.state === 'missed'"
+                    [class.draw]="dot.state === 'picked' && !dot.crest"
+                    [style.--club]="dot.colour"
+                    [routerLink]="'/match/' + dot.fixtureId | leaguePath"
+                    queryParamsHandling="preserve"
+                    [attr.aria-label]="dot.label"
+                    [title]="dot.label"
+                  >
+                    @if (dot.crest) {
+                      <img [src]="dot.crest" alt="" />
+                    } @else if (dot.state === 'picked') {
+                      D
+                    }
+                  </a>
+                }
+              </span>
+              <span class="ruler-time"
+                >{{ slot.day }}<b>{{ slot.time }}</b></span
+              >
+            </div>
+          }
+          @if (ruler.pin === ruler.slots.length) {
+            <ng-container *ngTemplateOutlet="nowPin" />
+          }
+        </div>
+        <ng-template #nowPin>
+          <div class="ruler-now">
+            <span class="pin" aria-hidden="true"></span>
+            <span class="ruler-time"
+              >NOW<b>{{ ruler.now.day }} {{ ruler.now.time }}</b></span
+            >
+          </div>
+        </ng-template>
+      </div>
+    }
     @if (linked()) {
       <button hlmBtn type="button" class="match-link" (click)="explore.emit()">
         Enter the match centre <app-icon name="arrow" />

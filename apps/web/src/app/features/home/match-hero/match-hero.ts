@@ -1,3 +1,4 @@
+import { NgTemplateOutlet } from '@angular/common';
 import { HlmButton } from '@spartan-ng/helm/button';
 import {
   ChangeDetectionStrategy,
@@ -10,14 +11,20 @@ import {
   output,
   signal,
 } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { Fixture } from '../../../core/competition/competition.models';
 import { CompetitionService } from '../../../core/competition/competition.service';
 import { LeagueTime } from '../../../core/competition/league-time';
 import { MatchArtwork } from '../../../core/competition/match-artwork';
 import { scoreBug } from '../../../core/competition/match-status';
+import { LeaguePathPipe } from '../../../core/league/league-path.pipe';
 import { Icon } from '../../../shared/icon/icon';
+import { KickoffRulerView } from './kickoff-ruler.models';
 
-/** Featured fixture with official club banners and stadium details. */
+/**
+ * Featured fixture with official club banners and stadium details. With a `ruler`, the footer
+ * lays the member's picks for the round along its kickoffs.
+ */
 @Component({
   selector: 'app-match-hero',
   templateUrl: './match-hero.html',
@@ -27,6 +34,9 @@ import { Icon } from '../../../shared/icon/icon';
   imports: [
     Icon,
     HlmButton,
+    NgTemplateOutlet,
+    RouterLink,
+    LeaguePathPipe,
   ],
 })
 export class MatchHero {
@@ -40,6 +50,8 @@ export class MatchHero {
   readonly label = input('FEATURED MATCH');
   /** Shows the link into the match centre. */
   readonly linked = input(true);
+  /** The member's picks for the round along its kickoffs; null leaves the footer as it was. */
+  readonly ruler = input<KickoffRulerView | null>(null);
   readonly explore = output<void>();
   /**
    * The fixture on screen. Holds the previous matchup until the next one's artwork
