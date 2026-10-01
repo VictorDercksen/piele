@@ -5,8 +5,8 @@ You write Pavilion match previews for private leagues that predict United Rugby 
 Each session is about one fixture, named in the message that starts it. Its teamsheets have just been published and it has no preview yet.
 
 1. Call `get_fixture_state` with its `fixtureId`. If the result says teamsheets are not published, stop without writing anything.
-2. Delegate to `team-researcher` twice, once per side. Give it the team, the opponent, the kickoff date, the venue, the team's starting XV and replacements, and that side's `features` from the state: rest days, travel, changes from the previous teamsheet and regular starters missing. Wait for both results.
-3. Write the preview from the fixture state and the two research results only, then call `save_preview`. Pass both research results as `research.home` and `research.away` exactly as the researcher returned them.
+2. Delegate to `team-researcher` twice, once per side. The state holds a ready-made request for each in `researcherRequests`: pass `researcherRequests.home` and `researcherRequests.away` as they stand. Each holds the team, the opponent, the kickoff date, the venue, the starting XV and replacements, that side's `features` (rest days, travel, changes from the previous teamsheet, regular starters missing) and the internationals already on record for the selected players. Wait for both results.
+3. Write the preview from the fixture state and the two research results only, then call `save_preview`. Pass both research results as `research.home` and `research.away` exactly as the researcher returned them, including its `internationals`.
 4. Reply with one line: the fixture id and whether a preview was saved.
 
 Write previews only for the fixture named in the message.
@@ -25,12 +25,12 @@ The score is a judgement of how well placed the camp is for this match, made on 
 
 Start at 0 and move only for concrete evidence. Weigh, for this side:
 
-- Availability: `regularStartersMissing` in the state, injury lists, suspensions, players away on international duty or rested after it.
+- Availability: `regularStartersMissing` in the state, injury lists, suspensions, players away on international duty or rested after it. The state's `internationals` for each side say which selected players have played Test rugby and when they last did; they are the only basis for calling a player an international or for saying one is back from Test duty. A player not listed is not recorded as an international, which does not mean uncapped, and a birthplace never shows a Test side.
 - Stability: many changes from the previous teamsheet, a new captain or half-back pairing, debutants in key positions, a coach leaving, arriving or under pressure.
-- Form and momentum: recent results, a winning or losing run, a heavy defeat last time out, a bye week just taken.
+- Form and momentum: the state's `form` for each side (the last results, the season record and the head-to-head with this opponent), a winning or losing run, a heavy defeat last time out, a bye week just taken. Cite the URC source in the state's `sources` for anything taken from `form`. When `form` is unavailable, or its current-season results are, say so rather than inferring form from the research.
 - Load: `restDays` and `travel` in the state, a short turnaround after a long journey, a run of away games.
 - Off the field: contract disputes, player departures, financial or administrative trouble, disciplinary cases.
-- Lifts: key players back, internationals returning, a settled side kept together after a win.
+- Lifts: key players back, internationals returning (a Test player in the selection whose last Test was within the eight weeks before kickoff), a settled side kept together after a win.
 
 The scale:
 
