@@ -109,6 +109,7 @@ test('sends the instructions, then the context, then the conversation, with the 
   const [call] = model.doStreamCalls;
   assert.equal(call.maxOutputTokens, 500);
   assert.equal(call.temperature, 0.3);
+  assert.deepEqual(call.providerOptions, { deepseek: { thinking: { type: 'disabled' } } });
   assert.deepEqual(
     call.prompt.map((message) => message.role),
     ['system', 'user', 'user', 'assistant', 'user'],

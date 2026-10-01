@@ -40,6 +40,10 @@ export function chatTurn(
         ],
         maxOutputTokens: 500,
         temperature: 0.3,
+        // DeepSeek thinks before it answers unless told not to, and the thinking counts
+        // against maxOutputTokens: a question about a side spent all 500 on reasoning and
+        // produced no answer (1 October 2026). A short factual answer needs no thinking.
+        providerOptions: { deepseek: { thinking: { type: 'disabled' } } },
         maxRetries: 1,
         abortSignal: options.signal,
         // The default handler logs the whole error, whose request body holds the context.
