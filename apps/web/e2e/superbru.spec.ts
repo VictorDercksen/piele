@@ -19,7 +19,7 @@ function picksPanel(page: Page) {
   return page.locator('app-picks-panel');
 }
 
-test('before kickoff a member sees only the pick form; saving the pick reveals the pool', async ({
+test('before kickoff a member sees only the pick form; saving the pick fills the member’s strip', async ({
   page,
 }) => {
   const errors: string[] = [];
@@ -92,8 +92,8 @@ test('before kickoff a member sees only the pick form; saving the pick reveals t
   await panel.getByLabel('Margin (points)').fill('7');
   await panel.getByRole('button', { name: 'Save pick' }).click();
 
-  // The pick is in: a green card names it, then the member's strip; the pool table waits
-  // behind the chevron.
+  // The pick is in: a green card names it, then the member's strip. Nobody else has picked, so
+  // a line says so instead of a pool that would only repeat the strip.
   await expect(
     page.getByRole('status').filter({ hasText: 'Pick saved: Stormers by 7.' }),
   ).toBeVisible();
@@ -103,23 +103,10 @@ test('before kickoff a member sees only the pick form; saving the pick reveals t
   await expect(mine).toContainText('Your pick');
   await expect(mine.locator('app-pick-chip')).toContainText('Stormers');
   await expect(mine.locator('app-pick-chip')).toContainText('7');
-  // The pool table waits behind the chevron, closed by default.
-  const pool = panel.getByRole('table', { name: 'Picks for Stormers v Sharks' });
-  await expect(pool).toBeHidden();
-  const chevron = panel.getByRole('button', { name: "Show the pool's picks" });
-  await expect(chevron).toHaveAttribute('aria-expanded', 'false');
-  await chevron.click();
-  await expect(panel.getByRole('button', { name: "Hide the pool's picks" })).toHaveAttribute(
-    'aria-expanded',
-    'true',
-  );
-  await expect(pool).toBeVisible();
-  await expect(pool.locator('tbody tr')).toHaveCount(1);
-  await expect(pool.locator('tbody tr.you')).toContainText('Victor Dercksen');
-  // Only the member's own pick is visible, so there is no split to show yet.
+  await expect(panel).toContainText("You're the first in. The pool's picks show here");
+  await expect(panel.getByRole('table')).toHaveCount(0);
   await expect(panel.getByRole('img', { name: /The pool's split/ })).toHaveCount(0);
-  // No marks or points before kickoff.
-  await expect(pool.getByRole('columnheader', { name: 'Pts' })).toHaveCount(0);
+  await expect(panel.getByRole('button', { name: "Show the pool's picks" })).toHaveCount(0);
 
   // Until kickoff the pick can be edited; the form opens with it filled in.
   await panel.getByRole('button', { name: 'Edit your pick' }).click();

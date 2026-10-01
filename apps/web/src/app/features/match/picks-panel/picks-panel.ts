@@ -29,6 +29,7 @@ import {
   lucideArrowRight,
   lucideEyeOff,
   lucideLock,
+  lucideUsers,
   lucideMinus,
   lucidePencil,
   lucidePlus,
@@ -110,6 +111,7 @@ import {
       lucideArrowRight,
       lucideEyeOff,
       lucideLock,
+      lucideUsers,
       lucideMinus,
       lucidePencil,
       lucidePlus,
@@ -187,10 +189,21 @@ export class PicksPanel {
       !!picks && !picks.locked && !this.members.adminView() && (!picks.recorded || this.editing())
     );
   });
-  /** The pool's picks show once the member's pick is in, after kickoff, or for the admin. */
+  /**
+   * Before kickoff the member's pick is the only one in: the pool would merely repeat the
+   * member's own strip, so a line says nobody else has picked yet instead.
+   */
+  readonly poolOfOne = computed(() => {
+    const picks = this.picks();
+    return !!picks && !picks.locked && picks.rows.length > 0 && picks.rows.every((r) => r.you);
+  });
+  /**
+   * The pool's picks show once the member's pick is in and someone else's is too, after
+   * kickoff, or for the admin.
+   */
   readonly showPool = computed(() => {
     const picks = this.picks();
-    return !!picks && !picks.hidden;
+    return !!picks && !picks.hidden && !this.poolOfOne();
   });
   readonly tag = computed<StatusPill>(() => {
     const picks = this.picks();

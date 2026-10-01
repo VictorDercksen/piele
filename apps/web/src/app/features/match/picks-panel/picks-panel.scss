@@ -127,6 +127,20 @@
   margin-left: auto;
   min-height: 36px;
 }
+/* Nobody else has picked yet: a line in place of a pool that would only repeat the strip. */
+.pool-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: -6px 0 4px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.pool-note ng-icon {
+  --ng-icon__size: 14px;
+  flex-shrink: 0;
+}
 
 /*
  * The member's pick form, a match card: the label and the kickoff lock, the matchup (a crest
