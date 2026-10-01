@@ -19,6 +19,7 @@ Working product name: **The Pavilion**. Piele stays the name of the first league
 | Joining | Join-code links, one rotatable code per league, plus the existing reservation by email. |
 | Competitions | Rugby only for now. The registry still exists so a second rugby competition (Currie Cup, Rugby Championship, Six Nations, World Cup) is one new folder. |
 | Admin | One global admin account (the operator) with access to every league and captain-level rights in all of them. Each league still has its own captain, who may be someone else. |
+| Picks (2026-10-02) | One pick per account, competition and fixture, read by every league of the account on that competition; the captain of any of them may correct it. Unclaimed names hold league-local picks until claimed; on a claim the account's own pick wins, and a release copies the account's picks back to the name. Duty links and audit events stay in their league. Migration `20261002090000_universal_picks.sql`. |
 
 ## Implementation status (26 September 2026)
 

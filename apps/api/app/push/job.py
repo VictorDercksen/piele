@@ -373,20 +373,24 @@ def remind(connection: Connection, league: League, members: list[Member], severa
         )
         if not due or not members:
             return 0
-        p, sm = t.picks, t.season_memberships
+        # A pick is the account's on the competition (members here are claimed), so a member
+        # who picked in another league on the same competition is not reminded.
+        p = t.picks
         picked = {
-            (row.membership_id, row.fixture_id)
+            (row.user_id, row.fixture_id)
             for row in connection.execute(
-                select(sm.c.membership_id, p.c.fixture_id)
-                .select_from(p.join(sm, sm.c.id == p.c.season_membership_id))
-                .where(p.c.league_id == league.id, p.c.season_id == league.season_id, p.c.fixture_id.in_(list(due)))
+                select(p.c.user_id, p.c.fixture_id).where(
+                    p.c.user_id.in_([member.user_id for member in members]),
+                    p.c.competition_id == competition.id,
+                    p.c.fixture_id.in_(list(due)),
+                )
             )
         }
         queued: list[Message] = []
         for member in members:
             if muted(member.push_muted, "pick_reminder"):
                 continue
-            missing = [fid for fid in due if (member.id, fid) not in picked]
+            missing = [fid for fid in due if (member.user_id, fid) not in picked]
             if not missing:
                 continue
             claimed = connection.execute(

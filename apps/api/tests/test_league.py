@@ -981,14 +981,14 @@ def test_marks_rule_keeps_accruing_and_resets_from_the_reset_time() -> None:
 # Removing and reinstating members --------------------------------------------------------
 
 
-def audit_rows(client: TestClient, *actions: str) -> list:
+def audit_rows(client: TestClient, *actions: str, league_id: str | None = None) -> list:
     with migration_engine().begin() as connection:
         return connection.execute(
             text(
                 "select action, entity_id, reason, before, after from piele.audit_events"
                 " where league_id = :id and action = any(:actions) order by occurred_at, id"
             ),
-            {"id": client.league_id, "actions": list(actions)},  # type: ignore[attr-defined]
+            {"id": league_id or client.league_id, "actions": list(actions)},  # type: ignore[attr-defined]
         ).all()
 
 
@@ -1999,6 +1999,7 @@ DEFAULT_RULES = {
 PICKS_NOW = datetime(2026, 10, 1, 12, 0, tzinfo=timezone.utc)
 PLAYED = "292584"  # Benetton v Dragons, round 1
 OPEN = "292592"  # Cardiff v Zebre, round 2
+ALSO_OPEN = "292593"  # Edinburgh v Stormers, round 2
 LATE = "292720"  # round 18, kicks off 14 May 2027
 
 
@@ -2028,8 +2029,8 @@ def steward_picks(client: TestClient, fixture_id: str, picks: list[dict], header
     )
 
 
-def fixture_view(client: TestClient, fixture_id: str, headers: dict) -> dict:
-    listed = client.get(lp(client, "/picks"), headers=headers)
+def fixture_view(client: TestClient, fixture_id: str, headers: dict, league_id: str | None = None) -> dict:
+    listed = client.get(lp(client, "/picks", league_id), headers=headers)
     assert listed.status_code == 200, listed.text
     return next(view for view in listed.json() if view["fixtureId"] == fixture_id)
 
@@ -2200,7 +2201,11 @@ def test_pick_visibility_for_the_admin_and_withdrawn_members(client: TestClient,
     assert pool(fixture_view(client, OPEN, admin)) == [("Mo", "away", 6, False), ("Ola", "away", 2, False)]
     with migration_engine().begin() as connection:
         count = connection.execute(
-            text("select count(*) from piele.picks where league_id = :l and fixture_id = :f"), {"l": client.league_id, "f": OPEN}  # type: ignore[attr-defined]
+            text(
+                "select count(*) from piele.picks p where p.fixture_id = :f and (p.league_id = :l"
+                " or p.user_id in (select user_id from piele.league_memberships where league_id = :l))"
+            ),
+            {"l": client.league_id, "f": OPEN},  # type: ignore[attr-defined]
         ).scalar_one()
     assert count == 2
 
@@ -2404,22 +2409,19 @@ def test_the_admin_sets_rules_when_creating_and_editing_a_league(client: TestCli
     assert client.post("/v1/admin/leagues", json=new_league_body(rules={"nope": 1}), headers=admin).status_code == 422
 
 
-def test_picks_and_rules_stay_in_their_league(client: TestClient, clock) -> None:
-    """The captain here also captains Zulu. Nothing here reaches Zulu's members or picks."""
+def test_rules_members_and_duties_stay_in_their_league(client: TestClient, clock) -> None:
+    """The captain here also captains Zulu, on the same competition. Zulu's rules, names and
+    duties never reach this league."""
     captain, mo = captain_headers(client), mo_headers(client)
     zulu = second_league(client, _captain_email(client))
     assert client.get("/v1/me", headers=captain).status_code == 200  # claims the Zulu captain name
     zulu_ids = {m["displayName"]: m["id"] for m in client.get(lp(client, "/members", zulu), headers=captain).json()}
-    assert own_pick(client, OPEN, "home", 4, captain, league_id=zulu).status_code == 200
     assert steward_picks(client, OPEN, [{"memberId": zulu_ids["Ola"], "side": "away", "margin": 8}], league_id=zulu).status_code == 200
 
     # Mo, a member here only, cannot read Zulu's picks or rules.
     for path in ("/picks", "/rules"):
         response = client.get(lp(client, path, zulu), headers=mo)
         assert response.status_code == 403 and response.json()["detail"]["code"] == "not_a_member", path
-    # Zulu's picks are not in this league's pool, even for the admin.
-    admin = admin_headers(client)
-    assert fixture_view(client, OPEN, admin)["picks"] == []
     # Zulu membership ids are unknown here.
     calls = {
         "picks": lambda: steward_picks(client, OPEN, [{"memberId": zulu_ids["Ola"], "side": "home", "margin": 1}]),
@@ -2441,3 +2443,140 @@ def test_picks_and_rules_stay_in_their_league(client: TestClient, clock) -> None
     # Rules are per league.
     assert client.put(lp(client, "/rules", zulu), json={"startingRound": 4}, headers=captain).status_code == 200
     assert client.get(lp(client, "/rules"), headers=mo).json()["startingRound"] == 1
+
+
+def test_one_accounts_picks_on_a_competition_are_shared_by_its_leagues(client: TestClient, clock) -> None:
+    """The captain captains Zulu too and Mo joins Zulu by its code, both leagues on URC
+    2026/27. Each account has one pick per match, read and corrected from either league and
+    audited in the league that changed it. Zulu's unclaimed Ola keeps her pick in Zulu, and
+    a duty link stays in the league that made it."""
+    captain, mo = captain_headers(client), mo_headers(client)
+    zulu = second_league(client, _captain_email(client))
+    assert client.get("/v1/me", headers=captain).status_code == 200  # claims the Zulu captain name
+    zulu_ids = {m["displayName"]: m["id"] for m in client.get(lp(client, "/members", zulu), headers=captain).json()}
+    joined = client.post(f"/v1/join/{join_code(client, zulu)}", json={"membershipId": zulu_ids["Mo"]}, headers=mo)
+    assert joined.status_code == 200, joined.text
+    ids = member_ids(client)
+
+    # The captain's pick here is their pick in Zulu, under their Zulu name, and in Zulu's pool.
+    assert own_pick(client, OPEN, "home", 4, captain).status_code == 200
+    there = fixture_view(client, OPEN, captain, zulu)
+    assert (there["myPick"]["memberId"], there["myPick"]["side"], there["myPick"]["margin"]) == (zulu_ids["Captain"], "home", 4)
+    assert pool(there) == [("Captain", "home", 4, False)]
+    # And the other way round.
+    assert own_pick(client, ALSO_OPEN, "away", 2, captain, league_id=zulu).status_code == 200
+    here = fixture_view(client, ALSO_OPEN, captain)
+    assert (here["myPick"]["memberId"], here["myPick"]["side"], here["myPick"]["margin"]) == (ids["Captain"], "away", 2)
+    assert pool(here) == [("Captain", "away", 2, False)]
+
+    # The captain corrects Mo's pick in Zulu, and it is corrected here.
+    assert own_pick(client, OPEN, "away", 3, mo).status_code == 200
+    corrected = steward_picks(client, OPEN, [{"memberId": zulu_ids["Mo"], "side": "away", "margin": 9}], league_id=zulu)
+    assert corrected.status_code == 200, corrected.text
+    assert fixture_view(client, OPEN, mo)["myPick"]["margin"] == 9
+    # Zulu's Ola is a name nobody has claimed: her pick stays in Zulu, even for the admin here.
+    assert steward_picks(client, OPEN, [{"memberId": zulu_ids["Ola"], "side": "draw", "margin": 0}], league_id=zulu).status_code == 200
+    admin = admin_headers(client)
+    assert pool(fixture_view(client, OPEN, admin)) == [("Captain", "home", 4, False), ("Mo", "away", 9, False)]
+    assert pool(fixture_view(client, OPEN, mo, zulu)) == [("Captain", "home", 4, False), ("Mo", "away", 9, False), ("Ola", "draw", 0, False)]
+    # Each league audits only the changes made in it.
+    assert [(e.after["fixtureId"], e.after["picks"]) for e in audit_rows(client, "picks.recorded")] == [
+        (OPEN, {"Captain": "home 4"}),
+        (OPEN, {"Mo": "away 3"}),
+    ]
+    assert [(e.after["fixtureId"], e.after["picks"]) for e in audit_rows(client, "picks.recorded", league_id=zulu)] == [
+        (ALSO_OPEN, {"Captain": "away 2"}),
+        (OPEN, {"Mo": "away 9"}),
+        (OPEN, {"Ola": "draw"}),
+    ]
+
+    # Deleting Mo's pick here deletes it in Zulu.
+    assert client.delete(lp(client, f"/matches/{OPEN}/picks/{ids['Mo']}"), headers=captain).status_code == 204
+    assert fixture_view(client, OPEN, mo, zulu)["myPick"] is None
+    assert pool(fixture_view(client, OPEN, captain, zulu)) == [("Captain", "home", 4, False), ("Ola", "draw", 0, False)]
+
+    # A Zulu duty covering Mo's pick is reported in Zulu only.
+    assert own_pick(client, ALSO_OPEN, "home", 5, mo).status_code == 200
+    duty = client.post(
+        lp(client, "/duties", zulu),
+        json={"memberId": zulu_ids["Mo"], "type": "pick_confirmation", "roundNumber": 2, "deadlineAt": "2026-10-09T18:45:00Z", "pickFixtureIds": [ALSO_OPEN]},
+        headers=captain,
+    )
+    assert duty.status_code == 201, duty.text
+    linked = fixture_view(client, ALSO_OPEN, mo, zulu)["myPick"]
+    assert (linked["memberId"], linked["side"], linked["margin"], linked["dutyId"]) == (zulu_ids["Mo"], "home", 5, duty.json()["id"])
+    unlinked = fixture_view(client, ALSO_OPEN, mo)["myPick"]
+    assert (unlinked["memberId"], unlinked["side"], unlinked["margin"], unlinked["dutyId"]) == (ids["Mo"], "home", 5, None)
+
+
+def test_a_claimed_name_brings_its_picks_and_the_accounts_own_pick_wins(client: TestClient, clock) -> None:
+    """The captain records picks for Ola before anyone claims her. The account that claims
+    the name takes them as its own, except where it already picked the match in Zulu, a
+    league on the same competition: that pick stands."""
+    captain = captain_headers(client)
+    ids = member_ids(client)
+    recorded = steward_picks(client, OPEN, [{"memberId": ids["Ola"], "side": "home", "margin": 6}])
+    assert recorded.status_code == 200, recorded.text
+    assert steward_picks(client, ALSO_OPEN, [{"memberId": ids["Ola"], "side": "away", "margin": 1}]).status_code == 200
+
+    zulu = second_league(client, _captain_email(client))
+    assert client.get("/v1/me", headers=captain).status_code == 200  # claims the Zulu captain name
+    zulu_ids = {m["displayName"]: m["id"] for m in client.get(lp(client, "/members", zulu), headers=captain).json()}
+    ola = signed_in(client, "OLA", f"ola-{uuid4().hex[:8]}@example.com")
+    assert client.post(f"/v1/join/{join_code(client, zulu)}", json={"membershipId": zulu_ids["Ola"]}, headers=ola).status_code == 200
+    assert own_pick(client, ALSO_OPEN, "draw", None, ola, league_id=zulu).status_code == 200
+
+    claimed = client.post(f"/v1/join/{join_code(client)}", json={"membershipId": ids["Ola"]}, headers=ola)
+    assert claimed.status_code == 200, claimed.text
+    for league_id, member_id in ((None, ids["Ola"]), (zulu, zulu_ids["Ola"])):
+        mine = fixture_view(client, OPEN, ola, league_id)["myPick"]
+        assert (mine["memberId"], mine["side"], mine["margin"]) == (member_id, "home", 6), league_id
+        mine = fixture_view(client, ALSO_OPEN, ola, league_id)["myPick"]
+        assert (mine["memberId"], mine["side"], mine["margin"]) == (member_id, "draw", 0), league_id
+    # No pick is left on the name itself.
+    with migration_engine().begin() as connection:
+        left = connection.execute(text("select count(*) from piele.picks where membership_id = :m"), {"m": ids["Ola"]}).scalar_one()
+    assert left == 0
+    # From now on Ola's pick is one pick in both leagues.
+    assert own_pick(client, OPEN, "away", 2, ola).status_code == 200
+    assert fixture_view(client, OPEN, ola, zulu)["myPick"]["margin"] == 2
+
+    # A name claimed through its reserved email brings its picks too.
+    assert steward_picks(client, OPEN, [{"memberId": ids["Mo"], "side": "away", "margin": 11}]).status_code == 200
+    mo = mo_headers(client)
+    mine = fixture_view(client, OPEN, mo)["myPick"]
+    assert (mine["memberId"], mine["side"], mine["margin"]) == (ids["Mo"], "away", 11)
+
+
+def test_a_released_name_keeps_its_picks_and_the_account_keeps_its_own(client: TestClient, clock) -> None:
+    """An account claims Ola here and Mo in Zulu, picks in both, and the captain releases it
+    from Ola. This league keeps the picks under Ola's name and the account keeps them in Zulu;
+    from then on they are separate, and the next account to claim Ola takes them on."""
+    captain = captain_headers(client)
+    ids = member_ids(client)
+    zulu = second_league(client, _captain_email(client))
+    assert client.get("/v1/me", headers=captain).status_code == 200  # claims the Zulu captain name
+    zulu_ids = {m["displayName"]: m["id"] for m in client.get(lp(client, "/members", zulu), headers=captain).json()}
+    wrong = signed_in(client, "WRONG", f"wrong-{uuid4().hex[:8]}@example.com")
+    assert client.post(f"/v1/join/{join_code(client)}", json={"membershipId": ids["Ola"]}, headers=wrong).status_code == 200
+    assert client.post(f"/v1/join/{join_code(client, zulu)}", json={"membershipId": zulu_ids["Mo"]}, headers=wrong).status_code == 200
+    assert own_pick(client, OPEN, "home", 3, wrong).status_code == 200
+    assert own_pick(client, ALSO_OPEN, "away", 7, wrong, league_id=zulu).status_code == 200
+
+    assert client.post(lp(client, f"/members/{ids['Ola']}/release"), headers=captain).status_code == 204
+    admin = admin_headers(client)
+    for fixture_id, expected in ((OPEN, ("Ola", "home", 3, False)), (ALSO_OPEN, ("Ola", "away", 7, False))):
+        view = fixture_view(client, fixture_id, admin)
+        assert pool(view) == [expected], fixture_id
+        assert view["picks"][0]["memberId"] == ids["Ola"]
+    there = fixture_view(client, OPEN, wrong, zulu)["myPick"]
+    assert (there["memberId"], there["side"], there["margin"]) == (zulu_ids["Mo"], "home", 3)
+
+    # A change in Zulu no longer reaches the released name.
+    assert own_pick(client, OPEN, "away", 1, wrong, league_id=zulu).status_code == 200
+    assert pool(fixture_view(client, OPEN, admin)) == [("Ola", "home", 3, False)]
+    # The right account claims Ola and takes the name's picks.
+    right = signed_in(client, "RIGHT", f"right-{uuid4().hex[:8]}@example.com")
+    assert client.post(f"/v1/join/{join_code(client)}", json={"membershipId": ids["Ola"]}, headers=right).status_code == 200
+    mine = fixture_view(client, OPEN, right)["myPick"]
+    assert (mine["memberId"], mine["side"], mine["margin"]) == (ids["Ola"], "home", 3)
