@@ -1,0 +1,22 @@
+<div class="dock">
+  <button
+    #trigger
+    hlmBtn
+    type="button"
+    class="launcher"
+    aria-label="Ask the Pavilion"
+    aria-haspopup="dialog"
+    [attr.aria-expanded]="sheet.isOpen()"
+    (click)="sheet.open()"
+  >
+    <span class="label">Ask the Pavilion</span>
+    <span class="disc"><ng-icon name="lucideBot" aria-hidden="true" /></span>
+  </button>
+</div>
+<app-match-chat-sheet
+  #sheet
+  [fixtureId]="fixtureId()"
+  [home]="home()"
+  [away]="away()"
+  [returnFocus]="trigger"
+/>

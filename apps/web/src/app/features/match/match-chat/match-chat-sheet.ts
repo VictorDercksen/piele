@@ -1,7 +1,19 @@
+import { OverlayPositionBuilder } from '@angular/cdk/overlay';
 import { HlmButton } from '@spartan-ng/helm/button';
+import { HlmDialog, HlmDialogImports } from '@spartan-ng/helm/dialog';
+import { HlmInput } from '@spartan-ng/helm/input';
 import { HlmLabel } from '@spartan-ng/helm/label';
-import { HlmTextarea } from '@spartan-ng/helm/textarea';
-import { Component, computed, effect, inject, input, untracked } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  afterRenderEffect,
+  computed,
+  effect,
+  inject,
+  input,
+  untracked,
+  viewChild,
+} from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ReactiveFormsModule } from '@angular/forms';
 import { NgIcon, provideIcons } from '@ng-icons/core';
@@ -11,20 +23,19 @@ import {
   lucideRotateCcw,
   lucideSend,
   lucideSquare,
-  lucideTrash2,
+  lucideX,
 } from '@ng-icons/lucide';
 import { AlertService } from '../../../core/feedback/alert.service';
 import { ChatControlService } from '../../../core/league/chat/chat-control.service';
 import { ChatService } from '../../../core/league/chat/chat.service';
-import { Dropdown } from '../../../shared/dropdown/dropdown';
-import { QUESTION_MAX_LENGTH, questionControl, sendsOnEnter } from './match-chat.form';
+import { QUESTION_MAX_LENGTH, questionControl } from './match-chat.form';
 import {
   CLOSED_TEXT,
-  EMPTY_TEXT,
+  INTRO_TEXT,
   chatClosed,
   chatNotice,
-  chatOff,
   membershipText,
+  readyQuestions,
   remainingText,
 } from './match-chat.messages';
 
@@ -33,25 +44,22 @@ export const CLEAR_FAILURE = 'match-chat-clear';
 
 /**
  * Ask the Pavilion: the member's own questions about the fixture and the agent's answers, in a
- * panel dropdown under the preview that is closed by default and for every new fixture. Answers
- * keep their `[n]` markers and list the sources they cite as external links. Agent text is bound
- * as plain text only. Hidden while the API has the chat switched off.
+ * modal sheet opened from the match page's launcher. A bottom sheet up to 1050 px, a side panel
+ * on the right above that, both rendered in the dialog overlay. Answers keep their `[n]` markers
+ * and list the sources they cite as external links. Agent text is bound as plain text only.
  */
 @Component({
-  selector: 'app-match-chat',
-  templateUrl: './match-chat.html',
-  styleUrl: './match-chat.scss',
-  host: {
-    '[class.off]': 'off()',
-  },
+  selector: 'app-match-chat-sheet',
+  templateUrl: './match-chat-sheet.html',
+  styleUrl: './match-chat-sheet.scss',
   /* prettier-ignore */
   imports: [
     ReactiveFormsModule,
-    Dropdown,
     NgIcon,
     HlmButton,
+    HlmDialogImports,
+    HlmInput,
     HlmLabel,
-    HlmTextarea,
   ],
   viewProviders: [
     provideIcons({
@@ -60,22 +68,33 @@ export const CLEAR_FAILURE = 'match-chat-clear';
       lucideRotateCcw,
       lucideSend,
       lucideSquare,
-      lucideTrash2,
+      lucideX,
     }),
   ],
 })
-export class MatchChat {
+export class MatchChatSheet {
   private readonly chat = inject(ChatService);
   private readonly control = inject(ChatControlService);
   private readonly alerts = inject(AlertService);
   readonly fixtureId = input.required<string>();
+  readonly home = input.required<string>();
+  readonly away = input.required<string>();
+  /** Gets focus back when the sheet closes: the launcher, which Safari does not focus on click. */
+  readonly returnFocus = input<HTMLElement | null>(null);
+
+  private readonly dialog = viewChild(HlmDialog);
+  private readonly questionInput = viewChild<ElementRef<HTMLInputElement>>('questionInput');
+  private readonly threadScroll = viewChild<ElementRef<HTMLElement>>('threadScroll');
+  /** Anchored bottom right: the bottom sheet spans the width, the side panel hugs the right. */
+  readonly position = inject(OverlayPositionBuilder).global().bottom('0').right('0');
 
   readonly maxLength = QUESTION_MAX_LENGTH;
-  readonly emptyText = EMPTY_TEXT;
+  readonly introText = INTRO_TEXT;
   readonly closedText = CLOSED_TEXT;
   readonly question = questionControl();
   private readonly text = toSignal(this.question.valueChanges, { initialValue: '' });
 
+  readonly isOpen = computed(() => this.dialog()?.stateComputed() === 'open');
   /** The state below is the shown fixture's, not the previous one's while it loads. */
   private readonly current = computed(() => this.chat.fixtureId() === this.fixtureId());
   readonly loaded = computed(() => this.current() && this.chat.loaded());
@@ -84,7 +103,6 @@ export class MatchChat {
   readonly streamingText = this.chat.streamingText;
   readonly streamingSources = this.chat.streamingSources;
   readonly error = computed(() => (this.current() ? this.chat.error() : null));
-  readonly off = computed(() => chatOff(this.error()));
   readonly closed = computed(() => chatClosed(this.chat.open(), this.error()));
   readonly membership = computed(() => membershipText(this.error()));
   readonly loadFailed = computed(() => !this.loaded() && !!this.error() && !this.chat.loading());
@@ -95,12 +113,50 @@ export class MatchChat {
     remainingText(this.chat.remainingInThread(), this.chat.remainingToday()),
   );
   readonly sendable = computed(() => this.chat.canSend(this.text()));
+  readonly readyQuestions = computed(() => readyQuestions(this.home(), this.away()));
+  /** The ready questions, while nothing has been asked and one can be sent. */
+  readonly showChips = computed(
+    () => !this.messages().length && !this.closed() && this.chat.ready(),
+  );
+
+  /** Focus goes to the question field once it renders after opening. */
+  private focusPending = false;
+  private shownFixture: string | null = null;
 
   constructor() {
+    // Another fixture in the route closes the sheet; the launcher loads the new thread.
     effect(() => {
       const fixtureId = this.fixtureId();
-      untracked(() => void this.control.load(fixtureId));
+      untracked(() => {
+        if (this.shownFixture !== null && this.shownFixture !== fixtureId) this.close();
+        this.shownFixture = fixtureId;
+      });
     });
+    afterRenderEffect(() => {
+      const field = this.questionInput()?.nativeElement;
+      if (!field || !this.isOpen() || !this.focusPending) return;
+      this.focusPending = false;
+      field.focus();
+    });
+    // The thread starts at its end and follows new messages and the streaming answer.
+    afterRenderEffect(() => {
+      this.messages();
+      this.streamingText();
+      const scroller = this.threadScroll()?.nativeElement;
+      if (scroller) scroller.scrollTop = scroller.scrollHeight;
+    });
+  }
+
+  /** Opens the sheet and reads the thread again, unless an answer is still arriving. */
+  open(): void {
+    if (!this.chat.busy()) void this.control.load(this.fixtureId());
+    this.focusPending = true;
+    this.dialog()?.open();
+  }
+
+  close(): void {
+    this.focusPending = false;
+    this.dialog()?.close();
   }
 
   reload(): void {
@@ -112,11 +168,9 @@ export class MatchChat {
     void this.send();
   }
 
-  /** Enter sends; Shift+Enter starts a new line. */
-  onKeydown(event: KeyboardEvent): void {
-    if (!sendsOnEnter(event)) return;
-    event.preventDefault();
-    void this.send();
+  /** Sends a ready question as it reads. */
+  ask(text: string): void {
+    void this.control.send(this.fixtureId(), text);
   }
 
   async send(): Promise<void> {

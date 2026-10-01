@@ -1,7 +1,8 @@
 /** Questions per member per fixture (the API's `PIELE_CHAT_TURNS_PER_THREAD`). */
 export const QUESTIONS_PER_THREAD = 6;
 
-export const EMPTY_TEXT = 'Ask about the teamsheets, the forecast, the preview or your pick.';
+export const INTRO_TEXT =
+  'Ask about the teamsheets, the forecast, the preview or your pick. Answers cite their sources.';
 export const CLOSED_TEXT = 'The chat opens three days before kickoff and closes two days after.';
 export const UNAVAILABLE_TEXT = 'The Pavilion could not answer just now.';
 
@@ -17,7 +18,17 @@ const REFUSALS: Readonly<Record<string, string>> = {
 /** Codes that mean this member cannot use the chat in this league at all. */
 const MEMBERSHIP = new Set(['not_a_member', 'admin_not_a_member']);
 
-/** `chat_off`: the chat is switched off, so the panel is not shown. */
+/** The ready questions offered as chips while the thread is empty. */
+export function readyQuestions(home: string, away: string): readonly string[] {
+  return [
+    `Who is missing for ${home}?`,
+    `Who is missing for ${away}?`,
+    'What is the forecast at kickoff?',
+    'Summarise the preview',
+  ];
+}
+
+/** `chat_off`: the chat is switched off, so the launcher is not shown. */
 export function chatOff(code: string | null): boolean {
   return code === 'chat_off';
 }
@@ -33,7 +44,7 @@ export function membershipText(code: string | null): string | null {
 }
 
 /**
- * The sentence under the thread: the last refusal or failure, else a limit already reached.
+ * The sentence above the question field: the last refusal or failure, else a limit already reached.
  * Null while there is nothing to say, or for `chat_off` and `chat_closed`, which have their
  * own states. Network and unknown failures read as the agent's.
  */
