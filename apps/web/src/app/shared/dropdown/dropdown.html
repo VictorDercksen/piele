@@ -1,6 +1,6 @@
 <section
   hlmCollapsible
-  [expanded]="open()"
+  [expanded]="!bodyInert()"
   class="dropdown"
   [class.panel]="appearance() === 'panel'"
   [class.open]="open()"
@@ -40,7 +40,7 @@
     class="dropdown-body"
     #body
     [id]="contentId()"
-    [attr.inert]="open() ? null : ''"
+    [attr.inert]="bodyInert() ? '' : null"
   >
     <div class="dropdown-inner"><ng-content /></div>
   </div>

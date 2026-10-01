@@ -114,7 +114,12 @@ img {
   color-scheme: light;
 
   --font-sans: 'Titillium Web', Arial, Helvetica, sans-serif;
-  --surface-grain: url('/assets/editorial/surface-grain.svg');
+  /*
+   * The grain is surface-grain.svg rendered at 2x into a lossless PNG: the SVG draws its noise
+   * with feTurbulence, which the browser recomputes for every tile it repaints, so each frame of
+   * a dropdown's height animation re-ran the filter under every panel on screen.
+   */
+  --surface-grain: image-set(url('/assets/editorial/surface-grain.png') 2x);
   --rugby-grip: url('/assets/editorial/rugby-grip.svg');
   --rugby-lighting: linear-gradient(180deg, #ffffff20, #ffffff00 42%, #00000014);
   --rugby-surface: var(--rugby-lighting), var(--rugby-grip);
