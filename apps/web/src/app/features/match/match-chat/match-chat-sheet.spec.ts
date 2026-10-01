@@ -182,7 +182,7 @@ describe('MatchChatSheet', () => {
   it('explains when the chat is closed and offers no chips or field', async () => {
     await opened({ ...EMPTY, open: false });
     expect(root.querySelector('.state')?.textContent).toBe(
-      'The chat opens three days before kickoff and closes two days after.',
+      'The chat opens three days before kickoff and closes at kickoff.',
     );
     expect(root.querySelector('.chips')).toBeNull();
     expect(field()).toBeNull();
@@ -221,7 +221,7 @@ describe('MatchChatSheet', () => {
     await settle(fixture);
     expect(field()).toBeNull();
     expect(root.querySelector('.state')?.textContent).toBe(
-      'The chat opens three days before kickoff and closes two days after.',
+      'The chat opens three days before kickoff and closes at kickoff.',
     );
   });
 

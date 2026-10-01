@@ -10,8 +10,9 @@ import { chatOff } from './match-chat.messages';
 /**
  * The Pavilion's button, fixed at the bottom right of the match page above the mobile
  * navigation, which opens the chat sheet. It reads the fixture's thread once, and shows once
- * that read has answered anything but `chat_off`. The host stays in the page's flow as a spacer,
- * so the end of the page can scroll clear of the button.
+ * that read has answered that the chat is open (never for `chat_off`, and not once the match
+ * has kicked off and picks have locked; a failed read still shows it, so the sheet can explain).
+ * The host stays in the page's flow as a spacer, so the end of the page can scroll clear of it.
  */
 @Component({
   selector: 'app-match-chat-launcher',
@@ -35,12 +36,13 @@ export class MatchChatLauncher {
   readonly home = input.required<string>();
   readonly away = input.required<string>();
 
-  /** This fixture's thread was read, or its read failed for a reason the sheet explains. */
+  /** The fixture's chat is open, or its read failed for a reason the sheet explains. */
   readonly shown = computed(() => {
     if (this.chat.fixtureId() !== this.fixtureId()) return false;
     const error = this.chat.error();
     if (chatOff(error)) return false;
-    return this.chat.loaded() || (!!error && !this.chat.loading());
+    if (this.chat.loaded()) return this.chat.open();
+    return !!error && !this.chat.loading();
   });
 
   constructor() {
