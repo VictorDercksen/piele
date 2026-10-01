@@ -5,8 +5,8 @@ runtime pool has one connection, which the snapshot cache also needs):
 1. `begin`: resolve the member, check the window, the busy rule and the limits, store the
    question, and read the thread, the preview (with its research), the picks the member
    may see and the member's own details.
-2. `gather`: no transaction. The match centre's teamsheets, forecast and score, then the
-   context document.
+2. `gather`: no transaction. The match centre's teamsheets, forecast and score, the form
+   (season results and past seasons), then the context document.
 3. `ask`: the agent's stream, relayed to the browser.
 4. `finish`: store the answer (or what is left of it) once the stream ends, however it ends.
 
@@ -17,6 +17,7 @@ the question, the answer, the context or the agent token.
 import asyncio
 import logging
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Callable
 from uuid import UUID
 
@@ -28,8 +29,9 @@ from starlette.concurrency import run_in_threadpool
 from starlette.responses import Response
 
 from app.agent import previews
+from app.agent.form import build_form
 from app.agent.state import build_state
-from app.chat import context, limits, relay, store
+from app.chat import context, glossary, limits, relay, store
 from app.competitions import Competition
 from app.config import Settings
 from app.league import service as league
@@ -181,6 +183,13 @@ def _facts(actor: Actor, fixture: Fixture, preview: Any, picks: dict[str, Any]) 
             else None
         ),
         "research": preview.research if preview is not None else None,
+        "names": {
+            "clubs": [
+                {"name": club.name, "otherNames": glossary.club_aliases(competition, club)}
+                for club in (home, away)
+                if club is not None
+            ]
+        },
         "member": {
             "name": actor.display_name,
             "favouriteTeam": favourite.name if favourite else None,
@@ -204,7 +213,24 @@ def gather(centre: MatchCentreService, turn: Turn) -> str:
             facts["state"] = build_state(fixture, centre, moment)
     except Exception as exc:  # noqa: BLE001 - the chat still answers from what it has
         logger.warning("chat context request=%s fixture=%s provider read failed: %s", turn.request_id, turn.fixture.id, type(exc).__name__)
+    form = gather_form(centre, turn.fixture, moment, turn.request_id)
+    if form is not None:
+        facts["form"] = form
     return context.build(facts)
+
+
+def gather_form(centre: MatchCentreService, fixture: Fixture, moment: datetime, request_id: str) -> dict[str, Any] | None:
+    """Recent results, the season record and head-to-head, whether or not the teamsheets are
+    out. The season snapshot is a provider read, so this runs outside any transaction. A failure
+    leaves the form out rather than failing the turn."""
+    if not (fixture.kickoff_utc and fixture.home_id and fixture.away_id):
+        return None
+    try:
+        competition = centre.competition
+        return build_form(competition, fixture, centre.season_results(moment), competition.history())
+    except Exception as exc:  # noqa: BLE001 - the chat still answers from what it has
+        logger.warning("chat context request=%s fixture=%s form failed: %s", request_id, fixture.id, type(exc).__name__)
+        return None
 
 
 def finish(engine: Engine, turn: Turn, outcome: relay.Outcome) -> None:

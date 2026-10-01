@@ -1,4 +1,4 @@
-"""URC 2026/27 provider wiring: teamsheets and live scores from the URC GraphQL feed, with
+"""URC 2026/27 provider wiring: teamsheets, live scores and season results from the URC GraphQL feed, with
 ESPN's public URC scoreboard as the scores fallback. The provider code stays in
 app/matchcentre/providers; this module only binds it to the configured URLs."""
 
@@ -8,7 +8,7 @@ import httpx
 
 from app.config import Settings
 from app.matchcentre.cache import Fetched
-from app.matchcentre.providers import espn, scores, teamsheets
+from app.matchcentre.providers import espn, results, scores, teamsheets
 from app.matchcentre.schedule import Fixture
 
 SOURCE = "URC match centre"
@@ -26,6 +26,13 @@ class UrcTeamsheets:
 
     def fetch_teamsheets(self, client: httpx.Client, settings: Settings, fixture: Fixture) -> Fetched:
         return teamsheets.fetch_teamsheets(client, settings.urc_graphql_url, fixture.id)
+
+
+class UrcResults:
+    source = SOURCE
+
+    def fetch_results(self, client: httpx.Client, settings: Settings, season_id: str, now: datetime) -> Fetched:
+        return results.fetch_season_results(client, settings.urc_graphql_url, season_id, now)
 
 
 class EspnScores:

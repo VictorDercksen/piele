@@ -16,6 +16,8 @@ from typing import Any, Mapping, Sequence
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
 
+from app.chat.glossary import UNIONS
+
 MAX_CHARS = 32_000
 POOL_HIDDEN = "The other members' picks are hidden until you have made your own pick or the match has kicked off."
 # The state sources, as (url, title, publisher).
@@ -40,6 +42,10 @@ EVENT_WORDS = {
 }
 
 
+# Whole sections left out, first to last, when the document is still too long.
+DROP_ORDER = ("research", "form", "preview", "teamsheets")
+
+
 @dataclass(frozen=True)
 class Trim:
     """How much of the bulky material to keep. None keeps all of it."""
@@ -47,7 +53,8 @@ class Trim:
     research_items: int | None = None
     timeline_events: int | None = None
     bench_names: bool = True
-    # Last resort, beyond the contract's three steps: whole sections, then the pool's names.
+    # Last resort, beyond the contract's three steps: whole sections (research, form, the
+    # preview, the teamsheets, in that order), then the pool's names.
     drop_sections: frozenset[str] = frozenset()
     pool_names: int | None = None
 
@@ -70,7 +77,7 @@ def build(facts: Mapping[str, Any], limit: int = MAX_CHARS) -> str:
     if len(document) > limit:
         trim = replace(trim, bench_names=False)
         document = render(facts, trim)
-    for section in ("research", "preview", "teamsheets"):
+    for section in DROP_ORDER:
         if len(document) <= limit:
             break
         trim = replace(trim, drop_sections=trim.drop_sections | {section})
@@ -99,7 +106,10 @@ def render(facts: Mapping[str, Any], trim: Trim) -> str:
     published = state is not None and state.get("teamsheetStatus") == "ok"
     weather = facts.get("weather")
     forecast = weather if isinstance(weather, Mapping) and weather.get("status") == "ok" else None
-    centre_number = sources.add(*MATCH_CENTRE) if published else None
+    form = facts.get("form") if "form" not in trim.drop_sections else None
+    form = form if isinstance(form, Mapping) and form.get("status") == "ok" else None
+    # The URC match centre is cited for the teamsheets and for the results behind the form.
+    centre_number = sources.add(*MATCH_CENTRE) if published or form else None
     meteo_number = sources.add(*OPEN_METEO) if forecast else None
 
     sections: list[tuple[str, str]] = [("fixture", _fixture(facts, fixture, tz, now))]
@@ -107,6 +117,8 @@ def render(facts: Mapping[str, Any], trim: Trim) -> str:
         sheets = _teamsheets(state, facts.get("teamsheetStatus"), trim, centre_number)
         if sheets:
             sections.append(("teamsheets", sheets))
+    if form:
+        sections.append(("form", _form(form, fixture, tz, centre_number)))
     if forecast:
         sections.append(("forecast", _forecast(forecast, tz, meteo_number)))
     if preview:
@@ -116,6 +128,7 @@ def render(facts: Mapping[str, Any], trim: Trim) -> str:
     match = _match(facts.get("score"), fixture, trim)
     if match:
         sections.append(("match", match))
+    sections.append(("names", _names_document(facts.get("names"))))
     sections.append(("member", _member(facts.get("member") or {}, fixture, tz, trim)))
 
     parts = ["<documents>"]
@@ -260,6 +273,63 @@ def _player(player: Mapping[str, Any]) -> str:
 
 def _names(names: Any) -> str:
     return ", ".join(clean(n) for n in names or []) or "none"
+
+
+def _form(form: Mapping[str, Any], fixture: Mapping[str, Any], tz: str, number: int | None) -> str:
+    lines = [f"Results of both clubs before this match, from the URC match centre.{cite([number])}"]
+    if form.get("currentSeason") == "unavailable":
+        lines.append("This season's results could not be read just now; the results below are from earlier seasons only.")
+    for side in ("home", "away"):
+        data = form.get(side) or {}
+        lines += ["", f"{clean(fixture.get(side))} ({side}), most recent results first:"]
+        recent = [r for r in data.get("recent") or [] if isinstance(r, Mapping)]
+        lines += [_result_line(r, tz) for r in recent] or ["- no earlier results on record"]
+        record = data.get("season")
+        if isinstance(record, Mapping):
+            lines.append(
+                f"This season so far: played {record.get('played')}, won {record.get('won')}, drawn {record.get('drawn')}, "
+                f"lost {record.get('lost')}, points for {record.get('pointsFor')}, points against {record.get('pointsAgainst')}."
+            )
+    lines += ["", "Head to head, most recent meeting first:"]
+    meetings = [m for m in form.get("headToHead") or [] if isinstance(m, Mapping)]
+    lines += [_meeting_line(m, tz) for m in meetings] or ["- no earlier meetings on record"]
+    return "\n".join(lines)
+
+
+def _result_line(result: Mapping[str, Any], tz: str) -> str:
+    place = "at home" if result.get("atHome") else "away"
+    venue = f", {clean(result.get('venue'))}" if result.get("venue") else ""
+    return (
+        f"- {_day(result.get('kickoffUtc'), tz)} ({clean(result.get('season'))}): {clean(result.get('outcome'))} "
+        f"{result.get('for')}-{result.get('against')} v {clean(result.get('opponent'))} {place}{venue}"
+    )
+
+
+def _meeting_line(meeting: Mapping[str, Any], tz: str) -> str:
+    venue = f", {clean(meeting.get('venue'))}" if meeting.get("venue") else ""
+    return (
+        f"- {_day(meeting.get('kickoffUtc'), tz)} ({clean(meeting.get('season'))}): {clean(meeting.get('home'))} "
+        f"{meeting.get('homeScore')}-{meeting.get('awayScore')} {clean(meeting.get('away'))}{venue}"
+    )
+
+
+def _names_document(names: Any) -> str:
+    """Reference text: nicknames of the national sides, other names of this match's clubs, and
+    the rule for a player's test team. Static apart from the clubs, so it needs no citation."""
+    lines = ["Names the member may use. A nickname for a national side means that union's Test team."]
+    lines += [f"- {union}: {', '.join(nicknames)}" for union, nicknames in UNIONS.items() if nicknames]
+    lines.append("Test unions without a widely used nickname: " + ", ".join(u for u, n in UNIONS.items() if not n) + ".")
+    clubs = [c for c in (names or {}).get("clubs") or [] if isinstance(c, Mapping)] if isinstance(names, Mapping) else []
+    if clubs:
+        lines.append("Other names for the clubs in this match:")
+        for club in clubs:
+            others = ", ".join(clean(n) for n in club.get("otherNames") or [])
+            lines.append(f"- {clean(club.get('name'))}: {others or 'no other names recorded'}")
+    lines.append(
+        "A player's Test team is the union the player has played Test rugby for. It may differ from "
+        "the player's country of birth and from the club's country."
+    )
+    return "\n".join(lines)
 
 
 def _forecast(weather: Mapping[str, Any], tz: str, number: int | None) -> str:
@@ -424,6 +494,19 @@ def when(moment: datetime, tz: str) -> str:
     utc = moment.astimezone(timezone.utc)
     utc_part = f"{utc:%H:%M} UTC" if utc.date() == local.date() else f"{utc:%A} {utc.day} {utc:%B %H:%M} UTC"
     return f"{local:%A} {local.day} {local:%B %Y, %H:%M} {local.tzname()} ({tz}); {utc_part}"
+
+
+def _day(value: Any, tz: str) -> str:
+    """'Sat 26 Sep 2026' in league time."""
+    moment = _dt(value)
+    if moment is None:
+        return "date unknown"
+    try:
+        zone = ZoneInfo(tz)
+    except Exception:  # noqa: BLE001 - an unknown zone falls back to UTC
+        zone = ZoneInfo("UTC")
+    local = moment.astimezone(zone)
+    return f"{local:%a} {local.day} {local:%b %Y}"
 
 
 def _dt(value: Any) -> datetime | None:

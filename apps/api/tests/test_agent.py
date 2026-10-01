@@ -3,6 +3,7 @@ previews. Storage tests need PIELE_TEST_DATABASE_URL like tests/test_database.py
 
 import json
 import os
+from pathlib import Path
 from dataclasses import replace
 from datetime import date, datetime, timedelta, timezone
 from types import SimpleNamespace
@@ -34,6 +35,10 @@ KICKOFF = datetime(2026, 10, 10, 16, 30, tzinfo=timezone.utc)
 DAY_BEFORE = KICKOFF - timedelta(days=1)
 
 
+# A capture of the feed's 2026/27 season response, trimmed to the first round's results.
+SEASON_RESULTS = Path(__file__).parent / "data" / "urc-season-202601.json"
+
+
 class Feed:
     """The URC feed and Open-Meteo behind a MockTransport, with line-ups for any fixture.
 
@@ -43,6 +48,8 @@ class Feed:
 
     def __init__(self) -> None:
         self.variant = ""
+        self.results_requests = 0
+        self.results_down = False
 
     def lineup(self, fixture_id: str, team_id: str) -> list[dict]:
         short = URC.club(team_id).short_name
@@ -72,6 +79,11 @@ class Feed:
             fields += ["wind_speed_10m", "wind_gusts_10m", "weather_code", "is_day"]
             return httpx.Response(200, json={"hourly": {"time": hours, **{f: [1, 1] for f in fields}}})
         body = json.loads(request.content)
+        if "query SeasonResults" in body["query"]:
+            self.results_requests += 1
+            if self.results_down:
+                return httpx.Response(503, json={"error": "down"})
+            return httpx.Response(200, json=json.loads(SEASON_RESULTS.read_text()))
         if "query Bios" in body["query"]:
             players = [{"id": i, "player_data": {"dob": "1996-10-10T00:00:00Z"}} for i in body["variables"]["ids"]]
             return httpx.Response(200, json={"data": {"players": players}})
@@ -145,7 +157,10 @@ def test_state_reports_teamsheet_features_travel_rest_and_weather(monkeypatch) -
     assert body["fixtureId"] == FIXTURE
     assert (body["venue"], body["country"], body["teamsheetStatus"]) == ("Parc y Scarlets", "Wales", "ok")
     assert body["weather"]["status"] == "ok"
-    assert body["form"]["status"] == "unavailable"
+    assert body["form"]["status"] == "ok" and "currentSeason" not in body["form"]
+    # Scarlets lost 15-21 at home to Cardiff in round 1; their earlier seasons come from history.
+    assert body["form"]["home"]["season"]["played"] == 1
+    assert body["form"]["home"]["recent"][0]["outcome"] == "lost"
     assert len(body["teamsheetHash"]) == 64 and len(body["stateHash"]) == 64
 
     home, away = body["home"], body["away"]
@@ -542,3 +557,13 @@ def test_research_is_stored_with_the_preview_but_not_shown_to_members(monkeypatc
     assert stored["away"]["mood"] == research["away"]["mood"] and stored["away"]["team"] == "Benetton"
     preview = client.get(f"/v1/competitions/urc-2026-27/matches/{FIXTURE}/preview", headers=captain_headers(client)).json()["preview"]
     assert "research" not in preview
+
+
+def test_state_form_survives_an_unavailable_season_snapshot(monkeypatch) -> None:
+    feed = Feed()
+    feed.results_down = True
+    body = agent_client(monkeypatch, DAY_BEFORE, feed).get(f"/v1/agent/fixtures/{FIXTURE}/state", headers=AGENT).json()
+    assert body["form"]["status"] == "ok" and body["form"]["currentSeason"] == "unavailable"
+    assert body["form"]["home"]["season"] is None
+    assert body["form"]["home"]["recent"][0]["season"] == "2025/26"
+    assert body["teamsheetStatus"] == "ok" and len(body["stateHash"]) == 64

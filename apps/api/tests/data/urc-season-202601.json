@@ -1,0 +1,138 @@
+{
+ "data": {
+  "matchstats": [
+   {
+    "match_id": 292584,
+    "home_team_id": 2019,
+    "home_team_name": "Benetton Rugby",
+    "away_team_id": 3533,
+    "away_team_name": "Dragons RFC",
+    "home_score": 19,
+    "away_score": 19,
+    "match_status": "result",
+    "match_datetime": "2026-09-25 18:45:00",
+    "venue": "Stadio Monigo"
+   },
+   {
+    "match_id": 292585,
+    "home_team_id": 5483,
+    "home_team_name": "Connacht Rugby",
+    "away_team_id": 3994,
+    "away_team_name": "DHL Stormers",
+    "home_score": 15,
+    "away_score": 29,
+    "match_status": "result",
+    "match_datetime": "2026-09-25 18:45:00",
+    "venue": "Dexcom Stadium"
+   },
+   {
+    "match_id": 292586,
+    "home_team_id": 2129,
+    "home_team_name": "Ulster Rugby",
+    "away_team_id": 1641,
+    "away_team_name": "Edinburgh Rugby",
+    "home_score": 29,
+    "away_score": 34,
+    "match_status": "result",
+    "match_datetime": "2026-09-25 18:45:00",
+    "venue": "Affidea Stadium"
+   },
+   {
+    "match_id": 292587,
+    "home_team_id": 5092,
+    "home_team_name": "10bet Lions",
+    "away_team_id": 5356,
+    "away_team_name": "Leinster Rugby",
+    "home_score": 27,
+    "away_score": 26,
+    "match_status": "result",
+    "match_datetime": "2026-09-26 11:30:00",
+    "venue": "10bet Ellis Park"
+   },
+   {
+    "match_id": 292588,
+    "home_team_id": 1527,
+    "home_team_name": "Hollywoodbets Sharks",
+    "away_team_id": 5057,
+    "away_team_name": "Ospreys",
+    "home_score": 41,
+    "away_score": 24,
+    "match_status": "result",
+    "match_datetime": "2026-09-26 14:00:00",
+    "venue": "Hollywoodbets Kings Park"
+   },
+   {
+    "match_id": 292589,
+    "home_team_id": 4377,
+    "home_team_name": "Munster Rugby",
+    "away_team_id": 3098,
+    "away_team_name": "Glasgow Warriors",
+    "home_score": 20,
+    "away_score": 26,
+    "match_status": "result",
+    "match_datetime": "2026-09-26 16:30:00",
+    "venue": "Thomond Park"
+   },
+   {
+    "match_id": 292590,
+    "home_team_id": 4474,
+    "home_team_name": "Zebre Parma",
+    "away_team_id": 5586,
+    "away_team_name": "Vodacom Bulls",
+    "home_score": 13,
+    "away_score": 47,
+    "match_status": "result",
+    "match_datetime": "2026-09-26 16:30:00",
+    "venue": "Stadio Sergio Lanfranchi"
+   },
+   {
+    "match_id": 292591,
+    "home_team_id": 3514,
+    "home_team_name": "Scarlets",
+    "away_team_id": 4471,
+    "away_team_name": "Cardiff Rugby",
+    "home_score": 15,
+    "away_score": 21,
+    "match_status": "result",
+    "match_datetime": "2026-09-26 18:45:00",
+    "venue": "Parc y Scarlets"
+   },
+   {
+    "match_id": 292592,
+    "home_team_id": 4471,
+    "home_team_name": "Cardiff Rugby",
+    "away_team_id": 4474,
+    "away_team_name": "Zebre Parma",
+    "home_score": 0,
+    "away_score": 0,
+    "match_status": "fixture",
+    "match_datetime": "2026-10-02 18:45:00",
+    "venue": "Cardiff Arms Park"
+   },
+   {
+    "match_id": 292595,
+    "home_team_id": 5092,
+    "home_team_name": "10bet Lions",
+    "away_team_id": 5057,
+    "away_team_name": "Ospreys",
+    "home_score": 0,
+    "away_score": 0,
+    "match_status": "fixture",
+    "match_datetime": "2026-10-03 11:45:00",
+    "venue": "10bet Ellis Park"
+   },
+   {
+    "match_id": 292728,
+    "home_team_id": 0,
+    "home_team_name": "TBD",
+    "away_team_id": 0,
+    "away_team_name": "TBD",
+    "home_score": 0,
+    "away_score": 0,
+    "match_status": "fixture",
+    "match_datetime": "2027-05-28 14:00:00",
+    "venue": "TBD"
+   }
+  ]
+ }
+}

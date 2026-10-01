@@ -188,7 +188,7 @@ def test_sources_number_the_preview_then_research_then_the_state_sources() -> No
     forecast = next(line for line in document.splitlines() if line.startswith("Kickoff-hour forecast"))
     assert forecast.startswith("Kickoff-hour forecast for Parc y Scarlets, Llanelli (") and forecast.endswith(": [6]")
     sections = [line for line in document.splitlines() if line.startswith("<source>")]
-    assert sections == [f"<source>{s}</source>" for s in ("fixture", "teamsheets", "forecast", "preview", "research", "member")]
+    assert sections == [f"<source>{s}</source>" for s in ("fixture", "teamsheets", "forecast", "preview", "research", "names", "member")]
 
 
 def test_unpublished_teamsheets_are_one_line_and_free_text_cannot_forge_tags() -> None:

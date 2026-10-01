@@ -29,11 +29,14 @@ class Upstream:
         espn=None,
         any_venue=False,
         weather_down=(),
+        results=None,
     ):
         self.calls: dict[str, int] = {}
         self.graphql = graphql if graphql is not None else self.published()
         self.scores = scores if scores is not None else {"data": {"matchstats": []}}
         self.score_requests: list[dict] = []
+        self.results = results if results is not None else {"data": {"matchstats": []}}
+        self.results_requests: list[dict] = []
         self.espn = espn if espn is not None else {"events": []}
         self.espn_requests: list[str] = []
         self.weather_hours = weather_hours
@@ -128,6 +131,9 @@ class Upstream:
             if "query RoundScores" in body["query"]:
                 self.score_requests.append(body["variables"])
                 return httpx.Response(200, json=self.scores)
+            if "query SeasonResults" in body["query"]:
+                self.results_requests.append(body["variables"])
+                return httpx.Response(200, json=self.results)
             if "query Bios" in body["query"]:
                 self.bio_requests.append(body["variables"])
                 if self.bios_fail:

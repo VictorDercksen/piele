@@ -1,5 +1,5 @@
 """What a competition is to the API: its schedule, clubs, stadiums, round structure and the
-providers that report its teamsheets and live scores.
+providers that report its teamsheets, live scores and season results, and its past seasons' results.
 
 Rugby itself is fixed (shirts 1 to 15 start, the scoring timeline, the weather lookup), so
 that stays shared code in app/matchcentre. A second rugby competition is one new folder
@@ -17,6 +17,7 @@ from fastapi import HTTPException
 
 from app.config import Settings
 from app.matchcentre.cache import Fetched
+from app.matchcentre.history import History, load_history
 from app.matchcentre.schedule import Fixture, Schedule, load_schedule
 
 
@@ -63,6 +64,18 @@ class TeamsheetsProvider(Protocol):
     def fetch_teamsheets(self, client: httpx.Client, settings: Settings, fixture: Fixture) -> Fetched: ...
 
 
+class ResultsProvider(Protocol):
+    """Every played match of the competition's current feed season, in feed team ids.
+    The payload is `{"seasonId", "results": [{fixtureId, homeSourceId, awaySourceId, homeScore,
+    awayScore, kickoffUtc, venue}]}`."""
+
+    source: str
+
+    def fetch_results(
+        self, client: httpx.Client, settings: Settings, season_id: str, now: datetime
+    ) -> Fetched: ...
+
+
 @dataclass(frozen=True, eq=False)
 class Competition:
     id: str
@@ -80,6 +93,11 @@ class Competition:
     scores: ScoresProvider
     teamsheets: TeamsheetsProvider
     fallback_scores: FallbackScoresProvider | None = None
+    # The feed's id for this season (the URC's `202601`), and the provider that reads its results.
+    feed_season_id: str | None = None
+    season_results: ResultsProvider | None = None
+    # Results of past seasons (app/competitions/<id>/history.json). None: no history.
+    history_file: Path | None = None
     _loaded: dict[str, Any] = field(default_factory=dict, init=False, repr=False)
     _lock: Lock = field(default_factory=Lock, init=False, repr=False)
 
@@ -89,6 +107,16 @@ class Competition:
             if "schedule" not in self._loaded:
                 self._loaded["schedule"] = load_schedule(self.schedule_file)
             return self._loaded["schedule"]
+
+    def history(self) -> History:
+        """The bundled results of past seasons, read once per competition. Empty without a file."""
+        with self._lock:
+            if "history" not in self._loaded:
+                self._loaded["history"] = load_history(self.history_file)
+            return self._loaded["history"]
+
+    def club_by_source_id(self, source_id: int | None) -> Club | None:
+        return next((club for club in self.clubs if club.source_id == source_id), None)
 
     def club(self, club_id: str | None) -> Club | None:
         return next((club for club in self.clubs if club.id == club_id), None)
