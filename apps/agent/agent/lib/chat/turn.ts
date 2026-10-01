@@ -38,8 +38,11 @@ export function chatTurn(
           },
           ...request.messages,
         ],
-        maxOutputTokens: 500,
-        temperature: 0.3,
+        // DeepSeek thinks before it answers, and the thinking counts against this cap: a
+        // 500-token cap was spent entirely on reasoning for a question about a side, with no
+        // answer left (1 October 2026). Temperature has no effect while thinking is on, so
+        // none is set.
+        maxOutputTokens: 2500,
         maxRetries: 1,
         abortSignal: options.signal,
         // The default handler logs the whole error, whose request body holds the context.

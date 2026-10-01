@@ -38,7 +38,7 @@ It answers `202` with `{ started: [{ fixtureId, attempt, reason, sessionId }] }`
 - Auth: `Authorization: Bearer $PIELE_AGENT_TOKEN`, else `401 { error: 'unauthorized' }`.
 - Body (JSON, at most 64 KiB, else `413`): `{ scope: { kind: 'fixture', fixtureId, round }, context, messages }`. `context` is the API's `<documents>` block ending in a numbered `<sources>` list, 1 to 40,000 characters. `messages` holds 1 to 11 turns that alternate and start and end with `user`; trimmed text of at most 1,000 characters (user) or 4,000 (assistant). Anything else is `422 { error }`.
 - Response: an AI SDK UI message stream (SSE, `x-vercel-ai-ui-message-stream: v1`, `Cache-Control: no-store`). The text keeps its `[n]` markers; after it, one `source-url` part per cited source (`sourceId` is `n`), then `finish` with token usage as message metadata. A failure after the stream starts is an `error` part with a fixed message.
-- Model: `WRITER_MODEL` through AI Gateway, `agent/lib/chat/instructions.ts` as the system prompt, at most 500 output tokens, temperature 0.3, one retry, stopped after 45 seconds. Logs name only the error class and status, never the token or the context.
+- Model: `WRITER_MODEL` through AI Gateway, `agent/lib/chat/instructions.ts` as the system prompt, at most 2,500 output tokens (DeepSeek's thinking counts against them, so the cap leaves room for the reasoning and the answer; no temperature, which has no effect while thinking is on), one retry, stopped after 45 seconds. Logs name only the error class and status, never the token or the context.
 
 It needs no new variables: `PIELE_AGENT_TOKEN` and `PIELE_API_URL` are unchanged.
 

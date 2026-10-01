@@ -107,8 +107,8 @@ test('sends the instructions, then the context, then the conversation, with the 
   await chatTurn(REQUEST, { model }).text();
 
   const [call] = model.doStreamCalls;
-  assert.equal(call.maxOutputTokens, 500);
-  assert.equal(call.temperature, 0.3);
+  assert.equal(call.maxOutputTokens, 2500);
+  assert.equal(call.temperature, undefined);
   assert.deepEqual(
     call.prompt.map((message) => message.role),
     ['system', 'user', 'user', 'assistant', 'user'],
