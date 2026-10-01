@@ -386,7 +386,7 @@ def test_the_names_section_is_always_present_before_the_member() -> None:
     names = section(document, "names")
     assert "- South Africa: Springboks, Boks, Bokke" in names
     assert "- Argentina: Pumas, Los Pumas" in names
-    assert "Test unions without a widely used nickname: Ireland, Scotland, Germany, Netherlands, Hong Kong China." in names
+    assert "Test unions without a widely used nickname: Ireland, Wales, Scotland, Germany, Netherlands, Hong Kong China." in names
     assert "Other names for the clubs" not in names
     assert "may differ from the player's country of birth" in names
     assert sources_block(document) == []
