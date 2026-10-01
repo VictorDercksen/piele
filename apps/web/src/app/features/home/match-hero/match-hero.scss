@@ -496,7 +496,7 @@
 
 .ruler-dots {
   display: flex;
-  gap: 4px;
+  gap: 6px;
 }
 
 .dot {
@@ -543,6 +543,21 @@
   border: 1.5px dashed #a9becb;
   background: transparent;
   box-shadow: none;
+}
+
+/* The fixture the hero shows: a chalk ring with a gap, so it stands out without a new colour. */
+.dot.featured {
+  box-shadow:
+    0 0 0 2px #050d10,
+    0 0 0 4px var(--chalk),
+    0 2px 6px #0006;
+}
+
+.dot.open.featured,
+.dot.missed.featured {
+  box-shadow:
+    0 0 0 2px #050d10,
+    0 0 0 4px var(--chalk);
 }
 
 .dot:hover {

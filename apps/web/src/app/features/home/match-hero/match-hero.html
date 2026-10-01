@@ -106,6 +106,8 @@
                     [class.open]="dot.state === 'open'"
                     [class.missed]="dot.state === 'missed'"
                     [class.draw]="dot.state === 'picked' && !dot.crest"
+                    [class.featured]="dot.fixtureId === shown().id"
+                    [attr.aria-current]="dot.fixtureId === shown().id ? 'true' : null"
                     [style.--club]="dot.colour"
                     [routerLink]="'/match/' + dot.fixtureId | leaguePath"
                     queryParamsHandling="preserve"

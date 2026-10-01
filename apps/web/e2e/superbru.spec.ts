@@ -160,6 +160,10 @@ test('the home page lays the round’s picks along its kickoffs', async ({ page 
     exact: true,
   });
   await expect(stormers).toHaveClass(/open/);
+  // The featured match (the favourite team's fixture) wears a ring and is the current dot.
+  await expect(stormers).toHaveClass(/featured/);
+  await expect(stormers).toHaveAttribute('aria-current', 'true');
+  await expect(ruler.locator('.dot.featured')).toHaveCount(1);
 
   // A dot opens its match; a pick there shows on the ruler as the club's crest.
   await stormers.click();
