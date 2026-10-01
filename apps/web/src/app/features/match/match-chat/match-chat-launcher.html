@@ -4,6 +4,9 @@
     hlmBtn
     type="button"
     class="launcher"
+    [class.club]="!!club()"
+    [style.--club]="club()?.colour"
+    [style.--club-accent]="club()?.accent"
     aria-label="Ask the Pavilion"
     aria-haspopup="dialog"
     [attr.aria-expanded]="sheet.isOpen()"
@@ -18,5 +21,6 @@
   [fixtureId]="fixtureId()"
   [home]="home()"
   [away]="away()"
+  [club]="club()"
   [returnFocus]="trigger"
 />

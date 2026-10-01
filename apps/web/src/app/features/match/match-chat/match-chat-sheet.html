@@ -4,7 +4,18 @@
   autoFocus="dialog"
   [restoreFocus]="returnFocus() ?? true"
 >
-  <hlm-dialog-content *hlmDialogPortal class="match-chat-sheet" [showCloseButton]="false">
+  <hlm-dialog-content
+    *hlmDialogPortal
+    class="match-chat-sheet"
+    [showCloseButton]="false"
+    [attr.data-club]="club() ? '' : null"
+    [style.--club]="club()?.colour"
+    [style.--club-accent]="club()?.accent"
+    [style.--club-banner]="club()?.bannerColour"
+  >
+    @if (club()) {
+      <span class="scarf" aria-hidden="true"></span>
+    }
     <span class="handle" aria-hidden="true"></span>
     <div class="sheet-head">
       <span class="mark" aria-hidden="true"><ng-icon name="lucideBot" /></span>
@@ -50,7 +61,11 @@
                 [class.mine]="message.role === 'user'"
                 [class.pavilion]="message.role === 'assistant'"
                 [attr.data-status]="message.status"
+                [class.kit]="message.role === 'user' && !!club()?.pattern"
               >
+                @if (message.role === 'user' && club()?.pattern; as pattern) {
+                  <img class="kit-pattern" [src]="pattern" alt="" />
+                }
                 <span class="speaker">
                   @if (message.role === 'assistant') {
                     <ng-icon name="lucideBot" aria-hidden="true" />The Pavilion
