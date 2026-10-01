@@ -11,6 +11,29 @@ const line = z.string().trim().min(1).max(300);
 const factors = z.array(z.object({ text: line, sources: sourceRefs })).max(6);
 const mood = z.object({ score: z.number().int().min(-2).max(2), note: line, sources: sourceRefs });
 
+// The team-researcher's output (its outputSchema), stored with the preview for the match chat.
+// Unknown keys are dropped rather than refused, so stray fields never cost the preview.
+const research = z.object({
+  team: z.string(),
+  items: z
+    .array(
+      z.object({
+        kind: z.enum(['injury', 'selection', 'coach', 'travel', 'rest', 'other']),
+        text: z.string().max(300),
+        url: z.string().regex(/^https?:\/\//i),
+        title: z.string().max(200),
+        publisher: z.string().max(100).optional(),
+        publishedAt: z.string().optional(),
+      }),
+    )
+    .max(12),
+  mood: z.object({
+    score: z.number().int().min(-2).max(2),
+    note: z.string().max(300),
+    urls: z.array(z.string()),
+  }),
+});
+
 const input = z.object({
   fixtureId: z.string().regex(/^\d{1,12}$/),
   summary: z.string().trim().min(1).max(1500),
@@ -27,6 +50,7 @@ const input = z.object({
     )
     .min(1)
     .max(20),
+  research: z.object({ home: research, away: research }).optional(),
 });
 
 export default defineTool({
