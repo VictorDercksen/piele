@@ -37,7 +37,7 @@
       >
     </div>
   </div>
-  <div class="match-footer" [class.ruled]="!!ruler()">
+  <div class="match-footer">
     <div class="match-venue">
       @if (stadiumIcon(); as icon) {
         <img class="stadium-icon" [src]="icon" alt="" (error)="iconFailed.set(icon)" />
@@ -71,7 +71,14 @@
         <strong>{{ shown().venue }}</strong>
       </div>
     </div>
-    @if (ruler(); as ruler) {
+    @if (linked()) {
+      <button hlmBtn type="button" class="match-link" (click)="explore.emit()">
+        Enter the match centre <app-icon name="arrow" />
+      </button>
+    }
+  </div>
+  @if (ruler(); as ruler) {
+    <div class="pick-band">
       <div class="kickoff-ruler">
         <span class="ruler-label"
           >YOUR PICKS · <b>{{ ruler.made }} OF {{ ruler.total }}</b> IN
@@ -99,6 +106,8 @@
                     [class.open]="dot.state === 'open'"
                     [class.missed]="dot.state === 'missed'"
                     [class.draw]="dot.state === 'picked' && !dot.crest"
+                    [class.featured]="dot.fixtureId === shown().id"
+                    [attr.aria-current]="dot.fixtureId === shown().id ? 'true' : null"
                     [style.--club]="dot.colour"
                     [routerLink]="'/match/' + dot.fixtureId | leaguePath"
                     queryParamsHandling="preserve"
@@ -118,24 +127,14 @@
               >
             </div>
           }
-          @if (ruler.pin === ruler.slots.length) {
-            <ng-container *ngTemplateOutlet="nowPin" />
-          }
         </div>
         <ng-template #nowPin>
           <div class="ruler-now">
             <span class="pin" aria-hidden="true"></span>
-            <span class="ruler-time"
-              >NOW<b>{{ ruler.now.day }} {{ ruler.now.time }}</b></span
-            >
+            <span class="ruler-time">NOW</span>
           </div>
         </ng-template>
       </div>
-    }
-    @if (linked()) {
-      <button hlmBtn type="button" class="match-link" (click)="explore.emit()">
-        Enter the match centre <app-icon name="arrow" />
-      </button>
-    }
-  </div>
+    </div>
+  }
 </section>
