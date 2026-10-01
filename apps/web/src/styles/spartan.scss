@@ -16,6 +16,17 @@
   --ring: #ffa17c;
   --radius: 0.2rem;
 }
+// Brain's collapsible content measures itself into these whenever its content resizes. Nothing
+// below the content reads them, so they do not inherit: an inherited custom property restyles
+// every descendant of an open dropdown on each measurement.
+@property --brn-collapsible-content-height {
+  syntax: '*';
+  inherits: false;
+}
+@property --brn-collapsible-content-width {
+  syntax: '*';
+  inherits: false;
+}
 // A Helm badge naming how evidence was decided, tinted by its decision.
 .decision-pill {
   --decision: var(--muted);

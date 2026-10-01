@@ -19,16 +19,22 @@
     border-color 0.2s,
     box-shadow 0.2s;
 }
-.tap-to-open:not(.open) {
-  cursor: pointer;
+/*
+ * Only where there is a pointer to show it for: `cursor` is inherited, so changing it with the
+ * open state restyles every element in the dropdown in the frame of the tap.
+ */
+@media (hover: hover) {
+  .tap-to-open:not(.open) {
+    cursor: pointer;
+  }
+  .tap-to-open.open > .dropdown-head,
+  .tap-to-open.open > .dropdown-lead {
+    cursor: pointer;
+  }
 }
 .panel.tap-to-open:not(.open):hover {
   border-top-color: var(--dropdown-rule-hover, var(--accent));
   box-shadow: 0 10px 28px #0006;
-}
-.tap-to-open.open > .dropdown-head,
-.tap-to-open.open > .dropdown-lead {
-  cursor: pointer;
 }
 
 /*
@@ -135,7 +141,12 @@
   position: relative;
   height: 0;
   overflow: hidden;
-  visibility: hidden;
+  /*
+   * Closed, the browser skips the body's content entirely (no style, layout or paint) but keeps
+   * its rendering state, so a full body costs the page nothing and opens without restyling every
+   * descendant, which an inherited property such as `visibility` would.
+   */
+  content-visibility: hidden;
   /* The height animation moves the page itself; the browser must not re-anchor the scroll. */
   overflow-anchor: none;
 }
@@ -143,8 +154,19 @@
   padding-top: 16px;
 }
 .open > .dropdown-body,
-.animating > .dropdown-body {
-  visibility: visible;
+.animating > .dropdown-body,
+.peeks > .dropdown-body {
+  content-visibility: visible;
+}
+@supports not (content-visibility: hidden) {
+  .dropdown-body {
+    visibility: hidden;
+  }
+  .open > .dropdown-body,
+  .animating > .dropdown-body,
+  .peeks > .dropdown-body {
+    visibility: visible;
+  }
 }
 .open > .dropdown-body {
   height: auto;
@@ -157,7 +179,6 @@
   position: relative;
   height: var(--peek);
   margin-top: 14px;
-  visibility: visible;
 }
 .peeks > .dropdown-body > .dropdown-inner {
   padding-top: 0;

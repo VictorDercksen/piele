@@ -82,6 +82,38 @@ describe('Dropdown', () => {
     expect(body.hasAttribute('inert')).toBe(true);
   });
 
+  it('changes inertness only once the body is at rest', async () => {
+    const { root, settle, section, chevron } = setup();
+    await settle();
+    const body = root.querySelector<HTMLElement>('#picks-heading-body')!;
+    const animations: EventTarget[] = [];
+    body.animate = vi.fn(() => {
+      const animation = Object.assign(new EventTarget(), { cancel: () => undefined });
+      animations.push(animation);
+      return animation as unknown as Animation;
+    });
+
+    chevron()!.click();
+    await settle();
+    // Opening: open, but inert until the body has finished growing.
+    expect(section().classList).toContain('open');
+    expect(section().classList).toContain('animating');
+    expect(body.hasAttribute('inert')).toBe(true);
+    animations[0].dispatchEvent(new Event('finish'));
+    await settle();
+    expect(section().classList).not.toContain('animating');
+    expect(body.hasAttribute('inert')).toBe(false);
+
+    chevron()!.click();
+    await settle();
+    // Closing: closed, but not inert until the body has finished folding.
+    expect(section().classList).not.toContain('open');
+    expect(body.hasAttribute('inert')).toBe(false);
+    animations[1].dispatchEvent(new Event('finish'));
+    await settle();
+    expect(body.hasAttribute('inert')).toBe(true);
+  });
+
   it('draws a panel and names the chevron from toggleName', async () => {
     const { host, settle, section, chevron } = setup();
     host.appearance.set('panel');

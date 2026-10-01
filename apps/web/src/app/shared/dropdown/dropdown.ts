@@ -98,6 +98,12 @@ export class Dropdown {
   });
   /** True while the body's height animates, so a closing body stays visible until the end. */
   readonly animating = signal(false);
+  /**
+   * The body is inert while closed, and also while it opens: inert changes the style of every
+   * element in the body, so it is lifted once the body has finished opening and set once it has
+   * finished closing (when the closed body's content is skipped), never in the frame of a tap.
+   */
+  readonly bodyInert = computed(() => this.open() === this.animating());
   /** The open heading row is pinned under the shell's bars. */
   readonly stuck = signal(false);
   private readonly head = viewChild.required<ElementRef<HTMLElement>>('head');
@@ -223,12 +229,12 @@ export class Dropdown {
       const onScreen = Math.max(0, innerHeight - element.getBoundingClientRect().top);
       from = Math.max(this.peek(), Math.min(from, onScreen));
     }
-    const to = opening ? element.scrollHeight : this.peek();
     this.open.set(opening);
     if (!opening) this.stuck.set(false);
     const reduced = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     this.animation?.cancel();
     if (reduced || typeof element.animate !== 'function') return;
+    const to = opening ? this.contentHeight(element) : this.peek();
     // The open class leaves the height to the content once the animation ends.
     const animation = element.animate([{ height: `${from}px` }, { height: `${to}px` }], {
       duration: opening ? OPEN_MS : CLOSE_MS,
@@ -244,6 +250,17 @@ export class Dropdown {
     };
     animation.addEventListener('finish', settle);
     animation.addEventListener('cancel', settle);
+  }
+
+  /**
+   * The body's full height. A closed body skips its content (`content-visibility: hidden`) and so
+   * measures as empty; it is shown for the read, which reuses the content's kept layout.
+   */
+  private contentHeight(element: HTMLElement): number {
+    element.style.contentVisibility = 'visible';
+    const height = element.scrollHeight;
+    element.style.contentVisibility = '';
+    return height;
   }
 
   /** With `tapToOpen`, a tap on the closed dropdown opens it and the open heading or lead close it. */
