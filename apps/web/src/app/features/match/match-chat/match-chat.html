@@ -1,0 +1,125 @@
+<app-dropdown
+  appearance="panel"
+  heading="Ask the Pavilion"
+  headingId="chat-title"
+  [resetKey]="fixtureId()"
+>
+  @if (loadFailed() && !membership()) {
+    <p class="chat-empty" role="alert">
+      The chat could not be loaded.
+      <button hlmBtn type="button" class="text-button" (click)="reload()">
+        Try again<ng-icon class="link-icon" name="lucideRotateCcw" />
+      </button>
+    </p>
+  } @else if (membership(); as text) {
+    <p class="chat-empty">{{ text }}</p>
+  } @else if (!loaded()) {
+    <p class="chat-empty">Loading the chat.</p>
+  } @else {
+    @if (messages().length) {
+      <ol class="thread" role="log" aria-label="Your questions and the Pavilion's answers">
+        @for (message of messages(); track message.id) {
+          <li
+            class="bubble"
+            [class.mine]="message.role === 'user'"
+            [class.pavilion]="message.role === 'assistant'"
+            [attr.data-status]="message.status"
+          >
+            <span class="speaker">
+              @if (message.role === 'assistant') {
+                <ng-icon name="lucideBot" aria-hidden="true" />The Pavilion
+              } @else {
+                You
+              }
+            </span>
+            <p class="text">{{ message.text }}</p>
+            @if (message.sources.length) {
+              <ul class="sources" aria-label="Sources">
+                @for (source of message.sources; track source.url) {
+                  <li>
+                    <a
+                      hlmBtn
+                      class="text-button"
+                      [href]="source.url"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      >{{ source.title }}<ng-icon class="link-icon" name="lucideExternalLink"
+                    /></a>
+                  </li>
+                }
+              </ul>
+            }
+          </li>
+        }
+      </ol>
+    } @else if (!busy()) {
+      <p class="chat-empty">{{ closed() ? closedText : emptyText }}</p>
+    }
+    @if (busy()) {
+      <div class="bubble pavilion streaming" aria-busy="true">
+        <span class="speaker"><ng-icon name="lucideBot" aria-hidden="true" />The Pavilion</span>
+        <p class="text">{{ streamingText() }}<span class="cursor" aria-hidden="true"></span></p>
+        @if (streamingSources().length) {
+          <ul class="sources" aria-label="Sources">
+            @for (source of streamingSources(); track source.url) {
+              <li>
+                <a
+                  hlmBtn
+                  class="text-button"
+                  [href]="source.url"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  >{{ source.title }}<ng-icon class="link-icon" name="lucideExternalLink"
+                /></a>
+              </li>
+            }
+          </ul>
+        }
+      </div>
+    }
+
+    @if (closed()) {
+      @if (messages().length) {
+        <p class="chat-note">{{ closedText }}</p>
+      }
+    } @else {
+      @if (notice(); as text) {
+        <p class="chat-note" role="status">{{ text }}</p>
+      }
+      <form class="ask" (submit)="onSubmit($event)">
+        <label hlmLabel class="field-label" [for]="'chat-question-' + fixtureId()"
+          >Your question</label
+        >
+        <textarea
+          hlmTextarea
+          [id]="'chat-question-' + fixtureId()"
+          rows="2"
+          [attr.maxlength]="maxLength"
+          [formControl]="question"
+          (keydown)="onKeydown($event)"
+        ></textarea>
+        <div class="actions">
+          @if (busy()) {
+            <button hlmBtn type="button" class="text-button" (click)="stop()">
+              Stop<ng-icon class="link-icon" name="lucideSquare" />
+            </button>
+          } @else {
+            <button hlmBtn type="submit" class="primary-button" [disabled]="!sendable()">
+              Send<ng-icon class="link-icon" name="lucideSend" />
+            </button>
+          }
+          <button
+            hlmBtn
+            type="button"
+            class="text-button"
+            [disabled]="busy() || !messages().length"
+            (click)="clear()"
+          >
+            Clear<ng-icon class="link-icon" name="lucideTrash2" />
+          </button>
+        </div>
+      </form>
+      <p class="remaining">{{ remaining() }}</p>
+    }
+  }
+</app-dropdown>
