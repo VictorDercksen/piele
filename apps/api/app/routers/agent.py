@@ -145,6 +145,7 @@ def save_preview(body: PreviewSubmission, request: Request, response: Response) 
         "models": body.models.model_dump(mode="json"),
         "usage": body.usage.model_dump(mode="json") if body.usage else None,
         "run_id": body.runId,
+        "research": body.research.model_dump(mode="json") if body.research else None,
     }
     try:
         with engine_of(request).begin() as conn:

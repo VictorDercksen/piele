@@ -53,6 +53,9 @@ match_previews = Table(
     Column("models", JSONB, nullable=False),
     Column("usage", JSONB),
     Column("run_id", String(200)),
+    # Both team researchers' results, as the writer passed them (20261001100000_chat_messages.sql).
+    # The match chat quotes them; members' preview reads leave them out.
+    Column("research", JSONB),
     schema="piele",
 )
 

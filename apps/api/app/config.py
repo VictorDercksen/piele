@@ -43,7 +43,20 @@ class Settings(BaseSettings):
     external_timeout_seconds: float = 6.0
 
     # Bearer token for the preview agent's /v1/agent routes. Unset turns those routes off.
+    # The match chat presents the same token to the agent project's /chat/turn route.
     piele_agent_token: SecretStr | None = None
+
+    # Pavilion match chat (app/chat). Off answers every chat route with 404 `chat_off`.
+    piele_chat_enabled: bool = False
+    # Origin of the agent project, e.g. https://pavilion-agent.vercel.app.
+    piele_agent_url: str | None = None
+    # Member questions per fixture, per league per rolling 24 hours, and across the
+    # deployment per rolling 24 hours (a kill switch on model spend).
+    piele_chat_turns_per_thread: int = Field(default=6, ge=1)
+    piele_chat_turns_per_day: int = Field(default=20, ge=1)
+    piele_chat_turns_per_day_global: int = Field(default=400, ge=0)
+    # The agent accepts up to 1,000 characters per member message.
+    piele_chat_message_max_chars: int = Field(default=500, ge=1, le=1000)
 
     # Web Push (app/push). The VAPID private key is a base64url P-256 scalar, made with
     # `uv run python -m app.push.keys`; unset turns push off. Changing it invalidates every
@@ -61,6 +74,10 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.environment == "production"
+
+    @property
+    def agent_token(self) -> str:
+        return self.piele_agent_token.get_secret_value() if self.piele_agent_token else ""
 
     @property
     def vapid_private_key(self) -> str:
@@ -97,6 +114,11 @@ class Settings(BaseSettings):
         token = self.piele_agent_token.get_secret_value() if self.piele_agent_token else ""
         if token and len(token) < MIN_AGENT_TOKEN_LENGTH:
             problems.append(f"PIELE_AGENT_TOKEN must be at least {MIN_AGENT_TOKEN_LENGTH} characters")
+        if self.piele_chat_enabled:
+            if not (self.piele_agent_url or "").startswith("https://"):
+                problems.append("PIELE_AGENT_URL must be an https origin when PIELE_CHAT_ENABLED is on")
+            if not token:
+                problems.append("PIELE_AGENT_TOKEN is required when PIELE_CHAT_ENABLED is on")
         problems += self.push_problems()
         if problems:
             raise ValueError("Invalid production configuration: " + "; ".join(problems))

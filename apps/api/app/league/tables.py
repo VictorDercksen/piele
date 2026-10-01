@@ -307,3 +307,40 @@ audit_events = Table(
     Column("after", JSONB),
     Column("request_id", String(128)),
 )
+
+# Pavilion match chat (20261001100000_chat_messages.sql). A thread is one member's messages
+# about one scope: 'fixture' with the fixture id as the key. Never updated; the member may
+# delete their own thread.
+chat_messages = Table(
+    "chat_messages",
+    metadata,
+    Column("id", UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")),
+    Column("league_id", UUID(as_uuid=True), nullable=False),
+    Column("season_id", UUID(as_uuid=True), nullable=False),
+    Column("membership_id", UUID(as_uuid=True), nullable=False),
+    Column("scope_kind", String(10), nullable=False),
+    Column("scope_key", String(40), nullable=False),
+    # 'user' or 'assistant'.
+    Column("role", String(10), nullable=False),
+    Column("text", Text, nullable=False),
+    # [{url, title}] cited by an answer.
+    Column("sources", JSONB, nullable=False),
+    Column("usage", JSONB),
+    Column("model", String(100)),
+    # 'complete', 'failed' or 'aborted'.
+    Column("status", String(10), nullable=False),
+    _ts("created_at", nullable=False),
+)
+
+# One row per member question, append-only and kept when a thread is cleared: the chat
+# limits count these.
+chat_turns = Table(
+    "chat_turns",
+    metadata,
+    Column("id", UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")),
+    Column("league_id", UUID(as_uuid=True), nullable=False),
+    Column("membership_id", UUID(as_uuid=True), nullable=False),
+    Column("scope_kind", String(10), nullable=False),
+    Column("scope_key", String(40), nullable=False),
+    _ts("created_at", nullable=False),
+)
