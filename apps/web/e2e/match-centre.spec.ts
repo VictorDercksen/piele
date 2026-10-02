@@ -147,7 +147,7 @@ test('hero opens the featured fixture with teamsheets and forecast', async ({ pa
   const sheets = page.locator('app-dropdown.teamsheets');
   await expect(sheets.locator('.section-title .status-pill')).toHaveText('Published');
   await expect(sheets.locator('.section-title .status-pill')).toHaveAttribute('data-tone', 'done');
-  await expect(page.locator('.panel.weather .status-pill')).toHaveText('Available');
+  await expect(page.locator('.panel.weather .section-title .status-pill')).toHaveText('Available');
   await expect(sheets.getByRole('list').first()).toBeHidden();
   await openSection(page, 'Teamsheets.');
   await expect(sheets.locator('.players li')).toHaveCount(46);
@@ -175,7 +175,12 @@ test('hero opens the featured fixture with teamsheets and forecast', async ({ pa
   await expect(weather).toContainText('Light rain');
   await expect(weather).toContainText('60%');
   await expect(weather).toContainText('24 km/h');
-  await expect(weather).toContainText('Dexcom Stadium, Galway at 21:00 SAST');
+  await expect(weather.locator('.panel-source .status-pill')).toHaveText([
+    'Dexcom Stadium, Galway',
+    '21:00 SAST',
+    'Open-Meteo',
+    'Updated 23 Sep 13:00 SAST',
+  ]);
   // Light rain with no isDay at 21:00 SAST reads as a rainy night sky.
   await expect(weather).toHaveAttribute('data-sky', 'rain');
   await expect(weather).toHaveAttribute('data-time', 'night');

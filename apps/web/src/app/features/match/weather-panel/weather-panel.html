@@ -48,15 +48,31 @@
       </dl>
     </div>
     <p class="panel-source">
-      {{ weather.stadium }}, {{ weather.city }} at
-      {{ weather.forecastHourUtc | leagueTime: 'HH:mm z' : zone() }} ·
-      {{ weather.source }}
+      <span hlmBadge variant="outline" class="status-pill" data-tone="muted"
+        ><ng-icon name="lucideMapPin" aria-hidden="true" />{{ weather.stadium }},
+        {{ weather.city }}</span
+      >
+      <span hlmBadge variant="outline" class="status-pill" data-tone="muted"
+        ><ng-icon name="lucideClock" aria-hidden="true" />{{
+          weather.forecastHourUtc | leagueTime: 'HH:mm z' : zone()
+        }}</span
+      >
+      <span hlmBadge variant="outline" class="status-pill" data-tone="muted"
+        ><ng-icon name="lucideRadar" aria-hidden="true" />{{ weather.source }}</span
+      >
       @if (weather.fetchedAt; as at) {
-        · updated {{ at | leagueTime: 'd MMM HH:mm' : zone() }}
+        <span hlmBadge variant="outline" class="status-pill" data-tone="muted"
+          ><ng-icon name="lucideRefreshCw" aria-hidden="true" />Updated
+          {{ at | leagueTime: 'd MMM HH:mm z' : zone() }}</span
+        >
       }
     </p>
   } @else {
     <p class="panel-empty">{{ message() }}</p>
-    <p class="panel-source">{{ weather.source }}</p>
+    <p class="panel-source">
+      <span hlmBadge variant="outline" class="status-pill" data-tone="muted"
+        ><ng-icon name="lucideRadar" aria-hidden="true" />{{ weather.source }}</span
+      >
+    </p>
   }
 </section>

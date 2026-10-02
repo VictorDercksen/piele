@@ -28,8 +28,8 @@ test('before kickoff a member sees only their own pick; saving it fills the memb
   const panel = picksPanel(page);
   await expect(panel.getByRole('heading', { name: 'Pool picks.' })).toBeVisible();
   await expect(panel.locator('.section-title .status-pill')).toHaveText('open');
-  await expect(panel.locator('.pool-note')).toHaveText("The pool's picks show here at kickoff.");
-  await expect(panel).toContainText('Picks lock at kickoff, 10 Oct 16:00 SAST.');
+  await expect(panel.locator('.pool-note')).toHaveText("The pool's picks show here at kickoff");
+  await expect(panel).toContainText('Picks lock at kickoff, 10 Oct 16:00 SAST');
   // Nothing of the pool shows before kickoff.
   await expect(panel.getByRole('table')).toHaveCount(0);
   await expect(panel.getByRole('img', { name: /The pool's split/ })).toHaveCount(0);
@@ -103,7 +103,7 @@ test('before kickoff a member sees only their own pick; saving it fills the memb
   await expect(mine).toContainText('Your pick');
   await expect(mine.locator('app-pick-chip')).toContainText('Stormers');
   await expect(mine.locator('app-pick-chip')).toContainText('7');
-  await expect(panel.locator('.pool-note')).toHaveText("The pool's picks show here at kickoff.");
+  await expect(panel.locator('.pool-note')).toHaveText("The pool's picks show here at kickoff");
   await expect(panel.getByRole('table')).toHaveCount(0);
   await expect(panel.getByRole('img', { name: /The pool's split/ })).toHaveCount(0);
   await expect(panel.getByRole('button', { name: "Show the pool's picks" })).toHaveCount(0);

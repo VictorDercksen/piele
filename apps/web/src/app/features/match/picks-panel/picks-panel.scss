@@ -130,20 +130,18 @@
 /* Before kickoff: a line in place of the pool, under the member's strip or form. */
 .pool-note {
   display: flex;
-  align-items: center;
-  gap: 8px;
   margin: -6px 0 4px;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.5;
 }
 /* The admin view has no strip or form above the line. */
 .pool-note:first-child {
   margin-top: 0;
 }
-.pool-note ng-icon {
-  --ng-icon__size: 14px;
-  flex-shrink: 0;
+/* The lock and pool notes are pills that may wrap at 320 px rather than clip. */
+.pool-note .status-pill,
+.lock {
+  white-space: normal;
+  justify-content: flex-start;
+  text-align: start;
 }
 
 /*
@@ -160,7 +158,7 @@
 .form-head {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 4px 12px;
 }
@@ -170,17 +168,6 @@
   letter-spacing: 1.5px;
   color: var(--accent);
   text-transform: uppercase;
-}
-.lock {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  color: var(--muted);
-  font-size: 12px;
-}
-.lock ng-icon {
-  --ng-icon__size: 12px;
-  flex-shrink: 0;
 }
 
 /* The matchup: each side's crest and name, the chosen one underlined in its banner colour. */

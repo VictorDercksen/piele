@@ -3,6 +3,7 @@ import { DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
+  lucideClock,
   lucideCloud,
   lucideCloudDrizzle,
   lucideCloudFog,
@@ -11,7 +12,10 @@ import {
   lucideCloudRain,
   lucideCloudSnow,
   lucideCloudSun,
+  lucideMapPin,
   lucideMoon,
+  lucideRadar,
+  lucideRefreshCw,
   lucideSun,
 } from '@ng-icons/lucide';
 import { WeatherSection } from '../../../core/api/match-centre.models';
@@ -35,6 +39,7 @@ import { weatherSky } from '../weather-sky';
   ],
   viewProviders: [
     provideIcons({
+      lucideClock,
       lucideCloud,
       lucideCloudDrizzle,
       lucideCloudFog,
@@ -43,7 +48,10 @@ import { weatherSky } from '../weather-sky';
       lucideCloudRain,
       lucideCloudSnow,
       lucideCloudSun,
+      lucideMapPin,
       lucideMoon,
+      lucideRadar,
+      lucideRefreshCw,
       lucideSun,
     }),
   ],
