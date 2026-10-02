@@ -284,7 +284,7 @@ test('a short page does not scroll on a phone', async ({ page }) => {
   // Chromium has no collapsing toolbars, so the guard below also checks that no box around the
   // page takes its minimum height from the large viewport.
   await page.setViewportSize({ width: 390, height: 664 });
-  for (const path of ['/piele/duties?round=3', '/piele/constitution?round=3']) {
+  for (const path of ['/piele/duties?round=3', '/piele/decisions?round=4']) {
     await page.goto(path);
     await expect(page.locator('.page-loading')).toHaveCount(0);
     await expect(page.locator('.page-body')).toBeVisible();
