@@ -27,3 +27,11 @@ Replace the static constitution document (last commit) with the full amended con
 ## Next steps
 - Look at the page in a browser on a phone width and in both themes.
 - Fragment links use routerLink plus a click handler that scrolls, since the router has no anchor scrolling.
+
+## Styling pass
+- Header: eyebrow, pool name as a large title, and two Helm badges (`hlmBadge` with the global `status-pill` class: "Adopted", "Amendment 1 approved") beside their dates. The dates are the text after the last " on " of the unchanged header strings (`dateAfterOn` in the page); the full sentences stay in a visually hidden paragraph, the visible badges are aria-hidden.
+- Contents: wrapping chips (`hlmBtn variant="outline"` restyled in the page SCSS), the label in the accent colour. The "Contents" caption is a `<p>` so the page keeps one h2 per section.
+- Sections: `hlmBadge` label, h2 title, a rule with a short accent segment. Clause numbers sit in a 44px accent column, clause text capped at 70ch; terms grid and table use the full width (page max 1040px). Panels are surface cards with an accent left border and an accent caption; the note is a dashed callout; quotes keep the italic display style at a larger size; the table is a bordered surface table (tinted header, accent article refs) and still stacks to accent-bordered cards under 600px.
+- Spartan CLI generation was not attempted to completion: `npx @spartan-ng/cli ui table --help` failed ("could not determine executable to run", the CLI is not installed offline), so no table/card/separator primitives were added; plain SCSS is used.
+- Content wording, section order and models are unchanged. Only page html/scss/ts changed.
+- Checks: `npm run build` passed, `npm test` 127 files / 641 tests passed, prettier --check clean on the page files. Playwright at 390x844, 1280x900 and 320px: scrollWidth 390/1280/320 (no horizontal scroll). Not checked: light mode, club palettes other than the default Stormers team beyond token use (all colours come from --accent/--surface/--line/--tint/--ink/--muted).

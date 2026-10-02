@@ -1,14 +1,30 @@
 <header class="constitution-head">
-  <p class="constitution-pool">{{ header.pool }}</p>
-  <p class="constitution-line">{{ header.adopted }}</p>
-  <p class="constitution-line">{{ header.amendment }}</p>
+  <p class="eyebrow">Season constitution</p>
+  <h1 class="constitution-pool">{{ header.pool }}</h1>
+  <p class="visually-hidden">{{ header.adopted }}. {{ header.amendment }}.</p>
+  <ul class="constitution-status" aria-hidden="true">
+    <li>
+      <span hlmBadge variant="outline" class="status-pill" data-tone="done">Adopted</span>
+      <time>{{ adoptedOn }}</time>
+    </li>
+    <li>
+      <span hlmBadge variant="outline" class="status-pill" data-tone="done">
+        Amendment 1 approved
+      </span>
+      <time>{{ amendedOn }}</time>
+    </li>
+  </ul>
 </header>
 
 <nav class="constitution-contents" aria-label="Contents">
+  <p class="contents-title">Contents</p>
   <ul>
     @for (section of sections; track section.id) {
       <li>
         <a
+          hlmBtn
+          variant="outline"
+          class="contents-chip"
           routerLink="."
           [fragment]="section.id"
           queryParamsHandling="preserve"
@@ -30,12 +46,12 @@
     [id]="section.id"
     [attr.aria-labelledby]="section.id + '-title'"
   >
-    <h2 class="section-heading" [id]="section.id + '-title'">
+    <div class="section-head">
       @if (section.label) {
-        <span class="eyebrow">{{ section.label }}</span>
+        <span hlmBadge variant="outline" class="section-label">{{ section.label }}</span>
       }
-      {{ section.title }}
-    </h2>
+      <h2 class="section-heading" [id]="section.id + '-title'">{{ section.title }}</h2>
+    </div>
     @if (section.intro) {
       <p class="section-intro">{{ section.intro }}</p>
     }
