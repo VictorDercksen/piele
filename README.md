@@ -46,7 +46,7 @@ Staging is Vercel's Preview environment for the `staging` branch and uses the Su
 
 The web build runs `scripts/write-environment.mjs`, which creates the browser config from the `PIELE_API_URL`, `PIELE_SUPABASE_URL`, `PIELE_SUPABASE_PUBLISHABLE_KEY` and `PIELE_SAMPLE_LEAGUE_DATA` variables. API variables are described in [apps/api/README.md](apps/api/README.md). Local staging secrets live in `apps/api/.env.staging`, which Git ignores.
 
-The More page reports whether the frontend can reach the API and whether the API reaches the database.
+The More page reports whether the frontend can reach the API and whether the API reaches the database. It also links to the adopted constitution document, served as static files from the web app.
 
 ## Verify
 
