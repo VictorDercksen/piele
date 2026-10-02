@@ -1,4 +1,238 @@
-.constitution-preview h3 {
+:host {
+  display: block;
+}
+
+.constitution-head {
+  margin-bottom: 20px;
+}
+.constitution-pool {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  margin-bottom: 6px;
+}
+.constitution-line {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.constitution-contents {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  padding: 12px 16px;
+  margin-bottom: 8px;
+}
+.constitution-contents ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 2px 20px;
+}
+.constitution-contents a {
+  display: block;
+  padding: 6px 0;
+  font-size: 13px;
+  color: var(--ink);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+.constitution-contents a:hover,
+.constitution-contents a:focus-visible {
+  border-bottom-color: var(--accent);
+}
+.contents-label {
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  margin-right: 6px;
+}
+
+.constitution-section {
+  scroll-margin-top: calc(var(--sticky-offset, 0px) + 12px);
+  margin-top: 36px;
+}
+.section-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  line-height: 1.15;
+  border-bottom: 1px solid var(--ink);
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+}
+.section-intro,
+.body-text {
+  font-size: 14px;
+  line-height: 1.7;
+  margin: 0 0 12px;
+}
+.section-intro {
+  color: var(--muted);
+}
+.subsection-title {
+  font-size: 17px;
+  margin: 24px 0 8px;
+}
+
+.clause {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.clause-number {
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.7;
+}
+.clause p {
+  font-size: 14px;
+  line-height: 1.7;
+  margin: 0;
+}
+
+.terms {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.term {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  padding: 12px 14px;
+}
+.term b {
+  display: block;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+.term p {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 0;
+}
+@media (max-width: 480px) {
+  .terms {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.panel {
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--accent);
+  background: var(--tint);
+  padding: 14px 16px;
+  margin: 16px 0;
+}
+.panel > strong {
+  display: block;
+  margin-bottom: 4px;
+}
+.panel p {
+  font-size: 14px;
+  line-height: 1.7;
+  margin: 0;
+}
+
+.note {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.65;
+  margin: 16px 0;
+}
+
+.quote {
+  display: flex;
+  flex-direction: column;
   font-size: 18px;
-  margin: 24px 0 7px;
+  font-weight: 700;
+  font-style: italic;
+  line-height: 1.4;
+  margin: 24px 0 0;
+  padding-left: 14px;
+  border-left: 3px solid var(--accent);
+}
+
+.record {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  padding: 12px 14px;
+  margin-top: 8px;
+}
+.record b {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.record p {
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.sanctions {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.sanctions th,
+.sanctions td {
+  text-align: left;
+  vertical-align: top;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.sanctions th {
+  font-size: 10px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.sanctions td:first-child {
+  width: 34%;
+}
+.row-article {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+}
+@media (max-width: 600px) {
+  .sanctions thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .sanctions,
+  .sanctions tbody,
+  .sanctions tr,
+  .sanctions td {
+    display: block;
+    width: 100%;
+  }
+  .sanctions tr {
+    border: 1px solid var(--line);
+    background: var(--surface);
+    margin-bottom: 10px;
+  }
+  .sanctions td {
+    border-bottom: 0;
+    padding: 10px 14px;
+  }
+  .sanctions td:first-child {
+    width: 100%;
+    padding-bottom: 0;
+  }
 }

@@ -29,12 +29,12 @@
 
 <h2 class="group-label" id="more-season">Season</h2>
 <nav class="link-group" aria-labelledby="more-season">
-  <a href="/documents/constitution/index.html" target="_blank" rel="noopener noreferrer">
+  <a [routerLink]="'/constitution' | leaguePath" queryParamsHandling="preserve">
     <span class="row-icon"><app-icon name="book" /></span>
     <span class="row-text"
       ><strong>Constitution</strong><small>Rules for the whole season</small></span
     >
-    <ng-icon class="link-icon" name="lucideExternalLink" />
+    <ng-icon class="link-icon" name="lucideArrowRight" />
   </a>
   <a [href]="competition.source" target="_blank" rel="noopener noreferrer">
     <span class="row-icon"><app-icon name="rounds" /></span>
