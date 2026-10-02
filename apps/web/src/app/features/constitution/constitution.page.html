@@ -92,12 +92,6 @@
             <app-emphasis-text [text]="block.text" />
           </p>
         }
-        @case ('record') {
-          <div class="record">
-            <b>{{ block.label }}</b>
-            <p>{{ block.text }}</p>
-          </div>
-        }
         @case ('table') {
           <table class="sanctions">
             <thead>

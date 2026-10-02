@@ -1,10 +1,10 @@
 import type { ConstitutionHeader, ConstitutionSection } from './constitution.models';
 
-/** The adopted constitution of Piele URC 26/27, with Amendment 1 pending. Wording is the document's; `**` marks bold. */
+/** The adopted constitution of Piele URC 26/27, with Amendment 1 approved. Wording is the document's; `**` marks bold. */
 export const CONSTITUTION_HEADER: ConstitutionHeader = {
   pool: 'Piele URC 26/27',
   adopted: 'Adopted by the league on 25 September 2026',
-  amendment: 'Amendment 1 of 1 October 2026: vote pending under Article 9.2',
+  amendment: 'Amendment 1 of 1 October 2026 approved by the league on 2 October 2026',
 };
 
 export const CONSTITUTION_SECTIONS: readonly ConstitutionSection[] = [
@@ -368,21 +368,6 @@ export const CONSTITUTION_SECTIONS: readonly ConstitutionSection[] = [
       {
         kind: 'quote',
         lines: ['One bru, one vote.', 'The subject of the vote keeps quiet.'],
-      },
-    ],
-  },
-  {
-    id: 'adoption',
-    title: 'Record of adoption',
-    blocks: [
-      {
-        kind: 'paragraph',
-        text: 'This Constitution was adopted by the members of Piele URC 26/27 on **25 September 2026** and is in force from that date. The Captain keeps the adopted version and the member approval record. Later amendments follow Article 9 and are recorded below the original adoption.',
-      },
-      {
-        kind: 'record',
-        label: 'Amendments (article, date, vote)',
-        text: 'Amendment 1, 1 October 2026: Articles 3, 4, 5, 6.2, 6.6, 7, 8 and Addendum A aligned to The Pavilion app. Vote under Article 9.2: pending.',
       },
     ],
   },

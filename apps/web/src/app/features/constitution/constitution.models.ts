@@ -44,13 +44,6 @@ export interface ConstitutionParagraph {
   readonly text: string;
 }
 
-/** A labelled line in the record of adoption. */
-export interface ConstitutionRecord {
-  readonly kind: 'record';
-  readonly label: string;
-  readonly text: string;
-}
-
 export interface ConstitutionTableRow {
   readonly trigger: string;
   readonly article: string;
@@ -71,14 +64,13 @@ export type ConstitutionBlock =
   | ConstitutionQuote
   | ConstitutionSubsection
   | ConstitutionParagraph
-  | ConstitutionRecord
   | ConstitutionTable;
 
 export interface ConstitutionSection {
   /** Fragment id, such as `article-3` or `addendum-a`. */
   readonly id: string;
-  /** "Article 3", "Addendum A"; absent for the record of adoption. */
-  readonly label?: string;
+  /** "Article 3", "Addendum A". */
+  readonly label: string;
   readonly title: string;
   readonly intro?: string;
   readonly blocks: readonly ConstitutionBlock[];

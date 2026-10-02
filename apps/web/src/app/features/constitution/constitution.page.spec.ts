@@ -29,7 +29,6 @@ describe('ConstitutionPage', () => {
       'article-7',
       'article-8',
       'article-9',
-      'adoption',
     ]);
   });
 
@@ -40,14 +39,14 @@ describe('ConstitutionPage', () => {
     expect(root.querySelector('.constitution-contents a[href$="#addendum-a"]')).not.toBeNull();
   });
 
-  it('shows the adoption line, the Amendment 1 line and the record of adoption', () => {
+  it('shows the adoption line and the approved Amendment 1 line, without a record section', () => {
     const text = render().textContent ?? '';
     expect(text).toContain('Adopted by the league on 25 September 2026');
-    expect(text).toContain('Amendment 1 of 1 October 2026: vote pending under Article 9.2');
-    expect(text).toContain('Record of adoption');
     expect(text).toContain(
-      'Amendment 1, 1 October 2026: Articles 3, 4, 5, 6.2, 6.6, 7, 8 and Addendum A aligned to The Pavilion app.',
+      'Amendment 1 of 1 October 2026 approved by the league on 2 October 2026',
     );
+    expect(text).not.toContain('Record of adoption');
+    expect(text).not.toContain('pending');
   });
 
   it('renders a bold span from a clause as emphasis, not as marker text', () => {
