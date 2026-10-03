@@ -10,7 +10,7 @@ export const URC_TEAMS: readonly ClubTeam[] = [
   team('vodacom-bulls', 5586, 'Vodacom Bulls', 'Bulls', '#22589c', '#83bfff'),
   team('cardiff-rugby', 4471, 'Cardiff Rugby', 'Cardiff', '#263b50', '#80c9ee'),
   team('connacht-rugby', 5483, 'Connacht Rugby', 'Connacht', '#17694f', '#77dfaa'),
-  team('dragons-rfc', 3533, 'Dragons RFC', 'Dragons', '#971e31', '#ff8c91'),
+  team('dragons-rfc', 3533, 'Dragons RFC', 'Dragons', '#9a6700', '#ffc93c'),
   team('edinburgh-rugby', 1641, 'Edinburgh Rugby', 'Edinburgh', '#15375e', '#ff9876'),
   team('glasgow-warriors', 3098, 'Glasgow Warriors', 'Glasgow', '#193d55', '#86cceb'),
   team('leinster-rugby', 5356, 'Leinster Rugby', 'Leinster', '#154baf', '#80baff'),
