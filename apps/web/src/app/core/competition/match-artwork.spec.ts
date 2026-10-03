@@ -104,6 +104,10 @@ describe('match artwork', () => {
   });
 
   it('loads the venue for the kickoff weather and follows a forecast that arrives later', async () => {
+    // Before round 1 kicks off, so the selected round is round 1 and no live scores are
+    // requested; an unanswered scores request would keep the app from becoming stable.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-09-25T10:00:00Z'));
     const decode = vi.fn(function (this: HTMLImageElement) {
       return Promise.resolve();
     });
