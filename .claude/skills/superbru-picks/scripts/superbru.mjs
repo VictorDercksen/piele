@@ -77,6 +77,14 @@ async function login(chromium) {
   if ((await page.isVisible('#qc-cmp2-container').catch(() => false)) && (await consent(/save & exit/i).count())) {
     await consent(/save & exit/i).click();
   }
+  // The US variant ("Do Not Process My Personal Information") has only Confirm.
+  // Its container reports as hidden, so check the button itself.
+  for (let i = 0; i < 10 && (await consent(/^confirm$/i).isVisible().catch(() => false)); i++) {
+    await consent(/^confirm$/i).click({ timeout: 3000 }).catch(() => {});
+    await sleep(1500);
+  }
+  // Then a "choices have been saved" notice with OK.
+  if (await consent(/^ok$/i).isVisible().catch(() => false)) await consent(/^ok$/i).click({ timeout: 3000 }).catch(() => {});
   await page.waitForSelector('#qc-cmp2-container', { state: 'hidden', timeout: 10000 }).catch(() => {});
   await page.fill('#email-superbru', process.env.SUPERBRU_EMAIL);
   await page.fill('#password-superbru', process.env.SUPERBRU_PASSWORD);
