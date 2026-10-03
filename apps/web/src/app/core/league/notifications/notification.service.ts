@@ -82,6 +82,11 @@ export class NotificationService {
   });
 
   readonly read = this.league.notificationsRead;
+  /**
+   * Switching league clears the read state until the new league's `me` arrives. Until its
+   * records have loaded nothing counts as unread, so the badge does not flash every event.
+   */
+  private readonly readKnown = computed(() => !this.league.loading());
 
   /**
    * The member's live duties, the current round's poll, and evidence waiting for the member's
@@ -169,6 +174,7 @@ export class NotificationService {
       this.time.zone(),
     );
     const read = this.read();
+    const known = this.readKnown();
     return [...league, ...competition]
       .sort((a, b) => b.at - a.at)
       .slice(0, MAX_ITEMS)
@@ -179,7 +185,7 @@ export class NotificationService {
           notice.round !== null && notice.round !== current.id
             ? `R${this.competition.round(notice.round)?.code ?? notice.round}`
             : null,
-        unread: isUnread(read, notice.key, notice.occurredAt),
+        unread: known && isUnread(read, notice.key, notice.occurredAt),
       }));
   });
   readonly unread = computed(() => this.stream().filter((notice) => notice.unread).length);

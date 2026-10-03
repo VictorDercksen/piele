@@ -50,14 +50,14 @@
         aria-label="My profile"
       >
         <span class="identity-avatar">
-          @if (profile()?.photo; as photo) {
+          @if (identity().photo; as photo) {
             <img [src]="photo" alt="" />
           } @else {
-            {{ initials() }}
+            {{ identity().initials }}
           }
         </span>
         <span class="profile-text">
-          <strong>{{ members.memberName() }}</strong>
+          <strong>{{ identity().name }}</strong>
           <small>
             @if (favouriteTeam(); as team) {
               {{ team.shortName }} supporter<img
