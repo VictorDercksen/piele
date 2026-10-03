@@ -12,8 +12,9 @@ Reads a Superbru pool with headless Chromium and writes the picks into `piele.pi
 | App league | League id | Season id | Superbru pool |
 |---|---|---|---|
 | URC 26/27 | `a7697531-0bb9-47d8-8106-7a8b1be25ba1` | `9512fb34-e830-46be-b0bc-e3f570b17ad8` | `13339710` "!!URC 26/27!!" (shown as "URC 26/27") |
+| Piele | `d543faf1-47bf-4258-bc92-ca47ab8434c9` | `470d7ab6-b952-47e0-bb90-063ad60d37dc` | `13345943` "Piele URC 26/27" |
 
-Production Supabase project: `lnifzhrdvuqskwiblmqh`. The captain of URC 26/27 is Victor Dercksen: membership `2c0cafc7-4ed2-49ad-ae2a-8379679dcf68`, user `4fab5f14-69af-4529-8244-61ca5adf79e8`. For another league, read these from `piele.leagues`, `piele.seasons` and `piele.league_memberships`, and run `--list-pools` to find the pool. Ask the user to confirm a pool you have not used before.
+Production Supabase project: `lnifzhrdvuqskwiblmqh`. The captain of URC 26/27 is Victor Dercksen: membership `2c0cafc7-4ed2-49ad-ae2a-8379679dcf68`, user `4fab5f14-69af-4529-8244-61ca5adf79e8`. He is also captain of Piele: membership `3ecf8d81-9faa-4499-ab9d-07f77eeb6d89`. For another league, read these from `piele.leagues`, `piele.seasons` and `piele.league_memberships`, and run `--list-pools` to find the pool. Ask the user to confirm a pool you have not used before.
 
 ## Before starting
 
