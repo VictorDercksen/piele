@@ -1,3 +1,4 @@
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
@@ -73,5 +74,34 @@ describe('Shell', () => {
     const crest = root.querySelector<HTMLImageElement>('.rail-brand app-league-crest img');
     expect(crest?.getAttribute('src')).toBe('assets/images/piele-crest.png');
     expect(root.querySelector('.rail-brand strong')?.textContent).toBe('PIELE');
+  });
+
+  it('keeps the header avatar and name while a league switch loads', async () => {
+    const loading = signal(false);
+    class Switching extends SampleLeagueData {
+      override readonly loading = loading.asReadonly();
+    }
+    TestBed.overrideProvider(LeagueData, { useFactory: () => new Switching() });
+    const root = await open('/piele', 'piele');
+    const avatar = () =>
+      root.querySelector('.header-profile .identity-avatar')?.textContent?.trim();
+    const name = () => root.querySelector('.header-profile strong')?.textContent;
+    expect(avatar()).toBe('TM');
+    expect(name()).toBe('Test Member');
+    // The next league's `me` has not arrived: its fallbacks do not show yet.
+    loading.set(true);
+    await TestBed.inject(ProfileControlService).save({
+      displayName: 'Victor Dercksen',
+      teamId: 'dhl-stormers',
+      photo: null,
+    });
+    await new Promise((resolve) => setTimeout(resolve));
+    TestBed.tick();
+    expect(avatar()).toBe('TM');
+    expect(name()).toBe('Test Member');
+    loading.set(false);
+    TestBed.tick();
+    expect(avatar()).toBe('VD');
+    expect(name()).toBe('Victor Dercksen');
   });
 });

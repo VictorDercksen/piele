@@ -8,6 +8,7 @@ import {
   computed,
   effect,
   inject,
+  linkedSignal,
   untracked,
   viewChild,
 } from '@angular/core';
@@ -47,6 +48,7 @@ import { SeasonTimeline } from '../season-timeline/season-timeline';
 import { RoundPicker } from '../round-picker/round-picker';
 import { Breadcrumbs, FROM_NAV_BAR } from './breadcrumbs';
 import { PageData } from './page-data';
+import { HeaderIdentity } from './shell.models';
 
 /** The key of the red card shown while the league's records fail to load. */
 const LEAGUE_LOAD_ALERT = 'league-load';
@@ -88,9 +90,21 @@ export class Shell {
   readonly members = inject(MemberService);
   readonly polls = inject(PollService);
 
-  readonly profile = this.profiles.profile;
   readonly favouriteTeam = this.profiles.team;
-  readonly initials = this.profiles.initials;
+  /**
+   * The header's photo or initials and name. Switching league reloads `me` and the photo, so
+   * until the new league has loaded the previous league's stay rather than flashing the
+   * fallbacks: the photo belongs to the account, so it is the same person.
+   */
+  readonly identity = linkedSignal<HeaderIdentity, HeaderIdentity>({
+    source: () => ({
+      photo: this.profiles.profile()?.photo ?? null,
+      initials: this.profiles.initials(),
+      name: this.members.memberName(),
+      loading: this.records.loading(),
+    }),
+    computation: (next, previous) => (next.loading && previous ? previous.value : next),
+  });
   readonly rounds = computed(() => this.competition.rounds);
   readonly currentRound = computed(() => this.competition.currentRoundId);
   readonly round = this.selectedRound.round;

@@ -1,5 +1,6 @@
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { RoundEvent } from '../../api/match-centre.models';
@@ -113,7 +114,11 @@ describe('competition notices', () => {
 });
 
 describe('NotificationService', () => {
-  async function setup(now: string, round = URC.currentRoundId(Date.parse(now))) {
+  async function setup(
+    now: string,
+    round = URC.currentRoundId(Date.parse(now)),
+    data: typeof SampleLeagueData = SampleLeagueData,
+  ) {
     TestBed.resetTestingModule();
     vi.useFakeTimers({
       toFake: ['Date', 'setInterval', 'clearInterval', 'setTimeout', 'clearTimeout'],
@@ -134,7 +139,7 @@ describe('NotificationService', () => {
         provideRouter([]),
         provideHttpClient(),
         provideHttpClientTesting(),
-        { provide: LeagueData, useClass: SampleLeagueData },
+        { provide: LeagueData, useClass: data },
         { provide: CompetitionService, useClass: Frozen },
       ],
     });
@@ -209,5 +214,16 @@ describe('NotificationService', () => {
     const january = await setup('2027-01-02T10:00:00Z');
     expect(january.rounds().map((r) => r.id)).toEqual([9, 8]);
     expect((await setup('2027-01-15T10:00:00Z')).rounds().map((r) => r.id)).toEqual([10]);
+  });
+
+  it('counts nothing unread while a league’s records load', async () => {
+    // Switching league clears the read state until the new league's `me` arrives.
+    class Loading extends SampleLeagueData {
+      override readonly loading = signal(true).asReadonly();
+    }
+    const service = await setup('2026-10-05T10:00:00Z', 2, Loading);
+    expect(service.stream().length).toBeGreaterThan(0);
+    expect(service.stream().some((n) => n.unread)).toBe(false);
+    expect(service.unread()).toBe(0);
   });
 });
