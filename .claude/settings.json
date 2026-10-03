@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bash scripts/trust-proxy-ca.sh)",
+      "Bash(bash scripts/trust-proxy-ca.sh *)"
+    ]
+  }
+}
